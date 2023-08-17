@@ -30,7 +30,7 @@ A Golang channel storing the units of work, written by the **Scheduler** and rea
 
 **MetricsGenContext** is a container for configuration, state and stats. Each metrics generator function has its specific context (not to be confused with the Golang Standard Library one).
 
-Each such object has a **GenerateMetrics()** method capable of parsing [/proc](https://man7.org/linux/man-pages/man5/proc.5.html) information into [Prometheus exposition text format](https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-based-format). 
+Each such object has a **GenerateMetrics()** method capable of parsing [/proc](https://man7.org/linux/man-pages/man5/proc.5.html) or other source of information into [Prometheus exposition text format](https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-based-format). 
 
 The generated metrics are packed into buffers, until the latter reach ~ 64k in size (the last buffer of the scan may be shorter, of course). The buffers are written into the **Compressor Queue**
 
@@ -64,7 +64,7 @@ The **Bandwidth Control** implements a credit based mechanism to ensure that the
 
 ### Reusable Objects And The Double Buffer
 
-Typical parsers of `/proc` files will create and return a new object w/ the parsed data for every invocation. However most of the files have a fixed structure [^1] so the data could be stored in a previously created object, thus avoiding the pressure on the garbage collector.
+Typical stats parsers will create and return a new object w/ the parsed data for every invocation. However most of the stats have a fixed structure [^1] so the data could be stored in a previously created object, thus avoiding the pressure on the garbage collector.
 
 Additionally certain metrics generators may need to refer the previous scan values. The double buffer approach will rely on a `parsedObjects [2]*ParsedObjectType` array in the generator context together with a `currentIndex` integer that's toggled between `0` and `1` at every scan. `parsedObjects[currentIndex]` will be passed to the parser to retrieve the latest data and `parsedObjects[1 - currentIndex]` will represent the previous scan.
 
@@ -74,13 +74,11 @@ Additionally certain metrics generators may need to refer the previous scan valu
 
 #### Delta v. Refresh
 
-In order to reduce the traffic between the importer and the import endpoints, only the metrics whose values have changed from the previous scan are being generated and sent. That requires that queries be made using the [last_over_time(METRIC[RANGE_INTERVAL])](https://prometheus.io/docs/prometheus/latest/querying/functions/#aggregation_over_time) function and to make the range interval predictable, all metrics have a guaranteed refresh interval, when a metric is being generated regardless of its lack of change from the previous scan.
-
-Each metrics generator is configured with 2 parameters: _scan_interval_ and _refresh\_factor_; if the latter is set to N > 1, it means that a specific metric will be generated every N scans.
+In order to reduce the traffic between the importer and the import endpoints, only the metrics whose values have changed from the previous scan are being generated and sent. That requires that queries be made using the [last_over_time(METRIC[RANGE_INTERVAL])](https://prometheus.io/docs/prometheus/latest/querying/functions/#aggregation_over_time) function. To make the range interval predictable, all metrics generator are configured with 2 parameters: _scan\_interval_ and _refresh\_interval_ and each metric is guaranteed to be sent over _refresh\_interval_, regardless of its lack of change from the previous scan.
 
 Ideally the refresh cycles should be spread evenly across all metrics provided by a specific generator, leading to the following approach:
 
-* each metric is associated with a _refresh\_group\_num_, 0..N-1. This is a cyclic number assigned first time when the object to which the metric belongs is being discovered and it is incremented modulo N after each use
+* each metric is associated with a _refresh\_group\_num_, 0..N-1 (N=_refresh\_interval_/_scan\_interval_). This is a cyclic number assigned first time when the object to which the metric belongs is being discovered and it is incremented modulo N after each use
 * each scan has a _refresh\_cycle\_num_, 0..N-1. This is a cyclic counter incremented modulo N after each scan
 * metrics that have _refresh\_group\_num_ == _refresh\_cycle\_num_ will be generated part of the refresh
 
@@ -88,7 +86,7 @@ Since the association of a particular metric with a  _refresh\_group\_num_ is un
 
 Since the _refresh\_group\_num_, assigned at object creation, is incremented modulo N afterwards, this will lead to the spread of the full refresh for the metrics associated with those objects over N cycles.
 
-**Note:** The delta approach can be disabled by setting the _refresh_ interval to 0.
+**Note:** The delta approach can be disabled by setting the _refresh\_interval_ to 0.
 
 e.g.
 
@@ -111,5 +109,5 @@ In addition to the delta approach, process/thread metrics use the concept of act
 
 ## Handling Large/High Precision Values
 
-Certain metrics have values that would exceed the 15 (15.95) decimal digits precision of `float64`, e.g. `net/dev` counters use `uint64` data types. Ti avoid the loss of precision, such values will be split in two metrics, `..._low32` and `..._high32` where `low32` == `value & 0xffffffff` and `high32` = `value >> 32`.
+Certain metrics have values that would exceed the 15 (15.95) decimal digits precision of `float64`, e.g. `net/dev` counters use `uint64` data types. To avoid the loss of precision, such values will be split in two metrics, `..._low32` and `..._high32` where `low32` == `value & 0xffffffff` and `high32` = `value >> 32`.
 
