@@ -3,13 +3,12 @@ package procfs
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"path"
 
 	"testing"
-)
 
-const (
-	TEST_READ_FILE_BUF_POOL_FILE_PATH = TESTDATA_PROC_DIR + "/slabinfo"
-	TEST_READ_FILE_BUF_POOL_FILE_SIZE = 17817
+	"github.com/eparparita/linux-stats-victoriametrics-importer/testutils"
 )
 
 func testReadFileBufPoolGetReturn(t *testing.T, maxPoolSize int) {
@@ -18,7 +17,7 @@ func testReadFileBufPoolGetReturn(t *testing.T, maxPoolSize int) {
 	if maxPoolSize <= 0 {
 		numGets = 13
 	}
-	// Retrive buffers from empty pool. Check that they are empty and that the
+	// Retrieve buffers from empty pool. Check that they are empty and that the
 	// pool size stays 0.
 	for k := 0; k < numGets; k++ {
 		b := p.GetBuf()
@@ -76,37 +75,53 @@ func TestReadFileBufPoolGetReturn(t *testing.T) {
 	}
 }
 
-func testReadFileBufPoolReadFile(t *testing.T, maxReadSize int64) {
+func testReadFileBufPoolReadFile(t *testing.T, maxReadSize int64, filePath string, fileSize int64) {
 	p := NewReadFileBufPool(0, maxReadSize)
-	b, err := p.ReadFile(TEST_READ_FILE_BUF_POOL_FILE_PATH)
-	if maxReadSize > 0 && maxReadSize <= TEST_READ_FILE_BUF_POOL_FILE_SIZE {
-		if b != nil || err != ErrReadFileBufPotentialTruncation {
-			t.Fatalf(
-				"ReadFile(%s): want: nil, %v, got: %v, %v",
-				TEST_READ_FILE_BUF_POOL_FILE_PATH, ErrReadFileBufPotentialTruncation, b, err,
-			)
+	for k := 0; k < 2; k++ {
+		b, err := p.ReadFile(filePath)
+		if maxReadSize > 0 && maxReadSize <= fileSize {
+			if b != nil || err != ErrReadFileBufPotentialTruncation {
+				t.Fatalf(
+					"ReadFile(%s): want: nil, %v, got: %v, %v",
+					filePath, ErrReadFileBufPotentialTruncation, b, err,
+				)
+			}
+		} else {
+			if err != nil {
+				t.Fatalf("ReadFile(%s): %v", filePath, err)
+			}
+			if int64(b.Len()) != fileSize {
+				t.Fatalf("ReadFile(%s): size: want: %d, got: %d",
+					filePath, fileSize, b.Len(),
+				)
+			}
 		}
-	} else {
-		if err != nil {
-			t.Fatalf("ReadFile(%s): %v", TEST_READ_FILE_BUF_POOL_FILE_PATH, err)
-		}
-		if b.Len() != TEST_READ_FILE_BUF_POOL_FILE_SIZE {
-			t.Fatalf("ReadFile(%s): size: want: %d, got: %d",
-				TEST_READ_FILE_BUF_POOL_FILE_PATH, TEST_READ_FILE_BUF_POOL_FILE_SIZE, b.Len(),
-			)
+		if b != nil {
+			p.ReturnBuf(b)
 		}
 	}
 }
 
 func TestReadFileBufPoolReadFile(t *testing.T) {
+	filePath := path.Join(testutils.TestDataProcDir, "slabinfo")
+	f, err := os.Open(filePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fileInfo, err := f.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fileSize := fileInfo.Size()
+
 	for _, maxReadSize := range []int64{
 		0,
-		TEST_READ_FILE_BUF_POOL_FILE_SIZE + 1,
-		TEST_READ_FILE_BUF_POOL_FILE_SIZE,
+		fileSize + 1,
+		fileSize,
 	} {
 		t.Run(
-			fmt.Sprintf("maxReadSize=%d,fileSize=%d", maxReadSize, TEST_READ_FILE_BUF_POOL_FILE_SIZE),
-			func(t *testing.T) { testReadFileBufPoolReadFile(t, maxReadSize) },
+			fmt.Sprintf("maxReadSize=%d,fileSize=%d", maxReadSize, fileSize),
+			func(t *testing.T) { testReadFileBufPoolReadFile(t, maxReadSize, filePath, fileSize) },
 		)
 	}
 }
