@@ -7,8 +7,10 @@ import (
 	"path"
 
 	"testing"
+)
 
-	"github.com/eparparita/linux-stats-victoriametrics-importer/testutils"
+const (
+	TEST_READ_FILE_BUF_POOL_TEST_FILE = "slabinfo"
 )
 
 func testReadFileBufPoolGetReturn(t *testing.T, maxPoolSize int) {
@@ -103,7 +105,7 @@ func testReadFileBufPoolReadFile(t *testing.T, maxReadSize int64, filePath strin
 }
 
 func TestReadFileBufPoolReadFile(t *testing.T) {
-	filePath := path.Join(testutils.TestDataProcDir, "slabinfo")
+	filePath := path.Join(TestDataProcDir, TEST_READ_FILE_BUF_POOL_TEST_FILE)
 	f, err := os.Open(filePath)
 	if err != nil {
 		t.Fatal(err)
