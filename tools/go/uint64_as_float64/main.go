@@ -15,7 +15,7 @@
 // will yield 1, so the logic using only float64 should apply a correction.
 //
 // The code below checks that the calculation for delta = i1-i2, i1,i2 =
-// 0..(1<<64 -1), delta = 0..(1<<53-1 using the floats matches the direct uint64
+// 0..(1<<64 -1), delta = 0..(1<<53-1), using the floats matches the direct uint64
 // result for both cases where i1 >= i2 and i1 < i2 (rollover).
 
 package main
