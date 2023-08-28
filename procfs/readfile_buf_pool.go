@@ -106,3 +106,13 @@ func (p *ReadFileBufPool) ReadFile(path string) (*bytes.Buffer, error) {
 	p.ReturnBuf(b)
 	return nil, err
 }
+
+// Predefined pools:
+var (
+	ReadFileBufPool16k  = NewReadFileBufPool(32, 0x4000)
+	ReadFileBufPool32k  = NewReadFileBufPool(32, 0x8000)
+	ReadFileBufPool64k  = NewReadFileBufPool(32, 0x10000)
+	ReadFileBufPool128k = NewReadFileBufPool(16, 0x20000)
+	ReadFileBufPool256k = NewReadFileBufPool(8, 0x40000)
+	ReadFileBufPool1m   = NewReadFileBufPool(4, 0x100000)
+)
