@@ -29,21 +29,22 @@ var pidStatByteSliceActiveFields = map[int]bool{
 type PidStatParserBenchmarkCase struct {
 	parseOnly     bool
 	refreshFactor int
+	refreshAll    bool
 }
 
 func benchmarkPidStatParser(bc *PidStatParserBenchmarkCase, b *testing.B) {
 	var (
-		prevPidStat *procfs.PidStatByteFields
+		prevPidStat *procfs.PidStat
 		prevBuf     []byte
 		wBuf        *bytes.Buffer
 	)
 
-	parseOnly, refreshFactor := bc.parseOnly, bc.refreshFactor
+	parseOnly, refreshFactor, refreshAll := bc.parseOnly, bc.refreshFactor, bc.refreshAll
 
 	if !parseOnly {
 		// Prepare prev state based on the current file and modify the frequent
 		// changing fields.
-		prevPidStat = &procfs.PidStatByteFields{
+		prevPidStat = &procfs.PidStat{
 			Buf: &bytes.Buffer{},
 		}
 		prevPidStat.SetPath(TestDataProcDir, pidStatTestPid, pidStatTestTid)
@@ -58,7 +59,7 @@ func benchmarkPidStatParser(bc *PidStatParserBenchmarkCase, b *testing.B) {
 		wBuf = &bytes.Buffer{}
 	}
 
-	pidStat := &procfs.PidStatByteFields{
+	pidStat := &procfs.PidStat{
 		Buf: &bytes.Buffer{},
 	}
 	pidStat.SetPath(TestDataProcDir, pidStatTestPid, pidStatTestTid)
@@ -81,7 +82,7 @@ func benchmarkPidStatParser(bc *PidStatParserBenchmarkCase, b *testing.B) {
 			// Full cycle:
 			for i := 0; i < procfs.PID_STAT_BYTE_SLICE_FIELD_COUNT; i++ {
 				field := buf[fieldStart[i]:fieldEnd[i]]
-				if !bytes.Equal(prevBuf[prevFieldStart[i]:prevFieldEnd[i]], field) {
+				if refreshAll || !bytes.Equal(prevBuf[prevFieldStart[i]:prevFieldEnd[i]], field) {
 					wBuf.Write(field)
 				}
 			}
@@ -98,12 +99,14 @@ func benchmarkPidStatParser(bc *PidStatParserBenchmarkCase, b *testing.B) {
 
 func BenchmarkPidStatParser(b *testing.B) {
 	for _, bc := range []*PidStatParserBenchmarkCase{
-		{true, 0},
-		{false, 0},
-		{false, 15},
+		{true, 0, false},
+		{false, 0, false},
+		{false, 15, false},
+		{false, 0, true},
+		{false, 15, true},
 	} {
 		b.Run(
-			fmt.Sprintf("parseOnly=%v,refreshFactor=%d", bc.parseOnly, bc.refreshFactor),
+			fmt.Sprintf("parseOnly=%v,refreshFactor=%d,refreshAll=%v", bc.parseOnly, bc.refreshFactor, bc.refreshAll),
 			func(b *testing.B) { benchmarkPidStatParser(bc, b) },
 		)
 	}
@@ -130,7 +133,7 @@ func benchmarkPromPidStatParser(bc *PidStatParserBenchmarkCase, b *testing.B) {
 		b.Fatal(err)
 	}
 
-	parseOnly, refreshFactor := bc.parseOnly, bc.refreshFactor
+	parseOnly, refreshFactor, refreshAll := bc.parseOnly, bc.refreshFactor, bc.refreshAll
 
 	if !parseOnly {
 		prevStat, err = proc.Stat()
@@ -156,43 +159,43 @@ func benchmarkPromPidStatParser(bc *PidStatParserBenchmarkCase, b *testing.B) {
 		wBuf.Reset()
 		if refreshFactor <= 1 || (n%refreshFactor) == 0 {
 			// Full cycle:
-			if prevStat.Comm != stat.Comm {
+			if refreshAll || prevStat.Comm != stat.Comm {
 				fmt.Fprintf(wBuf, "%s", stat.Comm)
 			}
-			if prevStat.State != stat.State {
+			if refreshAll || prevStat.State != stat.State {
 				fmt.Fprintf(wBuf, "%s", stat.State)
 			}
-			if prevStat.PPID != stat.PPID {
+			if refreshAll || prevStat.PPID != stat.PPID {
 				fmt.Fprintf(wBuf, "%d", stat.PPID)
 			}
-			if prevStat.PGRP != stat.PGRP {
+			if refreshAll || prevStat.PGRP != stat.PGRP {
 				fmt.Fprintf(wBuf, "%d", stat.PGRP)
 			}
-			if prevStat.Session != stat.Session {
+			if refreshAll || prevStat.Session != stat.Session {
 				fmt.Fprintf(wBuf, "%d", stat.Session)
 			}
-			if prevStat.TTY != stat.TTY {
+			if refreshAll || prevStat.TTY != stat.TTY {
 				fmt.Fprintf(wBuf, "%d", stat.TTY)
 			}
-			if prevStat.TPGID != stat.TPGID {
+			if refreshAll || prevStat.TPGID != stat.TPGID {
 				fmt.Fprintf(wBuf, "%d", stat.TPGID)
 			}
-			if prevStat.Priority != stat.Priority {
+			if refreshAll || prevStat.Priority != stat.Priority {
 				fmt.Fprintf(wBuf, "%d", stat.Priority)
 			}
-			if prevStat.Nice != stat.Nice {
+			if refreshAll || prevStat.Nice != stat.Nice {
 				fmt.Fprintf(wBuf, "%d", stat.Nice)
 			}
-			if prevStat.NumThreads != stat.NumThreads {
+			if refreshAll || prevStat.NumThreads != stat.NumThreads {
 				fmt.Fprintf(wBuf, "%d", stat.NumThreads)
 			}
-			if prevStat.VSize != stat.VSize {
+			if refreshAll || prevStat.VSize != stat.VSize {
 				fmt.Fprintf(wBuf, "%d", stat.VSize)
 			}
-			if prevStat.RSS != stat.RSS {
+			if refreshAll || prevStat.RSS != stat.RSS {
 				fmt.Fprintf(wBuf, "%d", stat.RSS)
 			}
-			if prevStat.Processor != stat.Processor {
+			if refreshAll || prevStat.Processor != stat.Processor {
 				fmt.Fprintf(wBuf, "%d", stat.Processor)
 			}
 		} else {
@@ -217,12 +220,14 @@ func benchmarkPromPidStatParser(bc *PidStatParserBenchmarkCase, b *testing.B) {
 
 func BenchmarkPromPidStatParser(b *testing.B) {
 	for _, bc := range []*PidStatParserBenchmarkCase{
-		{true, 0},
-		{false, 0},
-		{false, 15},
+		{true, 0, false},
+		{false, 0, false},
+		{false, 15, false},
+		{false, 0, true},
+		{false, 15, true},
 	} {
 		b.Run(
-			fmt.Sprintf("parseOnly=%v,refreshFactor=%d", bc.parseOnly, bc.refreshFactor),
+			fmt.Sprintf("parseOnly=%v,refreshFactor=%d,refreshAll=%v", bc.parseOnly, bc.refreshFactor, bc.refreshAll),
 			func(b *testing.B) { benchmarkPromPidStatParser(bc, b) },
 		)
 	}

@@ -9,7 +9,8 @@ import (
 )
 
 const (
-	PATH_TO_ROOT = ".."
+	PATH_TO_ROOT         = ".."
+	TESTDATA_PROCFS_ROOT = "../testdata/procfs"
 )
 
 var TestDataProcDir = path.Join(PATH_TO_ROOT, testutils.TESTDATA_PROC_SUBDIR)
