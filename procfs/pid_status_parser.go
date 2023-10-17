@@ -102,30 +102,30 @@ type PidStatusLineHandling struct {
 // be converted into an array, indexed by line# (starting from 0), at the first
 // parse invocation (JIT).
 var pidStatusLineHandlingMap = map[string]*PidStatusLineHandling{
-	"Uid:":                       {PID_STATUS_LIST_DATA, PID_STATUS_UID},
-	"Gid:":                       {PID_STATUS_LIST_DATA, PID_STATUS_GID},
-	"Groups:":                    {PID_STATUS_LIST_DATA, PID_STATUS_GROUPS},
-	"VmPeak":                     {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_PEAK},
-	"VmSize":                     {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_SIZE},
-	"VmLck":                      {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_LCK},
-	"VmPin":                      {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_PIN},
-	"VmHWM":                      {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_HWM},
-	"VmRSS":                      {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_RSS},
-	"RssAnon":                    {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_RSS_ANON},
-	"RssFile":                    {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_RSS_FILE},
-	"RssShmem":                   {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_RSS_SHMEM},
-	"VmData":                     {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_DATA},
-	"VmStk":                      {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_STK},
-	"VmExe":                      {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_EXE},
-	"VmLib":                      {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_LIB},
-	"VmPTE":                      {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_PTE},
-	"VmPMD":                      {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_PMD},
-	"VmSwap":                     {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_SWAP},
-	"HugetlbPages":               {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_HUGETLBPAGES},
-	"Cpus_allowed_list":          {PID_STATUS_SINGLE_VAL_DATA, PID_STATUS_CPUS_ALLOWED_LIST},
-	"Mems_allowed_list":          {PID_STATUS_SINGLE_VAL_DATA, PID_STATUS_MEMS_ALLOWED_LIST},
-	"voluntary_ctxt_switches":    {PID_STATUS_ULONG_DATA, PID_STATUS_VOLUNTARY_CTXT_SWITCHES},
-	"nonvoluntary_ctxt_switches": {PID_STATUS_ULONG_DATA, PID_STATUS_NONVOLUNTARY_CTXT_SWITCHES},
+	"Uid:":                        {PID_STATUS_LIST_DATA, PID_STATUS_UID},
+	"Gid:":                        {PID_STATUS_LIST_DATA, PID_STATUS_GID},
+	"Groups:":                     {PID_STATUS_LIST_DATA, PID_STATUS_GROUPS},
+	"VmPeak:":                     {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_PEAK},
+	"VmSize:":                     {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_SIZE},
+	"VmLck:":                      {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_LCK},
+	"VmPin:":                      {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_PIN},
+	"VmHWM:":                      {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_HWM},
+	"VmRSS:":                      {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_RSS},
+	"RssAnon:":                    {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_RSS_ANON},
+	"RssFile:":                    {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_RSS_FILE},
+	"RssShmem:":                   {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_RSS_SHMEM},
+	"VmData:":                     {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_DATA},
+	"VmStk:":                      {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_STK},
+	"VmExe:":                      {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_EXE},
+	"VmLib:":                      {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_LIB},
+	"VmPTE:":                      {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_PTE},
+	"VmPMD:":                      {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_PMD},
+	"VmSwap:":                     {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_VM_SWAP},
+	"HugetlbPages:":               {PID_STATUS_SINGLE_VAL_UNIT_DATA, PID_STATUS_HUGETLBPAGES},
+	"Cpus_allowed_list:":          {PID_STATUS_SINGLE_VAL_DATA, PID_STATUS_CPUS_ALLOWED_LIST},
+	"Mems_allowed_list:":          {PID_STATUS_SINGLE_VAL_DATA, PID_STATUS_MEMS_ALLOWED_LIST},
+	"voluntary_ctxt_switches:":    {PID_STATUS_ULONG_DATA, PID_STATUS_VOLUNTARY_CTXT_SWITCHES},
+	"nonvoluntary_ctxt_switches:": {PID_STATUS_ULONG_DATA, PID_STATUS_NONVOLUNTARY_CTXT_SWITCHES},
 }
 
 // The parser will use the following structure, built JIT at the 1st invocation:
@@ -198,6 +198,7 @@ func initPidStatusParserInfo(path string) error {
 	if scanner.Err() != nil {
 		err = fmt.Errorf("%s: %v", path, scanner.Err())
 	}
+
 	return err
 }
 
