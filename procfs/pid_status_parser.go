@@ -142,6 +142,14 @@ var pidStatusParserInfo = struct {
 	lock: &sync.Mutex{},
 }
 
+// Used for testing:
+func resetPidStatusParserInfo() {
+	pidStatusParserInfo.lock.Lock()
+	pidStatusParserInfo.lineHandling = nil
+	pidStatusParserInfo.unit = nil
+	pidStatusParserInfo.lock.Unlock()
+}
+
 func initPidStatusParserInfo(path string) error {
 	var (
 		err          error
@@ -247,7 +255,7 @@ func (pidStatus *PidStatus) Clone() *PidStatus {
 	if pidStatus.bytesData == nil {
 		newPidStatus.bytesData = &bytes.Buffer{}
 	} else {
-		newPidStatus.bytesData = bytes.NewBuffer(make([]byte, newPidStatus.bytesData.Cap()))
+		newPidStatus.bytesData = bytes.NewBuffer(make([]byte, pidStatus.bytesData.Cap()))
 	}
 	return newPidStatus
 }
