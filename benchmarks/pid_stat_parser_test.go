@@ -1,6 +1,8 @@
 // Benchmarks for /proc/pid/stat parser Invoke the parser and additionally
 // simulate real life usage; the parsed data will be printed to a bytes.Buffer.
 
+//go:build exclude
+
 package benchmarks
 
 import (
