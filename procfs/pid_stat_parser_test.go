@@ -3,9 +3,16 @@ package procfs
 import (
 	"bytes"
 	"fmt"
+	"path"
 
 	"testing"
 )
+
+const (
+	PID_STAT_PROCFS_PID = 0
+)
+
+var pidStatTestdataDir = path.Join(TESTDATA_PROCFS_ROOT, "pid_stat")
 
 var pidStatByteSliceFieldName = map[int]string{
 	PID_STAT_COMM:        "PID_STAT_COMM",
@@ -36,57 +43,24 @@ var pidStatNumericFieldName = map[int]string{
 }
 
 type PidStatTestCase struct {
-	name                string
-	pidStatData         string
+	procfsRoot          string
+	pid, tid            int
 	wantByteSliceFields map[int]string
 	wantNumericFields   map[int]uint64
 	wantError           error
-	pid, tid            int
-}
-
-var pidStatTestPid, pidStatTestTid int = 468, 486
-
-var pidStatTestWantByteSliceFields map[int]string = map[int]string{
-	PID_STAT_COMM:        "rs:main Q:Reg",
-	PID_STAT_STATE:       "S",
-	PID_STAT_PPID:        "1",
-	PID_STAT_PGRP:        "468",
-	PID_STAT_SESSION:     "468",
-	PID_STAT_TTY_NR:      "0",
-	PID_STAT_TPGID:       "-1",
-	PID_STAT_FLAGS:       "1077936192",
-	PID_STAT_PRIORITY:    "20",
-	PID_STAT_NICE:        "0",
-	PID_STAT_NUM_THREADS: "4",
-	PID_STAT_STARTTIME:   "898",
-	PID_STAT_VSIZE:       "227737600",
-	PID_STAT_RSS:         "1340",
-	PID_STAT_RSSLIM:      "18446744073709551615",
-	PID_STAT_PROCESSOR:   "0",
-	PID_STAT_RT_PRIORITY: "0",
-	PID_STAT_POLICY:      "0",
-}
-
-var pidStatTestWantNumericFields map[int]uint64 = map[int]uint64{
-	PID_STAT_MINFLT: 44,
-	PID_STAT_MAJLT:  0,
-	PID_STAT_UTIME:  0,
-	PID_STAT_STIME:  2,
 }
 
 func testPidStatParser(tc *PidStatTestCase, t *testing.T) {
-	pidStat := &PidStatByteFields{
-		Buf: bytes.NewBufferString(tc.pidStatData),
-	}
-	if tc.pid != 0 {
-		pidStat.SetPath(TestDataProcDir, tc.pid, tc.tid)
-	}
+	pidStat := NewPidStat(tc.procfsRoot, tc.pid, tc.tid)
 	err := pidStat.Parse()
 	if tc.wantError == nil && err != nil {
 		t.Fatal(err)
 	}
-	if tc.wantError != nil && (err == nil || tc.wantError.Error() != err.Error()) {
-		t.Fatalf("error: want: %v, got: %v", tc.wantError, err)
+	if tc.wantError != nil {
+		wantError := fmt.Errorf("%s: %v", pidStat.path, tc.wantError)
+		if err == nil || wantError.Error() != err.Error() {
+			t.Fatalf("error: want: %v, got: %v", wantError, err)
+		}
 	}
 	b := pidStat.Buf.Bytes()
 	diffBuf := &bytes.Buffer{}
@@ -94,7 +68,14 @@ func testPidStatParser(tc *PidStatTestCase, t *testing.T) {
 		for i, wantValue := range tc.wantByteSliceFields {
 			gotValue := string(b[pidStat.FieldStart[i]:pidStat.FieldEnd[i]])
 			if wantValue != gotValue {
-				fmt.Fprintf(diffBuf, "\nfield[%s]: want: %q, got: %q", pidStatByteSliceFieldName[i], wantValue, gotValue)
+				fmt.Fprintf(
+					diffBuf,
+					"\nfield[%s] ([%d:%d]): want: %q, got: %q",
+					pidStatByteSliceFieldName[i],
+					pidStat.FieldStart[i], pidStat.FieldEnd[i],
+					wantValue,
+					gotValue,
+				)
 			}
 		}
 	}
@@ -114,8 +95,40 @@ func testPidStatParser(tc *PidStatTestCase, t *testing.T) {
 func TestPidStatParser(t *testing.T) {
 	for _, tc := range []*PidStatTestCase{
 		{
-			name:        "field_mapping",
-			pidStatData: "pid (comm) state ppid pgrp session tty_nr tpgid flags 1000 cminflt 1001 cmajflt 10000 10001 cutime cstime priority nice num_threads itrealvalue starttime vsize rss rsslim startcode endcode startstack kstkesp kstkeip signal blocked sigignore sigcatch wchan nswap cnswap exit_signal processor rt_priority policy delayacct_blkio_ticks guest_time cguest_time start_data end_data start_brk arg_start arg_end env_start env_end exit_code",
+			procfsRoot: TESTDATA_PROC_ROOT,
+			pid:        468,
+			tid:        486,
+			wantByteSliceFields: map[int]string{
+				PID_STAT_COMM:        "rs:main Q:Reg",
+				PID_STAT_STATE:       "S",
+				PID_STAT_PPID:        "1",
+				PID_STAT_PGRP:        "468",
+				PID_STAT_SESSION:     "468",
+				PID_STAT_TTY_NR:      "0",
+				PID_STAT_TPGID:       "-1",
+				PID_STAT_FLAGS:       "1077936192",
+				PID_STAT_PRIORITY:    "20",
+				PID_STAT_NICE:        "0",
+				PID_STAT_NUM_THREADS: "4",
+				PID_STAT_STARTTIME:   "898",
+				PID_STAT_VSIZE:       "227737600",
+				PID_STAT_RSS:         "1340",
+				PID_STAT_RSSLIM:      "18446744073709551615",
+				PID_STAT_PROCESSOR:   "0",
+				PID_STAT_RT_PRIORITY: "0",
+				PID_STAT_POLICY:      "0",
+			},
+			wantNumericFields: map[int]uint64{
+				PID_STAT_MINFLT: 44,
+				PID_STAT_MAJLT:  0,
+				PID_STAT_UTIME:  0,
+				PID_STAT_STIME:  2,
+			},
+		},
+		{
+			procfsRoot: path.Join(pidStatTestdataDir, "field_mapping"),
+			pid:        PID_STAT_PROCFS_PID,
+			tid:        PID_STAT_PID_ONLY_TID,
 			wantByteSliceFields: map[int]string{
 				PID_STAT_COMM:        "comm",
 				PID_STAT_STATE:       "state",
@@ -144,15 +157,9 @@ func TestPidStatParser(t *testing.T) {
 			},
 		},
 		{
-			name:                "real_data",
-			wantByteSliceFields: pidStatTestWantByteSliceFields,
-			wantNumericFields:   pidStatTestWantNumericFields,
-			pid:                 pidStatTestPid,
-			tid:                 pidStatTestTid,
-		},
-		{
-			name:        "comm_too_long",
-			pidStatData: "pid (command longer than sixteen bytes) state ppid pgrp session tty_nr tpgid flags 1000 cminflt 1001 cmajflt 10000 10001 cutime cstime priority nice num_threads itrealvalue starttime vsize rss rsslim startcode endcode startstack kstkesp kstkeip signal blocked sigignore sigcatch wchan nswap cnswap exit_signal processor rt_priority policy delayacct_blkio_ticks guest_time cguest_time start_data end_data start_brk arg_start arg_end env_start env_end exit_code",
+			procfsRoot: path.Join(pidStatTestdataDir, "comm_too_long"),
+			pid:        PID_STAT_PROCFS_PID,
+			tid:        PID_STAT_PID_ONLY_TID,
 			wantByteSliceFields: map[int]string{
 				PID_STAT_COMM:        "command longer than sixteen bytes",
 				PID_STAT_STATE:       "state",
@@ -181,8 +188,9 @@ func TestPidStatParser(t *testing.T) {
 			},
 		},
 		{
-			name:        "comm_utf8",
-			pidStatData: "pid (Nǐ hǎo shìjiè 你好世界) state ppid pgrp session tty_nr tpgid flags 1000 cminflt 1001 cmajflt 10000 10001 cutime cstime priority nice num_threads itrealvalue starttime vsize rss rsslim startcode endcode startstack kstkesp kstkeip signal blocked sigignore sigcatch wchan nswap cnswap exit_signal processor rt_priority policy delayacct_blkio_ticks guest_time cguest_time start_data end_data start_brk arg_start arg_end env_start env_end exit_code",
+			procfsRoot: path.Join(pidStatTestdataDir, "comm_utf8"),
+			pid:        PID_STAT_PROCFS_PID,
+			tid:        PID_STAT_PID_ONLY_TID,
 			wantByteSliceFields: map[int]string{
 				PID_STAT_COMM:        "Nǐ hǎo shìjiè 你好世界",
 				PID_STAT_STATE:       "state",
@@ -211,30 +219,32 @@ func TestPidStatParser(t *testing.T) {
 			},
 		},
 		{
-			name:        "comm_missin_open_par",
-			pidStatData: "pid comm) state ppid pgrp session tty_nr tpgid flags 1000 cminflt 1001 cmajflt 10000 10001 cutime cstime priority nice num_threads itrealvalue starttime vsize rss rsslim startcode endcode startstack kstkesp kstkeip signal blocked sigignore sigcatch wchan nswap cnswap exit_signal processor rt_priority policy delayacct_blkio_ticks guest_time cguest_time start_data end_data start_brk arg_start arg_end env_start env_end exit_code",
-			wantError:   fmt.Errorf(": cannot locate '('"),
+			procfsRoot: path.Join(pidStatTestdataDir, "comm_missing_open_par"),
+			pid:        PID_STAT_PROCFS_PID,
+			tid:        PID_STAT_PID_ONLY_TID,
+			wantError:  fmt.Errorf("cannot locate '('"),
 		},
 		{
-			name:        "comm_missin_close_par",
-			pidStatData: "pid (comm state ppid pgrp session tty_nr tpgid flags 1000 cminflt 1001 cmajflt 10000 10001 cutime cstime priority nice num_threads itrealvalue starttime vsize rss rsslim startcode endcode startstack kstkesp kstkeip signal blocked sigignore sigcatch wchan nswap cnswap exit_signal processor rt_priority policy delayacct_blkio_ticks guest_time cguest_time start_data end_data start_brk arg_start arg_end env_start env_end exit_code",
-			wantError:   fmt.Errorf(": cannot locate ')'"),
+			procfsRoot: path.Join(pidStatTestdataDir, "comm_missing_close_par"),
+			pid:        PID_STAT_PROCFS_PID,
+			tid:        PID_STAT_PID_ONLY_TID,
+			wantError:  fmt.Errorf("cannot locate ')'"),
 		},
 		{
-			name:        "missing_numeric_field",
-			pidStatData: "pid (comm) state ppid pgrp session tty_nr tpgid flags 1000 cminflt 1001 cmajflt 10000\n", // "10001 cutime cstime priority nice num_threads itrealvalue starttime vsize rss rsslim startcode endcode startstack kstkesp kstkeip signal blocked sigignore sigcatch wchan nswap cnswap exit_signal processor rt_priority\n", // "policy delayacct_blkio_ticks guest_time cguest_time start_data end_data start_brk arg_start arg_end env_start env_end exit_code",
-			wantError: fmt.Errorf(
-				": scan incomplete: byte slice got/want field#: %d/%d, numeric got/want field#: %d/%d",
-				8, PID_STAT_BYTE_SLICE_FIELD_COUNT,
-				PID_STAT_NUMERIC_FIELD_COUNT-1, PID_STAT_NUMERIC_FIELD_COUNT,
-			),
+			procfsRoot: path.Join(pidStatTestdataDir, "conversion_error"),
+			pid:        PID_STAT_PROCFS_PID,
+			tid:        PID_STAT_PID_ONLY_TID,
+			wantError:  fmt.Errorf(`field# 10: strconv.ParseUint: parsing "_1000": invalid syntax`),
 		},
 		{
-			name:        "conversion_error",
-			pidStatData: "pid (comm) state ppid pgrp session tty_nr tpgid flags _1000 cminflt 1001 cmajflt 10000 10001 cutime cstime priority nice num_threads itrealvalue starttime vsize rss rsslim startcode endcode startstack kstkesp kstkeip signal blocked sigignore sigcatch wchan nswap cnswap exit_signal processor rt_priority policy delayacct_blkio_ticks guest_time cguest_time start_data end_data start_brk arg_start arg_end env_start env_end exit_code",
-			wantError:   fmt.Errorf(`: field# 10: strconv.ParseUint: parsing "_1000": invalid syntax`),
+			procfsRoot: path.Join(pidStatTestdataDir, "not_enough_fields"),
+			pid:        PID_STAT_PROCFS_PID,
+			tid:        PID_STAT_PID_ONLY_TID,
+			wantError:  fmt.Errorf("not enough fields: want: %d, got: %d", pidStatMaxFieldNum, pidStatMaxFieldNum-1),
 		},
 	} {
-		t.Run(tc.name, func(t *testing.T) { testPidStatParser(tc, t) })
+		t.Run(
+			fmt.Sprintf("procfsRoot=%s,pid=%d,tid=%d", tc.procfsRoot, tc.pid, tc.tid),
+			func(t *testing.T) { testPidStatParser(tc, t) })
 	}
 }

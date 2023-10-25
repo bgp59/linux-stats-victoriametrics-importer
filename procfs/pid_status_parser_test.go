@@ -3,6 +3,8 @@ package procfs
 import (
 	"bytes"
 	"fmt"
+	"path"
+
 	"testing"
 )
 
@@ -13,6 +15,8 @@ const (
 	PID_STATUS_TEST_PARSE_CLONE_LAST
 	PID_STATUS_TEST_PARSE_CLONE_BOTH
 )
+
+var pidStatusTestdataDir = path.Join(TESTDATA_PROCFS_ROOT, "pid_status")
 
 type PidStatusTestCase struct {
 	procfsRoot          string
@@ -151,7 +155,7 @@ func TestPidStatusParser(t *testing.T) {
 	} {
 		for _, tc := range []*PidStatusTestCase{
 			{
-				procfsRoot: TESTDATA_PROCFS_ROOT,
+				procfsRoot: pidStatusTestdataDir,
 				pid:        468,
 				tid:        486,
 				wantBytesDataValues: map[int]string{

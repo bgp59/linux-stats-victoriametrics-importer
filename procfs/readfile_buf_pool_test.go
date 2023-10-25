@@ -105,7 +105,7 @@ func testReadFileBufPoolReadFile(t *testing.T, maxReadSize int64, filePath strin
 }
 
 func TestReadFileBufPoolReadFile(t *testing.T) {
-	filePath := path.Join(TestDataProcDir, TEST_READ_FILE_BUF_POOL_TEST_FILE)
+	filePath := path.Join(TESTDATA_PROC_ROOT, TEST_READ_FILE_BUF_POOL_TEST_FILE)
 	f, err := os.Open(filePath)
 	if err != nil {
 		t.Fatal(err)

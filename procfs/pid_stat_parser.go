@@ -13,10 +13,21 @@ import (
 )
 
 // The data gleaned from this file has two use cases:
-//  - as-is: the value from the file is the value associated w/ the metric, e.g. comm
+//  - as-is: the value from the file is the (label) value associated w/ the metric, e.g. priority
 //  - for numerical calculations, e.g. utime/stime
 // As-is data will be returned such that it can be easily converted to byte
 // slices whereas numerical data will be returned as unsigned long.
+
+type PidStat struct {
+	// Read the raw content of the file here:
+	Buf *bytes.Buffer
+	// Start/stop index for each byte slice field:
+	FieldStart, FieldEnd []int
+	// Numeric fields:
+	NumericFields []uint64
+	// The path file to read:
+	path string
+}
 
 // Parsed data types:
 const (
@@ -34,7 +45,7 @@ const (
 // Field separators, for all fields but (comm):
 var pidStatSeparators = [256]byte{' ': 1, '\t': 1, '\n': 1}
 
-// The following enumeration gives the indices for byte slice fields:
+// The following enumeration gives the indices for byte slice fields;
 const (
 	PID_STAT_COMM = iota
 	PID_STAT_STATE
@@ -59,7 +70,7 @@ const (
 )
 
 // The field# to use for byte slice fields (as per man proc field# starts from 1):
-var pidStatByteFieldNum = [PID_STAT_BYTE_SLICE_FIELD_COUNT]int{
+var pidStatByteSliceFieldNum = [PID_STAT_BYTE_SLICE_FIELD_COUNT]int{
 	PID_STAT_COMM:        2,
 	PID_STAT_STATE:       3,
 	PID_STAT_PPID:        4,
@@ -107,41 +118,30 @@ type PidStatFieldHandling struct {
 }
 
 // The following list maps field# into its handling; it will be built during
-// init based on the ...FieldNum above; nil indicates that the field should be
-// ignored:
+// init based on the ...FieldNum above; nil, the default, indicates that the
+// field should be ignored:
 var pidStatFieldNumHandling []*PidStatFieldHandling
+var pidStatMaxFieldNum = 0
 
 func init() {
-	maxFieldNum := 0
-	for _, fieldNum := range pidStatByteFieldNum {
-		if fieldNum > maxFieldNum {
-			maxFieldNum = fieldNum
+	for _, fieldNum := range pidStatByteSliceFieldNum {
+		if fieldNum > pidStatMaxFieldNum {
+			pidStatMaxFieldNum = fieldNum
 		}
 	}
 	for _, fieldNum := range pidStatUlongFieldNum {
-		if fieldNum > maxFieldNum {
-			maxFieldNum = fieldNum
+		if fieldNum > pidStatMaxFieldNum {
+			pidStatMaxFieldNum = fieldNum
 		}
 	}
 
-	pidStatFieldNumHandling = make([]*PidStatFieldHandling, maxFieldNum+1)
-	for index, fieldNum := range pidStatByteFieldNum {
+	pidStatFieldNumHandling = make([]*PidStatFieldHandling, pidStatMaxFieldNum+1)
+	for index, fieldNum := range pidStatByteSliceFieldNum {
 		pidStatFieldNumHandling[fieldNum] = &PidStatFieldHandling{PID_STAT_BYTES_DATA, index}
 	}
 	for index, fieldNum := range pidStatUlongFieldNum {
 		pidStatFieldNumHandling[fieldNum] = &PidStatFieldHandling{PID_STAT_ULONG_DATA, index}
 	}
-}
-
-type PidStat struct {
-	// Read the raw content of the file here:
-	Buf *bytes.Buffer
-	// Start/stop index for each byte slice field:
-	FieldStart, FieldEnd []int
-	// Numeric fields:
-	NumericFields []uint64
-	// The path file to read:
-	path string
 }
 
 func NewPidStat(procfsRoot string, pid, tid int) *PidStat {
@@ -159,7 +159,6 @@ func NewPidStat(procfsRoot string, pid, tid int) *PidStat {
 	return pidStat
 }
 
-// Read file if .path is set and parse content.
 func (pidStat *PidStat) Parse() error {
 	file, err := os.Open(pidStat.path)
 	if err != nil {
@@ -194,13 +193,11 @@ func (pidStat *PidStat) Parse() error {
 		}
 	}
 
+	fieldNum := pidStatByteSliceFieldNum[PID_STAT_COMM]
 	pidStat.FieldStart[PID_STAT_COMM] = commStart
 	pidStat.FieldEnd[PID_STAT_COMM] = commEnd
 
-	fieldNum := pidStatByteFieldNum[PID_STAT_COMM]
-	maxFieldNum := len(pidStatFieldNumHandling) - 1
-
-	for wasSep, i, fieldStart := byte(1), commEnd+1, commEnd+1; i < l && fieldNum < maxFieldNum; i++ {
+	for wasSep, i, fieldStart := byte(1), commEnd+1, commEnd+1; i < l && fieldNum < pidStatMaxFieldNum; i++ {
 		isSep := pidStatSeparators[b[i]]
 		switch wasSep<<1 + isSep {
 		case 0b10:
@@ -223,6 +220,10 @@ func (pidStat *PidStat) Parse() error {
 			}
 		}
 		wasSep = isSep
+	}
+	// Sanity check:
+	if fieldNum != pidStatMaxFieldNum {
+		return fmt.Errorf("%s: not enough fields: want: %d, got: %d", pidStat.path, pidStatMaxFieldNum, fieldNum)
 	}
 	return nil
 }
