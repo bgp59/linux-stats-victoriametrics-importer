@@ -23,7 +23,7 @@ type PidStatusTestCase struct {
 	pid, tid            int
 	wantBytesDataValues map[int]string
 	wantUnit            map[int]string
-	wantUlongDataValues map[int]uint64
+	wantNumericFields   map[int]uint64
 	wantError           error
 }
 
@@ -99,7 +99,7 @@ func testPidStatusParser(tc *PidStatusTestCase, parseClone int, t *testing.T) {
 
 		for index := range tc.wantBytesDataValues {
 			wantVal := tc.wantBytesDataValues[index]
-			gotVal := string(status.bytesData.Bytes()[status.bytesStart[index]:status.bytesEnd[index]])
+			gotVal := string(status.Buf.Bytes()[status.FieldStart[index]:status.FieldEnd[index]])
 			if wantVal != gotVal {
 				fmt.Fprintf(
 					diffBuf,
@@ -113,7 +113,7 @@ func testPidStatusParser(tc *PidStatusTestCase, parseClone int, t *testing.T) {
 
 		for index := range tc.wantUnit {
 			wantVal := tc.wantUnit[index]
-			gotVal := status.unit[index]
+			gotVal := status.Unit[index]
 			if wantVal != gotVal {
 				fmt.Fprintf(
 					diffBuf,
@@ -125,13 +125,13 @@ func testPidStatusParser(tc *PidStatusTestCase, parseClone int, t *testing.T) {
 			}
 		}
 
-		for index := range tc.wantUlongDataValues {
-			wantVal := tc.wantUlongDataValues[index]
-			gotVal := status.ulongData[index]
+		for index := range tc.wantNumericFields {
+			wantVal := tc.wantNumericFields[index]
+			gotVal := status.NumericFields[index]
 			if wantVal != gotVal {
 				fmt.Fprintf(
 					diffBuf,
-					"\nulongData[%s]: want: %d, got: %d",
+					"\nuNumericFields[%s]: want: %d, got: %d",
 					pidStatusTestUlongDataIndexToName[index],
 					wantVal,
 					gotVal,
@@ -206,7 +206,7 @@ func TestPidStatusParser(t *testing.T) {
 					PID_STATUS_CPUS_ALLOWED_LIST: "",
 					PID_STATUS_MEMS_ALLOWED_LIST: "",
 				},
-				wantUlongDataValues: map[int]uint64{
+				wantNumericFields: map[int]uint64{
 					PID_STATUS_VOLUNTARY_CTXT_SWITCHES:    2588,
 					PID_STATUS_NONVOLUNTARY_CTXT_SWITCHES: 12,
 				},

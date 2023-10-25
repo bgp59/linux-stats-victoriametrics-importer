@@ -213,24 +213,25 @@ func initPidStatusParserInfo(path string) error {
 type PidStatus struct {
 	// For as-is data there is a backing buffer + start,end indexes to build the
 	// slice representing the data:
-	bytesData            *bytes.Buffer
-	bytesStart, bytesEnd []int
+	Buf                  *bytes.Buffer
+	FieldStart, FieldEnd []int
 	// Unsigned log data:
-	ulongData []uint64
+	NumericFields []uint64
+	// Unit, it will be replicated from pidStatusParserInfo:
+	Unit []string
 	// Path to the file:
 	path string
 	// Parsing info replicated as a reference; this is to avoid locking, once
 	// the reference was pulled:
 	lineHandling []*PidStatusLineHandling
-	unit         []string
 }
 
 func NewPidStatus(procfsRoot string, pid, tid int) *PidStatus {
 	pidStatus := &PidStatus{
-		bytesData:  &bytes.Buffer{},
-		bytesStart: make([]int, PID_STATUS_AS_IS_DATA_COUNT),
-		bytesEnd:   make([]int, PID_STATUS_AS_IS_DATA_COUNT),
-		ulongData:  make([]uint64, PID_STATUS_ULONG_DATA_COUNT),
+		Buf:           &bytes.Buffer{},
+		FieldStart:    make([]int, PID_STATUS_AS_IS_DATA_COUNT),
+		FieldEnd:      make([]int, PID_STATUS_AS_IS_DATA_COUNT),
+		NumericFields: make([]uint64, PID_STATUS_ULONG_DATA_COUNT),
 	}
 	if tid == PID_STAT_PID_ONLY_TID {
 		pidStatus.path = path.Join(procfsRoot, strconv.Itoa(pid), "status")
@@ -243,19 +244,19 @@ func NewPidStatus(procfsRoot string, pid, tid int) *PidStatus {
 // Clone is used by the double storage approach for deltas: previous + current.
 func (pidStatus *PidStatus) Clone() *PidStatus {
 	newPidStatus := &PidStatus{
-		bytesStart:   make([]int, PID_STATUS_AS_IS_DATA_COUNT),
-		bytesEnd:     make([]int, PID_STATUS_AS_IS_DATA_COUNT),
-		ulongData:    make([]uint64, PID_STATUS_ULONG_DATA_COUNT),
-		path:         pidStatus.path,
-		lineHandling: pidStatus.lineHandling,
-		unit:         pidStatus.unit,
+		FieldStart:    make([]int, PID_STATUS_AS_IS_DATA_COUNT),
+		FieldEnd:      make([]int, PID_STATUS_AS_IS_DATA_COUNT),
+		NumericFields: make([]uint64, PID_STATUS_ULONG_DATA_COUNT),
+		path:          pidStatus.path,
+		lineHandling:  pidStatus.lineHandling,
+		Unit:          pidStatus.Unit,
 	}
 	// If there is any backing storage then create a new one of the same
 	// capacity since most likely it has the right capacity:
-	if pidStatus.bytesData == nil {
-		newPidStatus.bytesData = &bytes.Buffer{}
+	if pidStatus.Buf == nil {
+		newPidStatus.Buf = &bytes.Buffer{}
 	} else {
-		newPidStatus.bytesData = bytes.NewBuffer(make([]byte, pidStatus.bytesData.Cap()))
+		newPidStatus.Buf = bytes.NewBuffer(make([]byte, pidStatus.Buf.Cap()))
 	}
 	return newPidStatus
 }
@@ -274,7 +275,7 @@ func (pidStatus *PidStatus) Parse() error {
 			}
 		}
 		pidStatus.lineHandling = pidStatusParserInfo.lineHandling
-		pidStatus.unit = pidStatusParserInfo.unit
+		pidStatus.Unit = pidStatusParserInfo.unit
 		pidStatusParserInfo.lock.Unlock()
 	}
 
@@ -286,13 +287,13 @@ func (pidStatus *PidStatus) Parse() error {
 	scanner := bufio.NewScanner(file)
 	lineHandling := pidStatus.lineHandling
 	maxLineNum := len(lineHandling)
-	bytesData := pidStatus.bytesData
-	if bytesData == nil {
-		bytesData := &bytes.Buffer{}
-		pidStatus.bytesData = bytesData
+	Buf := pidStatus.Buf
+	if Buf == nil {
+		Buf := &bytes.Buffer{}
+		pidStatus.Buf = Buf
 	}
-	bytesData.Reset()
-	bytesStart, bytesEnd := pidStatus.bytesStart, pidStatus.bytesEnd
+	Buf.Reset()
+	FieldStart, FieldEnd := pidStatus.FieldStart, pidStatus.FieldEnd
 	for lineNum := 0; scanner.Scan(); lineNum++ {
 		if lineNum >= maxLineNum {
 			return fmt.Errorf(
@@ -322,8 +323,8 @@ func (pidStatus *PidStatus) Parse() error {
 					expectedNumFields,
 				)
 			}
-			bytesStart[index] = bytesData.Len()
-			n, err := bytesData.Write(fields[1])
+			FieldStart[index] = Buf.Len()
+			n, err := Buf.Write(fields[1])
 			if err != nil {
 				return fmt.Errorf(
 					"%s: line# %d: %q: %v",
@@ -333,7 +334,7 @@ func (pidStatus *PidStatus) Parse() error {
 					err,
 				)
 			}
-			bytesEnd[index] = bytesStart[index] + n
+			FieldEnd[index] = FieldStart[index] + n
 		case PID_STATUS_LIST_DATA:
 			if len(fields) < 2 {
 				return fmt.Errorf(
@@ -343,8 +344,8 @@ func (pidStatus *PidStatus) Parse() error {
 					scanner.Text(),
 				)
 			}
-			bytesStart[index] = bytesData.Len()
-			n, err := bytesData.Write(bytes.Join(fields[1:], PID_STATUS_LIST_DATA_JOIN_SEQ))
+			FieldStart[index] = Buf.Len()
+			n, err := Buf.Write(bytes.Join(fields[1:], PID_STATUS_LIST_DATA_JOIN_SEQ))
 			if err != nil {
 				return fmt.Errorf(
 					"%s: line# %d: %q: %v",
@@ -354,7 +355,7 @@ func (pidStatus *PidStatus) Parse() error {
 					err,
 				)
 			}
-			bytesEnd[index] = bytesStart[index] + n
+			FieldEnd[index] = FieldStart[index] + n
 		case PID_STATUS_ULONG_DATA:
 			if len(fields) != 2 {
 				return fmt.Errorf(
@@ -374,7 +375,7 @@ func (pidStatus *PidStatus) Parse() error {
 					err,
 				)
 			}
-			pidStatus.ulongData[index] = uval
+			pidStatus.NumericFields[index] = uval
 		}
 	}
 	if scanner.Err() != nil {
