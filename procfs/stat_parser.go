@@ -32,7 +32,7 @@ type Stat struct {
 	path string
 }
 
-// Indexes for cpu[] lists:
+// Indexes for cpu[] stats:
 const (
 	STAT_CPU_USER_TICKS = iota
 	STAT_CPU_NICE_TICKS
@@ -63,79 +63,58 @@ const (
 	STAT_NUMERIC_FIELDS_COUNT // Must be last!
 )
 
-type StatLinePrefixHandling struct {
-	prefix    string
-	prefixLen int
-	// Index list mapping data field# into either Cpu* or NumericFields:
-	indexList []int
+var statLinePrefixSeparator = [256]byte{
+	' ':  1,
+	'\t': 1,
+	// Include digits for cpuNN:
+	'0': 1,
+	'1': 1,
+	'2': 1,
+	'3': 1,
+	'4': 1,
+	'5': 1,
+	'6': 1,
+	'7': 1,
+	'8': 1,
+	'9': 1,
 }
 
-var statPrefixHandling = []*StatLinePrefixHandling{
-	{
-		prefix: "cpu",
-		indexList: []int{
-			STAT_CPU_USER_TICKS,
-			STAT_CPU_NICE_TICKS,
-			STAT_CPU_SYSTEM_TICKS,
-			STAT_CPU_IDLE_TICKS,
-			STAT_CPU_IOWAIT_TICKS,
-			STAT_CPU_IRQ_TICKS,
-			STAT_CPU_SOFTIRQ_TICKS,
-			STAT_CPU_STEAL_TICKS,
-			STAT_CPU_GUEST_TICKS,
-			STAT_CPU_GUEST_NICE_TICKS,
-		},
+var statPrefixToDstIndexList = map[string][]int{
+	"cpu": []int{
+		STAT_CPU_USER_TICKS,
+		STAT_CPU_NICE_TICKS,
+		STAT_CPU_SYSTEM_TICKS,
+		STAT_CPU_IDLE_TICKS,
+		STAT_CPU_IOWAIT_TICKS,
+		STAT_CPU_IRQ_TICKS,
+		STAT_CPU_SOFTIRQ_TICKS,
+		STAT_CPU_STEAL_TICKS,
+		STAT_CPU_GUEST_TICKS,
+		STAT_CPU_GUEST_NICE_TICKS,
 	},
-	{
-		prefix: "page",
-		indexList: []int{
-			STAT_PAGE_IN,
-			STAT_PAGE_OUT,
-		},
+	"page": []int{
+		STAT_PAGE_IN,
+		STAT_PAGE_OUT,
 	},
-	{
-		prefix: "swap",
-		indexList: []int{
-			STAT_SWAP_IN,
-			STAT_SWAP_OUT,
-		},
+	"swap": []int{
+		STAT_SWAP_IN,
+		STAT_SWAP_OUT,
 	},
-	{
-		prefix: "ctxt",
-		indexList: []int{
-			STAT_CTXT,
-		},
+	"ctxt": []int{
+		STAT_CTXT,
 	},
-	{
-		prefix: "btime",
-		indexList: []int{
-			STAT_BTIME,
-		},
+	"btime": []int{
+		STAT_BTIME,
 	},
-	{
-		prefix: "processes",
-		indexList: []int{
-			STAT_PROCESSES,
-		},
+	"processes": []int{
+		STAT_PROCESSES,
 	},
-	{
-		prefix: "procs_running",
-		indexList: []int{
-			STAT_PROCS_RUNNING,
-		},
+	"procs_running": []int{
+		STAT_PROCS_RUNNING,
 	},
-	{
-		prefix: "procs_blocked",
-		indexList: []int{
-			STAT_PROCS_BLOCKED,
-		},
+	"procs_blocked": []int{
+		STAT_PROCS_BLOCKED,
 	},
-}
-
-func init() {
-	for _, prefixHandling := range statPrefixHandling {
-		prefixHandling.prefixLen = len(prefixHandling.prefix)
-	}
 }
 
 func NewStat(procfsRoot string) *Stat {
@@ -148,6 +127,21 @@ func NewStat(procfsRoot string) *Stat {
 	}
 }
 
+func (stat *Stat) Clone() *Stat {
+	newStat := &Stat{
+		CpuAll:        make([]uint64, STAT_CPU_STATS_COUNT),
+		Cpu:           make([][]uint64, len(stat.Cpu)),
+		CpuPresent:    make([]uint64, len(stat.CpuPresent)),
+		MaxCpuNum:     stat.MaxCpuNum,
+		NumericFields: make([]uint64, STAT_NUMERIC_FIELDS_COUNT),
+		path:          stat.path,
+	}
+	for i := 0; i < len(stat.Cpu); i++ {
+		newStat.Cpu[i] = make([]uint64, STAT_CPU_STATS_COUNT)
+	}
+	return newStat
+}
+
 func (stat *Stat) Parse() error {
 	file, err := os.Open(stat.path)
 	if err != nil {
@@ -156,70 +150,78 @@ func (stat *Stat) Parse() error {
 
 	scanner := bufio.NewScanner(file)
 
-	for i := 0; i <= stat.MaxCpuNum; i++ {
+	for i := 0; i < len(stat.CpuPresent) && i <= stat.MaxCpuNum; i++ {
 		stat.CpuPresent[i] = 0
 	}
 
 	for scanner.Scan() {
-		line := scanner.Text()
-		lineLen := len(line)
-
-		for _, prefixHandling := range statPrefixHandling {
-			prefix, prefixLen := prefixHandling.prefix, prefixHandling.prefixLen
-			if lineLen >= prefixLen && line[:prefixLen] == prefix {
-				fields := strings.Fields(line)
-				indexList := prefixHandling.indexList
-				if prefix == "cpu" {
-					var cpuStats []uint64
-					if len(prefix) > 3 {
-						cpuNum, err := strconv.Atoi(prefix[3:])
-						if err != nil {
-							return fmt.Errorf("%s: %s: %v for cpu#", stat.path, line, err)
-						}
-						if cpuNum >= stat.MaxCpuNum {
-							stat.MaxCpuNum = cpuNum
-						}
-						cpuPresentChunk := cpuNum >> 6 // / 64
-						if cpuPresentChunk >= len(stat.CpuPresent) {
-							newCpuPresent := make([]uint64, cpuPresentChunk+1)
-							copy(newCpuPresent, stat.CpuPresent)
-							stat.CpuPresent = newCpuPresent
-						}
-						stat.CpuPresent[cpuPresentChunk] |= (1 << (cpuNum & ((1 << 6) - 1)))
-						if cpuNum >= len(stat.Cpu) {
-							newCpu := make([][]uint64, cpuNum+1)
-							copy(newCpu, stat.Cpu)
-						}
-						cpuStats = stat.Cpu[cpuNum]
-						if cpuStats == nil {
-							cpuStats = make([]uint64, STAT_CPU_STATS_COUNT)
-							stat.Cpu[cpuNum] = cpuStats
-						}
-					} else {
-						cpuStats = stat.CpuAll
-					}
-					index := 0
-					for ; index < len(fields)-1 && index < len(indexList); index++ {
-						cpuStats[index], err = strconv.ParseUint(fields[index+1], 10, 64)
-						if err != nil {
-							return fmt.Errorf("%s: %s: %v", stat.path, line, err)
-						}
-					}
-					if index <= STAT_CPU_SOFTIRQ_TICKS {
-						return fmt.Errorf("%s: %s: invalid value count (< %d)", stat.path, line, STAT_CPU_SOFTIRQ_TICKS)
-					}
-				} else {
-					if len(fields)-1 != len(indexList) {
-						return fmt.Errorf("%s: %s: invalid value count (!= %d)", stat.path, line, len(indexList))
-					}
-					for _, index := range indexList {
-						stat.NumericFields[index], err = strconv.ParseUint(fields[index+1], 10, 64)
-						if err != nil {
-							return fmt.Errorf("%s: %s: %v", stat.path, line, err)
-						}
-					}
+		lineBytes := scanner.Bytes()
+		sepIndex := -1
+		for i, b := range lineBytes {
+			if statLinePrefixSeparator[b] > 0 {
+				sepIndex = i
+				break
+			}
+		}
+		if sepIndex <= 0 {
+			continue
+		}
+		prefix := string(lineBytes[:sepIndex])
+		indexList := statPrefixToDstIndexList[prefix]
+		if indexList == nil {
+			continue
+		}
+		line := string(lineBytes)
+		fields := strings.Fields(line)
+		if prefix == "cpu" {
+			var cpuStats []uint64
+			if len(fields[0]) > 3 {
+				cpuNum, err := strconv.Atoi(fields[0][3:])
+				if err != nil {
+					return fmt.Errorf("%s: %s: %v for cpu#", stat.path, line, err)
 				}
-				continue
+				if cpuNum >= stat.MaxCpuNum {
+					stat.MaxCpuNum = cpuNum
+				}
+				cpuPresentChunkNum := cpuNum >> 6 // / 64
+				if cpuPresentChunkNum >= len(stat.CpuPresent) {
+					newCpuPresent := make([]uint64, cpuPresentChunkNum+1)
+					copy(newCpuPresent, stat.CpuPresent)
+					stat.CpuPresent = newCpuPresent
+				}
+				stat.CpuPresent[cpuPresentChunkNum] |= (1 << (cpuNum & ((1 << 6) - 1)))
+				if cpuNum >= len(stat.Cpu) {
+					newCpu := make([][]uint64, cpuNum+1)
+					copy(newCpu, stat.Cpu)
+					stat.Cpu = newCpu
+				}
+				cpuStats = stat.Cpu[cpuNum]
+				if cpuStats == nil {
+					cpuStats = make([]uint64, STAT_CPU_STATS_COUNT)
+					stat.Cpu[cpuNum] = cpuStats
+				}
+			} else {
+				cpuStats = stat.CpuAll
+			}
+			index := 0
+			for ; index < len(fields)-1 && index < len(indexList); index++ {
+				cpuStats[index], err = strconv.ParseUint(fields[index+1], 10, 64)
+				if err != nil {
+					return fmt.Errorf("%s: %s: %v", stat.path, line, err)
+				}
+			}
+			if index <= STAT_CPU_SOFTIRQ_TICKS {
+				return fmt.Errorf("%s: %s: invalid value count (< %d)", stat.path, line, STAT_CPU_SOFTIRQ_TICKS)
+			}
+		} else {
+			if len(fields)-1 != len(indexList) {
+				return fmt.Errorf("%s: %s: invalid value count (!= %d)", stat.path, line, len(indexList))
+			}
+			for i, numericFieldsIndex := range indexList {
+				stat.NumericFields[numericFieldsIndex], err = strconv.ParseUint(fields[i+1], 10, 64)
+				if err != nil {
+					return fmt.Errorf("%s: %s: %v", stat.path, line, err)
+				}
 			}
 		}
 	}
