@@ -8,6 +8,12 @@ import (
 	"testing"
 )
 
+type StatTestCase struct {
+	procfsRoot string
+	wantStat   *Stat
+	wantError  error
+}
+
 var statTestdataDir = path.Join(TESTDATA_PROCFS_ROOT, "stat")
 
 var statCpuStatsIndexNameMap = map[int]string{
@@ -35,16 +41,22 @@ var statNumericFieldsIndexNameMap = map[int]string{
 	STAT_PROCS_BLOCKED: "STAT_PROCS_BLOCKED",
 }
 
-func testStatParser(wantStat *Stat, t *testing.T) {
-	stat := NewStat(wantStat.path)
+func testStatParser(tc *StatTestCase, t *testing.T) {
+	stat := NewStat(tc.procfsRoot)
 
 	err := stat.Parse()
+	if tc.wantError != nil {
+		if err == nil || tc.wantError.Error() != err.Error() {
+			t.Fatalf("want: %v error, got: %v", tc.wantError, err)
+		}
+		return
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	wantStat := tc.wantStat
 	diffBuf := &bytes.Buffer{}
-
 	for index, wantVal := range wantStat.CpuAll {
 		gotVal := stat.CpuAll[index]
 		if gotVal != wantVal {
@@ -83,7 +95,6 @@ func testStatParser(wantStat *Stat, t *testing.T) {
 			cpuPresentChunkNum, cpuMask := cpuNum/64, uint64(1<<(cpuNum%64))
 			wantPresentBit := (wantStat.CpuPresent[cpuPresentChunkNum] & cpuMask) > 0
 			gotPresentBit := (stat.CpuPresent[cpuPresentChunkNum] & cpuMask) > 0
-
 			if wantPresentBit != gotPresentBit {
 				fmt.Fprintf(
 					diffBuf,
@@ -92,7 +103,9 @@ func testStatParser(wantStat *Stat, t *testing.T) {
 				)
 				continue
 			}
-
+			if !wantPresentBit {
+				continue
+			}
 			wantCpu := wantStat.Cpu[cpuNum]
 			gotCpu := stat.Cpu[cpuNum]
 			for index, wantVal := range wantCpu {
@@ -126,24 +139,42 @@ func testStatParser(wantStat *Stat, t *testing.T) {
 }
 
 func TestStatParser(t *testing.T) {
-	for _, wantStat := range []*Stat{
+	for _, tc := range []*StatTestCase{
 		{
-			path:   path.Join(statTestdataDir, "field_mapping"),
-			CpuAll: []uint64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
-			Cpu: [][]uint64{
-				[]uint64{10, 11, 12, 13, 14, 15, 16, 17, 18, 19},
-				[]uint64{20, 21, 22, 23, 24, 25, 26, 27, 28, 29},
+			procfsRoot: path.Join(statTestdataDir, "field_mapping"),
+			wantStat: &Stat{
+				CpuAll: []uint64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+				Cpu: [][]uint64{
+					[]uint64{10, 11, 12, 13, 14, 15, 16, 17, 18, 19},
+					[]uint64{20, 21, 22, 23, 24, 25, 26, 27, 28, 29},
+				},
+				MaxCpuNum: 1,
+				CpuPresent: []uint64{
+					0x00000003,
+				},
+				NumericFields: []uint64{30, 31, 32, 33, 34, 35, 36, 37, 38},
 			},
-			MaxCpuNum: 1,
-			CpuPresent: []uint64{
-				0x00000003,
+		},
+		{
+			procfsRoot: path.Join(statTestdataDir, "missing_cpu"),
+			wantStat: &Stat{
+				CpuAll: []uint64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+				Cpu: [][]uint64{
+					[]uint64{10, 11, 12, 13, 14, 15, 16, 17, 18, 19}, // cpu# 0
+					nil, // cpu# 1, missing
+					[]uint64{20, 21, 22, 23, 24, 25, 26, 27, 28, 29}, // cpu# 2
+				},
+				MaxCpuNum: 2,
+				CpuPresent: []uint64{
+					0x00000005,
+				},
+				NumericFields: []uint64{30, 31, 32, 33, 34, 35, 36, 37, 38},
 			},
-			NumericFields: []uint64{30, 31, 32, 33, 34, 35, 36, 37, 38},
 		},
 	} {
 		t.Run(
-			fmt.Sprintf("procfsRoot=%s", wantStat.path),
-			func(t *testing.T) { testStatParser(wantStat, t) },
+			fmt.Sprintf("procfsRoot=%s", tc.procfsRoot),
+			func(t *testing.T) { testStatParser(tc, t) },
 		)
 	}
 }
