@@ -150,7 +150,7 @@ func (stat *Stat) Parse() error {
 
 	scanner := bufio.NewScanner(file)
 
-	for i := 0; i < len(stat.CpuPresent) && i <= stat.MaxCpuNum; i++ {
+	for i := 0; i < len(stat.CpuPresent) && i <= (stat.MaxCpuNum>>6); i++ {
 		stat.CpuPresent[i] = 0
 	}
 
