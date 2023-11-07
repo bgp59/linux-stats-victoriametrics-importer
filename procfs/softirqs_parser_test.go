@@ -54,11 +54,11 @@ func testSoftirqParser(tc *SoftirqTestCase, t *testing.T) {
 		t.Fatal(diffBuf.String())
 	}
 
-	if wantSoftirqs.expectedNumFields != softirqs.expectedNumFields {
+	if wantSoftirqs.NumCpus != softirqs.NumCpus {
 		fmt.Fprintf(
 			diffBuf,
 			"\nexpectedNumFields: want: %q, got: %q",
-			wantSoftirqs.expectedNumFields, softirqs.expectedNumFields,
+			wantSoftirqs.NumCpus, softirqs.NumCpus,
 		)
 	}
 	if diffBuf.Len() > 0 {
@@ -115,15 +115,16 @@ func testSoftirqParser(tc *SoftirqTestCase, t *testing.T) {
 			)
 			continue
 		}
-		if len(wantPerCpuCount) != len(gotPerCpuCount) {
+		if len(gotPerCpuCount) < wantSoftirqs.NumCpus {
 			fmt.Fprintf(
 				diffBuf,
-				"\nIrq[%q] length: want: %d, got: %d",
-				irq, len(wantPerCpuCount), len(gotPerCpuCount),
+				"\nIrq[%q] length: want: >= %d, got: %d",
+				irq, wantSoftirqs.NumCpus, len(gotPerCpuCount),
 			)
 			continue
 		}
-		for i, wantCount := range wantPerCpuCount {
+		for i := 0; i < wantSoftirqs.NumCpus; i++ {
+			wantCount := wantPerCpuCount[i]
 			gotCount := gotPerCpuCount[i]
 			if wantCount != gotCount {
 				fmt.Fprintf(
@@ -163,7 +164,7 @@ func TestSoftirqParser(t *testing.T) {
 					"NET_TX": []uint64{8, 9, 10, 11},
 					"NET_RX": []uint64{12, 13, 14, 15},
 				},
-				expectedNumFields: 5,
+				NumCpus: 4,
 			},
 		},
 		{
@@ -184,8 +185,8 @@ func TestSoftirqParser(t *testing.T) {
 					"NET_TX":  10,
 					"NET_RX":  10,
 				},
-				scanNum:           10,
-				expectedNumFields: 5,
+				scanNum: 10,
+				NumCpus: 4,
 			},
 			wantSoftirqs: &Softirqs{
 				ColIndexToCpuNum: nil,
@@ -196,7 +197,32 @@ func TestSoftirqParser(t *testing.T) {
 					"NET_TX": []uint64{8, 9, 10, 11},
 					"NET_RX": []uint64{12, 13, 14, 15},
 				},
-				expectedNumFields: 5,
+				NumCpus: 4,
+			},
+		},
+		{
+			procfsRoot: path.Join(softirqsTestdataDir, "remove_cpu"),
+			primeSoftirqs: &Softirqs{
+				ColIndexToCpuNum: nil,
+				CpuNumLine:       "                    CPU0       CPU1       CPU2       CPU3",
+				Irq: map[string][]uint64{
+					"HI":     []uint64{10000, 10001, 10002, 10003},
+					"TIMER":  []uint64{10004, 10005, 10006, 10007},
+					"NET_TX": []uint64{1008, 1009, 10010, 10011},
+					"NET_RX": []uint64{10012, 10013, 10014, 10015},
+				},
+				NumCpus: 4,
+			},
+			wantSoftirqs: &Softirqs{
+				ColIndexToCpuNum: []int{0, 1, 3},
+				CpuNumLine:       "                    CPU0       CPU1       CPU3",
+				Irq: map[string][]uint64{
+					"HI":     []uint64{0, 1, 3},
+					"TIMER":  []uint64{4, 5, 7},
+					"NET_TX": []uint64{8, 9, 11},
+					"NET_RX": []uint64{12, 13, 15},
+				},
+				NumCpus: 3,
 			},
 		},
 	} {

@@ -24,7 +24,7 @@ func BenchmarkPidStatParser(b *testing.B) {
 	}
 }
 
-func BenchmarkPromPidStatParser(b *testing.B) {
+func BenchmarkPidStatParserProm(b *testing.B) {
 	var proc prom_procfs.Proc
 	fs, err := prom_procfs.NewFS(TESTDATA_PROC_ROOT)
 	if err != nil {

@@ -1,5 +1,3 @@
-// Benchmarks for /proc/stat parser
-
 package benchmarks
 
 import (
@@ -11,24 +9,24 @@ import (
 	prom_procfs "github.com/prometheus/procfs"
 )
 
-func BenchmarkStatParser(b *testing.B) {
-	pidStat := procfs.NewStat(TESTDATA_PROC_ROOT)
+func BenchmarkSoftirqsParser(b *testing.B) {
+	softirqs := procfs.NewSoftirq(TESTDATA_PROC_ROOT)
 	for n := 0; n < b.N; n++ {
-		err := pidStat.Parse()
+		err := softirqs.Parse()
 		if err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
-func BenchmarkStatParserProm(b *testing.B) {
+func BenchmarkSoftirqsParserProm(b *testing.B) {
 	fs, err := prom_procfs.NewFS(TESTDATA_PROC_ROOT)
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	for n := 0; n < b.N; n++ {
-		_, err := fs.Stat()
+		_, err := fs.Softirqs()
 		if err != nil {
 			b.Fatal(err)
 		}
