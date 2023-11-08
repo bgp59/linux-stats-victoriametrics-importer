@@ -56,10 +56,10 @@ func (softirqs *Softirqs) Clone(full bool) *Softirqs {
 		newSoftirqs.ColIndexToCpuNum = make([]int, len(softirqs.ColIndexToCpuNum))
 		copy(newSoftirqs.ColIndexToCpuNum, softirqs.ColIndexToCpuNum)
 	}
-	for irq, perCpuIrqCount := range softirqs.Irq {
-		newSoftirqs.Irq[irq] = make([]uint64, len(perCpuIrqCount))
+	for irq, perCpuIrqCounter := range softirqs.Irq {
+		newSoftirqs.Irq[irq] = make([]uint64, len(perCpuIrqCounter))
 		if full {
-			copy(newSoftirqs.Irq[irq], perCpuIrqCount)
+			copy(newSoftirqs.Irq[irq], perCpuIrqCounter)
 		}
 	}
 	if full {
@@ -90,6 +90,12 @@ func (softirqs *Softirqs) Parse() error {
 				numCpus = softirqs.NumCpus
 				colIndexToCpuNum := make([]int, numCpus)
 				for index, cpu := range fields {
+					if len(cpu) <= 3 {
+						return fmt.Errorf(
+							"%s: line# %d: %s: invalid cpu spec",
+							softirqs.path, lineNum, line,
+						)
+					}
 					cpuNum, err := strconv.Atoi(cpu[3:])
 					if err != nil {
 						return fmt.Errorf(
@@ -130,13 +136,13 @@ func (softirqs *Softirqs) Parse() error {
 			)
 		}
 		irq = irq[:irqLen]
-		perCpuIrqCount := softirqs.Irq[irq]
-		if len(perCpuIrqCount) < numCpus {
-			perCpuIrqCount = make([]uint64, numCpus)
-			softirqs.Irq[irq] = perCpuIrqCount
+		perCpuIrqCounter := softirqs.Irq[irq]
+		if len(perCpuIrqCounter) < numCpus {
+			perCpuIrqCounter = make([]uint64, numCpus)
+			softirqs.Irq[irq] = perCpuIrqCounter
 		}
 		for i := 0; i < numCpus; i++ {
-			perCpuIrqCount[i], err = strconv.ParseUint(fields[i+1], 10, 64)
+			perCpuIrqCounter[i], err = strconv.ParseUint(fields[i+1], 10, 64)
 			if err != nil {
 				return fmt.Errorf(
 					"%s: line# %d: %s: %v",
