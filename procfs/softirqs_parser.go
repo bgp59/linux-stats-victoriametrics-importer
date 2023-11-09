@@ -36,7 +36,7 @@ type Softirqs struct {
 	path string
 }
 
-func NewSoftirq(procfsRoot string) *Softirqs {
+func NewSoftirqs(procfsRoot string) *Softirqs {
 	return &Softirqs{
 		Irq:        make(map[string][]uint64),
 		irqScanNum: map[string]int{},

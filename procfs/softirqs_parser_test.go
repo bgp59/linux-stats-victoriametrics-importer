@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-type SoftirqTestCase struct {
+type SoftirqsTestCase struct {
 	name          string
 	procfsRoot    string
 	primeSoftirqs *Softirqs
@@ -17,7 +17,7 @@ type SoftirqTestCase struct {
 
 var softirqsTestdataDir = path.Join(TESTDATA_PROCFS_ROOT, "softirqs")
 
-func testSoftirqParser(tc *SoftirqTestCase, t *testing.T) {
+func testSoftirqsParser(tc *SoftirqsTestCase, t *testing.T) {
 	var softirqs *Softirqs
 	if tc.primeSoftirqs != nil {
 		softirqs = tc.primeSoftirqs.Clone(true)
@@ -25,7 +25,7 @@ func testSoftirqParser(tc *SoftirqTestCase, t *testing.T) {
 			softirqs.path = path.Join(tc.procfsRoot, "softirqs")
 		}
 	} else {
-		softirqs = NewSoftirq(tc.procfsRoot)
+		softirqs = NewSoftirqs(tc.procfsRoot)
 	}
 
 	err := softirqs.Parse()
@@ -105,7 +105,7 @@ func testSoftirqParser(tc *SoftirqTestCase, t *testing.T) {
 		t.Fatal(diffBuf.String())
 	}
 
-	for irq, wantPerCpuCount := range wantSoftirqs.Irq {
+	for irq, wantPerCpuCounter := range wantSoftirqs.Irq {
 		gotPerCpuCount := softirqs.Irq[irq]
 		if gotPerCpuCount == nil {
 			fmt.Fprintf(
@@ -124,13 +124,13 @@ func testSoftirqParser(tc *SoftirqTestCase, t *testing.T) {
 			continue
 		}
 		for i := 0; i < wantSoftirqs.NumCpus; i++ {
-			wantCount := wantPerCpuCount[i]
-			gotCount := gotPerCpuCount[i]
-			if wantCount != gotCount {
+			wantCounter := wantPerCpuCounter[i]
+			gotCounter := gotPerCpuCount[i]
+			if wantCounter != gotCounter {
 				fmt.Fprintf(
 					diffBuf,
 					"\nIrq[%q][%d]: want: %d, got: %d",
-					irq, i, wantCount, gotCount,
+					irq, i, wantCounter, gotCounter,
 				)
 			}
 		}
@@ -151,8 +151,8 @@ func testSoftirqParser(tc *SoftirqTestCase, t *testing.T) {
 	}
 }
 
-func TestSoftirqParser(t *testing.T) {
-	for _, tc := range []*SoftirqTestCase{
+func TestSoftirqsParser(t *testing.T) {
+	for _, tc := range []*SoftirqsTestCase{
 		{
 			procfsRoot: path.Join(softirqsTestdataDir, "field_mapping"),
 			wantSoftirqs: &Softirqs{
@@ -234,7 +234,7 @@ func TestSoftirqParser(t *testing.T) {
 		}
 		t.Run(
 			name,
-			func(t *testing.T) { testSoftirqParser(tc, t) },
+			func(t *testing.T) { testSoftirqsParser(tc, t) },
 		)
 	}
 }
