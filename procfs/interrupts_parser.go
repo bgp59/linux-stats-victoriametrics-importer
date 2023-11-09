@@ -79,9 +79,10 @@ var interruptsLineSeparators = [256]bool{' ': true, '\t': true}
 
 func NewInterrupts(procfsRoot string) *Interrupts {
 	return &Interrupts{
-		Irq:        make(map[string][]uint64),
-		irqScanNum: map[string]int{},
-		path:       path.Join(procfsRoot, "interrupts"),
+		Irq:         map[string][]uint64{},
+		Description: map[string]*InterruptDescription{},
+		irqScanNum:  map[string]int{},
+		path:        path.Join(procfsRoot, "interrupts"),
 	}
 }
 
@@ -270,7 +271,6 @@ func (interrupts *Interrupts) Parse() error {
 				description = &InterruptDescription{}
 				interrupts.Description[irq] = description
 			}
-
 			description.Changed = !bytes.Equal(description.irqInfo, irqInfo)
 			if description.Changed {
 				description.irqInfo = make([]byte, len(irqInfo))
@@ -303,6 +303,7 @@ func (interrupts *Interrupts) Parse() error {
 					if start < end {
 						devices = append(devices, string(irqInfo[start:end]))
 					}
+					pos++
 				}
 				description.Devices = devices
 			}

@@ -149,6 +149,68 @@ func testInterruptsParser(tc *InterruptsTestCase, t *testing.T) {
 		}
 	}
 
+	for irq, wantDescription := range tc.wantInterrupts.Description {
+		gotDescription := interrupts.Description[irq]
+		if gotDescription == nil {
+			fmt.Fprintf(
+				diffBuf,
+				"\nDescription: missing  %q",
+				irq,
+			)
+			continue
+		}
+		if wantDescription.Controller != gotDescription.Controller {
+			fmt.Fprintf(
+				diffBuf,
+				"\nDescription[%q].Controller: want: %q, got: %q",
+				irq, wantDescription.Controller, gotDescription.Controller,
+			)
+		}
+		if wantDescription.HWInterrupt != gotDescription.HWInterrupt {
+			fmt.Fprintf(
+				diffBuf,
+				"\nDescription[%q].HWInterrupt: want: %q, got: %q",
+				irq, wantDescription.HWInterrupt, gotDescription.HWInterrupt,
+			)
+		}
+		devicesEq := len(wantDescription.Devices) == len(gotDescription.Devices)
+		if devicesEq {
+			for i, wantDevice := range wantDescription.Devices {
+				if wantDevice != gotDescription.Devices[i] {
+					devicesEq = false
+					break
+				}
+			}
+		}
+		if !devicesEq {
+			fmt.Fprintf(
+				diffBuf,
+				"\nDescription[%q].Devices:\n\twant: %q\n\t got: %q",
+				irq, wantDescription.Devices, gotDescription.Devices,
+			)
+		}
+
+		if wantDescription.Changed != gotDescription.Changed {
+			fmt.Fprintf(
+				diffBuf,
+				"\nDescription[%q].Changed: want: %v, got: %v",
+				irq, wantDescription.Changed, gotDescription.Changed,
+			)
+		}
+	}
+
+	if tc.primeInterrupts == nil || len(tc.primeInterrupts.Description) == 0 {
+		for irq, description := range interrupts.Description {
+			if tc.wantInterrupts.Description[irq] == nil {
+				fmt.Fprintf(
+					diffBuf,
+					"\nDescription: unexpected irq %q (Controller: %q, HWInterrupt: %q, Devices: %q)",
+					irq, description.Controller, description.HWInterrupt, description.Devices,
+				)
+			}
+		}
+	}
+
 	if diffBuf.Len() > 0 {
 		t.Fatal(diffBuf.String())
 	}
@@ -160,9 +222,34 @@ func TestInterruptsParser(t *testing.T) {
 			procfsRoot: path.Join(interruptsTestdataDir, "field_mapping"),
 			wantInterrupts: &Interrupts{
 				ColIndexToCpuNum: nil,
-				CpuNumLine:       "                    CPU0       CPU1",
-				Irq:              map[string][]uint64{},
-				NumCpus:          2,
+				CpuNumLine:       "                  CPU0           CPU1",
+				Irq: map[string][]uint64{
+					"0":           []uint64{0, 1},
+					"1":           []uint64{1000, 1001},
+					"4":           []uint64{4000, 4001},
+					"non-numeric": []uint64{1000000, 1000001},
+				},
+				NumCpus: 2,
+				Description: map[string]*InterruptDescription{
+					"0": &InterruptDescription{
+						Controller:  "controller-0",
+						HWInterrupt: "hw-irq-0",
+						Devices:     []string{"device0"},
+						Changed:     true,
+					},
+					"1": &InterruptDescription{
+						Controller:  "controller-1",
+						HWInterrupt: "hw-irq-1",
+						Devices:     []string{"device1-1", "device1-2"},
+						Changed:     true,
+					},
+					"4": &InterruptDescription{
+						Controller:  "controller-4",
+						HWInterrupt: "hw-irq-4",
+						Devices:     []string{"device4-1", "device4-2"},
+						Changed:     true,
+					},
+				},
 			},
 		},
 	} {
