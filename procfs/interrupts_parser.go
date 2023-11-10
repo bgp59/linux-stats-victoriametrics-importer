@@ -312,6 +312,7 @@ func (interrupts *Interrupts) Parse() error {
 				updateInterruptDescription(description, irqInfo)
 			}
 		}
+
 		// Mark IRQ as found at this scan:
 		interrupts.irqScanNum[irq] = scanNum
 	}
