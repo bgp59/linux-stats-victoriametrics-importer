@@ -63,22 +63,23 @@ const (
 	STAT_NUMERIC_FIELDS_COUNT // Must be last!
 )
 
-var statLinePrefixSeparator = [256]byte{
-	' ':  1,
-	'\t': 1,
+var statLinePrefixSeparator = [256]bool{
+	' ':  true,
+	'\t': true,
 	// Include digits for cpuNN:
-	'0': 1,
-	'1': 1,
-	'2': 1,
-	'3': 1,
-	'4': 1,
-	'5': 1,
-	'6': 1,
-	'7': 1,
-	'8': 1,
-	'9': 1,
+	'0': true,
+	'1': true,
+	'2': true,
+	'3': true,
+	'4': true,
+	'5': true,
+	'6': true,
+	'7': true,
+	'8': true,
+	'9': true,
 }
 
+// Given
 var statPrefixToDstIndexList = map[string][]int{
 	"cpu": []int{
 		STAT_CPU_USER_TICKS,
@@ -158,7 +159,7 @@ func (stat *Stat) Parse() error {
 		lineBytes := scanner.Bytes()
 		sepIndex := -1
 		for i, b := range lineBytes {
-			if statLinePrefixSeparator[b] > 0 {
+			if statLinePrefixSeparator[b] {
 				sepIndex = i
 				break
 			}

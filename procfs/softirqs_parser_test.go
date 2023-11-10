@@ -43,11 +43,11 @@ func testSoftirqsParser(tc *SoftirqsTestCase, t *testing.T) {
 	wantSoftirqs := tc.wantSoftirqs
 	diffBuf := &bytes.Buffer{}
 
-	if wantSoftirqs.CpuNumLine != softirqs.CpuNumLine {
+	if wantSoftirqs.CpuHeaderLine != softirqs.CpuHeaderLine {
 		fmt.Fprintf(
 			diffBuf,
 			"\nCpuNumLine:\n\twant: %q,\n\t got: %q",
-			wantSoftirqs.CpuNumLine, softirqs.CpuNumLine,
+			wantSoftirqs.CpuHeaderLine, softirqs.CpuHeaderLine,
 		)
 	}
 	if diffBuf.Len() > 0 {
@@ -157,7 +157,7 @@ func TestSoftirqsParser(t *testing.T) {
 			procfsRoot: path.Join(softirqsTestdataDir, "field_mapping"),
 			wantSoftirqs: &Softirqs{
 				ColIndexToCpuNum: nil,
-				CpuNumLine:       "                    CPU0       CPU1       CPU2       CPU3",
+				CpuHeaderLine:    "                    CPU0       CPU1       CPU2       CPU3",
 				Irq: map[string][]uint64{
 					"HI":     []uint64{0, 1, 2, 3},
 					"TIMER":  []uint64{4, 5, 6, 7},
@@ -172,7 +172,7 @@ func TestSoftirqsParser(t *testing.T) {
 			procfsRoot: path.Join(softirqsTestdataDir, "field_mapping"),
 			primeSoftirqs: &Softirqs{
 				ColIndexToCpuNum: nil,
-				CpuNumLine:       "                    CPU0       CPU1       CPU2       CPU3",
+				CpuHeaderLine:    "                    CPU0       CPU1       CPU2       CPU3",
 				Irq: map[string][]uint64{
 					"HRTIMER": []uint64{10000, 10001, 10002, 10003},
 					"RCU":     []uint64{10004, 10005, 10006, 10007},
@@ -190,7 +190,7 @@ func TestSoftirqsParser(t *testing.T) {
 			},
 			wantSoftirqs: &Softirqs{
 				ColIndexToCpuNum: nil,
-				CpuNumLine:       "                    CPU0       CPU1       CPU2       CPU3",
+				CpuHeaderLine:    "                    CPU0       CPU1       CPU2       CPU3",
 				Irq: map[string][]uint64{
 					"HI":     []uint64{0, 1, 2, 3},
 					"TIMER":  []uint64{4, 5, 6, 7},
@@ -204,7 +204,7 @@ func TestSoftirqsParser(t *testing.T) {
 			procfsRoot: path.Join(softirqsTestdataDir, "remove_cpu"),
 			primeSoftirqs: &Softirqs{
 				ColIndexToCpuNum: nil,
-				CpuNumLine:       "                    CPU0       CPU1       CPU2       CPU3",
+				CpuHeaderLine:    "                    CPU0       CPU1       CPU2       CPU3",
 				Irq: map[string][]uint64{
 					"HI":     []uint64{10000, 10001, 10002, 10003},
 					"TIMER":  []uint64{10004, 10005, 10006, 10007},
@@ -215,7 +215,7 @@ func TestSoftirqsParser(t *testing.T) {
 			},
 			wantSoftirqs: &Softirqs{
 				ColIndexToCpuNum: []int{0, 1, 3},
-				CpuNumLine:       "                    CPU0       CPU1       CPU3",
+				CpuHeaderLine:    "                    CPU0       CPU1       CPU3",
 				Irq: map[string][]uint64{
 					"HI":     []uint64{0, 1, 3},
 					"TIMER":  []uint64{4, 5, 7},

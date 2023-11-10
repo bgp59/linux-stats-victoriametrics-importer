@@ -21,7 +21,7 @@ type Softirqs struct {
 	ColIndexToCpuNum []int
 	// Cache the line used for building the mapping above; if the line is
 	// unchanged from the previous run then the mapping is still valid.
-	CpuNumLine string
+	CpuHeaderLine string
 	// IRQ -> [N, N, ,,, N] map:
 	Irq map[string][]uint64
 	// The number of CPUs; the size of per CPU slices may be greater if a CPU
@@ -46,11 +46,11 @@ func NewSoftirqs(procfsRoot string) *Softirqs {
 
 func (softirqs *Softirqs) Clone(full bool) *Softirqs {
 	newSoftirqs := &Softirqs{
-		CpuNumLine: softirqs.CpuNumLine,
-		Irq:        make(map[string][]uint64),
-		NumCpus:    softirqs.NumCpus,
-		irqScanNum: map[string]int{},
-		path:       softirqs.path,
+		CpuHeaderLine: softirqs.CpuHeaderLine,
+		Irq:           make(map[string][]uint64),
+		NumCpus:       softirqs.NumCpus,
+		irqScanNum:    map[string]int{},
+		path:          softirqs.path,
 	}
 	if softirqs.ColIndexToCpuNum != nil {
 		newSoftirqs.ColIndexToCpuNum = make([]int, len(softirqs.ColIndexToCpuNum))
@@ -71,6 +71,33 @@ func (softirqs *Softirqs) Clone(full bool) *Softirqs {
 	return newSoftirqs
 }
 
+func (softirqs *Softirqs) updateColIndexToCpuNumMap(cpuHeaderLine string) error {
+	needsColIndexToCpuNumMap := false
+	fields := strings.Fields(cpuHeaderLine)
+	softirqs.NumCpus = len(fields)
+	colIndexToCpuNum := make([]int, softirqs.NumCpus)
+	for index, cpu := range fields {
+		if len(cpu) <= 3 {
+			return fmt.Errorf("invalid cpu spec")
+		}
+		cpuNum, err := strconv.Atoi(cpu[3:])
+		if err != nil {
+			return err
+		}
+		colIndexToCpuNum[index] = cpuNum
+		if index != cpuNum {
+			needsColIndexToCpuNumMap = true
+		}
+	}
+	softirqs.CpuHeaderLine = cpuHeaderLine
+	if needsColIndexToCpuNumMap {
+		softirqs.ColIndexToCpuNum = colIndexToCpuNum
+	} else {
+		softirqs.ColIndexToCpuNum = nil
+	}
+	return nil
+}
+
 func (softirqs *Softirqs) Parse() error {
 	file, err := os.Open(softirqs.path)
 	if err != nil {
@@ -83,37 +110,12 @@ func (softirqs *Softirqs) Parse() error {
 		line := scanner.Text()
 		// CPU# header:
 		if lineNum == 1 {
-			if line != softirqs.CpuNumLine {
-				needsCpuNumMap := false
-				fields := strings.Fields(line)
-				softirqs.NumCpus = len(fields)
+			if line != softirqs.CpuHeaderLine {
+				err = softirqs.updateColIndexToCpuNumMap(line)
+				if err != nil {
+					return fmt.Errorf("%s#%d: %q: %v", softirqs.path, lineNum, line, err)
+				}
 				numCpus = softirqs.NumCpus
-				colIndexToCpuNum := make([]int, numCpus)
-				for index, cpu := range fields {
-					if len(cpu) <= 3 {
-						return fmt.Errorf(
-							"%s: line# %d: %s: invalid cpu spec",
-							softirqs.path, lineNum, line,
-						)
-					}
-					cpuNum, err := strconv.Atoi(cpu[3:])
-					if err != nil {
-						return fmt.Errorf(
-							"%s: line# %d: %s: %v",
-							softirqs.path, lineNum, line, err,
-						)
-					}
-					colIndexToCpuNum[index] = cpuNum
-					if index != cpuNum {
-						needsCpuNumMap = true
-					}
-				}
-				softirqs.CpuNumLine = line
-				if needsCpuNumMap {
-					softirqs.ColIndexToCpuNum = colIndexToCpuNum
-				} else {
-					softirqs.ColIndexToCpuNum = nil
-				}
 			}
 			continue
 		}
@@ -123,17 +125,14 @@ func (softirqs *Softirqs) Parse() error {
 		expectedNumFields := numCpus + 1
 		if len(fields) != expectedNumFields {
 			return fmt.Errorf(
-				"%s: line# %d: %s: field# %d (!= %d)",
+				"%s#%d: %q: field# %d (!= %d)",
 				softirqs.path, lineNum, line, len(fields), expectedNumFields,
 			)
 		}
 		irq := fields[0]
 		irqLen := len(irq) - 1
 		if irqLen < 1 || irq[irqLen] != ':' {
-			return fmt.Errorf(
-				"%s: line# %d: %s: invalid SOFTIRQ",
-				softirqs.path, lineNum, line,
-			)
+			return fmt.Errorf("%s#%d: %q: invalid `SOFTIRQ:'", softirqs.path, lineNum, line)
 		}
 		irq = irq[:irqLen]
 		perCpuIrqCounter := softirqs.Irq[irq]
@@ -144,10 +143,7 @@ func (softirqs *Softirqs) Parse() error {
 		for i := 0; i < numCpus; i++ {
 			perCpuIrqCounter[i], err = strconv.ParseUint(fields[i+1], 10, 64)
 			if err != nil {
-				return fmt.Errorf(
-					"%s: line# %d: %s: %v",
-					softirqs.path, lineNum, line, err,
-				)
+				return fmt.Errorf("%s#%d: %q: %v", softirqs.path, lineNum, line, err)
 			}
 		}
 		softirqs.irqScanNum[irq] = scanNum
