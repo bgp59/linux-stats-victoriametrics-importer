@@ -58,7 +58,7 @@ type Interrupts struct {
 	ColIndexToCpuNum []int
 	// Cache the line used for building the mapping above; if the line is
 	// unchanged from the previous run then the mapping is still valid.
-	CpuNumLine string
+	CpuHeaderLine string
 	// IRQ -> [N, N, ,,, N] map:
 	Irq map[string][]uint64
 	// The number of CPUs; the size of per CPU slices may be greater if a CPU
@@ -88,12 +88,12 @@ func NewInterrupts(procfsRoot string) *Interrupts {
 
 func (interrupts *Interrupts) Clone(full bool) *Interrupts {
 	newInterrupts := &Interrupts{
-		CpuNumLine:  interrupts.CpuNumLine,
-		Irq:         make(map[string][]uint64),
-		NumCpus:     interrupts.NumCpus,
-		Description: make(map[string]*InterruptDescription),
-		irqScanNum:  map[string]int{},
-		path:        interrupts.path,
+		CpuHeaderLine: interrupts.CpuHeaderLine,
+		Irq:           make(map[string][]uint64),
+		NumCpus:       interrupts.NumCpus,
+		Description:   make(map[string]*InterruptDescription),
+		irqScanNum:    map[string]int{},
+		path:          interrupts.path,
 	}
 
 	if interrupts.ColIndexToCpuNum != nil {
@@ -139,6 +139,69 @@ func (interrupts *Interrupts) Clone(full bool) *Interrupts {
 	return newInterrupts
 }
 
+func (interrupts *Interrupts) updateColIndexToCpuNumMap(cpuHeaderLine string) error {
+	needsColIndexToCpuNumMap := false
+	fields := strings.Fields(cpuHeaderLine)
+	interrupts.NumCpus = len(fields)
+	colIndexToCpuNum := make([]int, interrupts.NumCpus)
+	for index, cpu := range fields {
+		if len(cpu) <= 3 {
+			return fmt.Errorf("invalid cpu spec")
+		}
+		cpuNum, err := strconv.Atoi(cpu[3:])
+		if err != nil {
+			return err
+		}
+		colIndexToCpuNum[index] = cpuNum
+		if index != cpuNum {
+			needsColIndexToCpuNumMap = true
+		}
+	}
+	interrupts.CpuHeaderLine = cpuHeaderLine
+	if needsColIndexToCpuNumMap {
+		interrupts.ColIndexToCpuNum = colIndexToCpuNum
+	} else {
+		interrupts.ColIndexToCpuNum = nil
+	}
+	return nil
+}
+
+func updateInterruptDescription(description *InterruptDescription, irqInfo []byte) {
+	description.irqInfo = make([]byte, len(irqInfo))
+	copy(description.irqInfo, irqInfo)
+	l := len(irqInfo)
+
+	start, pos := 0, 0
+	for ; pos < l && !interruptsLineSeparators[irqInfo[pos]]; pos++ {
+	}
+	description.Controller = string(irqInfo[start:pos])
+
+	for ; pos < l && interruptsLineSeparators[irqInfo[pos]]; pos++ {
+	}
+	start = pos
+	for ; pos < l && !interruptsLineSeparators[irqInfo[pos]]; pos++ {
+	}
+	description.HWInterrupt = string(irqInfo[start:pos])
+
+	devices := make([]string, 0)
+	for pos < l {
+		for ; pos < l && interruptsLineSeparators[irqInfo[pos]]; pos++ {
+		}
+		start = pos
+		for ; pos < l && irqInfo[pos] != ','; pos++ {
+		}
+		// Strip ending spaces (directly preceding `,', that is), if any:
+		end := pos
+		for ; start < end && interruptsLineSeparators[irqInfo[end-1]]; end-- {
+		}
+		if start < end {
+			devices = append(devices, string(irqInfo[start:end]))
+		}
+		pos++
+	}
+	description.Devices = devices
+}
+
 func (interrupts *Interrupts) Parse() error {
 	file, err := os.Open(interrupts.path)
 	if err != nil {
@@ -148,48 +211,22 @@ func (interrupts *Interrupts) Parse() error {
 	numCpus := interrupts.NumCpus
 	scanNum := interrupts.scanNum + 1
 	for lineNum := 1; scanner.Scan(); lineNum++ {
-		// Header, look for changes in CPU#NN cols:
+		// CPU header, look for changes in CPU#NN cols:
 		if lineNum == 1 {
 			line := scanner.Text()
-			if line != interrupts.CpuNumLine {
-				needsCpuNumMap := false
-				fields := strings.Fields(line)
-				interrupts.NumCpus = len(fields)
+			if line != interrupts.CpuHeaderLine {
+				err = interrupts.updateColIndexToCpuNumMap(line)
+				if err != nil {
+					return fmt.Errorf("%s#%d: %q: %v", interrupts.path, lineNum, line, err)
+				}
 				numCpus = interrupts.NumCpus
-				colIndexToCpuNum := make([]int, numCpus)
-				for index, cpu := range fields {
-					if len(cpu) <= 3 {
-						return fmt.Errorf(
-							"%s: line# %d: %s: invalid cpu spec",
-							interrupts.path, lineNum, line,
-						)
-					}
-					cpuNum, err := strconv.Atoi(cpu[3:])
-					if err != nil {
-						return fmt.Errorf(
-							"%s: line# %d: %s: %v",
-							interrupts.path, lineNum, line, err,
-						)
-					}
-					colIndexToCpuNum[index] = cpuNum
-					if index != cpuNum {
-						needsCpuNumMap = true
-					}
-				}
-				interrupts.CpuNumLine = line
-				if needsCpuNumMap {
-					interrupts.ColIndexToCpuNum = colIndexToCpuNum
-				} else {
-					interrupts.ColIndexToCpuNum = nil
-				}
 			}
 			continue
 		}
 
 		// IRQ line, handle it as bytes to parse it in a single pass:
 		line := scanner.Bytes()
-		l := len(line)
-		pos := 0
+		pos, l := 0, len(line)
 
 		// Parse `   IRQ:':
 		for ; pos < l && interruptsLineSeparators[line[pos]]; pos++ {
@@ -217,10 +254,7 @@ func (interrupts *Interrupts) Parse() error {
 			}
 		}
 		if irq == "" {
-			return fmt.Errorf(
-				"%s: line# %d: %s: missing IRQ",
-				interrupts.path, lineNum, line,
-			)
+			return fmt.Errorf("%s#%d: %q: missing `IRQ:'", interrupts.path, lineNum, line)
 		}
 
 		// Parse ` NNNN NNN ... NNN' interrupt counters:
@@ -235,28 +269,30 @@ func (interrupts *Interrupts) Parse() error {
 			// Locate next NNNN:
 			for ; pos < l && interruptsLineSeparators[line[pos]]; pos++ {
 			}
-
-			for counter := uint64(0); pos < l; pos++ {
+			counter, pendingCounter := uint64(0), false
+			for ; pos < l; pos++ {
 				c := line[pos]
-				if interruptsLineSeparators[c] {
-					perCpuIrqCounter[counterIndex] = counter
-					counterIndex++
-					pos++
-					break
-				}
 				if '0' <= c && c <= '9' {
 					counter = counter*10 + uint64(c-'0')
+					pendingCounter = true
+				} else if interruptsLineSeparators[c] {
+					pos++
+					break
 				} else {
 					return fmt.Errorf(
-						"%s: line# %d: %s: invalid number for counter index %d",
+						"%s#%d: %q: invalid number for counter index %d",
 						interrupts.path, lineNum, line, counterIndex,
 					)
 				}
 			}
+			if pendingCounter {
+				perCpuIrqCounter[counterIndex] = counter
+				counterIndex++
+			}
 		}
 		if counterIndex < numCpus {
 			return fmt.Errorf(
-				"%s: line# %d: %s: invalid number of counters %d (< %d)",
+				"%s#%d: %q: invalid number of counters %d (< %d)",
 				interrupts.path, lineNum, line, counterIndex, numCpus,
 			)
 		}
@@ -273,41 +309,11 @@ func (interrupts *Interrupts) Parse() error {
 			}
 			description.Changed = !bytes.Equal(description.irqInfo, irqInfo)
 			if description.Changed {
-				description.irqInfo = make([]byte, len(irqInfo))
-				copy(description.irqInfo, irqInfo)
-				l := len(irqInfo)
-
-				start, pos := 0, 0
-				for ; pos < l && !interruptsLineSeparators[irqInfo[pos]]; pos++ {
-				}
-				description.Controller = string(irqInfo[start:pos])
-
-				for ; pos < l && interruptsLineSeparators[irqInfo[pos]]; pos++ {
-				}
-				start = pos
-				for ; pos < l && !interruptsLineSeparators[irqInfo[pos]]; pos++ {
-				}
-				description.HWInterrupt = string(irqInfo[start:pos])
-
-				devices := make([]string, 0)
-				for pos < l {
-					for ; pos < l && interruptsLineSeparators[irqInfo[pos]]; pos++ {
-					}
-					start = pos
-					for ; pos < l && irqInfo[pos] != ','; pos++ {
-					}
-					// Strip ending spaces (directly preceding `,', that is), if any:
-					end := pos
-					for ; start < end && interruptsLineSeparators[irqInfo[end-1]]; end-- {
-					}
-					if start < end {
-						devices = append(devices, string(irqInfo[start:end]))
-					}
-					pos++
-				}
-				description.Devices = devices
+				updateInterruptDescription(description, irqInfo)
 			}
 		}
+		// Mark IRQ as found at this scan:
+		interrupts.irqScanNum[irq] = scanNum
 	}
 
 	err = scanner.Err()

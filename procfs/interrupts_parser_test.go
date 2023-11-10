@@ -46,11 +46,11 @@ func testInterruptsParser(tc *InterruptsTestCase, t *testing.T) {
 		t.Fatal(diffBuf.String())
 	}
 
-	if wantInterrupts.CpuNumLine != interrupts.CpuNumLine {
+	if wantInterrupts.CpuHeaderLine != interrupts.CpuHeaderLine {
 		fmt.Fprintf(
 			diffBuf,
 			"\nCpuNumLine:\n\twant: %q,\n\t got: %q",
-			wantInterrupts.CpuNumLine, interrupts.CpuNumLine,
+			wantInterrupts.CpuHeaderLine, interrupts.CpuHeaderLine,
 		)
 	}
 	if diffBuf.Len() > 0 {
@@ -60,7 +60,7 @@ func testInterruptsParser(tc *InterruptsTestCase, t *testing.T) {
 	if wantInterrupts.NumCpus != interrupts.NumCpus {
 		fmt.Fprintf(
 			diffBuf,
-			"\nexpectedNumFields: want: %q, got: %q",
+			"\nNumCpus: want: %d, got: %d",
 			wantInterrupts.NumCpus, interrupts.NumCpus,
 		)
 	}
@@ -222,12 +222,13 @@ func TestInterruptsParser(t *testing.T) {
 			procfsRoot: path.Join(interruptsTestdataDir, "field_mapping"),
 			wantInterrupts: &Interrupts{
 				ColIndexToCpuNum: nil,
-				CpuNumLine:       "                  CPU0           CPU1",
+				CpuHeaderLine:    "                  CPU0           CPU1",
 				Irq: map[string][]uint64{
 					"0":           []uint64{0, 1},
 					"1":           []uint64{1000, 1001},
 					"4":           []uint64{4000, 4001},
 					"non-numeric": []uint64{1000000, 1000001},
+					"no-info":     []uint64{2000000, 2000001},
 				},
 				NumCpus: 2,
 				Description: map[string]*InterruptDescription{
@@ -252,10 +253,151 @@ func TestInterruptsParser(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:       "remove_irq",
+			procfsRoot: path.Join(interruptsTestdataDir, "field_mapping"),
+			primeInterrupts: &Interrupts{
+				ColIndexToCpuNum: nil,
+				CpuHeaderLine:    "                  CPU0           CPU1",
+				Irq: map[string][]uint64{
+					"0":           []uint64{20, 21},
+					"1":           []uint64{21000, 21001},
+					"4":           []uint64{24000, 24001},
+					"non-numeric": []uint64{21000000, 21000001},
+					"no-info":     []uint64{22000000, 22000001},
+					"11":          []uint64{2110, 2111},
+					"delete":      []uint64{31000000, 31000001},
+				},
+				NumCpus: 2,
+				irqScanNum: map[string]int{
+					"0":           10,
+					"1":           10,
+					"4":           10,
+					"non-numeric": 10,
+					"no-info":     10,
+					"11":          10,
+					"delete":      10,
+				},
+				scanNum: 10,
+			},
+			wantInterrupts: &Interrupts{
+				ColIndexToCpuNum: nil,
+				CpuHeaderLine:    "                  CPU0           CPU1",
+				Irq: map[string][]uint64{
+					"0":           []uint64{0, 1},
+					"1":           []uint64{1000, 1001},
+					"4":           []uint64{4000, 4001},
+					"non-numeric": []uint64{1000000, 1000001},
+					"no-info":     []uint64{2000000, 2000001},
+				},
+				NumCpus: 2,
+				Description: map[string]*InterruptDescription{
+					"0": &InterruptDescription{
+						Controller:  "controller-0",
+						HWInterrupt: "hw-irq-0",
+						Devices:     []string{"device0"},
+						Changed:     true,
+					},
+					"1": &InterruptDescription{
+						Controller:  "controller-1",
+						HWInterrupt: "hw-irq-1",
+						Devices:     []string{"device1-1", "device1-2"},
+						Changed:     true,
+					},
+					"4": &InterruptDescription{
+						Controller:  "controller-4",
+						HWInterrupt: "hw-irq-4",
+						Devices:     []string{"device4-1", "device4-2"},
+						Changed:     true,
+					},
+				},
+			},
+		},
+		{
+			procfsRoot: path.Join(interruptsTestdataDir, "remove_cpu"),
+			primeInterrupts: &Interrupts{
+				ColIndexToCpuNum: nil,
+				CpuHeaderLine:    "                  CPU0           CPU1",
+				Irq: map[string][]uint64{
+					"0":           []uint64{20, 21},
+					"1":           []uint64{21000, 21001},
+					"4":           []uint64{24000, 24001},
+					"non-numeric": []uint64{21000000, 21000001},
+					"no-info":     []uint64{22000000, 22000001},
+					"11":          []uint64{2110, 2111},
+					"delete":      []uint64{31000000, 31000001},
+				},
+				NumCpus: 2,
+				irqScanNum: map[string]int{
+					"0":           10,
+					"1":           10,
+					"4":           10,
+					"non-numeric": 10,
+					"11":          10,
+					"delete":      10,
+				},
+				scanNum: 10,
+				Description: map[string]*InterruptDescription{
+					"0": &InterruptDescription{
+						Controller:  "controller-0",
+						HWInterrupt: "hw-irq-0",
+						Devices:     []string{"device0"},
+						Changed:     true,
+						irqInfo:     []byte("controller-0   hw-irq-0    device0"),
+					},
+					"1": &InterruptDescription{
+						Controller:  "controller-1",
+						HWInterrupt: "hw-irq-1",
+						Devices:     []string{"device1-1", "device1-2"},
+						Changed:     true,
+						irqInfo:     []byte("controller-1   hw-irq-1    device1-1, device1-2"),
+					},
+					"4": &InterruptDescription{
+						Controller:  "controller-4",
+						HWInterrupt: "hw-irq-4",
+						Devices:     []string{"device4-1", "device4-2"},
+						Changed:     true,
+						irqInfo:     []byte("controller-4   hw-irq-4    device4-1  , device4-2"),
+					},
+				},
+			},
+			wantInterrupts: &Interrupts{
+				ColIndexToCpuNum: []int{1},
+				CpuHeaderLine:    "                          CPU1",
+				Irq: map[string][]uint64{
+					"0":           []uint64{1},
+					"1":           []uint64{1001},
+					"4":           []uint64{4001},
+					"non-numeric": []uint64{1000001},
+					"no-info":     []uint64{2000001},
+				},
+				NumCpus: 1,
+				Description: map[string]*InterruptDescription{
+					"0": &InterruptDescription{
+						Controller:  "controller-0",
+						HWInterrupt: "hw-irq-0",
+						Devices:     []string{"device0"},
+						Changed:     false,
+					},
+					"1": &InterruptDescription{
+						Controller:  "controller-1",
+						HWInterrupt: "hw-irq-1",
+						Devices:     []string{"device1-1", "device1-2"},
+						Changed:     false,
+					},
+					"4": &InterruptDescription{
+						Controller:  "controller-4",
+						HWInterrupt: "hw-irq-4",
+						Devices:     []string{"device4-1", "device4-2"},
+						Changed:     false,
+					},
+				},
+			},
+		},
 	} {
 		var name string
 		if tc.name != "" {
-			name = fmt.Sprintf("name=%s/procfsRoot=%s", tc.name, tc.procfsRoot)
+			name = fmt.Sprintf("name=%s,procfsRoot=%s", tc.name, tc.procfsRoot)
 		} else {
 			name = fmt.Sprintf("procfsRoot=%s", tc.procfsRoot)
 		}

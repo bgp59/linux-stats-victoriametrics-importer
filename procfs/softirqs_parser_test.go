@@ -57,7 +57,7 @@ func testSoftirqsParser(tc *SoftirqsTestCase, t *testing.T) {
 	if wantSoftirqs.NumCpus != softirqs.NumCpus {
 		fmt.Fprintf(
 			diffBuf,
-			"\nexpectedNumFields: want: %q, got: %q",
+			"\\nNumCpus: want: %d, got: %d",
 			wantSoftirqs.NumCpus, softirqs.NumCpus,
 		)
 	}
@@ -228,7 +228,7 @@ func TestSoftirqsParser(t *testing.T) {
 	} {
 		var name string
 		if tc.name != "" {
-			name = fmt.Sprintf("name=%s/procfsRoot=%s", tc.name, tc.procfsRoot)
+			name = fmt.Sprintf("name=%s,procfsRoot=%s", tc.name, tc.procfsRoot)
 		} else {
 			name = fmt.Sprintf("procfsRoot=%s", tc.procfsRoot)
 		}

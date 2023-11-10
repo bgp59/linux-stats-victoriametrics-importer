@@ -9,24 +9,28 @@ import (
 	prom_procfs "github.com/prometheus/procfs"
 )
 
-func BenchmarkSoftirqsParser(b *testing.B) {
-	softirqs := procfs.NewSoftirqs(TESTDATA_PROC_ROOT)
+func BenchmarkInterruptsParser(b *testing.B) {
+	interrupts := procfs.NewInterrupts(TESTDATA_PROC_ROOT)
 	for n := 0; n < b.N; n++ {
-		err := softirqs.Parse()
+		err := interrupts.Parse()
 		if err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
-func BenchmarkSoftirqsParserProm(b *testing.B) {
+func BenchmarkInterruptsParserProm(b *testing.B) {
 	fs, err := prom_procfs.NewFS(TESTDATA_PROC_ROOT)
+	if err != nil {
+		b.Fatal(err)
+	}
+	proc, err := fs.Proc(0)
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	for n := 0; n < b.N; n++ {
-		_, err := fs.Softirqs()
+		_, err := proc.Interrupts()
 		if err != nil {
 			b.Fatal(err)
 		}
