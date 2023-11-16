@@ -42,9 +42,6 @@ func testInterruptsParser(tc *InterruptsTestCase, t *testing.T) {
 
 	wantInterrupts := tc.wantInterrupts
 	diffBuf := &bytes.Buffer{}
-	if diffBuf.Len() > 0 {
-		t.Fatal(diffBuf.String())
-	}
 
 	if wantInterrupts.CpuHeaderLine != interrupts.CpuHeaderLine {
 		fmt.Fprintf(
@@ -406,5 +403,4 @@ func TestInterruptsParser(t *testing.T) {
 			func(t *testing.T) { testInterruptsParser(tc, t) },
 		)
 	}
-
 }
