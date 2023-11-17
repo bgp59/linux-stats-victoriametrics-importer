@@ -14,7 +14,8 @@ import (
 // 	https://datatracker.ietf.org/doc/html/rfc1213
 // 	https://datatracker.ietf.org/doc/html/rfc2011
 //  https://datatracker.ietf.org/doc/html/rfc5097
-//  https://github.com/torvalds/linux/blob/master/include/uapi/linux/snmp.h
+//  https://github.com/torvalds/linux/tree/master/include/uapi/linux/snmp.h
+//  https://github.com/torvalds/linux/tree/master/Documentation/networking/snmp_counter.rst
 
 // Tcp: RtoAlgorithm RtoMin RtoMax MaxConn ActiveOpens PassiveOpens AttemptFails EstabResets CurrEstab InSegs OutSegs RetransSegs InErrs OutRsts InCsumErrors
 // Tcp: 1 200 120000 -1 98 63 4 1 1 5708 14228 35 0 15 0
@@ -26,10 +27,10 @@ import (
 // simplify the interface all values will be mapped into Golang int64.
 
 // The file will be parsed as parallel lists of names and values: name[i] has
-// value[i]. The names will formed as protoStat, e.g. udpInDatagrams to match
+// value[i]. The names will formed as ProtoStat, e.g. UdpInDatagrams.
 // the RFC's.
 
-// Each data line (PROTO: VAL ... VAL, that is) will be checked for sanity
+// Each data line (Proto: VAL ... VAL, that is) will be checked for sanity
 // against the following info:
 type NetSnmpLineInfo struct {
 	prefix  []byte
@@ -98,11 +99,11 @@ func (netSnmp *NetSnmp) Parse() error {
 				fields := strings.Fields(line)
 				if len(fields) < 2 || len(fields[0]) < 2 || fields[0][len(fields[0])-1] != ':' {
 					return fmt.Errorf(
-						"%s#%d: %q: invalid line, not PROTO: STAT STAT... ",
+						"%s#%d: %q: invalid line, not Proto: Stat Stat... ",
 						netSnmp.path, lineNum, line,
 					)
 				}
-				proto, stats := strings.ToLower(fields[0][:len(fields[0])-1]), fields[1:]
+				proto, stats := fields[0][:len(fields[0])-1], fields[1:]
 				numVals := len(stats)
 				// Expand the parallel arrays:
 				names := make([]string, numVals)

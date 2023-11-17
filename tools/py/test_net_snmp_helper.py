@@ -10,19 +10,18 @@ import os
 import sys
 
 from testutils import (
-    testdata_proc_dir,
-    testdata_procfs_dir,
+    lsvmi_testdata_procfs_root,
+    procfs_testdata_root,
 )
 
-reference_net_snmp_file = os.path.join(testdata_proc_dir, "net", "snmp")
-output_net_snmp_file = os.path.join(testdata_procfs_dir, "net", "snmp", "field_mapping", "net", "snmp")
+reference_net_snmp_file = os.path.join(lsvmi_testdata_procfs_root, "net", "snmp")
+output_net_snmp_file = os.path.join(procfs_testdata_root, "net", "snmp", "field_mapping", "net", "snmp")
 
 net_snmp_signed_value_names = set([
-    "tcpMaxConn"
+    "TcpMaxConn"
 ])
 
 
-comment_line_info = "// "
 
 if __name__ == '__main__':
     heading_by_line = []
@@ -37,7 +36,7 @@ if __name__ == '__main__':
                 heading_by_line.append(line.strip())
                 words = line.split()
                 prefix, stats = words[0], words[1:]
-                proto = prefix[:-1].lower()
+                proto = prefix[:-1]
                 names = [
                     proto + stat
                     for stat in stats
@@ -66,67 +65,96 @@ if __name__ == '__main__':
             )
     print(f"{output_net_snmp_file} generated", file=sys.stderr)
     print("Cut and paste the following into the appropriate NetSnmpTestCase\n", file=sys.stderr)
-    indent = 1
+
+    indent_lvl = 1
+
+    # primeNetSnmp start:
     print(
-         "\t"*indent + "wantNetSnmp: &NetSnmp{"
+        "\t"*indent_lvl + "primeNetSnmp: &NetSnmp{"
     )
 
+    # primeNetSnmp - Names:
+    indent_lvl += 1
     print(
-         "\t"*(indent+1) + "Names: []string{"
+        "\t"*indent_lvl + "Names: []string{"
     )
+    indent_lvl += 1
     for names in names_by_line:
         print(
-            "\t"*(indent+2) + 
+            "\t"*indent_lvl +
             ", ".join(map(lambda s: f'"{s}"', names)) + ","
         )
+    indent_lvl -= 1
     print(
-         "\t"*(indent+1) + "},"
+        "\t"*indent_lvl + "},"
     )
 
+    # primeNetSnmp - Values:
     print(
-         "\t"*(indent+1) + "// Values: make([]int64, " + "+".join(map(lambda v: str(len(v)),  values_by_line)) + "),"
+        "\t"*indent_lvl + "Values: make([]int64, " + "+".join(map(lambda v: str(len(v)),  values_by_line)) + "),"
     )
 
+    # primeNetSnmp - lineInfo:   
     print(
-         "\t"*(indent+1) + "Values: []int64{"
+        "\t"*indent_lvl + "lineInfo: []*NetSnmpLineInfo{"
     )
+    indent_lvl += 1
+    for line_info in net_snmp_line_info:
+        print(
+            "\t"*indent_lvl + 
+            '{[]byte("' + line_info[0] + '"), ' + str(line_info[1]) + "},"
+        )
+    indent_lvl -= 1
+    print(
+        "\t"*indent_lvl + "},"
+    )
+
+    # primeNetSnmp end:
+    indent_lvl -= 1
+    print(
+        "\t"*indent_lvl + "},"
+    )
+
+    # wantNetSnmp start:
+    print(
+        "\t"*indent_lvl + "wantNetSnmp: &NetSnmp{"
+    )
+
+    # wantNetSnmp - Names:
+    indent_lvl += 1
+    print(
+        "\t"*indent_lvl + "Names: []string{"
+    )
+    indent_lvl += 1
+    for names in names_by_line:
+        print(
+            "\t"*indent_lvl +
+            ", ".join(map(lambda s: f'"{s}"', names)) + ","
+        )
+    indent_lvl -= 1
+    print(
+        "\t"*indent_lvl + "},"
+    )
+
+    # wantNetSnmp - Values:
+    print(
+          "\t"*indent_lvl + "Values: []int64{"
+    )
+    indent_lvl += 1
     for values in values_by_line:
         print(
-            "\t"*(indent+2) + 
+            "\t"*indent_lvl + 
             ", ".join(map(str, values)) + ","
         )
+    indent_lvl -= 1
     print(
-         "\t"*(indent+1) + "},"
+        "\t"*indent_lvl + "}"
     )
 
-    if comment_line_info:
-        print(
-            "\t"*(indent+1) + comment_line_info + "lineInfo: []*NetSnmpLineInfo{"
-        )
-        for line_info in net_snmp_line_info:
-            print(
-                "\t"*(indent+1) + comment_line_info + "\t" + 
-                '{[]byte("' + line_info[0] + '"), ' + str(line_info[1]) + "},"
-            )
-        print(
-            "\t"*(indent+1) + comment_line_info + "},"
-        )
-    else:
-        print(
-            "\t"*(indent+1) + "lineInfo: []*NetSnmpLineInfo{"
-        )
-        for line_info in net_snmp_line_info:
-            print(
-                "\t"*(indent+2) + 
-                '{[]byte("' + line_info[0] + '"), ' + str(line_info[1]) + "},"
-            )
-        print(
-            "\t"*(indent+1) + "},"
-        )
-      
-
+    # wantNetSnmp end:
+    indent_lvl -= 1
     print(
-         "\t"*indent + "},"
+        "\t"*indent_lvl + "},"
     )
 
     print()

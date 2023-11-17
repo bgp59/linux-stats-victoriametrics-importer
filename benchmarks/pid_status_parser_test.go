@@ -15,7 +15,7 @@ import (
 var pidStatusTestPid, pidStatusTestTid int = 468, 486
 
 func BenchmarkPidStatusParser(b *testing.B) {
-	pidStatus := procfs.NewPidStatus(TESTDATA_PROC_ROOT, pidStatusTestPid, pidStatusTestTid)
+	pidStatus := procfs.NewPidStatus(LSVMI_TESTDATA_PROCFS_ROOT, pidStatusTestPid, pidStatusTestTid)
 	for n := 0; n < b.N; n++ {
 		err := pidStatus.Parse()
 		if err != nil {
@@ -26,7 +26,7 @@ func BenchmarkPidStatusParser(b *testing.B) {
 
 func BenchmarkPidStatusParserProm(b *testing.B) {
 	var proc prom_procfs.Proc
-	fs, err := prom_procfs.NewFS(TESTDATA_PROC_ROOT)
+	fs, err := prom_procfs.NewFS(LSVMI_TESTDATA_PROCFS_ROOT)
 	if err != nil {
 		b.Fatal(err)
 	}

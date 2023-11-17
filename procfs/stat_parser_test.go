@@ -14,7 +14,7 @@ type StatTestCase struct {
 	wantError  error
 }
 
-var statTestdataDir = path.Join(TESTDATA_PROCFS_ROOT, "stat")
+var statTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "stat")
 
 var statCpuStatsIndexNameMap = map[int]string{
 	STAT_CPU_USER_TICKS:       "STAT_CPU_USER_TICKS",

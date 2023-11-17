@@ -10,7 +10,7 @@ import (
 )
 
 func BenchmarkSoftirqsParser(b *testing.B) {
-	softirqs := procfs.NewSoftirqs(TESTDATA_PROC_ROOT)
+	softirqs := procfs.NewSoftirqs(LSVMI_TESTDATA_PROCFS_ROOT)
 	for n := 0; n < b.N; n++ {
 		err := softirqs.Parse()
 		if err != nil {
@@ -20,7 +20,7 @@ func BenchmarkSoftirqsParser(b *testing.B) {
 }
 
 func BenchmarkSoftirqsParserProm(b *testing.B) {
-	fs, err := prom_procfs.NewFS(TESTDATA_PROC_ROOT)
+	fs, err := prom_procfs.NewFS(LSVMI_TESTDATA_PROCFS_ROOT)
 	if err != nil {
 		b.Fatal(err)
 	}

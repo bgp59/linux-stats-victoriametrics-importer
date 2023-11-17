@@ -16,7 +16,7 @@ const (
 	PID_STATUS_TEST_PARSE_CLONE_BOTH
 )
 
-var pidStatusTestdataDir = path.Join(TESTDATA_PROCFS_ROOT, "pid_status")
+var pidStatusTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "pid_status")
 
 type PidStatusTestCase struct {
 	procfsRoot          string

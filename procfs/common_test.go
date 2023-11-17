@@ -3,7 +3,6 @@
 package procfs
 
 const (
-	PATH_TO_ROOT         = ".."
-	TESTDATA_PROC_ROOT   = "../testdata/proc"
-	TESTDATA_PROCFS_ROOT = "../testdata/procfs"
+	LSVMI_TESTDATA_PROCFS_ROOT = "../testdata/lsvmi/proc"
+	PROCFS_TESTDATA_ROOT       = "../testdata/procfs"
 )

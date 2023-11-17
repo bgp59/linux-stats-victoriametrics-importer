@@ -12,7 +12,7 @@ import (
 )
 
 func BenchmarkStatParser(b *testing.B) {
-	pidStat := procfs.NewStat(TESTDATA_PROC_ROOT)
+	pidStat := procfs.NewStat(LSVMI_TESTDATA_PROCFS_ROOT)
 	for n := 0; n < b.N; n++ {
 		err := pidStat.Parse()
 		if err != nil {
@@ -22,7 +22,7 @@ func BenchmarkStatParser(b *testing.B) {
 }
 
 func BenchmarkStatParserProm(b *testing.B) {
-	fs, err := prom_procfs.NewFS(TESTDATA_PROC_ROOT)
+	fs, err := prom_procfs.NewFS(LSVMI_TESTDATA_PROCFS_ROOT)
 	if err != nil {
 		b.Fatal(err)
 	}

@@ -15,7 +15,7 @@ type NetSnmpTestCase struct {
 	wantError    error
 }
 
-var netSnmpTestdataDir = path.Join(TESTDATA_PROCFS_ROOT, "net", "snmp")
+var netSnmpTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "net", "snmp")
 
 func testNetSnmpParser(tc *NetSnmpTestCase, t *testing.T) {
 	var netSnmp *NetSnmp
@@ -108,12 +108,12 @@ func TestNetSnmpParser(t *testing.T) {
 			procfsRoot: path.Join(netSnmpTestdataDir, "field_mapping"),
 			wantNetSnmp: &NetSnmp{
 				Names: []string{
-					"ipForwarding", "ipDefaultTTL", "ipInReceives", "ipInHdrErrors", "ipInAddrErrors", "ipForwDatagrams", "ipInUnknownProtos", "ipInDiscards", "ipInDelivers", "ipOutRequests", "ipOutDiscards", "ipOutNoRoutes", "ipReasmTimeout", "ipReasmReqds", "ipReasmOKs", "ipReasmFails", "ipFragOKs", "ipFragFails", "ipFragCreates",
-					"icmpInMsgs", "icmpInErrors", "icmpInCsumErrors", "icmpInDestUnreachs", "icmpInTimeExcds", "icmpInParmProbs", "icmpInSrcQuenchs", "icmpInRedirects", "icmpInEchos", "icmpInEchoReps", "icmpInTimestamps", "icmpInTimestampReps", "icmpInAddrMasks", "icmpInAddrMaskReps", "icmpOutMsgs", "icmpOutErrors", "icmpOutDestUnreachs", "icmpOutTimeExcds", "icmpOutParmProbs", "icmpOutSrcQuenchs", "icmpOutRedirects", "icmpOutEchos", "icmpOutEchoReps", "icmpOutTimestamps", "icmpOutTimestampReps", "icmpOutAddrMasks", "icmpOutAddrMaskReps",
-					"icmpmsgInType3", "icmpmsgOutType3",
-					"tcpRtoAlgorithm", "tcpRtoMin", "tcpRtoMax", "tcpMaxConn", "tcpActiveOpens", "tcpPassiveOpens", "tcpAttemptFails", "tcpEstabResets", "tcpCurrEstab", "tcpInSegs", "tcpOutSegs", "tcpRetransSegs", "tcpInErrs", "tcpOutRsts", "tcpInCsumErrors",
-					"udpInDatagrams", "udpNoPorts", "udpInErrors", "udpOutDatagrams", "udpRcvbufErrors", "udpSndbufErrors", "udpInCsumErrors", "udpIgnoredMulti", "udpMemErrors",
-					"udpliteInDatagrams", "udpliteNoPorts", "udpliteInErrors", "udpliteOutDatagrams", "udpliteRcvbufErrors", "udpliteSndbufErrors", "udpliteInCsumErrors", "udpliteIgnoredMulti", "udpliteMemErrors",
+					"IpForwarding", "IpDefaultTTL", "IpInReceives", "IpInHdrErrors", "IpInAddrErrors", "IpForwDatagrams", "IpInUnknownProtos", "IpInDiscards", "IpInDelivers", "IpOutRequests", "IpOutDiscards", "IpOutNoRoutes", "IpReasmTimeout", "IpReasmReqds", "IpReasmOKs", "IpReasmFails", "IpFragOKs", "IpFragFails", "IpFragCreates",
+					"IcmpInMsgs", "IcmpInErrors", "IcmpInCsumErrors", "IcmpInDestUnreachs", "IcmpInTimeExcds", "IcmpInParmProbs", "IcmpInSrcQuenchs", "IcmpInRedirects", "IcmpInEchos", "IcmpInEchoReps", "IcmpInTimestamps", "IcmpInTimestampReps", "IcmpInAddrMasks", "IcmpInAddrMaskReps", "IcmpOutMsgs", "IcmpOutErrors", "IcmpOutDestUnreachs", "IcmpOutTimeExcds", "IcmpOutParmProbs", "IcmpOutSrcQuenchs", "IcmpOutRedirects", "IcmpOutEchos", "IcmpOutEchoReps", "IcmpOutTimestamps", "IcmpOutTimestampReps", "IcmpOutAddrMasks", "IcmpOutAddrMaskReps",
+					"IcmpMsgInType3", "IcmpMsgOutType3",
+					"TcpRtoAlgorithm", "TcpRtoMin", "TcpRtoMax", "TcpMaxConn", "TcpActiveOpens", "TcpPassiveOpens", "TcpAttemptFails", "TcpEstabResets", "TcpCurrEstab", "TcpInSegs", "TcpOutSegs", "TcpRetransSegs", "TcpInErrs", "TcpOutRsts", "TcpInCsumErrors",
+					"UdpInDatagrams", "UdpNoPorts", "UdpInErrors", "UdpOutDatagrams", "UdpRcvbufErrors", "UdpSndbufErrors", "UdpInCsumErrors", "UdpIgnoredMulti", "UdpMemErrors",
+					"UdpLiteInDatagrams", "UdpLiteNoPorts", "UdpLiteInErrors", "UdpLiteOutDatagrams", "UdpLiteRcvbufErrors", "UdpLiteSndbufErrors", "UdpLiteInCsumErrors", "UdpLiteIgnoredMulti", "UdpLiteMemErrors",
 				},
 				Values: []int64{
 					1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018,
@@ -130,12 +130,12 @@ func TestNetSnmpParser(t *testing.T) {
 			procfsRoot: path.Join(netSnmpTestdataDir, "field_mapping"),
 			primeNetSnmp: &NetSnmp{
 				Names: []string{
-					"ipForwarding", "ipDefaultTTL", "ipInReceives", "ipInHdrErrors", "ipInAddrErrors", "ipForwDatagrams", "ipInUnknownProtos", "ipInDiscards", "ipInDelivers", "ipOutRequests", "ipOutDiscards", "ipOutNoRoutes", "ipReasmTimeout", "ipReasmReqds", "ipReasmOKs", "ipReasmFails", "ipFragOKs", "ipFragFails", "ipFragCreates",
-					"icmpInMsgs", "icmpInErrors", "icmpInCsumErrors", "icmpInDestUnreachs", "icmpInTimeExcds", "icmpInParmProbs", "icmpInSrcQuenchs", "icmpInRedirects", "icmpInEchos", "icmpInEchoReps", "icmpInTimestamps", "icmpInTimestampReps", "icmpInAddrMasks", "icmpInAddrMaskReps", "icmpOutMsgs", "icmpOutErrors", "icmpOutDestUnreachs", "icmpOutTimeExcds", "icmpOutParmProbs", "icmpOutSrcQuenchs", "icmpOutRedirects", "icmpOutEchos", "icmpOutEchoReps", "icmpOutTimestamps", "icmpOutTimestampReps", "icmpOutAddrMasks", "icmpOutAddrMaskReps",
-					"icmpmsgInType3", "icmpmsgOutType3",
-					"tcpRtoAlgorithm", "tcpRtoMin", "tcpRtoMax", "tcpMaxConn", "tcpActiveOpens", "tcpPassiveOpens", "tcpAttemptFails", "tcpEstabResets", "tcpCurrEstab", "tcpInSegs", "tcpOutSegs", "tcpRetransSegs", "tcpInErrs", "tcpOutRsts", "tcpInCsumErrors",
-					"udpInDatagrams", "udpNoPorts", "udpInErrors", "udpOutDatagrams", "udpRcvbufErrors", "udpSndbufErrors", "udpInCsumErrors", "udpIgnoredMulti", "udpMemErrors",
-					"udpliteInDatagrams", "udpliteNoPorts", "udpliteInErrors", "udpliteOutDatagrams", "udpliteRcvbufErrors", "udpliteSndbufErrors", "udpliteInCsumErrors", "udpliteIgnoredMulti", "udpliteMemErrors",
+					"IpForwarding", "IpDefaultTTL", "IpInReceives", "IpInHdrErrors", "IpInAddrErrors", "IpForwDatagrams", "IpInUnknownProtos", "IpInDiscards", "IpInDelivers", "IpOutRequests", "IpOutDiscards", "IpOutNoRoutes", "IpReasmTimeout", "IpReasmReqds", "IpReasmOKs", "IpReasmFails", "IpFragOKs", "IpFragFails", "IpFragCreates",
+					"IcmpInMsgs", "IcmpInErrors", "IcmpInCsumErrors", "IcmpInDestUnreachs", "IcmpInTimeExcds", "IcmpInParmProbs", "IcmpInSrcQuenchs", "IcmpInRedirects", "IcmpInEchos", "IcmpInEchoReps", "IcmpInTimestamps", "IcmpInTimestampReps", "IcmpInAddrMasks", "IcmpInAddrMaskReps", "IcmpOutMsgs", "IcmpOutErrors", "IcmpOutDestUnreachs", "IcmpOutTimeExcds", "IcmpOutParmProbs", "IcmpOutSrcQuenchs", "IcmpOutRedirects", "IcmpOutEchos", "IcmpOutEchoReps", "IcmpOutTimestamps", "IcmpOutTimestampReps", "IcmpOutAddrMasks", "IcmpOutAddrMaskReps",
+					"IcmpMsgInType3", "IcmpMsgOutType3",
+					"TcpRtoAlgorithm", "TcpRtoMin", "TcpRtoMax", "TcpMaxConn", "TcpActiveOpens", "TcpPassiveOpens", "TcpAttemptFails", "TcpEstabResets", "TcpCurrEstab", "TcpInSegs", "TcpOutSegs", "TcpRetransSegs", "TcpInErrs", "TcpOutRsts", "TcpInCsumErrors",
+					"UdpInDatagrams", "UdpNoPorts", "UdpInErrors", "UdpOutDatagrams", "UdpRcvbufErrors", "UdpSndbufErrors", "UdpInCsumErrors", "UdpIgnoredMulti", "UdpMemErrors",
+					"UdpLiteInDatagrams", "UdpLiteNoPorts", "UdpLiteInErrors", "UdpLiteOutDatagrams", "UdpLiteRcvbufErrors", "UdpLiteSndbufErrors", "UdpLiteInCsumErrors", "UdpLiteIgnoredMulti", "UdpLiteMemErrors",
 				},
 				Values: make([]int64, 19+27+2+15+9+9),
 				lineInfo: []*NetSnmpLineInfo{
@@ -149,12 +149,12 @@ func TestNetSnmpParser(t *testing.T) {
 			},
 			wantNetSnmp: &NetSnmp{
 				Names: []string{
-					"ipForwarding", "ipDefaultTTL", "ipInReceives", "ipInHdrErrors", "ipInAddrErrors", "ipForwDatagrams", "ipInUnknownProtos", "ipInDiscards", "ipInDelivers", "ipOutRequests", "ipOutDiscards", "ipOutNoRoutes", "ipReasmTimeout", "ipReasmReqds", "ipReasmOKs", "ipReasmFails", "ipFragOKs", "ipFragFails", "ipFragCreates",
-					"icmpInMsgs", "icmpInErrors", "icmpInCsumErrors", "icmpInDestUnreachs", "icmpInTimeExcds", "icmpInParmProbs", "icmpInSrcQuenchs", "icmpInRedirects", "icmpInEchos", "icmpInEchoReps", "icmpInTimestamps", "icmpInTimestampReps", "icmpInAddrMasks", "icmpInAddrMaskReps", "icmpOutMsgs", "icmpOutErrors", "icmpOutDestUnreachs", "icmpOutTimeExcds", "icmpOutParmProbs", "icmpOutSrcQuenchs", "icmpOutRedirects", "icmpOutEchos", "icmpOutEchoReps", "icmpOutTimestamps", "icmpOutTimestampReps", "icmpOutAddrMasks", "icmpOutAddrMaskReps",
-					"icmpmsgInType3", "icmpmsgOutType3",
-					"tcpRtoAlgorithm", "tcpRtoMin", "tcpRtoMax", "tcpMaxConn", "tcpActiveOpens", "tcpPassiveOpens", "tcpAttemptFails", "tcpEstabResets", "tcpCurrEstab", "tcpInSegs", "tcpOutSegs", "tcpRetransSegs", "tcpInErrs", "tcpOutRsts", "tcpInCsumErrors",
-					"udpInDatagrams", "udpNoPorts", "udpInErrors", "udpOutDatagrams", "udpRcvbufErrors", "udpSndbufErrors", "udpInCsumErrors", "udpIgnoredMulti", "udpMemErrors",
-					"udpliteInDatagrams", "udpliteNoPorts", "udpliteInErrors", "udpliteOutDatagrams", "udpliteRcvbufErrors", "udpliteSndbufErrors", "udpliteInCsumErrors", "udpliteIgnoredMulti", "udpliteMemErrors",
+					"IpForwarding", "IpDefaultTTL", "IpInReceives", "IpInHdrErrors", "IpInAddrErrors", "IpForwDatagrams", "IpInUnknownProtos", "IpInDiscards", "IpInDelivers", "IpOutRequests", "IpOutDiscards", "IpOutNoRoutes", "IpReasmTimeout", "IpReasmReqds", "IpReasmOKs", "IpReasmFails", "IpFragOKs", "IpFragFails", "IpFragCreates",
+					"IcmpInMsgs", "IcmpInErrors", "IcmpInCsumErrors", "IcmpInDestUnreachs", "IcmpInTimeExcds", "IcmpInParmProbs", "IcmpInSrcQuenchs", "IcmpInRedirects", "IcmpInEchos", "IcmpInEchoReps", "IcmpInTimestamps", "IcmpInTimestampReps", "IcmpInAddrMasks", "IcmpInAddrMaskReps", "IcmpOutMsgs", "IcmpOutErrors", "IcmpOutDestUnreachs", "IcmpOutTimeExcds", "IcmpOutParmProbs", "IcmpOutSrcQuenchs", "IcmpOutRedirects", "IcmpOutEchos", "IcmpOutEchoReps", "IcmpOutTimestamps", "IcmpOutTimestampReps", "IcmpOutAddrMasks", "IcmpOutAddrMaskReps",
+					"IcmpMsgInType3", "IcmpMsgOutType3",
+					"TcpRtoAlgorithm", "TcpRtoMin", "TcpRtoMax", "TcpMaxConn", "TcpActiveOpens", "TcpPassiveOpens", "TcpAttemptFails", "TcpEstabResets", "TcpCurrEstab", "TcpInSegs", "TcpOutSegs", "TcpRetransSegs", "TcpInErrs", "TcpOutRsts", "TcpInCsumErrors",
+					"UdpInDatagrams", "UdpNoPorts", "UdpInErrors", "UdpOutDatagrams", "UdpRcvbufErrors", "UdpSndbufErrors", "UdpInCsumErrors", "UdpIgnoredMulti", "UdpMemErrors",
+					"UdpLiteInDatagrams", "UdpLiteNoPorts", "UdpLiteInErrors", "UdpLiteOutDatagrams", "UdpLiteRcvbufErrors", "UdpLiteSndbufErrors", "UdpLiteInCsumErrors", "UdpLiteIgnoredMulti", "UdpLiteMemErrors",
 				},
 				Values: []int64{
 					1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018,

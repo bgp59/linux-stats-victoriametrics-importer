@@ -12,7 +12,7 @@ const (
 	PID_STAT_PROCFS_PID = 0
 )
 
-var pidStatTestdataDir = path.Join(TESTDATA_PROCFS_ROOT, "pid_stat")
+var pidStatTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "pid_stat")
 
 var pidStatByteSliceFieldName = map[int]string{
 	PID_STAT_COMM:        "PID_STAT_COMM",
@@ -95,7 +95,7 @@ func testPidStatParser(tc *PidStatTestCase, t *testing.T) {
 func TestPidStatParser(t *testing.T) {
 	for _, tc := range []*PidStatTestCase{
 		{
-			procfsRoot: TESTDATA_PROC_ROOT,
+			procfsRoot: LSVMI_TESTDATA_PROCFS_ROOT,
 			pid:        468,
 			tid:        486,
 			wantByteSliceFields: map[int]string{

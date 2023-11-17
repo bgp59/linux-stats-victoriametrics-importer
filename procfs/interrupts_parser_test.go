@@ -15,7 +15,7 @@ type InterruptsTestCase struct {
 	wantError       error
 }
 
-var interruptsTestdataDir = path.Join(TESTDATA_PROCFS_ROOT, "interrupts")
+var interruptsTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "interrupts")
 
 func testInterruptsParser(tc *InterruptsTestCase, t *testing.T) {
 	var interrupts *Interrupts

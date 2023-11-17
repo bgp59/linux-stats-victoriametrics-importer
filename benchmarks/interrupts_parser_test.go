@@ -10,7 +10,7 @@ import (
 )
 
 func BenchmarkInterruptsParser(b *testing.B) {
-	interrupts := procfs.NewInterrupts(TESTDATA_PROC_ROOT)
+	interrupts := procfs.NewInterrupts(LSVMI_TESTDATA_PROCFS_ROOT)
 	for n := 0; n < b.N; n++ {
 		err := interrupts.Parse()
 		if err != nil {
@@ -20,7 +20,7 @@ func BenchmarkInterruptsParser(b *testing.B) {
 }
 
 func BenchmarkInterruptsParserProm(b *testing.B) {
-	fs, err := prom_procfs.NewFS(TESTDATA_PROC_ROOT)
+	fs, err := prom_procfs.NewFS(LSVMI_TESTDATA_PROCFS_ROOT)
 	if err != nil {
 		b.Fatal(err)
 	}

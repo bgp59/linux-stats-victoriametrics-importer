@@ -3,5 +3,5 @@
 package benchmarks
 
 const (
-	TESTDATA_PROC_ROOT = "../testdata/proc"
+	LSVMI_TESTDATA_PROCFS_ROOT = "../testdata/lsvmi/proc"
 )

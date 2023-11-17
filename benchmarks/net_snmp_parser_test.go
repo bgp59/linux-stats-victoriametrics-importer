@@ -10,7 +10,7 @@ import (
 )
 
 func BenchmarkNetSnmpParser(b *testing.B) {
-	netSnmp := procfs.NewNetSnmp(TESTDATA_PROC_ROOT)
+	netSnmp := procfs.NewNetSnmp(LSVMI_TESTDATA_PROCFS_ROOT)
 	for n := 0; n < b.N; n++ {
 		err := netSnmp.Parse()
 		if err != nil {
@@ -20,7 +20,7 @@ func BenchmarkNetSnmpParser(b *testing.B) {
 }
 
 func BenchmarkNetSnmpParserProm(b *testing.B) {
-	fs, err := prom_procfs.NewFS(TESTDATA_PROC_ROOT)
+	fs, err := prom_procfs.NewFS(LSVMI_TESTDATA_PROCFS_ROOT)
 	if err != nil {
 		b.Fatal(err)
 	}

@@ -15,7 +15,7 @@ type SoftirqsTestCase struct {
 	wantError     error
 }
 
-var softirqsTestdataDir = path.Join(TESTDATA_PROCFS_ROOT, "softirqs")
+var softirqsTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "softirqs")
 
 func testSoftirqsParser(tc *SoftirqsTestCase, t *testing.T) {
 	var softirqs *Softirqs
