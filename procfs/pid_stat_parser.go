@@ -18,17 +18,6 @@ import (
 // As-is data will be returned such that it can be easily converted to byte
 // slices whereas numerical data will be returned as unsigned long.
 
-type PidStat struct {
-	// Read the raw content of the file here:
-	Buf *bytes.Buffer
-	// Start/stop index for each byte slice field:
-	FieldStart, FieldEnd []int
-	// Numeric fields:
-	NumericFields []uint64
-	// The path file to read:
-	path string
-}
-
 // Parsed data types:
 const (
 	PID_STAT_BYTES_DATA = iota
@@ -41,6 +30,17 @@ const (
 	// Special TID to indicate that the stats are for PID only:
 	PID_STAT_PID_ONLY_TID = 0
 )
+
+type PidStat struct {
+	// Read the raw content of the file here:
+	Buf *bytes.Buffer
+	// Start/stop index for each as-is field (byte slice):
+	FieldStart, FieldEnd []int
+	// Numeric fields:
+	NumericFields []uint64
+	// The path file to read:
+	path string
+}
 
 // Field separators, for all fields but (comm):
 var pidStatSeparators = [256]byte{' ': 1, '\t': 1, '\n': 1}
@@ -66,7 +66,8 @@ const (
 	PID_STAT_RT_PRIORITY
 	PID_STAT_POLICY
 
-	PID_STAT_BYTE_SLICE_FIELD_COUNT // Must be last!
+	// Must by last!
+	PID_STAT_BYTE_SLICE_FIELD_COUNT
 )
 
 // The field# to use for byte slice fields (as per man proc field# starts from 1):
@@ -98,7 +99,8 @@ const (
 	PID_STAT_UTIME
 	PID_STAT_STIME
 
-	PID_STAT_ULONG_DATA_COUNT // Must be last!
+	// Must by last!
+	PID_STAT_ULONG_DATA_COUNT
 )
 
 // The field# to use for unsigned long fields (as per man proc field# starts from 1):
