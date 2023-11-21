@@ -37,7 +37,7 @@ var pidStatByteSliceFieldName = map[int]string{
 
 var pidStatNumericFieldName = map[int]string{
 	PID_STAT_MINFLT: "PID_STAT_MINFLT",
-	PID_STAT_MAJLT:  "PID_STAT_MAJLT",
+	PID_STAT_MAJFLT: "PID_STAT_MAJFLT",
 	PID_STAT_UTIME:  "PID_STAT_UTIME",
 	PID_STAT_STIME:  "PID_STAT_STIME",
 }
@@ -120,7 +120,7 @@ func TestPidStatParser(t *testing.T) {
 			},
 			wantNumericFields: map[int]uint64{
 				PID_STAT_MINFLT: 44,
-				PID_STAT_MAJLT:  0,
+				PID_STAT_MAJFLT: 0,
 				PID_STAT_UTIME:  0,
 				PID_STAT_STIME:  2,
 			},
@@ -151,7 +151,7 @@ func TestPidStatParser(t *testing.T) {
 			},
 			wantNumericFields: map[int]uint64{
 				PID_STAT_MINFLT: 1000,
-				PID_STAT_MAJLT:  1001,
+				PID_STAT_MAJFLT: 1001,
 				PID_STAT_UTIME:  10000,
 				PID_STAT_STIME:  10001,
 			},
@@ -182,7 +182,7 @@ func TestPidStatParser(t *testing.T) {
 			},
 			wantNumericFields: map[int]uint64{
 				PID_STAT_MINFLT: 1000,
-				PID_STAT_MAJLT:  1001,
+				PID_STAT_MAJFLT: 1001,
 				PID_STAT_UTIME:  10000,
 				PID_STAT_STIME:  10001,
 			},
@@ -213,7 +213,7 @@ func TestPidStatParser(t *testing.T) {
 			},
 			wantNumericFields: map[int]uint64{
 				PID_STAT_MINFLT: 1000,
-				PID_STAT_MAJLT:  1001,
+				PID_STAT_MAJFLT: 1001,
 				PID_STAT_UTIME:  10000,
 				PID_STAT_STIME:  10001,
 			},
@@ -234,13 +234,13 @@ func TestPidStatParser(t *testing.T) {
 			procfsRoot: path.Join(pidStatTestdataDir, "conversion_error"),
 			pid:        PID_STAT_PROCFS_PID,
 			tid:        PID_STAT_PID_ONLY_TID,
-			wantError:  fmt.Errorf(`field# 10: strconv.ParseUint: parsing "_1000": invalid syntax`),
+			wantError:  fmt.Errorf(`field# 10: "_1000": invalid numerical value`),
 		},
 		{
 			procfsRoot: path.Join(pidStatTestdataDir, "not_enough_fields"),
 			pid:        PID_STAT_PROCFS_PID,
 			tid:        PID_STAT_PID_ONLY_TID,
-			wantError:  fmt.Errorf("not enough fields: want: %d, got: %d", pidStatMaxFieldNum, pidStatMaxFieldNum-1),
+			wantError:  fmt.Errorf("not enough fields: want: %d, got: %d", PID_STAT_MAX_FIELD_NUM, PID_STAT_MAX_FIELD_NUM-1),
 		},
 	} {
 		t.Run(

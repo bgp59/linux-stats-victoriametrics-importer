@@ -1,7 +1,5 @@
 // parser for /proc/pid/stat and /proc/pid/task/tid/stat
 
-// "486 (rs:main Q:Reg) S 1 468 468 0 -1 1077936192 44 0 0 0 0 2 0 0 20 0 4 0 898 227737600 1340 18446744073709551615 94649719967744 94649720406605 140724805212720 0 0 0 2146171647 16781830 3227649 1 0 0 -1 0 0 0 0 0 0 94649720624720 94649720664912 94649728393216 140724805218000 140724805218029 140724805218029 140724805218277 0\n"
-
 package procfs
 
 import (
@@ -12,23 +10,25 @@ import (
 	"strconv"
 )
 
-// The data gleaned from this file has two use cases:
-//  - as-is: the value from the file is the (label) value associated w/ the metric, e.g. priority
-//  - for numerical calculations, e.g. utime/stime
-// As-is data will be returned such that it can be easily converted to byte
-// slices whereas numerical data will be returned as unsigned long.
-
-// Parsed data types:
-const (
-	PID_STAT_BYTES_DATA = iota
-	PID_STAT_ULONG_DATA
-)
+// "486 (rs:main Q:Reg) S 1 468 468 0 -1 1077936192 44 0 0 0 0 2 0 0 20 0 4 0 898 227737600 1340 18446744073709551615 94649719967744 94649720406605 140724805212720 0 0 0 2146171647 16781830 3227649 1 0 0 -1 0 0 0 0 0 0 94649720624720 94649720664912 94649728393216 140724805218000 140724805218029 140724805218029 140724805218277 0\n"
 
 const (
 	// The max size of comm, defined in include/linux/sched.h:
 	TASK_COMM_LEN = 16
 	// Special TID to indicate that the stats are for PID only:
 	PID_STAT_PID_ONLY_TID = 0
+)
+
+// The data gleaned from this file has two use cases:
+//  - as-is: the value from the file is the (label) value associated w/ the metric, e.g. priority
+//  - for numerical calculations, e.g. utime/stime
+// As-is data will be returned such that it can be easily converted to byte
+// slices whereas numerical data will be returned as an unsigned long.
+
+// Parsed data types:
+const (
+	PID_STAT_BYTES_DATA = iota
+	PID_STAT_ULONG_DATA
 )
 
 type PidStat struct {
@@ -42,10 +42,7 @@ type PidStat struct {
 	path string
 }
 
-// Field separators, for all fields but (comm):
-var pidStatSeparators = [256]byte{' ': 1, '\t': 1, '\n': 1}
-
-// The following enumeration gives the indices for byte slice fields;
+// The indices for byte slice fields;
 const (
 	PID_STAT_COMM = iota
 	PID_STAT_STATE
@@ -70,46 +67,16 @@ const (
 	PID_STAT_BYTE_SLICE_FIELD_COUNT
 )
 
-// The field# to use for byte slice fields (as per man proc field# starts from 1):
-var pidStatByteSliceFieldNum = [PID_STAT_BYTE_SLICE_FIELD_COUNT]int{
-	PID_STAT_COMM:        2,
-	PID_STAT_STATE:       3,
-	PID_STAT_PPID:        4,
-	PID_STAT_PGRP:        5,
-	PID_STAT_SESSION:     6,
-	PID_STAT_TTY_NR:      7,
-	PID_STAT_TPGID:       8,
-	PID_STAT_FLAGS:       9,
-	PID_STAT_PRIORITY:    18,
-	PID_STAT_NICE:        19,
-	PID_STAT_NUM_THREADS: 20,
-	PID_STAT_STARTTIME:   22,
-	PID_STAT_VSIZE:       23,
-	PID_STAT_RSS:         24,
-	PID_STAT_RSSLIM:      25,
-	PID_STAT_PROCESSOR:   39,
-	PID_STAT_RT_PRIORITY: 40,
-	PID_STAT_POLICY:      41,
-}
-
-// The following enumeration gives the indices for unsigned long fields:
+// The indices for unsigned long fields:
 const (
 	PID_STAT_MINFLT = iota
-	PID_STAT_MAJLT
+	PID_STAT_MAJFLT
 	PID_STAT_UTIME
 	PID_STAT_STIME
 
 	// Must by last!
-	PID_STAT_ULONG_DATA_COUNT
+	PID_STAT_ULONG_FIELD_COUNT
 )
-
-// The field# to use for unsigned long fields (as per man proc field# starts from 1):
-var pidStatUlongFieldNum = [PID_STAT_ULONG_DATA_COUNT]int{
-	PID_STAT_MINFLT: 10,
-	PID_STAT_MAJLT:  12,
-	PID_STAT_UTIME:  14,
-	PID_STAT_STIME:  15,
-}
 
 // Field handling:
 type PidStatFieldHandling struct {
@@ -119,31 +86,94 @@ type PidStatFieldHandling struct {
 	index int
 }
 
-// The following list maps field# into its handling; it will be built during
-// init based on the ...FieldNum above; nil, the default, indicates that the
-// field should be ignored:
-var pidStatFieldNumHandling []*PidStatFieldHandling
-var pidStatMaxFieldNum = 0
+// Map field# into its handling; nil, the default, indicates that the field
+// should be ignored:
+const (
+	PID_STAT_MAX_FIELD_NUM = 41
+)
 
-func init() {
-	for _, fieldNum := range pidStatByteSliceFieldNum {
-		if fieldNum > pidStatMaxFieldNum {
-			pidStatMaxFieldNum = fieldNum
-		}
-	}
-	for _, fieldNum := range pidStatUlongFieldNum {
-		if fieldNum > pidStatMaxFieldNum {
-			pidStatMaxFieldNum = fieldNum
-		}
-	}
+var pidStatFieldHandling = [PID_STAT_MAX_FIELD_NUM + 1]*PidStatFieldHandling{
+	// (1) pid  %d
+	// (2) comm  %s
+	2: {PID_STAT_BYTES_DATA, PID_STAT_COMM},
+	// (3) state  %c
+	3: {PID_STAT_BYTES_DATA, PID_STAT_STATE},
+	// (4) ppid  %d
+	4: {PID_STAT_BYTES_DATA, PID_STAT_PPID},
+	// (5) pgrp  %d
+	5: {PID_STAT_BYTES_DATA, PID_STAT_PGRP},
+	// (6) session  %d
+	6: {PID_STAT_BYTES_DATA, PID_STAT_SESSION},
+	// (7) tty_nr  %d
+	7: {PID_STAT_BYTES_DATA, PID_STAT_TTY_NR},
+	// (8) tpgid  %d
+	8: {PID_STAT_BYTES_DATA, PID_STAT_TPGID},
+	// (9) flags  %u
+	9: {PID_STAT_BYTES_DATA, PID_STAT_FLAGS},
+	// (10) minflt  %lu
+	10: {PID_STAT_ULONG_DATA, PID_STAT_MINFLT},
+	// (11) cminflt  %lu
+	// (12) majflt  %lu
+	12: {PID_STAT_ULONG_DATA, PID_STAT_MAJFLT},
+	// (13) cmajflt  %lu
+	// (14) utime  %lu
+	14: {PID_STAT_ULONG_DATA, PID_STAT_UTIME},
+	// (15) stime  %lu
+	15: {PID_STAT_ULONG_DATA, PID_STAT_STIME},
+	// (16) cutime  %ld
+	// (17) cstime  %ld
+	// (18) priority  %ld
+	18: {PID_STAT_BYTES_DATA, PID_STAT_PRIORITY},
+	// (19) nice  %ld
+	19: {PID_STAT_BYTES_DATA, PID_STAT_NICE},
+	// (20) num_threads  %ld
+	20: {PID_STAT_BYTES_DATA, PID_STAT_NUM_THREADS},
+	// (21) itrealvalue  %ld
+	// (22) starttime  %llu
+	22: {PID_STAT_BYTES_DATA, PID_STAT_STARTTIME},
+	// (23) vsize  %lu
+	23: {PID_STAT_BYTES_DATA, PID_STAT_VSIZE},
+	// (24) rss  %ld
+	24: {PID_STAT_BYTES_DATA, PID_STAT_RSS},
+	// (25) rsslim  %lu
+	25: {PID_STAT_BYTES_DATA, PID_STAT_RSSLIM},
+	// (26) startcode  %lu  [PT]
+	// (27) endcode  %lu  [PT]
+	// (28) startstack  %lu  [PT]
+	// (29) kstkesp  %lu  [PT]
+	// (30) kstkeip  %lu  [PT]
+	// (31) signal  %lu
+	// (32) blocked  %lu
+	// (33) sigignore  %lu
+	// (34) sigcatch  %lu
+	// (35) wchan  %lu  [PT]
+	// (36) nswap  %lu
+	// (37) cnswap  %lu
+	// (38) exit_signal  %d  (since Linux 2.1.22)
+	// (39) processor  %d  (since Linux 2.2.8)
+	39: {PID_STAT_BYTES_DATA, PID_STAT_PROCESSOR},
+	// (40) rt_priority  %u  (since Linux 2.5.19)
+	40: {PID_STAT_BYTES_DATA, PID_STAT_RT_PRIORITY},
+	// (41) policy  %u  (since Linux 2.5.19) == PID_STAT_MAX_FIELD_NUM
+	41: {PID_STAT_BYTES_DATA, PID_STAT_POLICY},
+	// (42) delayacct_blkio_ticks  %llu  (since Linux 2.6.18)
+	// (43) guest_time  %lu  (since Linux 2.6.24)
+	// (44) cguest_time  %ld  (since Linux 2.6.24)
+	// (45) start_data  %lu  (since Linux 3.3)  [PT]
+	// (46) end_data  %lu  (since Linux 3.3)  [PT]
+	// (47) start_brk  %lu  (since Linux 3.3)  [PT]
+	// (48) arg_start  %lu  (since Linux 3.5)  [PT]
+	// (49) arg_end  %lu  (since Linux 3.5)  [PT]
+	// (50) env_start  %lu  (since Linux 3.5)  [PT]
+	// (51) env_end  %lu  (since Linux 3.5)  [PT]
+	// (52) exit_code  %d  (since Linux 3.5)  [PT]
+}
 
-	pidStatFieldNumHandling = make([]*PidStatFieldHandling, pidStatMaxFieldNum+1)
-	for index, fieldNum := range pidStatByteSliceFieldNum {
-		pidStatFieldNumHandling[fieldNum] = &PidStatFieldHandling{PID_STAT_BYTES_DATA, index}
-	}
-	for index, fieldNum := range pidStatUlongFieldNum {
-		pidStatFieldNumHandling[fieldNum] = &PidStatFieldHandling{PID_STAT_ULONG_DATA, index}
-	}
+// Field separators for all fields but (comm):
+var pidStatIsSep = [256]bool{
+	' ':  true,
+	'\t': true,
+	'\n': true,
 }
 
 func NewPidStat(procfsRoot string, pid, tid int) *PidStat {
@@ -151,7 +181,7 @@ func NewPidStat(procfsRoot string, pid, tid int) *PidStat {
 		Buf:           &bytes.Buffer{},
 		FieldStart:    make([]int, PID_STAT_BYTE_SLICE_FIELD_COUNT),
 		FieldEnd:      make([]int, PID_STAT_BYTE_SLICE_FIELD_COUNT),
-		NumericFields: make([]uint64, PID_STAT_ULONG_DATA_COUNT),
+		NumericFields: make([]uint64, PID_STAT_ULONG_FIELD_COUNT),
 	}
 	if tid == PID_STAT_PID_ONLY_TID {
 		pidStat.path = path.Join(procfsRoot, strconv.Itoa(pid), "stat")
@@ -170,12 +200,19 @@ func (pidStat *PidStat) Parse() error {
 	if err != nil {
 		return err
 	}
-	b := pidStat.Buf.Bytes()
-	l := pidStat.Buf.Len()
+
+	buf, l := pidStat.Buf.Bytes(), pidStat.Buf.Len()
 
 	// Locate '(' for comm start:
-	commStart := bytes.IndexByte(b, '(') + 1
-	if commStart <= 0 {
+	commStart := -1
+	for pos := 0; pos < l; pos++ {
+		if buf[pos] == '(' {
+			pos++
+			commStart = pos
+			break
+		}
+	}
+	if commStart < 0 {
 		return fmt.Errorf("%s: cannot locate '('", pidStat.path)
 	}
 	// Locate ')' for comm end, it should be at most TASK_COMM_LEN after
@@ -184,48 +221,71 @@ func (pidStat *PidStat) Parse() error {
 	if commEnd >= l {
 		commEnd = l - 1
 	}
-	for ; commEnd >= commStart && b[commEnd] != ')'; commEnd-- {
+	for ; commEnd >= commStart && buf[commEnd] != ')'; commEnd-- {
 	}
 	if commEnd < commStart {
 		// This shouldn't happen but maybe the kernel was compiled w/ a bigger
 		// TASK_COMM_LEN? Try again against the whole buffer:
-		commEnd = bytes.LastIndexByte(b, ')')
-		if commEnd < 0 {
+		commEnd = l - 1
+		for ; commEnd >= commStart && buf[commEnd] != ')'; commEnd-- {
+		}
+		if commEnd < commStart {
 			return fmt.Errorf("%s: cannot locate ')'", pidStat.path)
 		}
 	}
 
-	fieldNum := pidStatByteSliceFieldNum[PID_STAT_COMM]
+	fieldNum := 2
 	pidStat.FieldStart[PID_STAT_COMM] = commStart
 	pidStat.FieldEnd[PID_STAT_COMM] = commEnd
 
-	for wasSep, i, fieldStart := byte(1), commEnd+1, commEnd+1; i < l && fieldNum < pidStatMaxFieldNum; i++ {
-		isSep := pidStatSeparators[b[i]]
-		switch wasSep<<1 + isSep {
-		case 0b10:
-			fieldStart = i
-		case 0b01:
-			fieldNum++
-			fieldHandling := pidStatFieldNumHandling[fieldNum]
-			if fieldHandling != nil {
-				index := fieldHandling.index
-				switch fieldHandling.dataType {
-				case PID_STAT_BYTES_DATA:
-					pidStat.FieldStart[index] = fieldStart
-					pidStat.FieldEnd[index] = i
-				case PID_STAT_ULONG_DATA:
-					pidStat.NumericFields[index], err = strconv.ParseUint(string(b[fieldStart:i]), 10, 64)
-					if err != nil {
-						return fmt.Errorf("%s: field# %d: %v", pidStat.path, fieldNum, err)
-					}
+	for pos := commEnd + 1; pos < l && fieldNum < PID_STAT_MAX_FIELD_NUM; pos++ {
+		for ; pos < l && pidStatIsSep[buf[pos]]; pos++ {
+		}
+		if pos == l {
+			break
+		}
+		fieldStart := pos
+
+		for ; pos < l && !pidStatIsSep[buf[pos]]; pos++ {
+		}
+		if pos == l {
+			break
+		}
+		// fieldEnd := pos
+
+		fieldNum++
+		fieldHandling := pidStatFieldHandling[fieldNum]
+		if fieldHandling == nil {
+			continue
+		}
+
+		index := fieldHandling.index
+		switch fieldHandling.dataType {
+		case PID_STAT_BYTES_DATA:
+			pidStat.FieldStart[index] = fieldStart
+			pidStat.FieldEnd[index] = pos
+		case PID_STAT_ULONG_DATA:
+			val := uint64(0)
+			for i := fieldStart; i < pos; i++ {
+				if digit := buf[i] - '0'; digit < 10 {
+					val = (val << 3) + (val << 1) + uint64(digit)
+				} else {
+					return fmt.Errorf(
+						"%s: field# %d: %q: invalid numerical value",
+						pidStat.path, fieldNum, string(buf[fieldStart:pos]),
+					)
 				}
 			}
+			pidStat.NumericFields[index] = val
 		}
-		wasSep = isSep
 	}
 	// Sanity check:
-	if fieldNum != pidStatMaxFieldNum {
-		return fmt.Errorf("%s: not enough fields: want: %d, got: %d", pidStat.path, pidStatMaxFieldNum, fieldNum)
+	if fieldNum != PID_STAT_MAX_FIELD_NUM {
+		return fmt.Errorf("%s: not enough fields: want: %d, got: %d", pidStat.path, PID_STAT_MAX_FIELD_NUM, fieldNum)
 	}
 	return nil
 }
+
+// Perf:
+// BenchmarkPidStatParser-12        	   47362	     24798 ns/op
+// BenchmarkPidStatParserProm-12    	   29102	     41176 ns/op
