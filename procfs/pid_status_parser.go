@@ -212,7 +212,7 @@ func initPidStatusParserInfo(path string) error {
 
 type PidStatus struct {
 	// For as-is data there is a backing buffer + start,end indexes to build the
-	// slice representing the data:
+	// slice representing the field:
 	Buf                  *bytes.Buffer
 	FieldStart, FieldEnd []int
 	// Unsigned log data:
@@ -383,3 +383,7 @@ func (pidStatus *PidStatus) Parse() error {
 	}
 	return nil
 }
+
+// Perf:
+// BenchmarkPidStatusParser-12        	   38342	     30833 ns/op
+// BenchmarkPidStatusParserProm-12    	   29156	     40911 ns/op

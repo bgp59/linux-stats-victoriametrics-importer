@@ -61,6 +61,9 @@ type NetDev struct {
 	validHeader []byte
 }
 
+// Read the entire file in one go, using a ReadFileBufPool:
+var netDevReadFileBufPool = ReadFileBufPool256k
+
 // To protect against changes in kernel that may alter the exposed stats, the
 // header of the file is checked, once/1st time, against the known headers
 // listed below; the comparison will be performed after some normalization:
@@ -192,11 +195,11 @@ func (netDev *NetDev) makeErrorLine(buf []byte, devStart int, reason any) error 
 }
 
 func (netDev *NetDev) Parse() error {
-	bBuf, err := ReadFileBufPool256k.ReadFile(netDev.path)
+	bBuf, err := netDevReadFileBufPool.ReadFile(netDev.path)
 	if err != nil {
 		return err
 	}
-	defer ReadFileBufPool32k.ReturnBuf(bBuf)
+	defer netDevReadFileBufPool.ReturnBuf(bBuf)
 
 	buf, l := bBuf.Bytes(), bBuf.Len()
 
