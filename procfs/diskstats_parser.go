@@ -11,17 +11,15 @@ import (
 // Reference:
 //  https://github.com/torvalds/linux/blob/master/Documentation/admin-guide/iostats.rst
 
-// The information will be presented as a map indexed bt the dev name with
+// The information will be presented as a map indexed by the dev name with
 // the values presented as a []uint32 slice since most values being unsigned
 // long and the few rest can be represented as such.
 
-// Indexes for values:
+// Indexes for values mirror the field#-1 from the file:
 const (
 	DISKSTATS_MAJOR_NUM = iota
 	DISKSTATS_MINOR_NUM
-	// The following index is not associated w/ a numerical value, but it is
-	// included here to ensure a 1:1 mapping between file field# and stats index:
-	DISKSTATS_DEVICE
+	DISKSTATS_DEVICE // always 0, not populated since it is a string.
 	DISKSTATS_NUM_READS_COMPLETED
 	DISKSTATS_NUM_READS_MERGED
 	DISKSTATS_NUM_READ_SECTORS
@@ -31,7 +29,7 @@ const (
 	DISKSTATS_NUM_WRITE_SECTORS
 	DISKSTATS_WRITE_MILLISEC
 	DISKSTATS_NUM_IO_IN_PROGRESS
-	DISKSTATS_IO_MILLISEC_OR_JIFFIES
+	DISKSTATS_IO_MILLISEC
 	DISKSTATS_IO_WEIGTHED_MILLISEC
 	DISKSTATS_NUM_DISCARDS_COMPLETED
 	DISKSTATS_NUM_DISCARDS_MERGED
@@ -43,11 +41,14 @@ const (
 	NUM_DISKSTATS_VALUES
 )
 
-const DISKSTATS_DEVICE_FIELD_NUM = DISKSTATS_DEVICE
-
 // The actual number of fields, which could be < NUM_DISKSTATS_VALUES for older
 // versions of the kernel; define the minimum number expected:
 var minNumDiskstatsValues = 10
+
+// Some fields may need conversion from jiffies to millisec:
+var diskstatsFieldsInJiffies = [NUM_DISKSTATS_VALUES]bool{
+	DISKSTATS_IO_MILLISEC: true,
+}
 
 type Diskstats struct {
 	DevStats map[string][]uint32
@@ -60,6 +61,12 @@ type Diskstats struct {
 	scanNum    int
 	// The path file to  read:
 	path string
+	// Jiffies -> millisec conversion info; keep it per-instance to allow
+	// per-instance overriding:
+	// Conversion factor, use 0 to disable:
+	jiffiesToMillisec uint32
+	// Fields that need conversion:
+	fieldsInJiffies [NUM_DISKSTATS_VALUES]bool
 }
 
 // Read the entire file in one go, using a ReadFileBufPool:
@@ -71,27 +78,30 @@ var diskstatsIsSep = [256]bool{
 	'\t': true,
 }
 
-var diskstatsIsSepNl = [256]bool{
-	' ':  true,
-	'\t': true,
-	'\n': true,
-}
-
 func NewDiskstats(procfsRoot string) *Diskstats {
-	return &Diskstats{
-		DevStats:   make(map[string][]uint32),
-		devScanNum: make(map[string]int),
-		scanNum:    -1,
-		path:       path.Join(procfsRoot, "diskstats"),
+	newDiskstats := &Diskstats{
+		DevStats:        make(map[string][]uint32),
+		devScanNum:      make(map[string]int),
+		scanNum:         -1,
+		path:            path.Join(procfsRoot, "diskstats"),
+		fieldsInJiffies: diskstatsFieldsInJiffies,
 	}
+
+	if OSName == "linux" && len(OSReleaseVer) > 0 && OSReleaseVer[0] >= 5 {
+		newDiskstats.jiffiesToMillisec = uint32(LinuxClktckSec * 1000.)
+	}
+
+	return newDiskstats
 }
 
 func (diskstats *Diskstats) Clone(full bool) *Diskstats {
 	newDiskstats := &Diskstats{
-		DevStats:   make(map[string][]uint32),
-		devScanNum: make(map[string]int),
-		scanNum:    diskstats.scanNum,
-		path:       diskstats.path,
+		DevStats:          make(map[string][]uint32),
+		devScanNum:        make(map[string]int),
+		scanNum:           diskstats.scanNum,
+		path:              diskstats.path,
+		jiffiesToMillisec: diskstats.jiffiesToMillisec,
+		fieldsInJiffies:   diskstats.fieldsInJiffies,
 	}
 
 	for dev := range diskstats.DevStats {
@@ -131,6 +141,7 @@ func (diskstats *Diskstats) Parse() error {
 	buf, l := bBuf.Bytes(), bBuf.Len()
 
 	devStats, stats := diskstats.DevStats, []uint32(nil)
+	jiffiesToMillisec, fieldsInJiffies := diskstats.jiffiesToMillisec, diskstats.fieldsInJiffies
 	scanNum := diskstats.scanNum + 1
 	for pos := 0; pos < l; pos++ {
 		lineStart, eol, fieldNum := pos, false, 0
@@ -145,19 +156,17 @@ func (diskstats *Diskstats) Parse() error {
 				if fieldNum != DISKSTATS_DEVICE {
 					if digit := c - '0'; digit < 10 {
 						value += (value << 3) + (value << 1) + uint32(digit)
-					} else if diskstatsIsSepNl[c] {
-						eol = (c == '\n')
+					} else if eol = (c == '\n'); eol || diskstatsIsSep[c] {
 						break
 					} else {
 						return diskstats.makeErrorLine(buf, lineStart, "invalid value")
 					}
-				} else if diskstatsIsSepNl[c] {
+				} else if eol = (c == '\n'); eol || diskstatsIsSep[c] {
 					dev = string(buf[fieldStart:pos])
-					eol = (c == '\n')
 					break
 				}
 			}
-			if fieldStart > pos {
+			if fieldStart < pos {
 				switch fieldNum {
 				case DISKSTATS_MAJOR_NUM:
 					major = value
@@ -172,6 +181,9 @@ func (diskstats *Diskstats) Parse() error {
 					stats[DISKSTATS_MAJOR_NUM] = major
 					stats[DISKSTATS_MINOR_NUM] = minor
 				default:
+					if jiffiesToMillisec > 0 && fieldsInJiffies[fieldNum] {
+						value *= jiffiesToMillisec
+					}
 					stats[fieldNum] = value
 				}
 				fieldNum++
@@ -187,9 +199,8 @@ func (diskstats *Diskstats) Parse() error {
 
 		// Advance to EOL:
 		for ; !eol && pos < l; pos++ {
-			if c := buf[pos]; c == '\n' {
-				eol = true
-			} else if !diskstatsIsSep[buf[pos]] {
+			c := buf[pos]
+			if eol = (c == '\n'); !eol && !diskstatsIsSep[c] {
 				return diskstats.makeErrorLine(buf, lineStart, "invalid value")
 			}
 		}
