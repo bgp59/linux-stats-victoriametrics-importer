@@ -35,6 +35,7 @@ const (
 	DISKSTATS_NUM_DISCARDS_MERGED
 	DISKSTATS_NUM_DISCARD_SECTORS
 	DISKSTATS_DISCARD_MILLISEC
+	DISKSTATS_NUM_FLUSH_REQUESTS
 	DISKSTATS_FLUSH_MILLISEC
 
 	// Must be last:
@@ -155,7 +156,7 @@ func (diskstats *Diskstats) Parse() error {
 				c := buf[pos]
 				if fieldNum != DISKSTATS_DEVICE {
 					if digit := c - '0'; digit < 10 {
-						value += (value << 3) + (value << 1) + uint32(digit)
+						value = (value << 3) + (value << 1) + uint32(digit)
 					} else if eol = (c == '\n'); eol || diskstatsIsSep[c] {
 						break
 					} else {

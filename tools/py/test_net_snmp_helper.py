@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 
 """
-Generate the net/snmp file and print TestNetSnmpTestCase fields (Go sytnax) based
+Generate the net/snmp file and print NetSnmpTestCase fields (Go syntax) based
 on captured proc/net/snmp
 
 """
@@ -57,6 +57,7 @@ if __name__ == "__main__":
                 file=f,
             )
     print(f"{output_net_snmp_file} generated", file=sys.stderr)
+
     print(
         "Cut and paste the following into the appropriate NetSnmpTestCase\n",
         file=sys.stderr,

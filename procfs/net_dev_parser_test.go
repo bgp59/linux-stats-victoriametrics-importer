@@ -17,7 +17,7 @@ type NetDevTestCase struct {
 
 var netDevTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "net", "dev")
 
-var NetDevIndexName = []string{
+var netDevIndexName = []string{
 	"NET_DEV_RX_BYTES",
 	"NET_DEV_RX_PACKETS",
 	"NET_DEV_RX_ERRS",
@@ -88,7 +88,7 @@ func testNetDevParser(tc *NetDevTestCase, t *testing.T) {
 						fmt.Fprintf(
 							diffBuf,
 							"\nDevStats[%s (%d)][%s]: want: %d, got: %d",
-							dev, i, NetDevIndexName, wantStat, gotStat,
+							dev, i, netDevIndexName, wantStat, gotStat,
 						)
 					}
 				}
