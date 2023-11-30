@@ -11,16 +11,23 @@ import (
 // Reference:
 //  https://github.com/torvalds/linux/blob/master/Documentation/admin-guide/iostats.rst
 
-// The information will be presented as a map indexed by the dev name with
-// the values presented as a []uint32 slice since most values being unsigned
-// long and the few rest can be represented as such.
+// The information will be presented as a map indexed by the device major:minor
+// with the values presented as a []uint32 slice since most values being
+// unsigned long and the few rest can be represented as such.
 
-// Indexes for values mirror the field#-1 from the file:
+// Indexes for major, minor and device name:
 const (
 	DISKSTATS_MAJOR_NUM = iota
 	DISKSTATS_MINOR_NUM
-	DISKSTATS_DEVICE // always 0, not populated since it is a string.
-	DISKSTATS_NUM_READS_COMPLETED
+	DISKSTATS_DEVICE_NAME
+
+	// Must by last:
+	DISKSTATS_INFO_FIELDS_NUM
+)
+
+// Indexes for values mirror the field#-1 from the documentation file:
+const (
+	DISKSTATS_NUM_READS_COMPLETED = iota
 	DISKSTATS_NUM_READS_MERGED
 	DISKSTATS_NUM_READ_SECTORS
 	DISKSTATS_READ_MILLISEC
@@ -39,23 +46,29 @@ const (
 	DISKSTATS_FLUSH_MILLISEC
 
 	// Must be last:
-	NUM_DISKSTATS_VALUES
+	DISKSTATS_VALUE_FIELDS_NUM
 )
 
-// The actual number of fields, which could be < NUM_DISKSTATS_VALUES for older
+// The actual number of fields, which could be < DISKSTATS_VALUE_FIELDS_NUM for older
 // versions of the kernel; define the minimum number expected:
 var minNumDiskstatsValues = 10
 
 // Some fields may need conversion from jiffies to millisec:
-var diskstatsFieldsInJiffies = [NUM_DISKSTATS_VALUES]bool{
+var diskstatsFieldsInJiffies = [DISKSTATS_VALUE_FIELDS_NUM]bool{
 	DISKSTATS_IO_MILLISEC: true,
 }
 
+type DiskstatsDevInfo struct {
+	Name  string
+	Stats []uint32
+}
+
 type Diskstats struct {
-	DevStats map[string][]uint32
+	// All device stats and info is indexed by "major:minor":
+	DevInfoMap map[string]*DiskstatsDevInfo
 	// Devices may be appear/disappear dynamically. To keep track of deletion,
 	// each parse invocation is associated with a different from before scan#
-	// and each found dev will be updated below for it. At the end of the
+	// and each found devMajMin will be updated below for it. At the end of the
 	// pass, the devices that have a different scan# are leftover from a
 	// previous scan and they are deleted from the stats.
 	devScanNum map[string]int
@@ -67,7 +80,7 @@ type Diskstats struct {
 	// Conversion factor, use 0 to disable:
 	jiffiesToMillisec uint32
 	// Fields that need conversion:
-	fieldsInJiffies [NUM_DISKSTATS_VALUES]bool
+	fieldsInJiffies [DISKSTATS_VALUE_FIELDS_NUM]bool
 }
 
 // Read the entire file in one go, using a ReadFileBufPool:
@@ -81,7 +94,7 @@ var diskstatsIsSep = [256]bool{
 
 func NewDiskstats(procfsRoot string) *Diskstats {
 	newDiskstats := &Diskstats{
-		DevStats:        make(map[string][]uint32),
+		DevInfoMap:      make(map[string]*DiskstatsDevInfo),
 		devScanNum:      make(map[string]int),
 		scanNum:         -1,
 		path:            path.Join(procfsRoot, "diskstats"),
@@ -97,7 +110,7 @@ func NewDiskstats(procfsRoot string) *Diskstats {
 
 func (diskstats *Diskstats) Clone(full bool) *Diskstats {
 	newDiskstats := &Diskstats{
-		DevStats:          make(map[string][]uint32),
+		DevInfoMap:        make(map[string]*DiskstatsDevInfo),
 		devScanNum:        make(map[string]int),
 		scanNum:           diskstats.scanNum,
 		path:              diskstats.path,
@@ -105,15 +118,18 @@ func (diskstats *Diskstats) Clone(full bool) *Diskstats {
 		fieldsInJiffies:   diskstats.fieldsInJiffies,
 	}
 
-	for dev := range diskstats.DevStats {
-		newDiskstats.DevStats[dev] = make([]uint32, NUM_DISKSTATS_VALUES)
+	for devMajMin, info := range diskstats.DevInfoMap {
+		newDiskstats.DevInfoMap[devMajMin] = &DiskstatsDevInfo{
+			Name:  info.Name,
+			Stats: make([]uint32, len(info.Stats)),
+		}
 		if full {
-			copy(newDiskstats.DevStats[dev], diskstats.DevStats[dev])
+			copy(newDiskstats.DevInfoMap[devMajMin].Stats, info.Stats)
 		}
 	}
 
-	for dev, scanNum := range diskstats.devScanNum {
-		newDiskstats.devScanNum[dev] = scanNum
+	for devMajMin, scanNum := range diskstats.devScanNum {
+		newDiskstats.devScanNum[devMajMin] = scanNum
 	}
 
 	return newDiskstats
@@ -141,56 +157,81 @@ func (diskstats *Diskstats) Parse() error {
 
 	buf, l := bBuf.Bytes(), bBuf.Len()
 
-	devStats, stats := diskstats.DevStats, []uint32(nil)
+	devInfoMap := diskstats.DevInfoMap
 	jiffiesToMillisec, fieldsInJiffies := diskstats.jiffiesToMillisec, diskstats.fieldsInJiffies
 	scanNum := diskstats.scanNum + 1
 	for pos := 0; pos < l; pos++ {
-		lineStart, eol, fieldNum := pos, false, 0
-		major, minor, dev := uint32(0), uint32(0), ""
-
-		for ; !eol && pos < l && fieldNum < NUM_DISKSTATS_VALUES; pos++ {
+		var (
+			lineStart              = pos
+			eol                    = false
+			fieldStart, fieldNum   int
+			major, devMajMin, name string
+			devInfo                *DiskstatsDevInfo
+			stats                  []uint32
+			value                  uint32
+		)
+		for fieldNum = 0; !eol && pos < l && fieldNum < DISKSTATS_INFO_FIELDS_NUM; pos++ {
 			for ; pos < l && diskstatsIsSep[buf[pos]]; pos++ {
 			}
-			fieldStart, value := pos, uint32(0)
+			fieldStart = pos
 			for ; pos < l; pos++ {
 				c := buf[pos]
-				if fieldNum != DISKSTATS_DEVICE {
-					if digit := c - '0'; digit < 10 {
-						value = (value << 3) + (value << 1) + uint32(digit)
-					} else if eol = (c == '\n'); eol || diskstatsIsSep[c] {
-						break
-					} else {
-						return diskstats.makeErrorLine(buf, lineStart, "invalid value")
-					}
-				} else if eol = (c == '\n'); eol || diskstatsIsSep[c] {
-					dev = string(buf[fieldStart:pos])
+				if eol = (c == '\n'); eol || diskstatsIsSep[c] {
 					break
 				}
 			}
 			if fieldStart < pos {
 				switch fieldNum {
 				case DISKSTATS_MAJOR_NUM:
-					major = value
+					major = string(buf[fieldStart:pos])
 				case DISKSTATS_MINOR_NUM:
-					minor = value
-				case DISKSTATS_DEVICE:
-					stats = devStats[dev]
-					if stats == nil {
-						stats = make([]uint32, NUM_DISKSTATS_VALUES)
-						devStats[dev] = stats
+					devMajMin = major + ":" + string(buf[fieldStart:pos])
+				case DISKSTATS_DEVICE_NAME:
+					name = string(buf[fieldStart:pos])
+					devInfo = devInfoMap[devMajMin]
+					if devInfo == nil {
+						devInfo = &DiskstatsDevInfo{
+							Name:  name,
+							Stats: make([]uint32, DISKSTATS_VALUE_FIELDS_NUM),
+						}
+						devInfoMap[devMajMin] = devInfo
+					} else if devInfo.Name != name {
+						devInfo.Name = name
 					}
-					stats[DISKSTATS_MAJOR_NUM] = major
-					stats[DISKSTATS_MINOR_NUM] = minor
-				default:
-					if jiffiesToMillisec > 0 && fieldsInJiffies[fieldNum] {
-						value *= jiffiesToMillisec
-					}
-					stats[fieldNum] = value
 				}
 				fieldNum++
 			}
 		}
+		if fieldNum < DISKSTATS_INFO_FIELDS_NUM {
+			return diskstats.makeErrorLine(
+				buf, lineStart,
+				fmt.Errorf("missing info fields (< %d)", DISKSTATS_INFO_FIELDS_NUM),
+			)
+		}
 
+		stats = devInfo.Stats
+		for fieldNum = 0; !eol && pos < l && fieldNum < DISKSTATS_VALUE_FIELDS_NUM; pos++ {
+			for ; pos < l && diskstatsIsSep[buf[pos]]; pos++ {
+			}
+			fieldStart, value = pos, uint32(0)
+			for ; pos < l; pos++ {
+				c := buf[pos]
+				if digit := c - '0'; digit < 10 {
+					value = (value << 3) + (value << 1) + uint32(digit)
+				} else if eol = (c == '\n'); eol || diskstatsIsSep[c] {
+					break
+				} else {
+					return diskstats.makeErrorLine(buf, lineStart, "invalid value")
+				}
+			}
+			if fieldStart < pos {
+				if jiffiesToMillisec > 0 && fieldsInJiffies[fieldNum] {
+					value *= jiffiesToMillisec
+				}
+				stats[fieldNum] = value
+				fieldNum++
+			}
+		}
 		if fieldNum < minNumDiskstatsValues {
 			return diskstats.makeErrorLine(
 				buf, lineStart,
@@ -207,13 +248,13 @@ func (diskstats *Diskstats) Parse() error {
 		}
 
 		// Update scan# for device:
-		diskstats.devScanNum[dev] = scanNum
+		diskstats.devScanNum[devMajMin] = scanNum
 	}
 
 	// Remove devices not found at this scan:
-	for dev, devScanNum := range diskstats.devScanNum {
+	for devMajMin, devScanNum := range diskstats.devScanNum {
 		if scanNum != devScanNum {
-			delete(diskstats.DevStats, dev)
+			delete(diskstats.DevInfoMap, devMajMin)
 		}
 	}
 	diskstats.scanNum = scanNum

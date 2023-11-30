@@ -33,3 +33,6 @@ func BenchmarkDiskstatsParserProm(b *testing.B) {
 		}
 	}
 }
+
+// BenchmarkDiskstatsParser-12        	   59664	     19345 ns/op
+// BenchmarkDiskstatsParserProm-12    	   12285	     98650 ns/op

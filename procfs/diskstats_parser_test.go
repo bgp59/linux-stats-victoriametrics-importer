@@ -17,9 +17,6 @@ type DiskstatsTestCase struct {
 }
 
 var diskstatsIndexName = []string{
-	"DISKSTATS_MAJOR_NUM",
-	"DISKSTATS_MINOR_NUM",
-	"DISKSTATS_DEVICE",
 	"DISKSTATS_NUM_READS_COMPLETED",
 	"DISKSTATS_NUM_READS_MERGED",
 	"DISKSTATS_NUM_READ_SECTORS",
@@ -73,19 +70,29 @@ func testDiskstatsParser(tc *DiskstatsTestCase, t *testing.T) {
 	}
 
 	diffBuf := &bytes.Buffer{}
-	for dev, wantDevStats := range wantDiskstats.DevStats {
-		gotDevStats := diskstats.DevStats[dev]
-		if gotDevStats == nil {
+	for devMajMin, wantDevInfo := range wantDiskstats.DevInfoMap {
+		gotDevInfo := diskstats.DevInfoMap[devMajMin]
+		if gotDevInfo == nil {
 			fmt.Fprintf(
 				diffBuf,
-				"\nDevStats[%s]: missing device", dev,
+				"\nDevInfoMap[%q]: missing device", devMajMin,
 			)
 		} else {
+			if wantDevInfo.Name != gotDevInfo.Name {
+				fmt.Fprintf(
+					diffBuf,
+					"\\nDevInfoMap[%q].Name: want: %q, got: %q",
+					devMajMin, wantDevInfo.Name, gotDevInfo.Name,
+				)
+
+			}
+
+			wantDevStats, gotDevStats := wantDevInfo.Stats, gotDevInfo.Stats
 			if len(wantDevStats) != len(gotDevStats) {
 				fmt.Fprintf(
 					diffBuf,
-					"\nlen(DevStats[%s]): want: %d, got: %d",
-					dev, len(wantDevStats), len(gotDevStats),
+					"\nlen(DevInfoMap[%q].Stats): want: %d, got: %d",
+					devMajMin, len(wantDevStats), len(gotDevStats),
 				)
 			} else {
 				for i, wantStat := range wantDevStats {
@@ -93,19 +100,19 @@ func testDiskstatsParser(tc *DiskstatsTestCase, t *testing.T) {
 					if wantStat != gotStat {
 						fmt.Fprintf(
 							diffBuf,
-							"\nDevStats[%s][%d (%s)]: want: %d, got: %d",
-							dev, i, diskstatsIndexName[i], wantStat, gotStat,
+							"\nDevInfoMap[%q].Stats[%d (%s)]: want: %d, got: %d",
+							devMajMin, i, diskstatsIndexName[i], wantStat, gotStat,
 						)
 					}
 				}
 			}
 		}
 	}
-	for dev := range diskstats.DevStats {
-		if wantDiskstats.DevStats[dev] == nil {
+	for devMajMin := range diskstats.DevInfoMap {
+		if wantDiskstats.DevInfoMap[devMajMin] == nil {
 			fmt.Fprintf(
 				diffBuf,
-				"\nDevStats[%s]: unexpected device", dev,
+				"\nDevInfoMap[%q]: unexpected device", devMajMin,
 			)
 		}
 	}
@@ -121,9 +128,15 @@ func TestDiskstatsParser(t *testing.T) {
 			procfsRoot:               path.Join(diskstatsTestdataDir, "field_mapping"),
 			disableJiffiesToMillisec: true,
 			wantDiskstats: &Diskstats{
-				DevStats: map[string][]uint32{
-					"disk0": []uint32{1000, 1001, 0, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018, 1019},
-					"disk1": []uint32{2000, 2001, 0, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019},
+				DevInfoMap: map[string]*DiskstatsDevInfo{
+					"0:0": &DiskstatsDevInfo{
+						Name:  "disk0",
+						Stats: []uint32{1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017},
+					},
+					"1:1": &DiskstatsDevInfo{
+						Name:  "disk1",
+						Stats: []uint32{2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017},
+					},
 				},
 			},
 		},
@@ -131,22 +144,34 @@ func TestDiskstatsParser(t *testing.T) {
 			name:       "reuse",
 			procfsRoot: path.Join(diskstatsTestdataDir, "field_mapping"),
 			primeDiskstats: &Diskstats{
-				DevStats: map[string][]uint32{
-					"disk0": make([]uint32, 20),
-					"disk1": make([]uint32, 20),
+				DevInfoMap: map[string]*DiskstatsDevInfo{
+					"0:0": &DiskstatsDevInfo{
+						Name:  "disk0",
+						Stats: make([]uint32, 17),
+					},
+					"1:1": &DiskstatsDevInfo{
+						Name:  "disk1",
+						Stats: make([]uint32, 17),
+					},
 				},
 				devScanNum: map[string]int{
-					"disk0": 42,
-					"disk1": 42,
+					"0:0": 42,
+					"1:1": 42,
 				},
 				scanNum:           42,
 				jiffiesToMillisec: 0,
 				fieldsInJiffies:   diskstatsFieldsInJiffies,
 			},
 			wantDiskstats: &Diskstats{
-				DevStats: map[string][]uint32{
-					"disk0": []uint32{1000, 1001, 0, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018, 1019},
-					"disk1": []uint32{2000, 2001, 0, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019},
+				DevInfoMap: map[string]*DiskstatsDevInfo{
+					"0:0": &DiskstatsDevInfo{
+						Name:  "disk0",
+						Stats: []uint32{1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017},
+					},
+					"1:1": &DiskstatsDevInfo{
+						Name:  "disk1",
+						Stats: []uint32{2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017},
+					},
 				},
 			},
 		},
@@ -154,24 +179,39 @@ func TestDiskstatsParser(t *testing.T) {
 			name:       "remove_dev",
 			procfsRoot: path.Join(diskstatsTestdataDir, "field_mapping"),
 			primeDiskstats: &Diskstats{
-				DevStats: map[string][]uint32{
-					"disk0":   make([]uint32, 20),
-					"disk1":   make([]uint32, 20),
-					"removed": make([]uint32, 20),
+				DevInfoMap: map[string]*DiskstatsDevInfo{
+					"0:0": &DiskstatsDevInfo{
+						Name:  "disk0",
+						Stats: make([]uint32, 17),
+					},
+					"1:1": &DiskstatsDevInfo{
+						Name:  "disk1",
+						Stats: make([]uint32, 17),
+					},
+					"255:255": &DiskstatsDevInfo{
+						Name:  "removed",
+						Stats: make([]uint32, 17),
+					},
 				},
 				devScanNum: map[string]int{
-					"disk0":   42,
-					"disk1":   42,
-					"removed": 42,
+					"0:0":     42,
+					"1:1":     42,
+					"255:255": 42,
 				},
 				scanNum:           42,
 				jiffiesToMillisec: 0,
 				fieldsInJiffies:   diskstatsFieldsInJiffies,
 			},
 			wantDiskstats: &Diskstats{
-				DevStats: map[string][]uint32{
-					"disk0": []uint32{1000, 1001, 0, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018, 1019},
-					"disk1": []uint32{2000, 2001, 0, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019},
+				DevInfoMap: map[string]*DiskstatsDevInfo{
+					"0:0": &DiskstatsDevInfo{
+						Name:  "disk0",
+						Stats: []uint32{1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017},
+					},
+					"1:1": &DiskstatsDevInfo{
+						Name:  "disk1",
+						Stats: []uint32{2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017},
+					},
 				},
 			},
 		},
@@ -179,22 +219,34 @@ func TestDiskstatsParser(t *testing.T) {
 			name:       "jiffies",
 			procfsRoot: path.Join(diskstatsTestdataDir, "field_mapping"),
 			primeDiskstats: &Diskstats{
-				DevStats: map[string][]uint32{
-					"disk0": make([]uint32, 20),
-					"disk1": make([]uint32, 20),
+				DevInfoMap: map[string]*DiskstatsDevInfo{
+					"0:0": &DiskstatsDevInfo{
+						Name:  "disk0",
+						Stats: make([]uint32, 17),
+					},
+					"1:1": &DiskstatsDevInfo{
+						Name:  "disk1",
+						Stats: make([]uint32, 17),
+					},
 				},
 				devScanNum: map[string]int{
-					"disk0": 42,
-					"disk1": 42,
+					"0:0": 42,
+					"1:1": 42,
 				},
 				scanNum:           42,
 				jiffiesToMillisec: 10,
 				fieldsInJiffies:   diskstatsFieldsInJiffies,
 			},
 			wantDiskstats: &Diskstats{
-				DevStats: map[string][]uint32{
-					"disk0": []uint32{1000, 1001, 0, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 10120, 1013, 1014, 1015, 1016, 1017, 1018, 1019},
-					"disk1": []uint32{2000, 2001, 0, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 20120, 2013, 2014, 2015, 2016, 2017, 2018, 2019},
+				DevInfoMap: map[string]*DiskstatsDevInfo{
+					"0:0": &DiskstatsDevInfo{
+						Name:  "disk0",
+						Stats: []uint32{1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 10100, 1011, 1012, 1013, 1014, 1015, 1016, 1017},
+					},
+					"1:1": &DiskstatsDevInfo{
+						Name:  "disk1",
+						Stats: []uint32{2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 20100, 2011, 2012, 2013, 2014, 2015, 2016, 2017},
+					},
 				},
 			},
 		},

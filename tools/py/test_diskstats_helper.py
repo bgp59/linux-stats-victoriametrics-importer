@@ -14,26 +14,25 @@ output_diskstats_file = os.path.join(
     procfs_testdata_root, "diskstats", "field_mapping", "diskstats"
 )
 
-DISKSTATS_NUM_FIELDS = 20
-DISKSTATS_DEVICE_FIELD_NUM = 2
+DISKSTATS_VALUE_FIELDS_NUM = 17
 
 diskstats_num_devices = 2
 
 if __name__ == "__main__":
-    dev_stats = {}
-    for dev_num in range(diskstats_num_devices):
-        dev = f"disk{dev_num}"
-        dev_stats[dev] = [
-            (dev_num + 1) * 1000 + i if i != DISKSTATS_DEVICE_FIELD_NUM else 0
-            for i in range(DISKSTATS_NUM_FIELDS)
-        ]
+    dev_info_map = {}
+    for k in range(diskstats_num_devices):
+        major, minor = k, k
+        dev_info_map[(major, minor)] = {
+            "name": f"disk{k}",
+            "stats": [
+                (k + 1) * 1000 + i + 1 for i in range(DISKSTATS_VALUE_FIELDS_NUM)
+            ],
+        }
     os.makedirs(os.path.dirname(output_diskstats_file), exist_ok=True)
     with open(output_diskstats_file, "wt") as f:
-        for dev, stats in dev_stats.items():
-            for i in range(DISKSTATS_DEVICE_FIELD_NUM):
-                print(f"{stats[i]:8d} ", file=f, end="")
-            print(f"{dev} ", file=f, end="")
-            print(" ".join(map(str, stats[DISKSTATS_DEVICE_FIELD_NUM + 1 :])), file=f)
+        for (major, minor), dev_info in dev_info_map.items():
+            print(f"{major:8d}", f"{minor:8d}", dev_info["name"], file=f, end=" ")
+            print(" ".join(map(str, dev_info["stats"])), file=f)
     print(f"{output_diskstats_file} generated", file=sys.stderr)
 
     print(
@@ -47,11 +46,18 @@ if __name__ == "__main__":
     print("\t" * indent_lvl + "primeDiskstats: &Diskstats{")
     indent_lvl += 1
 
-    # primeDiskstats - DevStats:
-    print("\t" * indent_lvl + "DevStats: map[string][]uint32{")
+    # primeDiskstats - DiskstatsDevInfo:
+    print("\t" * indent_lvl + "DevInfoMap: map[string]*DiskstatsDevInfo{")
     indent_lvl += 1
-    for dev in dev_stats:
-        print("\t" * indent_lvl + f'"{dev}": make([]uint32, {DISKSTATS_NUM_FIELDS}),')
+    for (major, minor), dev_info in dev_info_map.items():
+        print("\t" * indent_lvl + f'"{major}:{minor}": &DiskstatsDevInfo{{')
+        indent_lvl += 1
+        print("\t" * indent_lvl + f'Name: "{dev_info["name"]}",')
+        print(
+            "\t" * indent_lvl + f"Stats: make([]uint32, {DISKSTATS_VALUE_FIELDS_NUM}),"
+        )
+        indent_lvl -= 1
+        print("\t" * indent_lvl + "},")
     indent_lvl -= 1
     print("\t" * indent_lvl + "},")
 
@@ -59,8 +65,8 @@ if __name__ == "__main__":
     scan_num = 42
     print("\t" * indent_lvl + "devScanNum: map[string]int{")
     indent_lvl += 1
-    for dev in dev_stats:
-        print("\t" * indent_lvl + f'"{dev}": {scan_num},')
+    for (major, minor) in dev_info_map:
+        print("\t" * indent_lvl + f'"{major}:{minor}": {scan_num},')
     indent_lvl -= 1
     print("\t" * indent_lvl + "},")
     print("\t" * indent_lvl + f"scanNum: {scan_num},")
@@ -73,21 +79,25 @@ if __name__ == "__main__":
     indent_lvl -= 1
     print("\t" * indent_lvl + "},")
 
-    # wantDiskstats:
+    # wantDiskstats start:
     print("\t" * indent_lvl + "wantDiskstats: &Diskstats{")
     indent_lvl += 1
 
-    # wantDiskstats - DevStats:
-    print("\t" * indent_lvl + "DevStats: map[string][]uint32{")
+    # wantDiskstats - DiskstatsDevInfo:
+    print("\t" * indent_lvl + "DevInfoMap: map[string]*DiskstatsDevInfo{")
     indent_lvl += 1
-    for dev, stats in dev_stats.items():
+    for (major, minor), dev_info in dev_info_map.items():
+        print("\t" * indent_lvl + f'"{major}:{minor}": &DiskstatsDevInfo{{')
+        indent_lvl += 1
+        print("\t" * indent_lvl + f'Name: "{dev_info["name"]}",')
         print(
             "\t" * indent_lvl
-            + f'"{dev}": '
-            + "[]uint32{"
-            + ", ".join(map(str, stats))
+            + "Stats: []uint32{"
+            + ", ".join(map(str, dev_info["stats"]))
             + "},"
         )
+        indent_lvl -= 1
+        print("\t" * indent_lvl + "},")
     indent_lvl -= 1
     print("\t" * indent_lvl + "},")
 
