@@ -61,6 +61,12 @@ var diskstatsFieldsInJiffies = [DISKSTATS_VALUE_FIELDS_NUM]bool{
 type DiskstatsDevInfo struct {
 	Name  string
 	Stats []uint32
+	// Devices may be appear/disappear dynamically. To keep track of deletion,
+	// each parse invocation is associated with a different from before scan#
+	// and each found device will be updated below for it. At the end of the
+	// pass, the devices that have a different scan# are leftover from a
+	// previous scan and they are deleted from the stats.
+	scanNum int
 }
 
 type Diskstats struct {
@@ -71,8 +77,7 @@ type Diskstats struct {
 	// and each found devMajMin will be updated below for it. At the end of the
 	// pass, the devices that have a different scan# are leftover from a
 	// previous scan and they are deleted from the stats.
-	devScanNum map[string]int
-	scanNum    int
+	scanNum int
 	// The path file to  read:
 	path string
 	// Jiffies -> millisec conversion info; keep it per-instance to allow
@@ -95,7 +100,6 @@ var diskstatsIsSep = [256]bool{
 func NewDiskstats(procfsRoot string) *Diskstats {
 	newDiskstats := &Diskstats{
 		DevInfoMap:      make(map[string]*DiskstatsDevInfo),
-		devScanNum:      make(map[string]int),
 		scanNum:         -1,
 		path:            path.Join(procfsRoot, "diskstats"),
 		fieldsInJiffies: diskstatsFieldsInJiffies,
@@ -111,25 +115,22 @@ func NewDiskstats(procfsRoot string) *Diskstats {
 func (diskstats *Diskstats) Clone(full bool) *Diskstats {
 	newDiskstats := &Diskstats{
 		DevInfoMap:        make(map[string]*DiskstatsDevInfo),
-		devScanNum:        make(map[string]int),
 		scanNum:           diskstats.scanNum,
 		path:              diskstats.path,
 		jiffiesToMillisec: diskstats.jiffiesToMillisec,
 		fieldsInJiffies:   diskstats.fieldsInJiffies,
 	}
 
-	for devMajMin, info := range diskstats.DevInfoMap {
+	for devMajMin, devInfo := range diskstats.DevInfoMap {
 		newDiskstats.DevInfoMap[devMajMin] = &DiskstatsDevInfo{
-			Name:  info.Name,
-			Stats: make([]uint32, len(info.Stats)),
+			Name:    devInfo.Name,
+			Stats:   make([]uint32, len(devInfo.Stats)),
+			scanNum: devInfo.scanNum,
 		}
 		if full {
-			copy(newDiskstats.DevInfoMap[devMajMin].Stats, info.Stats)
-		}
-	}
+			copy(newDiskstats.DevInfoMap[devMajMin].Stats, devInfo.Stats)
 
-	for devMajMin, scanNum := range diskstats.devScanNum {
-		newDiskstats.devScanNum[devMajMin] = scanNum
+		}
 	}
 
 	return newDiskstats
@@ -248,12 +249,12 @@ func (diskstats *Diskstats) Parse() error {
 		}
 
 		// Update scan# for device:
-		diskstats.devScanNum[devMajMin] = scanNum
+		devInfo.scanNum = scanNum
 	}
 
 	// Remove devices not found at this scan:
-	for devMajMin, devScanNum := range diskstats.devScanNum {
-		if scanNum != devScanNum {
+	for devMajMin, devInfo := range diskstats.DevInfoMap {
+		if scanNum != devInfo.scanNum {
 			delete(diskstats.DevInfoMap, devMajMin)
 		}
 	}

@@ -146,17 +146,15 @@ func TestDiskstatsParser(t *testing.T) {
 			primeDiskstats: &Diskstats{
 				DevInfoMap: map[string]*DiskstatsDevInfo{
 					"0:0": &DiskstatsDevInfo{
-						Name:  "disk0",
-						Stats: make([]uint32, 17),
+						Name:    "disk0",
+						Stats:   make([]uint32, 17),
+						scanNum: 42,
 					},
 					"1:1": &DiskstatsDevInfo{
-						Name:  "disk1",
-						Stats: make([]uint32, 17),
+						Name:    "disk1",
+						Stats:   make([]uint32, 17),
+						scanNum: 42,
 					},
-				},
-				devScanNum: map[string]int{
-					"0:0": 42,
-					"1:1": 42,
 				},
 				scanNum:           42,
 				jiffiesToMillisec: 0,
@@ -181,22 +179,20 @@ func TestDiskstatsParser(t *testing.T) {
 			primeDiskstats: &Diskstats{
 				DevInfoMap: map[string]*DiskstatsDevInfo{
 					"0:0": &DiskstatsDevInfo{
-						Name:  "disk0",
-						Stats: make([]uint32, 17),
+						Name:    "disk0",
+						Stats:   make([]uint32, 17),
+						scanNum: 42,
 					},
 					"1:1": &DiskstatsDevInfo{
-						Name:  "disk1",
-						Stats: make([]uint32, 17),
+						Name:    "disk1",
+						Stats:   make([]uint32, 17),
+						scanNum: 42,
 					},
 					"255:255": &DiskstatsDevInfo{
-						Name:  "removed",
-						Stats: make([]uint32, 17),
+						Name:    "removed",
+						Stats:   make([]uint32, 17),
+						scanNum: 42,
 					},
-				},
-				devScanNum: map[string]int{
-					"0:0":     42,
-					"1:1":     42,
-					"255:255": 42,
 				},
 				scanNum:           42,
 				jiffiesToMillisec: 0,
@@ -221,17 +217,15 @@ func TestDiskstatsParser(t *testing.T) {
 			primeDiskstats: &Diskstats{
 				DevInfoMap: map[string]*DiskstatsDevInfo{
 					"0:0": &DiskstatsDevInfo{
-						Name:  "disk0",
-						Stats: make([]uint32, 17),
+						Name:    "disk0",
+						Stats:   make([]uint32, 17),
+						scanNum: 42,
 					},
 					"1:1": &DiskstatsDevInfo{
-						Name:  "disk1",
-						Stats: make([]uint32, 17),
+						Name:    "disk1",
+						Stats:   make([]uint32, 17),
+						scanNum: 42,
 					},
-				},
-				devScanNum: map[string]int{
-					"0:0": 42,
-					"1:1": 42,
 				},
 				scanNum:           42,
 				jiffiesToMillisec: 10,

@@ -43,6 +43,8 @@ if __name__ == "__main__":
     indent_lvl = 1
 
     # primeDiskstats start:
+    scan_num = 42
+
     print("\t" * indent_lvl + "primeDiskstats: &Diskstats{")
     indent_lvl += 1
 
@@ -56,19 +58,13 @@ if __name__ == "__main__":
         print(
             "\t" * indent_lvl + f"Stats: make([]uint32, {DISKSTATS_VALUE_FIELDS_NUM}),"
         )
+        print("\t" * indent_lvl + f"scanNum: {scan_num},")
         indent_lvl -= 1
         print("\t" * indent_lvl + "},")
     indent_lvl -= 1
     print("\t" * indent_lvl + "},")
 
-    # primeDiskstats - devScanNum:
-    scan_num = 42
-    print("\t" * indent_lvl + "devScanNum: map[string]int{")
-    indent_lvl += 1
-    for (major, minor) in dev_info_map:
-        print("\t" * indent_lvl + f'"{major}:{minor}": {scan_num},')
-    indent_lvl -= 1
-    print("\t" * indent_lvl + "},")
+    # primeDiskstats - scanNum:
     print("\t" * indent_lvl + f"scanNum: {scan_num},")
 
     # primeDiskstats - jiffies handling:
