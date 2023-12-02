@@ -100,7 +100,7 @@ var diskstatsIsSep = [256]bool{
 func NewDiskstats(procfsRoot string) *Diskstats {
 	newDiskstats := &Diskstats{
 		DevInfoMap:      make(map[string]*DiskstatsDevInfo),
-		scanNum:         -1,
+		scanNum:         0,
 		path:            path.Join(procfsRoot, "diskstats"),
 		fieldsInJiffies: diskstatsFieldsInJiffies,
 	}
