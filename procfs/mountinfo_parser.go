@@ -3,12 +3,10 @@
 package procfs
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"path"
 	"strconv"
-	"strings"
 )
 
 // Reference:
@@ -33,18 +31,13 @@ const (
 	MOUNTINFO_NUM_FIELDS
 )
 
-const (
-	// The optional fields will be terminated by this string:
-	MOUNTINFO_OPTIONAL_FIELDS_TERMINATOR = "-"
-
-	// The optional fields will be presented as a single string joined by the
-	// following separator:
-	MOUNTINFO_OPTIONAL_FIELDS_JOIN_SEP = ","
-)
-
 type Mountinfo struct {
-	// The info is indexed by the device "major:minor":
-	DevMountInfo map[string][]string
+	// Per line#,field# offsets for the fields:
+	DevMountInfo [][]ByteSliceOffsets
+
+	// The info is indexed by the device "major:minor"; field# for dev is:
+	//   buf[DevMountInfoIndex[dev][field#].Start:DevMountInfoIndex[dev][field#].End]
+	DevMountInfoIndex map[string]int
 
 	// The file is not expected to change very often, so in order to avoid a
 	// rather expensive parsing, its previous content is cached and the parsing
@@ -62,104 +55,129 @@ type Mountinfo struct {
 // Read the entire file in one go, using a ReadFileBufPool:
 var mountinfoReadFileBufPool = ReadFileBufPool256k
 
-// Word separators:
-var mountinfoIsSep = [256]bool{
-	' ':  true,
-	'\t': true,
-}
-
 func NewMountInfo(procfsRoot string, pid int) *Mountinfo {
 	return &Mountinfo{
-		DevMountInfo: map[string][]string{},
+		DevMountInfo: make([][]ByteSliceOffsets, 0),
 		content:      &bytes.Buffer{},
 		path:         path.Join(procfsRoot, strconv.Itoa(pid), "mountinfo"),
 	}
 }
 
-func (mountinfo *Mountinfo) Clone() *Mountinfo {
+func (mountinfo *Mountinfo) Clone(full bool) *Mountinfo {
 	newMountInfo := &Mountinfo{
-		DevMountInfo: map[string][]string{},
+		DevMountInfo: make([][]ByteSliceOffsets, len(mountinfo.DevMountInfo)),
 		ParseCount:   mountinfo.ParseCount,
 		ChangeCount:  mountinfo.ChangeCount,
 		Changed:      mountinfo.Changed,
-		content:      bytes.NewBuffer(mountinfo.content.Bytes()),
 		path:         mountinfo.path,
 	}
-	for dev, info := range mountinfo.DevMountInfo {
-		newMountInfo.DevMountInfo[dev] = make([]string, MOUNTINFO_NUM_FIELDS)
-		copy(newMountInfo.DevMountInfo[dev], info)
+
+	if full {
+		newMountInfo.content = bytes.NewBuffer(mountinfo.content.Bytes())
+	} else {
+		newMountInfo.content = &bytes.Buffer{}
 	}
+
+	for i, info := range mountinfo.DevMountInfo {
+		newMountInfo.DevMountInfo[i] = make([]ByteSliceOffsets, MOUNTINFO_NUM_FIELDS)
+		if full {
+			copy(newMountInfo.DevMountInfo[i], info)
+		}
+	}
+
+	if mountinfo.DevMountInfoIndex != nil {
+		newMountInfo.DevMountInfoIndex = make(map[string]int)
+		for dev, index := range mountinfo.DevMountInfoIndex {
+			newMountInfo.DevMountInfoIndex[dev] = index
+		}
+	}
+
 	return newMountInfo
 }
 
-func (mountinfo *Mountinfo) update(fBuf *bytes.Buffer) error {
-	devMountInfo := mountinfo.DevMountInfo
-	foundDev := map[string]bool{}
-	scanner := bufio.NewScanner(fBuf)
-	for scanner.Scan() {
-		line := scanner.Text()
-		words := strings.Fields(line)
-		if len(words) <= MOUNTINFO_MAJOR_MINOR {
-			return fmt.Errorf("%q: missing fields", line)
-		}
-		dev := string(words[MOUNTINFO_MAJOR_MINOR])
-		info := devMountInfo[dev]
-		if info == nil {
-			info = make([]string, MOUNTINFO_NUM_FIELDS)
-			devMountInfo[dev] = info
-		}
+func (mountinfo *Mountinfo) update() error {
+	// Max out the capacity already available in DevMountInfo. The actual length
+	// will be adjusted at the end:
+	devMountInfo := mountinfo.DevMountInfo[:cap(mountinfo.DevMountInfo)]
 
-		fieldIndex, optionalsStart := 0, -1
-		for i, word := range words {
-			if fieldIndex >= MOUNTINFO_NUM_FIELDS {
-				return fmt.Errorf("%q:  too many fields", line)
-			} else if fieldIndex != MOUNTINFO_OPTIONAL_FIELDS {
-				if info[fieldIndex] != word {
-					info[fieldIndex] = word
-				}
-				fieldIndex++
-			} else {
-				if optionalsStart < 0 {
-					optionalsStart = i
-				}
-				if word == MOUNTINFO_OPTIONAL_FIELDS_TERMINATOR {
-					optionals := strings.Join(
-						words[optionalsStart:i],
-						MOUNTINFO_OPTIONAL_FIELDS_JOIN_SEP,
-					)
-					if info[fieldIndex] != optionals {
-						info[fieldIndex] = optionals
-					}
-					fieldIndex++
-					if info[fieldIndex] != word {
-						info[fieldIndex] = word
-					}
-					fieldIndex++
+	buf, l := mountinfo.content.Bytes(), mountinfo.content.Len()
+	lineIndex := 0
+	for pos := 0; pos < l; {
+		// Start parsing a new line:
+		if len(devMountInfo) <= lineIndex {
+			devMountInfo = append(devMountInfo, make([]ByteSliceOffsets, MOUNTINFO_NUM_FIELDS))
+		}
+		info := devMountInfo[lineIndex]
+
+		lineStart, fieldIndex, eol := pos, MOUNTINFO_MOUNT_ID, false
+		optionalFieldsStart, optionalFieldsEnd := -1, -1
+		for ; !eol && pos < l && fieldIndex < MOUNTINFO_NUM_FIELDS; pos++ {
+			// Locate the next word start:
+			for ; isWhitespace[buf[pos]]; pos++ {
+			}
+			wordStart := pos
+			// Locate word end:
+			for ; pos < l; pos++ {
+				c := buf[pos]
+				if eol = (c == '\n'); eol || isWhitespace[c] {
+					break
 				}
 			}
+			// Assign to parsed field:
+			if fieldIndex == MOUNTINFO_OPTIONAL_FIELDS {
+				if optionalFieldsStart < 0 {
+					// First word of the optional fields:
+					optionalFieldsStart = wordStart
+					optionalFieldsEnd = wordStart
+				}
+				if pos == wordStart+1 && buf[wordStart] == '-' {
+					// End of optional fields:
+					info[fieldIndex].Start = optionalFieldsStart
+					info[fieldIndex].End = optionalFieldsEnd
+					fieldIndex++
+				} else {
+					// This word is part of the optional fields, advance the
+					// latter's end position:
+					optionalFieldsEnd = pos
+					continue
+				}
+			}
+			info[fieldIndex].Start = wordStart
+			info[fieldIndex].End = pos
+			fieldIndex++
 		}
 		if fieldIndex < MOUNTINFO_NUM_FIELDS {
-			return fmt.Errorf("%q: missing fields", line)
+			// Missing fields:
+			return fmt.Errorf(
+				"%s#%d: %q: missing fields (< %d)",
+				mountinfo.path, lineIndex+1, getCurrentLine(buf, lineStart), MOUNTINFO_NUM_FIELDS,
+			)
 		}
-		foundDev[dev] = true
-	}
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-
-	// Remove leftover devices (from prev scans):
-	for dev := range devMountInfo {
-		if !foundDev[dev] {
-			delete(devMountInfo, dev)
+		// Advance to EOL:
+		for ; !eol && pos < l; pos++ {
+			c := buf[pos]
+			if eol = (c == '\n'); !eol && !isWhitespace[c] {
+				return fmt.Errorf(
+					"%s#%d: ... %q: unexpected data after the last field",
+					mountinfo.path, lineIndex+1, getCurrentLine(buf, pos),
+				)
+			}
 		}
+		lineIndex++
 	}
 
-	// Update cached content:
-	mountinfo.content.Reset()
-	if _, err := mountinfo.content.ReadFrom(fBuf); err != nil {
-		return err
-	}
+	// Trim back dev info to match the actual number of lines:
+	mountinfo.DevMountInfo = devMountInfo[:lineIndex]
 
+	// Rebuild the "major:minor" index:
+	devMountInfoIndex := map[string]int{}
+	for i, info := range mountinfo.DevMountInfo {
+		startEnd := info[MOUNTINFO_MAJOR_MINOR]
+		devMountInfoIndex[string(buf[startEnd.Start:startEnd.End])] = i
+	}
+	mountinfo.DevMountInfoIndex = devMountInfoIndex
+
+	// Update change stats:
 	mountinfo.Changed = true
 	mountinfo.ChangeCount++
 
@@ -171,16 +189,18 @@ func (mountinfo *Mountinfo) Parse() error {
 	if err != nil {
 		return err
 	}
-	defer mountinfoReadFileBufPool.ReturnBuf(fBuf)
-
 	mountinfo.ParseCount++
 	if bytes.Equal(mountinfo.content.Bytes(), fBuf.Bytes()) {
 		mountinfo.Changed = false
+		mountinfoReadFileBufPool.ReturnBuf(fBuf)
 		return nil
 	}
-	err = mountinfo.update(fBuf)
-	if err != nil {
-		return fmt.Errorf("%s: %v", mountinfo.path, err)
-	}
-	return nil
+
+	// Swap the buffers to reflect the file change: return the previous content
+	// to the pool and keep the most recent buffer:
+	mountinfoReadFileBufPool.ReturnBuf(mountinfo.content)
+	mountinfo.content = fBuf
+
+	err = mountinfo.update()
+	return err
 }
