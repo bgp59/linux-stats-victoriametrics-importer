@@ -1,14 +1,18 @@
 package benchmarks
 
 import (
+	"path"
 	"testing"
 
 	"github.com/eparparita/linux-stats-victoriametrics-importer/procfs"
 
 	// Reference for performance comparison:
-
 	prom_procfs_blockdevice "github.com/prometheus/procfs/blockdevice"
 )
+
+func BenchmarkDiskstatsParserIO(b *testing.B) {
+	benchmarkFileRead(path.Join(LSVMI_TESTDATA_PROCFS_ROOT, "diskstats"), b)
+}
 
 func BenchmarkDiskstatsParser(b *testing.B) {
 	diskstats := procfs.NewDiskstats(LSVMI_TESTDATA_PROCFS_ROOT)

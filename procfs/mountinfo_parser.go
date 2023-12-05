@@ -31,12 +31,22 @@ const (
 	MOUNTINFO_NUM_FIELDS
 )
 
+const (
+	// The DevMountInfoIndex to DevMountInfo overhead that triggers the pruning
+	// of the former (see Mountinfo for definitions);
+	//    len(DevMountInfoIndex) - len(DevMountInfo) >= threshold
+	MOUNTINFO_INDEX_MAX_OVERHEAD = 1000
+)
+
 type Mountinfo struct {
 	// Per line#,field# offsets for the fields:
 	DevMountInfo [][]ByteSliceOffsets
 
-	// The info is indexed by the device "major:minor"; field# for dev is:
-	//   buf[DevMountInfoIndex[dev][field#].Start:DevMountInfoIndex[dev][field#].End]
+	// The info is indexed by the device "major:minor"; entries for devices that
+	// are no longer mounted are kept around in case they will be remounted
+	// again and they are marked as having index -1. This is done to increase
+	// efficiency since creating/deleting map entries are more expensive
+	// operations compared to updating one.
 	DevMountInfoIndex map[string]int
 
 	// The file is not expected to change very often, so in order to avoid a
@@ -45,7 +55,11 @@ type Mountinfo struct {
 	Changed                 bool
 	ParseCount, ChangeCount uint64
 
-	// Cache for content:
+	// Whether to force an update at every parse or not, regardless of content
+	// change, in support of testing/benchmarking.
+	ForceUpdate bool
+
+	// File content, the backing []byte for the byte slices of the fields:
 	content *bytes.Buffer
 
 	// The path file to  read:
@@ -57,9 +71,10 @@ var mountinfoReadFileBufPool = ReadFileBufPool256k
 
 func NewMountInfo(procfsRoot string, pid int) *Mountinfo {
 	return &Mountinfo{
-		DevMountInfo: make([][]ByteSliceOffsets, 0),
-		content:      &bytes.Buffer{},
-		path:         path.Join(procfsRoot, strconv.Itoa(pid), "mountinfo"),
+		DevMountInfo:      make([][]ByteSliceOffsets, 0),
+		DevMountInfoIndex: map[string]int{},
+		content:           &bytes.Buffer{},
+		path:              path.Join(procfsRoot, strconv.Itoa(pid), "mountinfo"),
 	}
 }
 
@@ -74,6 +89,7 @@ func (mountinfo *Mountinfo) Clone(full bool) *Mountinfo {
 
 	if full {
 		newMountInfo.content = bytes.NewBuffer(mountinfo.content.Bytes())
+		newMountInfo.ForceUpdate = mountinfo.ForceUpdate
 	} else {
 		newMountInfo.content = &bytes.Buffer{}
 	}
@@ -102,6 +118,14 @@ func (mountinfo *Mountinfo) update() error {
 
 	buf, l := mountinfo.content.Bytes(), mountinfo.content.Len()
 	lineIndex := 0
+
+	devMountInfoIndex := mountinfo.DevMountInfoIndex
+	// Mark all index entries as no longer in use, they will be updated as the
+	// file is being parsed:
+	for dev := range devMountInfoIndex {
+		devMountInfoIndex[dev] = -1
+	}
+
 	for pos := 0; pos < l; {
 		// Start parsing a new line:
 		if len(devMountInfo) <= lineIndex {
@@ -163,19 +187,25 @@ func (mountinfo *Mountinfo) update() error {
 				)
 			}
 		}
+
+		// Update the "major:minor" index:
+		startEnd := info[MOUNTINFO_MAJOR_MINOR]
+		devMountInfoIndex[string(buf[startEnd.Start:startEnd.End])] = lineIndex
 		lineIndex++
 	}
 
 	// Trim back dev info to match the actual number of lines:
 	mountinfo.DevMountInfo = devMountInfo[:lineIndex]
 
-	// Rebuild the "major:minor" index:
-	devMountInfoIndex := map[string]int{}
-	for i, info := range mountinfo.DevMountInfo {
-		startEnd := info[MOUNTINFO_MAJOR_MINOR]
-		devMountInfoIndex[string(buf[startEnd.Start:startEnd.End])] = i
+	// Check if too much unused entries have been accrued in the index and prune
+	// them as needed:
+	if len(devMountInfoIndex)-lineIndex >= MOUNTINFO_INDEX_MAX_OVERHEAD {
+		for dev, index := range devMountInfoIndex {
+			if index < 0 {
+				delete(devMountInfoIndex, dev)
+			}
+		}
 	}
-	mountinfo.DevMountInfoIndex = devMountInfoIndex
 
 	// Update change stats:
 	mountinfo.Changed = true
@@ -190,7 +220,7 @@ func (mountinfo *Mountinfo) Parse() error {
 		return err
 	}
 	mountinfo.ParseCount++
-	if bytes.Equal(mountinfo.content.Bytes(), fBuf.Bytes()) {
+	if !mountinfo.ForceUpdate && bytes.Equal(mountinfo.content.Bytes(), fBuf.Bytes()) {
 		mountinfo.Changed = false
 		mountinfoReadFileBufPool.ReturnBuf(fBuf)
 		return nil
