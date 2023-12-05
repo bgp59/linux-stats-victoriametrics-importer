@@ -31,22 +31,11 @@ const (
 	MOUNTINFO_NUM_FIELDS
 )
 
-const (
-	// The DevMountInfoIndex to DevMountInfo overhead that triggers the pruning
-	// of the former (see Mountinfo for definitions);
-	//    len(DevMountInfoIndex) - len(DevMountInfo) >= threshold
-	MOUNTINFO_INDEX_MAX_OVERHEAD = 1000
-)
-
 type Mountinfo struct {
 	// Per line#,field# offsets for the fields:
 	DevMountInfo [][]ByteSliceOffsets
 
-	// The info is indexed by the device "major:minor"; entries for devices that
-	// are no longer mounted are kept around in case they will be remounted
-	// again and they are marked as having index -1. This is done to increase
-	// efficiency since creating/deleting map entries are more expensive
-	// operations compared to updating one.
+	// The info is indexed by the device "major:minor":
 	DevMountInfoIndex map[string]int
 
 	// The file is not expected to change very often, so in order to avoid a
@@ -197,13 +186,10 @@ func (mountinfo *Mountinfo) update() error {
 	// Trim back dev info to match the actual number of lines:
 	mountinfo.DevMountInfo = devMountInfo[:lineIndex]
 
-	// Check if too much unused entries have been accrued in the index and prune
-	// them as needed:
-	if len(devMountInfoIndex)-lineIndex >= MOUNTINFO_INDEX_MAX_OVERHEAD {
-		for dev, index := range devMountInfoIndex {
-			if index < 0 {
-				delete(devMountInfoIndex, dev)
-			}
+	// Prune index:
+	for dev, index := range devMountInfoIndex {
+		if index < 0 {
+			delete(devMountInfoIndex, dev)
 		}
 	}
 

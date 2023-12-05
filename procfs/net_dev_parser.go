@@ -42,15 +42,11 @@ const (
 )
 
 type NetDev struct {
-	// Stats indexed by interface name:
-	DevStats map[string][]uint64
-	// Interfaces may be created/deleted dynamically. To keep track of deletion,
-	// each parse invocation is associated with a different from before scan#
-	// and each found interface name will be updated below for it. At the end of
-	// the pass, the interfaces that have a different scan# are leftover from a
-	// previous scan and they are deleted from the stats.
-	devScanNum map[string]int
-	scanNum    int
+	// Stats per line:
+	DevStats [][]uint64
+
+	// Indexed by device name; DevStats[DevStatsIndex[dev]]
+	DevStatsIndex map[string]int
 	// The path file to  read:
 	path string
 	// The parser assumes certain fields, based on the first N lines. The file
@@ -58,7 +54,8 @@ type NetDev struct {
 	// change without a kernel change, i.e. a reboot. The validated header is
 	// remembered and it will be checked for changes at each pass as a sanity
 	// check:
-	validHeader []byte
+	validHeader    []byte
+	numLinesHeader int
 }
 
 // Read the entire file in one go, using a ReadFileBufPool:
@@ -66,93 +63,43 @@ var netDevReadFileBufPool = ReadFileBufPool256k
 
 // To protect against changes in kernel that may alter the exposed stats, the
 // header of the file is checked, once/1st time, against the known headers
-// listed below; the comparison will be performed after some normalization:
-//   - trimmed
-//   - all lowercase
-//   - all spaces that do not separate a word are removed,
-//     e.g. `Inter-|   Receive  |' -> `Inter-|Receive|'
-//   - all multiple spaces separating words are replaced w/ a single one
-//   - multiple newlines are replaced w/ a single one
+// listed below:
 
-var netDevValidNormHeaders = [][]byte{
-	normalizeNetDevHeader(`
+var netDevValidHeaders = [][]byte{
+	[]byte(`
 Inter-|   Receive                                                |  Transmit
  face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
-`),
-}
-
-// Word separators:
-var netDevIsSep = [256]bool{
-	' ':  true,
-	'\t': true,
-}
-
-var netDevIsSepNl = [256]bool{
-	' ':  true,
-	'\t': true,
-	'\n': true,
-}
-
-func normalizeNetDevHeader(header any) []byte {
-	var hBytes, normHeader []byte
-	switch header := header.(type) {
-	case string:
-		hBytes = []byte(header)
-	case []byte:
-		hBytes = header
-	default:
-		return nil
-	}
-	hBytes = bytes.ToLower(bytes.TrimSpace(hBytes))
-	normHeader = make([]byte, len(hBytes))
-
-	pos, wasC, wasSpace, lastNonSpaceWasWordC := 0, byte(0), false, false
-	for _, c := range hBytes {
-		isSpace := c == ' ' || c == '\t'
-		isWordC := 'a' <= c && c <= 'z' || '0' <= c && c <= '9'
-		if isWordC && wasSpace && lastNonSpaceWasWordC {
-			normHeader[pos] = ' '
-			pos++
-		}
-		if !isSpace {
-			if wasC != '\n' || c != '\n' {
-				normHeader[pos] = c
-				pos++
-			}
-			lastNonSpaceWasWordC = isWordC
-		}
-		wasC, wasSpace = c, isSpace
-	}
-	return normHeader[:pos]
+`)[1:], // 1: to skip over the 1st empty line, which is *not* part of the header
 }
 
 func NewNetDev(procfsRoot string) *NetDev {
 	return &NetDev{
-		DevStats:   map[string][]uint64{},
-		devScanNum: map[string]int{},
-		scanNum:    -1,
-		path:       path.Join(procfsRoot, "net", "dev"),
+		DevStats:      make([][]uint64, 0),
+		DevStatsIndex: map[string]int{},
+		path:          path.Join(procfsRoot, "net", "dev"),
 	}
 }
 
 func (netDev *NetDev) Clone(full bool) *NetDev {
 	newNetDev := &NetDev{
-		DevStats:    map[string][]uint64{},
-		devScanNum:  map[string]int{},
-		scanNum:     netDev.scanNum,
-		path:        netDev.path,
-		validHeader: make([]byte, len(netDev.validHeader)),
+		DevStats:       make([][]uint64, len(netDev.DevStats)),
+		DevStatsIndex:  map[string]int{},
+		path:           netDev.path,
+		validHeader:    make([]byte, len(netDev.validHeader)),
+		numLinesHeader: netDev.numLinesHeader,
 	}
 
-	for dev, devStats := range netDev.DevStats {
-		newNetDev.DevStats[dev] = make([]uint64, len(devStats))
+	for i, devStats := range netDev.DevStats {
+		newNetDev.DevStats[i] = make([]uint64, NET_DEV_NUM_STATS)
 		if full {
-			copy(newNetDev.DevStats[dev], devStats)
+			copy(newNetDev.DevStats[i], devStats)
 		}
 	}
 
-	for dev, scanNum := range netDev.devScanNum {
-		newNetDev.devScanNum[dev] = scanNum
+	if full {
+		for dev, index := range netDev.DevStatsIndex {
+			newNetDev.DevStatsIndex[dev] = index
+		}
 	}
 
 	copy(newNetDev.validHeader, netDev.validHeader)
@@ -160,53 +107,36 @@ func (netDev *NetDev) Clone(full bool) *NetDev {
 	return newNetDev
 }
 
-func (netDev *NetDev) ValidateHeader(buf []byte, numLines int) {
-	off, lineCnt := 0, 0
-	for ; off < len(buf) && lineCnt < numLines; off++ {
-		if buf[off] == '\n' {
-			lineCnt++
-		}
-	}
-	if lineCnt < numLines {
-		return
-	}
-	header := buf[:off]
-	normHeader := normalizeNetDevHeader(header)
-	for _, validNormHeader := range netDevValidNormHeaders {
-		if bytes.Equal(normHeader, validNormHeader) {
+func (netDev *NetDev) ValidateHeader(buf []byte) {
+	for _, header := range netDevValidHeaders {
+		off := len(header)
+		if off <= len(buf) && bytes.Equal(header, buf[:off]) {
 			netDev.validHeader = make([]byte, off)
 			copy(netDev.validHeader, header)
+			netDev.numLinesHeader = 0
+			for _, c := range header {
+				if c == '\n' {
+					netDev.numLinesHeader++
+				}
+			}
 			break
 		}
 	}
 }
 
-func (netDev *NetDev) makeErrorLine(buf []byte, devStart int, reason any) error {
-	if buf != nil {
-		line := buf[devStart:]
-		lineEnd := bytes.IndexByte(line, '\n')
-		if lineEnd > 0 {
-			line = line[:lineEnd]
-		}
-		return fmt.Errorf("%s: %q: %v", netDev.path, string(line), reason)
-	} else {
-		return fmt.Errorf("%s: %v", netDev.path, reason)
-	}
-}
-
 func (netDev *NetDev) Parse() error {
-	bBuf, err := netDevReadFileBufPool.ReadFile(netDev.path)
+	fBuf, err := netDevReadFileBufPool.ReadFile(netDev.path)
 	if err != nil {
 		return err
 	}
-	defer netDevReadFileBufPool.ReturnBuf(bBuf)
+	defer netDevReadFileBufPool.ReturnBuf(fBuf)
 
-	buf, l := bBuf.Bytes(), bBuf.Len()
+	buf, l := fBuf.Bytes(), fBuf.Len()
 
 	validHeader := netDev.validHeader
 	statsOff := len(validHeader)
 	if validHeader == nil {
-		netDev.ValidateHeader(buf, 2)
+		netDev.ValidateHeader(buf)
 		validHeader = netDev.validHeader
 		if validHeader == nil {
 			return fmt.Errorf("%s: unsupported file header", netDev.path)
@@ -216,88 +146,107 @@ func (netDev *NetDev) Parse() error {
 		return fmt.Errorf("%s: invalid/changed file header", netDev.path)
 	}
 
-	scanNum := netDev.scanNum + 1
+	// Max out the capacity already available in dev stats. The actual length
+	// will be adjusted at the end:
+	devStats := netDev.DevStats[:cap(netDev.DevStats)]
 
-	for pos := statsOff; pos < l; pos++ {
-		// Skip over spaces/empty lines:
-		for ; pos < l && netDevIsSepNl[buf[pos]]; pos++ {
+	// Initialize dev index w/ -1; the actual index will be updated as devices
+	// are being parsed and entries for devices no longer available will be
+	// pruned at the end:
+	devStatsIndex := netDev.DevStatsIndex
+	for dev := range devStatsIndex {
+		devStatsIndex[dev] = -1
+	}
+
+	devIndex := 0
+	for pos := statsOff; pos < l; devIndex++ {
+		// Start parsing a new line:
+		if len(devStats) <= devIndex {
+			devStats = append(devStats, make([]uint64, NET_DEV_NUM_STATS))
 		}
-		if pos == l {
-			break
+		stats := devStats[devIndex]
+
+		lineStart, eol := pos, false
+		for ; pos < l && isWhitespace[buf[pos]]; pos++ {
 		}
 
-		// Extract the device spec:
-		devStart, dev := pos, ""
-		for ; pos < l; pos++ {
-			if c := buf[pos]; c == ':' {
-				dev = string(buf[devStart:pos])
-				pos++
-				break
-			} else if netDevIsSepNl[c] {
-				break
+		// Extract the device:
+		hasDev := false
+		for devStart, done := pos, false; !done && pos < l; pos++ {
+			c := buf[pos]
+			if c == ':' {
+				if devStart < pos-1 {
+					devStatsIndex[string(buf[devStart:pos])] = devIndex
+					hasDev = true
+				}
+				done = true
+			} else if eol = (c == '\n'); eol || isWhitespace[c] {
+				done = true
 			}
 		}
-		if dev == "" {
-			return netDev.makeErrorLine(buf, devStart, "missing `DEV:'")
+		if !hasDev {
+			return fmt.Errorf(
+				"%s#%d: %q: missing `DEV:'",
+				netDev.path, netDev.numLinesHeader+devIndex+1, getCurrentLine(buf, lineStart),
+			)
 		}
 
 		// Extract stats values:
-		devStats := netDev.DevStats[dev]
-		if devStats == nil {
-			devStats = make([]uint64, NET_DEV_NUM_STATS)
-			netDev.DevStats[dev] = devStats
-		}
-
-		eol, statIndex := false, 0
+		statIndex := 0
 		for !eol && pos < l && statIndex < NET_DEV_NUM_STATS {
-			for ; pos < l && netDevIsSep[buf[pos]]; pos++ {
+			for ; pos < l && isWhitespace[buf[pos]]; pos++ {
 			}
 			value, hasValue := uint64(0), false
-			for ; pos < l; pos++ {
+			for done := false; !done && pos < l; pos++ {
 				c := buf[pos]
 				digit := c - '0'
 				if digit < 10 {
 					value = (value << 3) + (value << 1) + uint64(digit)
 					hasValue = true
-				} else if netDevIsSepNl[c] {
-					eol = (c == '\n')
-					pos++
-					break
+				} else if eol = (c == '\n'); eol || isWhitespace[c] {
+					done = true
 				} else {
-					return netDev.makeErrorLine(buf, devStart, "invalid value")
+					return fmt.Errorf(
+						"%s#%d: %q: invalid value",
+						netDev.path, netDev.numLinesHeader+devIndex+1, getCurrentLine(buf, lineStart),
+					)
 				}
 			}
 			if hasValue {
-				devStats[statIndex] = value
+				stats[statIndex] = value
 				statIndex++
 			}
 		}
 
 		// All values retrieved?
 		if statIndex < NET_DEV_NUM_STATS {
-			return netDev.makeErrorLine(buf, devStart, "not enough values")
+			return fmt.Errorf(
+				"%s#%d: %q: not enough values (< %d)",
+				netDev.path, netDev.numLinesHeader+devIndex+1, getCurrentLine(buf, lineStart), NET_DEV_NUM_STATS,
+			)
 		}
 
 		// Advance to EOL:
 		for ; !eol && pos < l; pos++ {
-			if c := buf[pos]; c == '\n' {
-				eol = true
-			} else if !netDevIsSep[buf[pos]] {
-				return netDev.makeErrorLine(buf, devStart, "invalid value")
+			c := buf[pos]
+			if eol = (c == '\n'); !eol && !isWhitespace[c] {
+				return fmt.Errorf(
+					"%s#%d: %q: invalid value",
+					netDev.path, netDev.numLinesHeader+devIndex+1, getCurrentLine(buf, lineStart),
+				)
 			}
 		}
-
-		// Update scan# for device:
-		netDev.devScanNum[dev] = scanNum
 	}
 
-	// Remove devices not found at this scan:
-	for dev, devScanNum := range netDev.devScanNum {
-		if scanNum != devScanNum {
-			delete(netDev.DevStats, dev)
+	// Trim back dev stats to match the actual number of devices:
+	netDev.DevStats = devStats[:devIndex]
+
+	// Prune dev stats index for devices no longer found:
+	for dev, index := range devStatsIndex {
+		if index == -1 {
+			delete(devStatsIndex, dev)
 		}
 	}
-	netDev.scanNum = scanNum
 
 	return nil
 }

@@ -31,3 +31,11 @@ func BenchmarkMountinfoParser(b *testing.B) {
 		)
 	}
 }
+
+// goos: darwin
+// goarch: amd64
+// pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
+// cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
+// BenchmarkMountinfoParserIO 	   69219	     16297 ns/op
+// BenchmarkMountinfoParser/forceUpdate=true         	   51435	     24238 ns/op
+// BenchmarkMountinfoParser/forceUpdate=false        	   76232	     16726 ns/op

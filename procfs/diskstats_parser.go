@@ -91,12 +91,6 @@ type Diskstats struct {
 // Read the entire file in one go, using a ReadFileBufPool:
 var diskstatsReadFileBufPool = ReadFileBufPool256k
 
-// Word separators:
-var diskstatsIsSep = [256]bool{
-	' ':  true,
-	'\t': true,
-}
-
 func NewDiskstats(procfsRoot string) *Diskstats {
 	newDiskstats := &Diskstats{
 		DevInfoMap:      make(map[string]*DiskstatsDevInfo),
@@ -150,34 +144,31 @@ func (diskstats *Diskstats) makeErrorLine(buf []byte, lineStart int, reason any)
 }
 
 func (diskstats *Diskstats) Parse() error {
-	bBuf, err := diskstatsReadFileBufPool.ReadFile(diskstats.path)
+	fBuf, err := diskstatsReadFileBufPool.ReadFile(diskstats.path)
 	if err != nil {
 		return err
 	}
-	defer diskstatsReadFileBufPool.ReturnBuf(bBuf)
+	defer diskstatsReadFileBufPool.ReturnBuf(fBuf)
 
-	buf, l := bBuf.Bytes(), bBuf.Len()
+	buf, l := fBuf.Bytes(), fBuf.Len()
 
 	devInfoMap := diskstats.DevInfoMap
 	jiffiesToMillisec, fieldsInJiffies := diskstats.jiffiesToMillisec, diskstats.fieldsInJiffies
 	scanNum := diskstats.scanNum + 1
-	for pos := 0; pos < l; pos++ {
+	for pos, lineNum := 0, 1; pos < l; lineNum++ {
 		var (
-			lineStart              = pos
-			eol                    = false
-			fieldStart, fieldNum   int
+			fieldNum               int
 			major, devMajMin, name string
-			devInfo                *DiskstatsDevInfo
-			stats                  []uint32
-			value                  uint32
 		)
+		lineStart, eol := pos, false
+
 		for fieldNum = 0; !eol && pos < l && fieldNum < DISKSTATS_INFO_FIELDS_NUM; pos++ {
-			for ; pos < l && diskstatsIsSep[buf[pos]]; pos++ {
+			for ; pos < l && isWhitespace[buf[pos]]; pos++ {
 			}
-			fieldStart = pos
+			fieldStart := pos
 			for ; pos < l; pos++ {
 				c := buf[pos]
-				if eol = (c == '\n'); eol || diskstatsIsSep[c] {
+				if eol = (c == '\n'); eol || isWhitespace[c] {
 					break
 				}
 			}
@@ -189,37 +180,37 @@ func (diskstats *Diskstats) Parse() error {
 					devMajMin = major + ":" + string(buf[fieldStart:pos])
 				case DISKSTATS_DEVICE_NAME:
 					name = string(buf[fieldStart:pos])
-					devInfo = devInfoMap[devMajMin]
-					if devInfo == nil {
-						devInfo = &DiskstatsDevInfo{
-							Name:  name,
-							Stats: make([]uint32, DISKSTATS_VALUE_FIELDS_NUM),
-						}
-						devInfoMap[devMajMin] = devInfo
-					} else if devInfo.Name != name {
-						devInfo.Name = name
-					}
 				}
 				fieldNum++
 			}
 		}
 		if fieldNum < DISKSTATS_INFO_FIELDS_NUM {
-			return diskstats.makeErrorLine(
-				buf, lineStart,
-				fmt.Errorf("missing info fields (< %d)", DISKSTATS_INFO_FIELDS_NUM),
+			return fmt.Errorf(
+				"%s#%d: %q: missing info fields (< %d)",
+				diskstats.path, lineNum, getCurrentLine(buf, lineStart), DISKSTATS_INFO_FIELDS_NUM,
 			)
 		}
 
-		stats = devInfo.Stats
-		for fieldNum = 0; !eol && pos < l && fieldNum < DISKSTATS_VALUE_FIELDS_NUM; pos++ {
-			for ; pos < l && diskstatsIsSep[buf[pos]]; pos++ {
+		devInfo := devInfoMap[devMajMin]
+		if devInfo == nil {
+			devInfo = &DiskstatsDevInfo{
+				Name:  name,
+				Stats: make([]uint32, DISKSTATS_VALUE_FIELDS_NUM),
 			}
-			fieldStart, value = pos, uint32(0)
+			devInfoMap[devMajMin] = devInfo
+		} else if devInfo.Name != name {
+			devInfo.Name = name
+		}
+		stats := devInfo.Stats
+		for fieldNum = 0; !eol && pos < l && fieldNum < DISKSTATS_VALUE_FIELDS_NUM; pos++ {
+			for ; pos < l && isWhitespace[buf[pos]]; pos++ {
+			}
+			fieldStart, value := pos, uint32(0)
 			for ; pos < l; pos++ {
 				c := buf[pos]
 				if digit := c - '0'; digit < 10 {
 					value = (value << 3) + (value << 1) + uint32(digit)
-				} else if eol = (c == '\n'); eol || diskstatsIsSep[c] {
+				} else if eol = (c == '\n'); eol || isWhitespace[c] {
 					break
 				} else {
 					return diskstats.makeErrorLine(buf, lineStart, "invalid value")
@@ -243,7 +234,7 @@ func (diskstats *Diskstats) Parse() error {
 		// Advance to EOL:
 		for ; !eol && pos < l; pos++ {
 			c := buf[pos]
-			if eol = (c == '\n'); !eol && !diskstatsIsSep[c] {
+			if eol = (c == '\n'); !eol && !isWhitespace[c] {
 				return diskstats.makeErrorLine(buf, lineStart, "invalid value")
 			}
 		}

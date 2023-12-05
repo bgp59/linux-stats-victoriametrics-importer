@@ -38,5 +38,10 @@ func BenchmarkDiskstatsParserProm(b *testing.B) {
 	}
 }
 
-// BenchmarkDiskstatsParser-12        	   61227	     18761 ns/op
-// BenchmarkDiskstatsParserProm-12    	   12240	     98174 ns/op
+// goos: darwin
+// goarch: amd64
+// pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
+// cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
+// BenchmarkDiskstatsParserIO   	   71635	     16254 ns/op
+// BenchmarkDiskstatsParser     	   60306	     20645 ns/op
+// BenchmarkDiskstatsParserProm 	   10000	    104665 ns/op
