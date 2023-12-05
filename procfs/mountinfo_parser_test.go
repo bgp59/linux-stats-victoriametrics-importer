@@ -122,12 +122,14 @@ func TestMountinfoParser(t *testing.T) {
 		&MountinfoTestCase{
 			procfsRoot: path.Join(mountinfoTestdataDir, "field_mapping"),
 			wantDevMountInfo: [][]string{
-				{"10", "1", "20:0", "/root200", "/mount_point200", "mount,options=200", "value200:tag200", "-", "fstype200", "dev200", "super,options=200"},
-				{"21", "1", "21:0", "/root210", "/mount_point210", "mount,options=210", "", "-", "fstype20", "dev20", "super,options=210"},
+				{"10", "1", "11:0", "/root200", "/mount_point200", "mount,options=200", "value200:tag200", "-", "fstype200", "dev200", "super,options=200"},
+				{"20", "1", "21:0", "/root210", "/mount_point210", "mount,options=210", "", "-", "fstype20", "dev20", "super,options=210"},
+				{"30", "1", "31:0", "/root310", "/mount_point310", "mount,options=310", "value310:tag310 value311:tag311", "-", "fstype30", "dev30", "super,options=310"},
 			},
 			wantDevMountInfoIndex: map[string]int{
-				"20:0": 0,
+				"11:0": 0,
 				"21:0": 1,
+				"31:0": 2,
 			},
 		},
 	} {
