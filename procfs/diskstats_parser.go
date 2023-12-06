@@ -3,7 +3,6 @@
 package procfs
 
 import (
-	"bytes"
 	"fmt"
 	"path"
 )
@@ -11,9 +10,10 @@ import (
 // Reference:
 //  https://github.com/torvalds/linux/blob/master/Documentation/admin-guide/iostats.rst
 
-// The information will be presented as a map indexed by the device major:minor
-// with the values presented as a []uint32 slice since most values being
-// unsigned long and the few rest can be represented as such.
+// Each line of the file will be parsed into 2 parts:
+//  - info: major:minor and device name
+//  - stats: []uint32 indexed by field#-1
+// major:minor will be used to index the name and stats
 
 // Indexes for major, minor and device name:
 const (
@@ -74,7 +74,7 @@ type Diskstats struct {
 	DevInfoMap map[string]*DiskstatsDevInfo
 	// Devices may be appear/disappear dynamically. To keep track of deletion,
 	// each parse invocation is associated with a different from before scan#
-	// and each found devMajMin will be updated below for it. At the end of the
+	// and each found majorMinor will be updated below for it. At the end of the
 	// pass, the devices that have a different scan# are leftover from a
 	// previous scan and they are deleted from the stats.
 	scanNum int
@@ -115,32 +115,19 @@ func (diskstats *Diskstats) Clone(full bool) *Diskstats {
 		fieldsInJiffies:   diskstats.fieldsInJiffies,
 	}
 
-	for devMajMin, devInfo := range diskstats.DevInfoMap {
-		newDiskstats.DevInfoMap[devMajMin] = &DiskstatsDevInfo{
+	for majorMinor, devInfo := range diskstats.DevInfoMap {
+		newDiskstats.DevInfoMap[majorMinor] = &DiskstatsDevInfo{
 			Name:    devInfo.Name,
 			Stats:   make([]uint32, len(devInfo.Stats)),
 			scanNum: devInfo.scanNum,
 		}
 		if full {
-			copy(newDiskstats.DevInfoMap[devMajMin].Stats, devInfo.Stats)
+			copy(newDiskstats.DevInfoMap[majorMinor].Stats, devInfo.Stats)
 
 		}
 	}
 
 	return newDiskstats
-}
-
-func (diskstats *Diskstats) makeErrorLine(buf []byte, lineStart int, reason any) error {
-	if buf != nil {
-		line := buf[lineStart:]
-		lineEnd := bytes.IndexByte(line, '\n')
-		if lineEnd > 0 {
-			line = line[:lineEnd]
-		}
-		return fmt.Errorf("%s: %q: %v", diskstats.path, string(line), reason)
-	} else {
-		return fmt.Errorf("%s: %v", diskstats.path, reason)
-	}
 }
 
 func (diskstats *Diskstats) Parse() error {
@@ -157,8 +144,8 @@ func (diskstats *Diskstats) Parse() error {
 	scanNum := diskstats.scanNum + 1
 	for pos, lineNum := 0, 1; pos < l; lineNum++ {
 		var (
-			fieldNum               int
-			major, devMajMin, name string
+			fieldNum                int
+			major, majorMinor, name string
 		)
 		lineStart, eol := pos, false
 
@@ -177,7 +164,7 @@ func (diskstats *Diskstats) Parse() error {
 				case DISKSTATS_MAJOR_NUM:
 					major = string(buf[fieldStart:pos])
 				case DISKSTATS_MINOR_NUM:
-					devMajMin = major + ":" + string(buf[fieldStart:pos])
+					majorMinor = major + ":" + string(buf[fieldStart:pos])
 				case DISKSTATS_DEVICE_NAME:
 					name = string(buf[fieldStart:pos])
 				}
@@ -191,13 +178,13 @@ func (diskstats *Diskstats) Parse() error {
 			)
 		}
 
-		devInfo := devInfoMap[devMajMin]
+		devInfo := devInfoMap[majorMinor]
 		if devInfo == nil {
 			devInfo = &DiskstatsDevInfo{
 				Name:  name,
 				Stats: make([]uint32, DISKSTATS_VALUE_FIELDS_NUM),
 			}
-			devInfoMap[devMajMin] = devInfo
+			devInfoMap[majorMinor] = devInfo
 		} else if devInfo.Name != name {
 			devInfo.Name = name
 		}
@@ -213,7 +200,10 @@ func (diskstats *Diskstats) Parse() error {
 				} else if eol = (c == '\n'); eol || isWhitespace[c] {
 					break
 				} else {
-					return diskstats.makeErrorLine(buf, lineStart, "invalid value")
+					return fmt.Errorf(
+						"%s#%d: %q: `%c' invalid value for a digit",
+						diskstats.path, lineNum, getCurrentLine(buf, lineStart), c,
+					)
 				}
 			}
 			if fieldStart < pos {
@@ -225,9 +215,9 @@ func (diskstats *Diskstats) Parse() error {
 			}
 		}
 		if fieldNum < minNumDiskstatsValues {
-			return diskstats.makeErrorLine(
-				buf, lineStart,
-				fmt.Errorf("missing fields (< %d)", minNumDiskstatsValues),
+			return fmt.Errorf(
+				"%s#%d: %q: missing fields (< %d)",
+				diskstats.path, lineNum, getCurrentLine(buf, lineStart), minNumDiskstatsValues,
 			)
 		}
 
@@ -235,7 +225,10 @@ func (diskstats *Diskstats) Parse() error {
 		for ; !eol && pos < l; pos++ {
 			c := buf[pos]
 			if eol = (c == '\n'); !eol && !isWhitespace[c] {
-				return diskstats.makeErrorLine(buf, lineStart, "invalid value")
+				return fmt.Errorf(
+					"%s#%d: %q: unexpected content after last field",
+					diskstats.path, lineNum, getCurrentLine(buf, lineStart),
+				)
 			}
 		}
 
@@ -244,9 +237,9 @@ func (diskstats *Diskstats) Parse() error {
 	}
 
 	// Remove devices not found at this scan:
-	for devMajMin, devInfo := range diskstats.DevInfoMap {
+	for majorMinor, devInfo := range diskstats.DevInfoMap {
 		if scanNum != devInfo.scanNum {
-			delete(diskstats.DevInfoMap, devMajMin)
+			delete(diskstats.DevInfoMap, majorMinor)
 		}
 	}
 	diskstats.scanNum = scanNum
