@@ -32,7 +32,7 @@ const (
 )
 
 type Mountinfo struct {
-	// Per line#,field# offsets for the fields:
+	// Per line index,field index offsets for the fields:
 	DevMountInfo [][]ByteSliceOffsets
 
 	// The info is indexed by the device "major:minor":

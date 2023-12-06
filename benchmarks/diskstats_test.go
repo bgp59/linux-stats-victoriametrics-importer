@@ -11,7 +11,18 @@ import (
 )
 
 func BenchmarkDiskstatsParserIO(b *testing.B) {
-	benchmarkFileRead(path.Join(LSVMI_TESTDATA_PROCFS_ROOT, "diskstats"), b)
+	benchmarkFileRead(path.Join(LSVMI_TESTDATA_PROCFS_ROOT, "diskstats"), BENCH_FILE_READ, b)
+}
+
+func BenchmarkAllDiskstatsParserIO(b *testing.B) {
+	for op, name := range benchFileReadOpMap {
+		b.Run(
+			name,
+			func(b *testing.B) {
+				benchmarkFileRead(path.Join(LSVMI_TESTDATA_PROCFS_ROOT, "diskstats"), op, b)
+			},
+		)
+	}
 }
 
 func BenchmarkDiskstatsParser(b *testing.B) {

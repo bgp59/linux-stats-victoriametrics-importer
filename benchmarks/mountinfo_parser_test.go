@@ -9,7 +9,18 @@ import (
 )
 
 func BenchmarkMountinfoParserIO(b *testing.B) {
-	benchmarkFileRead(path.Join(LSVMI_TESTDATA_PROCFS_ROOT, "1", "mountinfo"), b)
+	benchmarkFileRead(path.Join(LSVMI_TESTDATA_PROCFS_ROOT, "1", "mountinfo"), BENCH_FILE_READ, b)
+}
+
+func BenchmarkAllMountinfoParserIO(b *testing.B) {
+	for op, name := range benchFileReadOpMap {
+		b.Run(
+			name,
+			func(b *testing.B) {
+				benchmarkFileRead(path.Join(LSVMI_TESTDATA_PROCFS_ROOT, "1", "mountinfo"), op, b)
+			},
+		)
+	}
 }
 
 func benchmarkMountinfoParser(forceUpdate bool, b *testing.B) {

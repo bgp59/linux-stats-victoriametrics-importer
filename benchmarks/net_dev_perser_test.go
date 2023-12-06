@@ -11,7 +11,18 @@ import (
 )
 
 func BenchmarkNetDevParserIO(b *testing.B) {
-	benchmarkFileRead(path.Join(LSVMI_TESTDATA_PROCFS_ROOT, "net", "dev"), b)
+	benchmarkFileRead(path.Join(LSVMI_TESTDATA_PROCFS_ROOT, "net", "dev"), BENCH_FILE_READ, b)
+}
+
+func BenchmarkAllNetDevParserIO(b *testing.B) {
+	for op, name := range benchFileReadOpMap {
+		b.Run(
+			name,
+			func(b *testing.B) {
+				benchmarkFileRead(path.Join(LSVMI_TESTDATA_PROCFS_ROOT, "net", "dev"), op, b)
+			},
+		)
+	}
 }
 
 func BenchmarkNetDevParser(b *testing.B) {
