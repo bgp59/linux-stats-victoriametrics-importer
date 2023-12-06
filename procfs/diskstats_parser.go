@@ -118,12 +118,11 @@ func (diskstats *Diskstats) Clone(full bool) *Diskstats {
 	for majorMinor, devInfo := range diskstats.DevInfoMap {
 		newDiskstats.DevInfoMap[majorMinor] = &DiskstatsDevInfo{
 			Name:    devInfo.Name,
-			Stats:   make([]uint32, len(devInfo.Stats)),
+			Stats:   make([]uint32, DISKSTATS_VALUE_FIELDS_NUM),
 			scanNum: devInfo.scanNum,
 		}
 		if full {
 			copy(newDiskstats.DevInfoMap[majorMinor].Stats, devInfo.Stats)
-
 		}
 	}
 
@@ -142,11 +141,11 @@ func (diskstats *Diskstats) Parse() error {
 	devInfoMap := diskstats.DevInfoMap
 	jiffiesToMillisec, fieldsInJiffies := diskstats.jiffiesToMillisec, diskstats.fieldsInJiffies
 	scanNum := diskstats.scanNum + 1
+	var (
+		fieldNum                int
+		major, majorMinor, name string
+	)
 	for pos, lineNum := 0, 1; pos < l; lineNum++ {
-		var (
-			fieldNum                int
-			major, majorMinor, name string
-		)
 		lineStart, eol := pos, false
 
 		for fieldNum = 0; !eol && pos < l && fieldNum < DISKSTATS_INFO_FIELDS_NUM; pos++ {
