@@ -9,11 +9,11 @@ package procfs
 // data is []byte where the slice is against the full content of the file,
 // which, for efficiency purposes is read in one go. A parsed datum is defined
 // by start:end offsets in the content buffer.
-type ByteSliceOffsets struct {
+type SliceOffsets struct {
 	Start, End int
 }
 
-// Most files consist of words delimited by whitespaces; the file content is
+// Most files consist of words delimited by white spaces; the file content is
 // scanned one byte at the time and the following arrays provide a convenient
 // lookup for deciding if a byte is a whitespace or not:
 var isWhitespace = [256]bool{

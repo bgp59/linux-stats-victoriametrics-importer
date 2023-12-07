@@ -42,7 +42,7 @@ type InterruptDescription struct {
 	IrqInfo []byte
 	// The following are populated only for numerical IRQs; the offsets are
 	// applicable to IrqInfo:
-	Controller, HWInterrupt, Devices ByteSliceOffsets
+	Controller, HWInterrupt, Devices SliceOffsets
 	// Whether it was changed in the current scan or not:
 	Changed bool
 }

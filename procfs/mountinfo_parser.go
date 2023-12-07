@@ -33,7 +33,7 @@ const (
 
 type Mountinfo struct {
 	// Per line index,field index offsets for the fields:
-	DevMountInfo [][]ByteSliceOffsets
+	DevMountInfo [][]SliceOffsets
 
 	// The info is indexed by the device "major:minor":
 	DevMountInfoIndex map[string]int
@@ -60,7 +60,7 @@ var mountinfoReadFileBufPool = ReadFileBufPool256k
 
 func NewMountInfo(procfsRoot string, pid int) *Mountinfo {
 	return &Mountinfo{
-		DevMountInfo:      make([][]ByteSliceOffsets, 0),
+		DevMountInfo:      make([][]SliceOffsets, 0),
 		DevMountInfoIndex: map[string]int{},
 		content:           &bytes.Buffer{},
 		path:              path.Join(procfsRoot, strconv.Itoa(pid), "mountinfo"),
@@ -69,7 +69,7 @@ func NewMountInfo(procfsRoot string, pid int) *Mountinfo {
 
 func (mountinfo *Mountinfo) Clone(full bool) *Mountinfo {
 	newMountInfo := &Mountinfo{
-		DevMountInfo: make([][]ByteSliceOffsets, len(mountinfo.DevMountInfo)),
+		DevMountInfo: make([][]SliceOffsets, len(mountinfo.DevMountInfo)),
 		ParseCount:   mountinfo.ParseCount,
 		ChangeCount:  mountinfo.ChangeCount,
 		Changed:      mountinfo.Changed,
@@ -84,7 +84,7 @@ func (mountinfo *Mountinfo) Clone(full bool) *Mountinfo {
 	}
 
 	for i, info := range mountinfo.DevMountInfo {
-		newMountInfo.DevMountInfo[i] = make([]ByteSliceOffsets, MOUNTINFO_NUM_FIELDS)
+		newMountInfo.DevMountInfo[i] = make([]SliceOffsets, MOUNTINFO_NUM_FIELDS)
 		if full {
 			copy(newMountInfo.DevMountInfo[i], info)
 		}
@@ -118,7 +118,7 @@ func (mountinfo *Mountinfo) update() error {
 	for pos := 0; pos < l; {
 		// Start parsing a new line:
 		if len(devMountInfo) <= lineIndex {
-			devMountInfo = append(devMountInfo, make([]ByteSliceOffsets, MOUNTINFO_NUM_FIELDS))
+			devMountInfo = append(devMountInfo, make([]SliceOffsets, MOUNTINFO_NUM_FIELDS))
 		}
 		info := devMountInfo[lineIndex]
 
