@@ -14,17 +14,6 @@ func BenchmarkInterruptsParserIO(b *testing.B) {
 	benchmarkFileRead(path.Join(LSVMI_TESTDATA_PROCFS_ROOT, "interrupts"), BENCH_FILE_READ, b)
 }
 
-func BenchmarkAllInterruptsParserIO(b *testing.B) {
-	for op, name := range benchFileReadOpMap {
-		b.Run(
-			name,
-			func(b *testing.B) {
-				benchmarkFileRead(path.Join(LSVMI_TESTDATA_PROCFS_ROOT, "interrupts"), op, b)
-			},
-		)
-	}
-}
-
 func BenchmarkInterruptsParser(b *testing.B) {
 	interrupts := procfs.NewInterrupts(LSVMI_TESTDATA_PROCFS_ROOT)
 	for n := 0; n < b.N; n++ {
@@ -57,6 +46,27 @@ func BenchmarkInterruptsParserProm(b *testing.B) {
 // goarch: amd64
 // pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
 // cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
-// BenchmarkInterruptsParserIO   	   70122	     16215 ns/op	     152 B/op	       3 allocs/op
-// BenchmarkInterruptsParser     	   53030	     22944 ns/op	    4360 B/op	      37 allocs/op
-// BenchmarkInterruptsParserProm 	   25659	     50023 ns/op	   26336 B/op	     171 allocs/op
+// BenchmarkInterruptsParserIO   	   69960	     15919 ns/op	     152 B/op	       3 allocs/op
+// BenchmarkInterruptsParser     	   51861	     22633 ns/op	    4336 B/op	      36 allocs/op
+// BenchmarkInterruptsParserProm 	   24626	     47485 ns/op	   26325 B/op	     171 allocs/op
+
+func BenchmarkInterruptsFileRead(b *testing.B) {
+	for op, name := range benchFileReadOpMap {
+		b.Run(
+			name,
+			func(b *testing.B) {
+				benchmarkFileRead(path.Join(LSVMI_TESTDATA_PROCFS_ROOT, "interrupts"), op, b)
+			},
+		)
+	}
+}
+
+// goos: darwin
+// goarch: amd64
+// pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
+// cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
+// BenchmarkInterruptsFileRead/BENCH_FILE_READ         	   			   71082	     16179 ns/op	     152 B/op	       3 allocs/op
+// BenchmarkInterruptsFileRead/BENCH_FILE_READ_SCAN_BYTES         	   63536	     18841 ns/op	    4248 B/op	       4 allocs/op
+// BenchmarkInterruptsFileRead/BENCH_FILE_READ_SCAN_TEXT          	   61892	     20849 ns/op	    6072 B/op	      39 allocs/op
+// BenchmarkInterruptsFileRead/BENCH_FILE_SCAN_BYTES              	   64528	     18986 ns/op	    4248 B/op	       4 allocs/op
+// BenchmarkInterruptsFileRead/BENCH_FILE_SCAN_TEXT               	   57381	     20571 ns/op	    6072 B/op	      39 allocs/op

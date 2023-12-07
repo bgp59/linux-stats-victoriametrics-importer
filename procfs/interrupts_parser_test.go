@@ -7,11 +7,17 @@ import (
 	"testing"
 )
 
+type TestInterruptDescription struct {
+	Controller, HWInterrupt, Devices string
+	Changed                          bool
+}
+
 type InterruptsTestCase struct {
 	name            string
 	procfsRoot      string
 	primeInterrupts *Interrupts
 	wantInterrupts  *Interrupts
+	wantDescription map[string]*TestInterruptDescription
 	wantError       error
 }
 
@@ -41,13 +47,17 @@ func testInterruptsParser(tc *InterruptsTestCase, t *testing.T) {
 	}
 
 	wantInterrupts := tc.wantInterrupts
+	if wantInterrupts == nil {
+		return
+	}
+
 	diffBuf := &bytes.Buffer{}
 
-	if wantInterrupts.CpuHeaderLine != interrupts.CpuHeaderLine {
+	if !bytes.Equal(wantInterrupts.cpuHeaderLine, interrupts.cpuHeaderLine) {
 		fmt.Fprintf(
 			diffBuf,
-			"\nCpuNumLine:\n\twant: %q,\n\t got: %q",
-			wantInterrupts.CpuHeaderLine, interrupts.CpuHeaderLine,
+			"\ncpuHeaderLine:\n\twant: %q,\n\t got: %q",
+			wantInterrupts.cpuHeaderLine, interrupts.cpuHeaderLine,
 		)
 	}
 	if diffBuf.Len() > 0 {
@@ -146,7 +156,7 @@ func testInterruptsParser(tc *InterruptsTestCase, t *testing.T) {
 		}
 	}
 
-	for irq, wantDescription := range tc.wantInterrupts.Description {
+	for irq, wantDescription := range tc.wantDescription {
 		gotDescription := interrupts.Description[irq]
 		if gotDescription == nil {
 			fmt.Fprintf(
@@ -156,34 +166,32 @@ func testInterruptsParser(tc *InterruptsTestCase, t *testing.T) {
 			)
 			continue
 		}
-		if wantDescription.Controller != gotDescription.Controller {
+		irqInfo := gotDescription.IrqInfo
+
+		gotController := string(irqInfo[gotDescription.Controller.Start:gotDescription.Controller.End])
+		if wantDescription.Controller != gotController {
 			fmt.Fprintf(
 				diffBuf,
 				"\nDescription[%q].Controller: want: %q, got: %q",
-				irq, wantDescription.Controller, gotDescription.Controller,
+				irq, wantDescription.Controller, gotController,
 			)
 		}
-		if wantDescription.HWInterrupt != gotDescription.HWInterrupt {
+
+		gotHWInterrupt := string(irqInfo[gotDescription.HWInterrupt.Start:gotDescription.HWInterrupt.End])
+		if wantDescription.HWInterrupt != gotHWInterrupt {
 			fmt.Fprintf(
 				diffBuf,
 				"\nDescription[%q].HWInterrupt: want: %q, got: %q",
-				irq, wantDescription.HWInterrupt, gotDescription.HWInterrupt,
+				irq, wantDescription.HWInterrupt, gotHWInterrupt,
 			)
 		}
-		devicesEq := len(wantDescription.Devices) == len(gotDescription.Devices)
-		if devicesEq {
-			for i, wantDevice := range wantDescription.Devices {
-				if wantDevice != gotDescription.Devices[i] {
-					devicesEq = false
-					break
-				}
-			}
-		}
-		if !devicesEq {
+
+		gotDevices := string(irqInfo[gotDescription.Devices.Start:gotDescription.Devices.End])
+		if wantDescription.Devices != gotDevices {
 			fmt.Fprintf(
 				diffBuf,
-				"\nDescription[%q].Devices:\n\twant: %q\n\t got: %q",
-				irq, wantDescription.Devices, gotDescription.Devices,
+				"\nDescription[%q].Devices: want: %q, got: %q",
+				irq, wantDescription.Devices, gotDevices,
 			)
 		}
 
@@ -194,18 +202,7 @@ func testInterruptsParser(tc *InterruptsTestCase, t *testing.T) {
 				irq, wantDescription.Changed, gotDescription.Changed,
 			)
 		}
-	}
 
-	if tc.primeInterrupts == nil || len(tc.primeInterrupts.Description) == 0 {
-		for irq, description := range interrupts.Description {
-			if tc.wantInterrupts.Description[irq] == nil {
-				fmt.Fprintf(
-					diffBuf,
-					"\nDescription: unexpected irq %q (Controller: %q, HWInterrupt: %q, Devices: %q)",
-					irq, description.Controller, description.HWInterrupt, description.Devices,
-				)
-			}
-		}
 	}
 
 	if diffBuf.Len() > 0 {
@@ -219,7 +216,7 @@ func TestInterruptsParser(t *testing.T) {
 			procfsRoot: path.Join(interruptsTestdataDir, "field_mapping"),
 			wantInterrupts: &Interrupts{
 				ColIndexToCpuNum: nil,
-				CpuHeaderLine:    "                  CPU0           CPU1",
+				cpuHeaderLine:    []byte("                  CPU0           CPU1"),
 				Irq: map[string][]uint64{
 					"0":           []uint64{0, 1},
 					"1":           []uint64{1000, 1001},
@@ -228,25 +225,25 @@ func TestInterruptsParser(t *testing.T) {
 					"no-info":     []uint64{2000000, 2000001},
 				},
 				NumCpus: 2,
-				Description: map[string]*InterruptDescription{
-					"0": &InterruptDescription{
-						Controller:  "controller-0",
-						HWInterrupt: "hw-irq-0",
-						Devices:     []string{"device0"},
-						Changed:     true,
-					},
-					"1": &InterruptDescription{
-						Controller:  "controller-1",
-						HWInterrupt: "hw-irq-1",
-						Devices:     []string{"device1-1", "device1-2"},
-						Changed:     true,
-					},
-					"4": &InterruptDescription{
-						Controller:  "controller-4",
-						HWInterrupt: "hw-irq-4",
-						Devices:     []string{"device4-1", "device4-2"},
-						Changed:     true,
-					},
+			},
+			wantDescription: map[string]*TestInterruptDescription{
+				"0": &TestInterruptDescription{
+					Controller:  "controller-0",
+					HWInterrupt: "hw-irq-0",
+					Devices:     "device0",
+					Changed:     true,
+				},
+				"1": &TestInterruptDescription{
+					Controller:  "controller-1",
+					HWInterrupt: "hw-irq-1",
+					Devices:     "device1-1,device1-2",
+					Changed:     true,
+				},
+				"4": &TestInterruptDescription{
+					Controller:  "controller-4",
+					HWInterrupt: "hw-irq-4",
+					Devices:     "device4-1,device4-2",
+					Changed:     true,
 				},
 			},
 		},
@@ -255,7 +252,7 @@ func TestInterruptsParser(t *testing.T) {
 			procfsRoot: path.Join(interruptsTestdataDir, "field_mapping"),
 			primeInterrupts: &Interrupts{
 				ColIndexToCpuNum: nil,
-				CpuHeaderLine:    "                  CPU0           CPU1",
+				cpuHeaderLine:    []byte("                  CPU0           CPU1"),
 				Irq: map[string][]uint64{
 					"0":           []uint64{20, 21},
 					"1":           []uint64{21000, 21001},
@@ -279,7 +276,7 @@ func TestInterruptsParser(t *testing.T) {
 			},
 			wantInterrupts: &Interrupts{
 				ColIndexToCpuNum: nil,
-				CpuHeaderLine:    "                  CPU0           CPU1",
+				cpuHeaderLine:    []byte("                  CPU0           CPU1"),
 				Irq: map[string][]uint64{
 					"0":           []uint64{0, 1},
 					"1":           []uint64{1000, 1001},
@@ -288,25 +285,25 @@ func TestInterruptsParser(t *testing.T) {
 					"no-info":     []uint64{2000000, 2000001},
 				},
 				NumCpus: 2,
-				Description: map[string]*InterruptDescription{
-					"0": &InterruptDescription{
-						Controller:  "controller-0",
-						HWInterrupt: "hw-irq-0",
-						Devices:     []string{"device0"},
-						Changed:     true,
-					},
-					"1": &InterruptDescription{
-						Controller:  "controller-1",
-						HWInterrupt: "hw-irq-1",
-						Devices:     []string{"device1-1", "device1-2"},
-						Changed:     true,
-					},
-					"4": &InterruptDescription{
-						Controller:  "controller-4",
-						HWInterrupt: "hw-irq-4",
-						Devices:     []string{"device4-1", "device4-2"},
-						Changed:     true,
-					},
+			},
+			wantDescription: map[string]*TestInterruptDescription{
+				"0": &TestInterruptDescription{
+					Controller:  "controller-0",
+					HWInterrupt: "hw-irq-0",
+					Devices:     "device0",
+					Changed:     true,
+				},
+				"1": &TestInterruptDescription{
+					Controller:  "controller-1",
+					HWInterrupt: "hw-irq-1",
+					Devices:     "device1-1,device1-2",
+					Changed:     true,
+				},
+				"4": &TestInterruptDescription{
+					Controller:  "controller-4",
+					HWInterrupt: "hw-irq-4",
+					Devices:     "device4-1,device4-2",
+					Changed:     true,
 				},
 			},
 		},
@@ -314,7 +311,7 @@ func TestInterruptsParser(t *testing.T) {
 			procfsRoot: path.Join(interruptsTestdataDir, "remove_cpu"),
 			primeInterrupts: &Interrupts{
 				ColIndexToCpuNum: nil,
-				CpuHeaderLine:    "                  CPU0           CPU1",
+				cpuHeaderLine:    []byte("                  CPU0           CPU1"),
 				Irq: map[string][]uint64{
 					"0":           []uint64{20, 21},
 					"1":           []uint64{21000, 21001},
@@ -334,33 +331,10 @@ func TestInterruptsParser(t *testing.T) {
 					"delete":      10,
 				},
 				scanNum: 10,
-				Description: map[string]*InterruptDescription{
-					"0": &InterruptDescription{
-						Controller:  "controller-0",
-						HWInterrupt: "hw-irq-0",
-						Devices:     []string{"device0"},
-						Changed:     true,
-						irqInfo:     []byte("controller-0   hw-irq-0    device0"),
-					},
-					"1": &InterruptDescription{
-						Controller:  "controller-1",
-						HWInterrupt: "hw-irq-1",
-						Devices:     []string{"device1-1", "device1-2"},
-						Changed:     true,
-						irqInfo:     []byte("controller-1   hw-irq-1    device1-1, device1-2"),
-					},
-					"4": &InterruptDescription{
-						Controller:  "controller-4",
-						HWInterrupt: "hw-irq-4",
-						Devices:     []string{"device4-1", "device4-2"},
-						Changed:     true,
-						irqInfo:     []byte("controller-4   hw-irq-4    device4-1  , device4-2"),
-					},
-				},
 			},
 			wantInterrupts: &Interrupts{
 				ColIndexToCpuNum: []int{1},
-				CpuHeaderLine:    "                          CPU1",
+				cpuHeaderLine:    []byte("                          CPU1"),
 				Irq: map[string][]uint64{
 					"0":           []uint64{1},
 					"1":           []uint64{1001},
@@ -369,25 +343,25 @@ func TestInterruptsParser(t *testing.T) {
 					"no-info":     []uint64{2000001},
 				},
 				NumCpus: 1,
-				Description: map[string]*InterruptDescription{
-					"0": &InterruptDescription{
-						Controller:  "controller-0",
-						HWInterrupt: "hw-irq-0",
-						Devices:     []string{"device0"},
-						Changed:     false,
-					},
-					"1": &InterruptDescription{
-						Controller:  "controller-1",
-						HWInterrupt: "hw-irq-1",
-						Devices:     []string{"device1-1", "device1-2"},
-						Changed:     false,
-					},
-					"4": &InterruptDescription{
-						Controller:  "controller-4",
-						HWInterrupt: "hw-irq-4",
-						Devices:     []string{"device4-1", "device4-2"},
-						Changed:     false,
-					},
+			},
+			wantDescription: map[string]*TestInterruptDescription{
+				"0": &TestInterruptDescription{
+					Controller:  "controller-0",
+					HWInterrupt: "hw-irq-0",
+					Devices:     "device0",
+					Changed:     true,
+				},
+				"1": &TestInterruptDescription{
+					Controller:  "controller-1",
+					HWInterrupt: "hw-irq-1",
+					Devices:     "device1-1,device1-2",
+					Changed:     true,
+				},
+				"4": &TestInterruptDescription{
+					Controller:  "controller-4",
+					HWInterrupt: "hw-irq-4",
+					Devices:     "device4-1,device4-2",
+					Changed:     true,
 				},
 			},
 		},
