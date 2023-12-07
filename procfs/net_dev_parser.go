@@ -64,12 +64,15 @@ var netDevReadFileBufPool = ReadFileBufPool256k
 // To protect against changes in kernel that may alter the exposed stats, the
 // header of the file is checked, once/1st time, against the known headers
 // listed below:
-
 var netDevValidHeaders = [][]byte{
+	// Note: to make it easier to cut and paste actual lines, they are enclosed
+	// between `` marks, the latter on *separate* lines for readability. This
+	// introduces a `\n` as the first byte and it has to be removed from
+	// comparison, hence the [1:] slice construct.
 	[]byte(`
 Inter-|   Receive                                                |  Transmit
  face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
-`)[1:], // 1: to skip over the 1st empty line, which is *not* part of the header
+`)[1:],
 }
 
 func NewNetDev(procfsRoot string) *NetDev {
