@@ -28,7 +28,6 @@ import (
 
 // The file will be parsed as parallel lists of names and values: name[i] has
 // value[i]. The names will formed as ProtoStat, e.g. UdpInDatagrams.
-// the RFC's.
 
 // Each data line (Proto: VAL ... VAL, that is) will be checked for sanity
 // against the following info:
@@ -46,12 +45,6 @@ type NetSnmp struct {
 	// Line info for consistency check (index = line# / 2, since a data line has
 	// an even line#):
 	lineInfo []*NetSnmpLineInfo
-}
-
-// Word separators:
-var netSnmpIsSep = [255]bool{
-	' ':  true,
-	'\t': true,
 }
 
 func NewNetSnmp(procfsRoot string) *NetSnmp {
@@ -145,35 +138,38 @@ func (netSnmp *NetSnmp) Parse() error {
 		}
 
 		numVals := 0
-		for pos < l {
-			for ; pos < l && netSnmpIsSep[line[pos]]; pos++ {
+		for ; pos < l; pos++ {
+			for ; pos < l && isWhitespace[line[pos]]; pos++ {
 			}
-			value, hasValue, isNegative := int64(0), false, false
+			if pos == l {
+				break
+			}
+
+			value, isNegative := int64(0), false
 			if line[pos] == '-' {
 				isNegative = true
 				pos++
 			}
+			startPos := pos
 			for ; pos < l; pos++ {
 				c := line[pos]
-				if '0' <= c && c <= '9' {
-					value = (value<<3 + value<<1) + int64(c-'0') // value*10+... that is, hopefully faster
-					hasValue = true
-				} else if netSnmpIsSep[c] {
-					pos++
+				if digit := c - '0'; digit <= 9 {
+					value = (value << 3) + (value << 1) + int64(digit)
+				} else if isWhitespace[c] {
 					break
 				} else {
 					return fmt.Errorf(
-						"%s#%d: %q: invalid value ",
-						netSnmp.path, lineNum, line,
+						"%s#%d: %q: `%c': non-digit character",
+						netSnmp.path, lineNum, line, c,
 					)
 				}
 			}
-			if hasValue {
+			if startPos < pos {
 				numVals++
 				if numVals > expectNumVals || valueIndex >= valuesLen {
 					return fmt.Errorf(
-						"%s#%d: %q: too many values (> %d)",
-						netSnmp.path, lineNum, line, expectNumVals,
+						"%s#%d: %q: too many values: line want: %d, got: %d, total want: %d, got: %d)",
+						netSnmp.path, lineNum, line, expectNumVals, numVals, valuesLen, valueIndex,
 					)
 				}
 				if isNegative {
@@ -185,8 +181,8 @@ func (netSnmp *NetSnmp) Parse() error {
 		}
 		if numVals < expectNumVals {
 			return fmt.Errorf(
-				"%s#%d: %q: not enough values (< %d)",
-				netSnmp.path, lineNum, line, expectNumVals,
+				"%s#%d: %q: not enough value(s): want: %d, got: %d",
+				netSnmp.path, lineNum, line, expectNumVals, numVals,
 			)
 		}
 	}
