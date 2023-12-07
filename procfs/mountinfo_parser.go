@@ -101,8 +101,8 @@ func (mountinfo *Mountinfo) Clone(full bool) *Mountinfo {
 }
 
 func (mountinfo *Mountinfo) update() error {
-	// Max out the capacity already available in DevMountInfo. The actual length
-	// will be adjusted at the end:
+	// Max out the capacity already available in DevMountInfo (the actual length
+	// will be adjusted at the end):
 	devMountInfo := mountinfo.DevMountInfo[:cap(mountinfo.DevMountInfo)]
 
 	buf, l := mountinfo.content.Bytes(), mountinfo.content.Len()
@@ -186,7 +186,7 @@ func (mountinfo *Mountinfo) update() error {
 	// Trim back dev info to match the actual number of lines:
 	mountinfo.DevMountInfo = devMountInfo[:lineIndex]
 
-	// Prune index:
+	// Prune no longer existent mounts:
 	for dev, index := range devMountInfoIndex {
 		if index < 0 {
 			delete(devMountInfoIndex, dev)
