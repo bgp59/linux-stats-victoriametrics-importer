@@ -41,13 +41,6 @@ type NetSnmp6 struct {
 	nameCheckRef []byte
 }
 
-// Word separators:
-var netSnmp6IsSep = [255]bool{
-	' ':  true,
-	'\t': true,
-	'\n': true,
-}
-
 func NewNetSnmp6(procfsRoot string) *NetSnmp6 {
 	return &NetSnmp6{
 		Names:  make([]string, 0),
@@ -102,11 +95,11 @@ func (netSnmp6 *NetSnmp6) Parse() error {
 	nameCheckPos, nameCheckRefLen := 0, len(nameCheckRef)
 	for pos, valueIndex := 0, 0; pos < l; {
 		// Extract / verify name:
-		for ; pos < l && netSnmp6IsSep[buf[pos]]; pos++ {
+		for ; pos < l && isWhitespaceNl[buf[pos]]; pos++ {
 		}
 		nameStart := pos
 		if firstPass {
-			for ; pos < l && !netSnmp6IsSep[buf[pos]]; pos++ {
+			for ; pos < l && !isWhitespaceNl[buf[pos]]; pos++ {
 			}
 			name := buf[nameStart:pos]
 			names = append(names, string(name))
@@ -115,28 +108,34 @@ func (netSnmp6 *NetSnmp6) Parse() error {
 		} else {
 			for isSep := false; !isSep && pos < l; pos++ {
 				c := buf[pos]
-				isSep = netSnmp6IsSep[c]
-				if isSep {
+				if isSep = isWhitespaceNl[c]; isSep {
 					c = NET_SNMP6_NAME_CHECK_SEP
 				}
 				if nameCheckPos >= nameCheckRefLen || nameCheckRef[nameCheckPos] != c {
-					return netSnmp6.makeErrorLine(buf, nameStart, "invalid name, not seen before at this line")
+					return fmt.Errorf(
+						"%s: %q: invalid name, not seen before at this line",
+						netSnmp6.path, getCurrentLine(buf, nameStart),
+					)
 				}
 				nameCheckPos++
 			}
 		}
 
 		// Extract value:
-		for ; pos < l && netSnmp6IsSep[buf[pos]]; pos++ {
+		for ; pos < l && isWhitespaceNl[buf[pos]]; pos++ {
 		}
 		value, hasValue := uint64(0), false
 		for isSep := false; !isSep && pos < l; pos++ {
 			c := buf[pos]
 			if digit := c - '0'; digit < 10 {
-				value = value<<3 + value<<1 + uint64(digit) // value*10 + ..., but faster
+				value = (value << 3) + (value << 1) + uint64(digit)
+			} else if isSep = isWhitespaceNl[c]; isSep {
 				hasValue = true
-			} else if isSep = netSnmp6IsSep[c]; !isSep {
-				return netSnmp6.makeErrorLine(buf, nameStart, "invalid value")
+			} else {
+				return fmt.Errorf(
+					"%s: %q: `%c' : non-digit characte",
+					netSnmp6.path, getCurrentLine(buf, nameStart), c,
+				)
 			}
 		}
 		if hasValue {
@@ -150,7 +149,10 @@ func (netSnmp6 *NetSnmp6) Parse() error {
 				valueIndex++
 			}
 		} else {
-			return netSnmp6.makeErrorLine(buf, nameStart, "missing value")
+			return fmt.Errorf(
+				"%s: %q: missing value",
+				netSnmp6.path, getCurrentLine(buf, nameStart),
+			)
 		}
 	}
 
