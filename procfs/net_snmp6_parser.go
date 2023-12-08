@@ -3,7 +3,6 @@
 package procfs
 
 import (
-	"bytes"
 	"fmt"
 	"path"
 )
@@ -41,6 +40,8 @@ type NetSnmp6 struct {
 	nameCheckRef []byte
 }
 
+var netSnmp6ReadFileBufPool = ReadFileBufPool32k
+
 func NewNetSnmp6(procfsRoot string) *NetSnmp6 {
 	return &NetSnmp6{
 		Names:  make([]string, 0),
@@ -64,25 +65,12 @@ func (netSnmp6 *NetSnmp6) Clone(full bool) *NetSnmp6 {
 	return newNetSnmp6
 }
 
-func (netSnmp6 *NetSnmp6) makeErrorLine(buf []byte, nameStart int, reason any) error {
-	if buf != nil {
-		line := buf[nameStart:]
-		lineEnd := bytes.IndexByte(line, '\n')
-		if lineEnd > 0 {
-			line = line[:lineEnd]
-		}
-		return fmt.Errorf("%s: %q: %v", netSnmp6.path, string(line), reason)
-	} else {
-		return fmt.Errorf("%s: %v", netSnmp6.path, reason)
-	}
-}
-
 func (netSnmp6 *NetSnmp6) Parse() error {
-	bBuf, err := ReadFileBufPool32k.ReadFile(netSnmp6.path)
+	bBuf, err := netSnmp6ReadFileBufPool.ReadFile(netSnmp6.path)
 	if err != nil {
 		return err
 	}
-	defer ReadFileBufPool32k.ReturnBuf(bBuf)
+	defer netSnmp6ReadFileBufPool.ReturnBuf(bBuf)
 
 	buf, l := bBuf.Bytes(), bBuf.Len()
 
@@ -125,11 +113,11 @@ func (netSnmp6 *NetSnmp6) Parse() error {
 		for ; pos < l && isWhitespaceNl[buf[pos]]; pos++ {
 		}
 		value, hasValue := uint64(0), false
-		for isSep := false; !isSep && pos < l; pos++ {
+		for ; !hasValue && pos < l; pos++ {
 			c := buf[pos]
 			if digit := c - '0'; digit < 10 {
 				value = (value << 3) + (value << 1) + uint64(digit)
-			} else if isSep = isWhitespaceNl[c]; isSep {
+			} else if isWhitespaceNl[c] {
 				hasValue = true
 			} else {
 				return fmt.Errorf(
