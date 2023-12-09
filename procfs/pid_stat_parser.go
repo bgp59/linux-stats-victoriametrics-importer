@@ -19,9 +19,9 @@ const (
 	PID_STAT_PID_ONLY_TID = 0
 )
 
-// The data gleaned from this file has two use cases:
+// The data gleaned from this file is of 2 types, depending on its use case:
 //  - as-is: the value from the file is the (label) value associated w/ the metric, e.g. priority
-//  - for numerical calculations, e.g. utime/stime
+//  - numerical: for calculations, e.g. utime/stime
 // As-is data will be returned such that it can be easily converted to byte
 // slices whereas numerical data will be returned as an unsigned long.
 
@@ -35,7 +35,7 @@ type PidStat struct {
 	// Read the raw content of the file here:
 	Buf *bytes.Buffer
 	// Start/stop index for each as-is field (byte slice):
-	FieldStart, FieldEnd []int
+	ByteFields []SliceOffsets
 	// Numeric fields:
 	NumericFields []uint64
 	// The path file to read:
@@ -169,18 +169,10 @@ var pidStatFieldHandling = [PID_STAT_MAX_FIELD_NUM + 1]*PidStatFieldHandling{
 	// (52) exit_code  %d  (since Linux 3.5)  [PT]
 }
 
-// Field separators for all fields but (comm):
-var pidStatIsSep = [256]bool{
-	' ':  true,
-	'\t': true,
-	'\n': true,
-}
-
 func NewPidStat(procfsRoot string, pid, tid int) *PidStat {
 	pidStat := &PidStat{
 		Buf:           &bytes.Buffer{},
-		FieldStart:    make([]int, PID_STAT_BYTE_SLICE_FIELD_COUNT),
-		FieldEnd:      make([]int, PID_STAT_BYTE_SLICE_FIELD_COUNT),
+		ByteFields:    make([]SliceOffsets, PID_STAT_BYTE_SLICE_FIELD_COUNT),
 		NumericFields: make([]uint64, PID_STAT_ULONG_FIELD_COUNT),
 	}
 	if tid == PID_STAT_PID_ONLY_TID {
@@ -235,21 +227,14 @@ func (pidStat *PidStat) Parse() error {
 	}
 
 	fieldNum := 2
-	pidStat.FieldStart[PID_STAT_COMM] = commStart
-	pidStat.FieldEnd[PID_STAT_COMM] = commEnd
+	pidStat.ByteFields[PID_STAT_COMM].Start = commStart
+	pidStat.ByteFields[PID_STAT_COMM].End = commEnd
 
 	for pos := commEnd + 1; pos < l && fieldNum < PID_STAT_MAX_FIELD_NUM; pos++ {
-		for ; pos < l && pidStatIsSep[buf[pos]]; pos++ {
-		}
-		if pos == l {
-			break
+		for ; pos < l && isWhitespaceNl[buf[pos]]; pos++ {
 		}
 		fieldStart := pos
-
-		for ; pos < l && !pidStatIsSep[buf[pos]]; pos++ {
-		}
-		if pos == l {
-			break
+		for ; pos < l && !isWhitespaceNl[buf[pos]]; pos++ {
 		}
 		// fieldEnd := pos
 
@@ -262,8 +247,8 @@ func (pidStat *PidStat) Parse() error {
 		index := fieldHandling.index
 		switch fieldHandling.dataType {
 		case PID_STAT_BYTES_DATA:
-			pidStat.FieldStart[index] = fieldStart
-			pidStat.FieldEnd[index] = pos
+			pidStat.ByteFields[index].Start = fieldStart
+			pidStat.ByteFields[index].End = pos
 		case PID_STAT_ULONG_DATA:
 			val := uint64(0)
 			for i := fieldStart; i < pos; i++ {
@@ -285,7 +270,3 @@ func (pidStat *PidStat) Parse() error {
 	}
 	return nil
 }
-
-// Perf:
-// BenchmarkPidStatParser-12        	   47362	     24798 ns/op
-// BenchmarkPidStatParserProm-12    	   29102	     41176 ns/op

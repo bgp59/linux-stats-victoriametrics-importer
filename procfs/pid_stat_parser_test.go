@@ -66,13 +66,14 @@ func testPidStatParser(tc *PidStatTestCase, t *testing.T) {
 	diffBuf := &bytes.Buffer{}
 	if tc.wantByteSliceFields != nil {
 		for i, wantValue := range tc.wantByteSliceFields {
-			gotValue := string(b[pidStat.FieldStart[i]:pidStat.FieldEnd[i]])
+			startEnd := pidStat.ByteFields[i]
+			gotValue := string(b[startEnd.Start:startEnd.End])
 			if wantValue != gotValue {
 				fmt.Fprintf(
 					diffBuf,
 					"\nfield[%s] ([%d:%d]): want: %q, got: %q",
 					pidStatByteSliceFieldName[i],
-					pidStat.FieldStart[i], pidStat.FieldEnd[i],
+					startEnd.Start, startEnd.End,
 					wantValue,
 					gotValue,
 				)

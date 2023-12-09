@@ -4,6 +4,8 @@
 package benchmarks
 
 import (
+	"path"
+	"strconv"
 	"testing"
 
 	"github.com/eparparita/linux-stats-victoriametrics-importer/procfs"
@@ -13,6 +15,12 @@ import (
 )
 
 var pidStatTestPid, pidStatTestTid int = 468, 486
+
+func BenchmarkPidStatParserIO(b *testing.B) {
+	benchmarkFileRead(path.Join(
+		LSVMI_TESTDATA_PROCFS_ROOT, strconv.Itoa(pidStatTestPid), "task", strconv.Itoa(pidStatTestTid), "stat",
+	), BENCH_FILE_READ, b)
+}
 
 func BenchmarkPidStatParser(b *testing.B) {
 	pidStat := procfs.NewPidStat(LSVMI_TESTDATA_PROCFS_ROOT, pidStatTestPid, pidStatTestTid)
@@ -47,3 +55,11 @@ func BenchmarkPidStatParserProm(b *testing.B) {
 		}
 	}
 }
+
+// goos: darwin
+// goarch: amd64
+// pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
+// cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
+// BenchmarkPidStatParserIO   	   70147	     16857 ns/op	     152 B/op	       3 allocs/op
+// BenchmarkPidStatParser     	   73059	     17176 ns/op	    1070 B/op	       3 allocs/op
+// BenchmarkPidStatParserProm 	   44281	     27217 ns/op	    1336 B/op	      31 allocs/op
