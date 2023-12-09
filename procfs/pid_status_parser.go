@@ -81,14 +81,14 @@ const (
 	PID_STATUS_CPUS_ALLOWED_LIST
 	PID_STATUS_MEMS_ALLOWED_LIST
 	// Must be last:
-	PID_STATUS_AS_IS_DATA_COUNT
+	PID_STATUS_AS_IS_NUM_FIELDS
 )
 
 const (
 	PID_STATUS_VOLUNTARY_CTXT_SWITCHES = iota
 	PID_STATUS_NONVOLUNTARY_CTXT_SWITCHES
 	// Must be last:
-	PID_STATUS_ULONG_DATA_COUNT
+	PID_STATUS_ULONG_NUM_FIELDS
 )
 
 type PidStatusLineHandling struct {
@@ -130,13 +130,13 @@ var pidStatusLineHandlingMap = map[string]*PidStatusLineHandling{
 
 // The parser will use the following structure, built JIT at the 1st invocation:
 var pidStatusParserInfo = struct {
-	// Array indexed by line# (from 0), based on pidStatusLineHandlingMap
+	// Array indexed by line# (from 0), based on pidStatusLineHandlingMap:
 	lineHandling []*PidStatusLineHandling
 	// Units, where applicable. The units are kernel dependent so they are
 	// discovered once and reused:
 	unit []string
-	// Lock protection for multi-threaded invocation, with multiple threads at
-	// the 1st invocation:
+	// Lock protection for multi-threaded invocation, with multiple threads
+	// happening to be at the 1st invocation:
 	lock *sync.Mutex
 }{
 	lock: &sync.Mutex{},
@@ -171,16 +171,17 @@ func initPidStatusParserInfo(path string) error {
 	if err != nil {
 		return err
 	}
+	defer file.Close()
 
 	lineHandling = make([]*PidStatusLineHandling, 0)
-	unit = make([]string, PID_STATUS_AS_IS_DATA_COUNT)
+	unit = make([]string, PID_STATUS_AS_IS_NUM_FIELDS)
 	scanner := bufio.NewScanner(file)
-	for lineNum := 0; scanner.Scan(); lineNum++ {
+	for lineIndex := 0; scanner.Scan(); lineIndex++ {
 		fields := strings.Fields(scanner.Text())
 		if len(fields) < 2 {
 			err = fmt.Errorf(
 				"%s: line#: %d: %q: insufficient fields (< 2)",
-				path, lineNum+1,
+				path, lineIndex+1,
 				scanner.Text(),
 			)
 			return err
@@ -195,7 +196,7 @@ func initPidStatusParserInfo(path string) error {
 			if len(fields) != 3 {
 				err = fmt.Errorf(
 					"%s: line#: %d: %q: invalid field# (!= 3)",
-					path, lineNum+1,
+					path, lineIndex+1,
 					scanner.Text(),
 				)
 				return err
@@ -213,8 +214,9 @@ func initPidStatusParserInfo(path string) error {
 type PidStatus struct {
 	// For as-is data there is a backing buffer + start,end indexes to build the
 	// slice representing the field:
-	Buf                  *bytes.Buffer
-	FieldStart, FieldEnd []int
+	Buf *bytes.Buffer
+	// Start/end index for each as-is field (byte slice):
+	ByteFields []SliceOffsets
 	// Unsigned log data:
 	NumericFields []uint64
 	// Unit, it will be replicated from pidStatusParserInfo:
@@ -229,9 +231,8 @@ type PidStatus struct {
 func NewPidStatus(procfsRoot string, pid, tid int) *PidStatus {
 	pidStatus := &PidStatus{
 		Buf:           &bytes.Buffer{},
-		FieldStart:    make([]int, PID_STATUS_AS_IS_DATA_COUNT),
-		FieldEnd:      make([]int, PID_STATUS_AS_IS_DATA_COUNT),
-		NumericFields: make([]uint64, PID_STATUS_ULONG_DATA_COUNT),
+		ByteFields:    make([]SliceOffsets, PID_STATUS_AS_IS_NUM_FIELDS),
+		NumericFields: make([]uint64, PID_STATUS_ULONG_NUM_FIELDS),
 	}
 	if tid == PID_STAT_PID_ONLY_TID {
 		pidStatus.path = path.Join(procfsRoot, strconv.Itoa(pid), "status")
@@ -244,9 +245,8 @@ func NewPidStatus(procfsRoot string, pid, tid int) *PidStatus {
 // Clone is used by the double storage approach for deltas: previous + current.
 func (pidStatus *PidStatus) Clone() *PidStatus {
 	newPidStatus := &PidStatus{
-		FieldStart:    make([]int, PID_STATUS_AS_IS_DATA_COUNT),
-		FieldEnd:      make([]int, PID_STATUS_AS_IS_DATA_COUNT),
-		NumericFields: make([]uint64, PID_STATUS_ULONG_DATA_COUNT),
+		ByteFields:    make([]SliceOffsets, PID_STATUS_AS_IS_NUM_FIELDS),
+		NumericFields: make([]uint64, PID_STATUS_ULONG_NUM_FIELDS),
 		path:          pidStatus.path,
 		lineHandling:  pidStatus.lineHandling,
 		Unit:          pidStatus.Unit,
@@ -267,42 +267,47 @@ func (pidStatus *PidStatus) Clone() *PidStatus {
 func (pidStatus *PidStatus) Parse() error {
 	// Copy reference of parser info, as needed. Build the latter JIT as needed.
 	if pidStatus.lineHandling == nil {
+		var err error
 		pidStatusParserInfo.lock.Lock()
 		if pidStatusParserInfo.lineHandling == nil {
-			err := initPidStatusParserInfo(pidStatus.path)
-			if err != nil {
-				return err
-			}
+			err = initPidStatusParserInfo(pidStatus.path)
 		}
-		pidStatus.lineHandling = pidStatusParserInfo.lineHandling
-		pidStatus.Unit = pidStatusParserInfo.unit
+		if err == nil {
+			pidStatus.lineHandling = pidStatusParserInfo.lineHandling
+			pidStatus.Unit = pidStatusParserInfo.unit
+		}
 		pidStatusParserInfo.lock.Unlock()
+		if err != nil {
+			return err
+		}
 	}
 
 	file, err := os.Open(pidStatus.path)
 	if err != nil {
 		return err
 	}
+	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
 	lineHandling := pidStatus.lineHandling
-	maxLineNum := len(lineHandling)
-	Buf := pidStatus.Buf
-	if Buf == nil {
-		Buf := &bytes.Buffer{}
-		pidStatus.Buf = Buf
+	maxLineIndex := len(lineHandling)
+	fieldBuf := pidStatus.Buf
+	if fieldBuf == nil {
+		fieldBuf := &bytes.Buffer{}
+		pidStatus.Buf = fieldBuf
 	}
-	Buf.Reset()
-	FieldStart, FieldEnd := pidStatus.FieldStart, pidStatus.FieldEnd
-	for lineNum := 0; scanner.Scan(); lineNum++ {
-		if lineNum >= maxLineNum {
+	fieldBuf.Reset()
+
+	byteFields := pidStatus.ByteFields
+	for fieldBufPos, lineIndex := 0, 0; scanner.Scan(); lineIndex++ {
+		if lineIndex >= maxLineIndex {
 			return fmt.Errorf(
 				"%s: too many lines (> %d)",
 				pidStatus.path,
-				maxLineNum,
+				maxLineIndex,
 			)
 		}
-		handling := lineHandling[lineNum]
+		handling := lineHandling[lineIndex]
 		if handling == nil {
 			continue
 		}
@@ -318,72 +323,77 @@ func (pidStatus *PidStatus) Parse() error {
 				return fmt.Errorf(
 					"%s: line# %d: %q: invalid number of fields (!= %d)",
 					pidStatus.path,
-					lineNum+1,
+					lineIndex+1,
 					scanner.Text(),
 					expectedNumFields,
 				)
 			}
-			FieldStart[index] = Buf.Len()
-			n, err := Buf.Write(fields[1])
+			byteFields[index].Start = fieldBufPos
+			n, err := fieldBuf.Write(fields[1])
 			if err != nil {
 				return fmt.Errorf(
 					"%s: line# %d: %q: %v",
 					pidStatus.path,
-					lineNum+1,
+					lineIndex+1,
 					scanner.Text(),
 					err,
 				)
 			}
-			FieldEnd[index] = FieldStart[index] + n
+			fieldBufPos += n
+			byteFields[index].End = fieldBufPos
 		case PID_STATUS_LIST_DATA:
 			if len(fields) < 2 {
 				return fmt.Errorf(
 					"%s: line# %d: %q: invalid number of fields (< 2)",
 					pidStatus.path,
-					lineNum+1,
+					lineIndex+1,
 					scanner.Text(),
 				)
 			}
-			FieldStart[index] = Buf.Len()
-			n, err := Buf.Write(bytes.Join(fields[1:], PID_STATUS_LIST_DATA_JOIN_SEQ))
+			byteFields[index].Start = fieldBufPos
+			n, err := fieldBuf.Write(bytes.Join(fields[1:], PID_STATUS_LIST_DATA_JOIN_SEQ))
 			if err != nil {
 				return fmt.Errorf(
 					"%s: line# %d: %q: %v",
 					pidStatus.path,
-					lineNum+1,
+					lineIndex+1,
 					scanner.Text(),
 					err,
 				)
 			}
-			FieldEnd[index] = FieldStart[index] + n
+			fieldBufPos += n
+			byteFields[index].End = fieldBufPos
 		case PID_STATUS_ULONG_DATA:
 			if len(fields) != 2 {
 				return fmt.Errorf(
 					"%s: line# %d: %q: invalid number of fields (!= 2)",
 					pidStatus.path,
-					lineNum+1,
+					lineIndex+1,
 					scanner.Text(),
 				)
 			}
-			uval, err := strconv.ParseUint(string(fields[1]), 10, 64)
-			if err != nil {
-				return fmt.Errorf(
-					"%s: line# %d: %q: %v",
-					pidStatus.path,
-					lineNum+1,
-					scanner.Text(),
-					err,
-				)
+			value, buf := uint64(0), fields[1]
+			for pos := 0; pos < len(buf); pos++ {
+				if digit := buf[pos] - '0'; digit < 10 {
+					value = (value << 3) + (value << 1) + uint64(digit)
+				} else {
+					return fmt.Errorf(
+						"%s: line# %d: %q: `%c' invalid value for a digit",
+						pidStatus.path,
+						lineIndex+1,
+						scanner.Text(),
+						buf[pos],
+					)
+				}
 			}
-			pidStatus.NumericFields[index] = uval
+			pidStatus.NumericFields[index] = value
 		}
 	}
-	if scanner.Err() != nil {
-		return fmt.Errorf("%s: %v", pidStatus.path, scanner.Err())
+
+	err = scanner.Err()
+	if err != nil {
+		return fmt.Errorf("%s: %v", pidStatus.path, err)
 	}
+	fmt.Println(pidStatus.Buf.Len())
 	return nil
 }
-
-// Perf:
-// BenchmarkPidStatusParser-12        	   38342	     30833 ns/op
-// BenchmarkPidStatusParserProm-12    	   29156	     40911 ns/op

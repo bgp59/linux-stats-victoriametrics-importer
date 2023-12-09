@@ -6,6 +6,8 @@ import (
 	"bufio"
 	"bytes"
 	"os"
+	"path"
+	"strconv"
 	"testing"
 )
 
@@ -27,6 +29,18 @@ var benchFileReadOpMap = map[int]string{
 	BENCH_FILE_READ_SCAN_TEXT:  "BENCH_FILE_READ_SCAN_TEXT",
 	BENCH_FILE_SCAN_BYTES:      "BENCH_FILE_SCAN_BYTES",
 	BENCH_FILE_SCAN_TEXT:       "BENCH_FILE_SCAN_TEXT",
+}
+
+func pidTidPath(procfsRoot string, pid, tid int, statFile string) string {
+	if tid > 0 {
+		return path.Join(
+			procfsRoot, strconv.Itoa(pid), "task", strconv.Itoa(tid), statFile,
+		)
+	} else {
+		return path.Join(
+			procfsRoot, strconv.Itoa(pid), statFile,
+		)
+	}
 }
 
 func benchmarkFileRead(path string, op int, b *testing.B) {

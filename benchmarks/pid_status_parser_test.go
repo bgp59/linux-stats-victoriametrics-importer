@@ -14,6 +14,14 @@ import (
 
 var pidStatusTestPid, pidStatusTestTid int = 468, 486
 
+func BenchmarkPidStatusParserIO(b *testing.B) {
+	benchmarkFileRead(
+		pidTidPath(LSVMI_TESTDATA_PROCFS_ROOT, pidStatTestPid, pidStatTestTid, "status"),
+		BENCH_FILE_READ,
+		b,
+	)
+}
+
 func BenchmarkPidStatusParser(b *testing.B) {
 	pidStatus := procfs.NewPidStatus(LSVMI_TESTDATA_PROCFS_ROOT, pidStatusTestPid, pidStatusTestTid)
 	for n := 0; n < b.N; n++ {
@@ -47,3 +55,33 @@ func BenchmarkPidStatusParserProm(b *testing.B) {
 		}
 	}
 }
+
+// goos: darwin
+// goarch: amd64
+// pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
+// cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
+// BenchmarkPidStatusParserIO   	   70326	     16389 ns/op	     152 B/op	       3 allocs/op
+// BenchmarkPidStatusParser     	   54868	     22014 ns/op	    6093 B/op	      30 allocs/op
+// BenchmarkPidStatusParserProm 	   45262	     26365 ns/op	    1336 B/op	      31 allocs/op
+
+// func BenchmarkPidStatusFileRead(b *testing.B) {
+// 	path := pidTidPath(LSVMI_TESTDATA_PROCFS_ROOT, pidStatTestPid, pidStatTestTid, "status")
+// 	for op, name := range benchFileReadOpMap {
+// 		b.Run(
+// 			name,
+// 			func(b *testing.B) {
+// 				benchmarkFileRead(path, op, b)
+// 			},
+// 		)
+// 	}
+// }
+
+// goos: darwin
+// goarch: amd64
+// pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
+// cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
+// BenchmarkPidStatusFileRead/BENCH_FILE_READ         	   			   70216	     17076 ns/op	     152 B/op	       3 allocs/op
+// BenchmarkPidStatusFileRead/BENCH_FILE_READ_SCAN_BYTES         	   62594	     19468 ns/op	    4248 B/op	       4 allocs/op
+// BenchmarkPidStatusFileRead/BENCH_FILE_READ_SCAN_TEXT          	   59212	     20115 ns/op	    4664 B/op	       7 allocs/op
+// BenchmarkPidStatusFileRead/BENCH_FILE_SCAN_BYTES              	   60781	     19285 ns/op	    4248 B/op	       4 allocs/op
+// BenchmarkPidStatusFileRead/BENCH_FILE_SCAN_TEXT               	   61776	     19659 ns/op	    4664 B/op	       7 allocs/op

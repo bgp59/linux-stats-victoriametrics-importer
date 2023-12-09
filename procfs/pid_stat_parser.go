@@ -34,7 +34,7 @@ const (
 type PidStat struct {
 	// Read the raw content of the file here:
 	Buf *bytes.Buffer
-	// Start/stop index for each as-is field (byte slice):
+	// Start/end index for each as-is field (byte slice):
 	ByteFields []SliceOffsets
 	// Numeric fields:
 	NumericFields []uint64
@@ -188,6 +188,7 @@ func (pidStat *PidStat) Parse() error {
 	if err != nil {
 		return err
 	}
+	defer file.Close()
 	_, err = pidStat.Buf.ReadFrom(file)
 	if err != nil {
 		return err

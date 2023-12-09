@@ -99,7 +99,7 @@ func testPidStatusParser(tc *PidStatusTestCase, parseClone int, t *testing.T) {
 
 		for index := range tc.wantBytesDataValues {
 			wantVal := tc.wantBytesDataValues[index]
-			gotVal := string(status.Buf.Bytes()[status.FieldStart[index]:status.FieldEnd[index]])
+			gotVal := string(status.Buf.Bytes()[status.ByteFields[index].Start:status.ByteFields[index].End])
 			if wantVal != gotVal {
 				fmt.Fprintf(
 					diffBuf,
