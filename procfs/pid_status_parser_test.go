@@ -19,12 +19,12 @@ const (
 var pidStatusTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "pid_status")
 
 type PidStatusTestCase struct {
-	procfsRoot          string
-	pid, tid            int
-	wantBytesDataValues map[int]string
-	wantUnit            map[int]string
-	wantNumericFields   map[int]uint64
-	wantError           error
+	procfsRoot               string
+	pid, tid                 int
+	wantByteSliceFieldValues map[int]string
+	wantByteSliceFieldUnit   map[int]string
+	wantNumericFields        map[int]uint64
+	wantError                error
 }
 
 var pidStatusTestByteDataIndexToName = map[int]string{
@@ -71,13 +71,13 @@ func testPidStatusParser(tc *PidStatusTestCase, parseClone int, t *testing.T) {
 
 	switch parseClone {
 	case PID_STATUS_TEST_PARSE_CLONE_ONLY:
-		statusList = []*PidStatus{pidStatus.Clone()}
+		statusList = []*PidStatus{pidStatus.Clone(false)}
 	case PID_STATUS_TEST_PARSE_CLONE_FIRST:
-		statusList = []*PidStatus{pidStatus.Clone(), pidStatus}
+		statusList = []*PidStatus{pidStatus.Clone(false), pidStatus}
 	case PID_STATUS_TEST_PARSE_CLONE_LAST:
-		statusList = []*PidStatus{pidStatus, pidStatus.Clone()}
+		statusList = []*PidStatus{pidStatus, pidStatus.Clone(false)}
 	case PID_STATUS_TEST_PARSE_CLONE_BOTH:
-		statusList = []*PidStatus{pidStatus.Clone(), pidStatus, pidStatus.Clone()}
+		statusList = []*PidStatus{pidStatus.Clone(false), pidStatus, pidStatus.Clone(false)}
 	}
 
 	resetPidStatusParserInfo()
@@ -97,13 +97,13 @@ func testPidStatusParser(tc *PidStatusTestCase, parseClone int, t *testing.T) {
 
 		diffBuf := &bytes.Buffer{}
 
-		for index := range tc.wantBytesDataValues {
-			wantVal := tc.wantBytesDataValues[index]
-			gotVal := string(status.Buf.Bytes()[status.ByteFields[index].Start:status.ByteFields[index].End])
+		for index := range tc.wantByteSliceFieldValues {
+			wantVal := tc.wantByteSliceFieldValues[index]
+			gotVal := string(status.ByteSliceFieldsBuf.Bytes()[status.ByteSliceFieldOffsets[index].Start:status.ByteSliceFieldOffsets[index].End])
 			if wantVal != gotVal {
 				fmt.Fprintf(
 					diffBuf,
-					"\nbytesData[%s]: want: %q, got: %q",
+					"\nBytesSliceFields[%s]: want: %q, got: %q",
 					pidStatusTestByteDataIndexToName[index],
 					wantVal,
 					gotVal,
@@ -111,16 +111,16 @@ func testPidStatusParser(tc *PidStatusTestCase, parseClone int, t *testing.T) {
 			}
 		}
 
-		for index := range tc.wantUnit {
-			wantVal := tc.wantUnit[index]
-			gotVal := status.Unit[index]
-			if wantVal != gotVal {
+		for index := range tc.wantByteSliceFieldUnit {
+			wantUnit := tc.wantByteSliceFieldUnit[index]
+			gotUnit := string(status.ByteSliceFieldUnit[index])
+			if wantUnit != gotUnit {
 				fmt.Fprintf(
 					diffBuf,
 					"\nunit[%s]: want: %q, got: %q",
 					pidStatusTestByteDataIndexToName[index],
-					wantVal,
-					gotVal,
+					wantUnit,
+					gotUnit,
 				)
 			}
 		}
@@ -158,7 +158,7 @@ func TestPidStatusParser(t *testing.T) {
 				procfsRoot: pidStatusTestdataDir,
 				pid:        468,
 				tid:        486,
-				wantBytesDataValues: map[int]string{
+				wantByteSliceFieldValues: map[int]string{
 					PID_STATUS_UID:               "10400,10401,10402,10403",
 					PID_STATUS_GID:               "11100,11101,11102,11103",
 					PID_STATUS_GROUPS:            "4,111",
@@ -182,7 +182,7 @@ func TestPidStatusParser(t *testing.T) {
 					PID_STATUS_CPUS_ALLOWED_LIST: "0,1,2,3",
 					PID_STATUS_MEMS_ALLOWED_LIST: "0,1",
 				},
-				wantUnit: map[int]string{
+				wantByteSliceFieldUnit: map[int]string{
 					PID_STATUS_UID:               "",
 					PID_STATUS_GID:               "",
 					PID_STATUS_GROUPS:            "",

@@ -60,21 +60,21 @@ func BenchmarkPidStatusParserProm(b *testing.B) {
 // goarch: amd64
 // pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
 // cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
-// BenchmarkPidStatusParserIO   	   70326	     16389 ns/op	     152 B/op	       3 allocs/op
-// BenchmarkPidStatusParser     	   54868	     22014 ns/op	    6093 B/op	      30 allocs/op
-// BenchmarkPidStatusParserProm 	   45262	     26365 ns/op	    1336 B/op	      31 allocs/op
+// BenchmarkPidStatusParserIO   	   68760	     16658 ns/op	     152 B/op	       3 allocs/op
+// BenchmarkPidStatusParser     	   60675	     19738 ns/op	    4248 B/op	       4 allocs/op
+// BenchmarkPidStatusParserProm 	   44347	     26402 ns/op	    1336 B/op	      31 allocs/op
 
-// func BenchmarkPidStatusFileRead(b *testing.B) {
-// 	path := pidTidPath(LSVMI_TESTDATA_PROCFS_ROOT, pidStatTestPid, pidStatTestTid, "status")
-// 	for op, name := range benchFileReadOpMap {
-// 		b.Run(
-// 			name,
-// 			func(b *testing.B) {
-// 				benchmarkFileRead(path, op, b)
-// 			},
-// 		)
-// 	}
-// }
+func BenchmarkPidStatusFileRead(b *testing.B) {
+	path := pidTidPath(LSVMI_TESTDATA_PROCFS_ROOT, pidStatTestPid, pidStatTestTid, "status")
+	for op, name := range benchFileReadOpMap {
+		b.Run(
+			name,
+			func(b *testing.B) {
+				benchmarkFileRead(path, op, b)
+			},
+		)
+	}
+}
 
 // goos: darwin
 // goarch: amd64
