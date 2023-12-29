@@ -175,6 +175,8 @@ var pidStatusParserInfo = struct {
 	lock: &sync.Mutex{},
 }
 
+var pidStatusReadFileBufPool = ReadFileBufPool16k
+
 // Used for testing:
 func resetPidStatusParserInfo() {
 	pidStatusParserInfo.lock.Lock()
@@ -340,12 +342,12 @@ func (pidStatus *PidStatus) Parse() error {
 		}
 	}
 
-	file, err := os.Open(pidStatus.path)
+	fBuf, err := pidStatusReadFileBufPool.ReadFile(pidStatus.path)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
-	scanner := bufio.NewScanner(file)
+	defer pidStatusReadFileBufPool.ReturnBuf(fBuf)
+	buf, l := fBuf.Bytes(), fBuf.Len()
 
 	byteSliceFieldsBuf := pidStatus.ByteSliceFieldsBuf
 	if byteSliceFieldsBuf == nil {
@@ -357,7 +359,7 @@ func (pidStatus *PidStatus) Parse() error {
 	byteSliceFieldOffsets := pidStatus.ByteSliceFieldOffsets
 	lineHandling := pidStatus.lineHandling
 	lineIndex, maxLineIndex := 0, len(lineHandling)
-	for byteSliceFieldsBufOff := 0; scanner.Scan(); lineIndex++ {
+	for lineStart, byteSliceFieldsBufOff := 0, 0; lineStart < l; lineIndex++ {
 		// Sanity check: too many lines?
 		if lineIndex >= maxLineIndex {
 			return fmt.Errorf(
@@ -366,97 +368,92 @@ func (pidStatus *PidStatus) Parse() error {
 			)
 		}
 
+		lineEnd := lineStart
+		for ; lineEnd < l && buf[lineEnd] != '\n'; lineEnd++ {
+		}
+
 		// Handle this line or ignore?
 		handling := lineHandling[lineIndex]
-		if handling == nil {
-			// Ignore
-			continue
-		}
-
-		// Handle:
-		line := scanner.Bytes()
-		lineLen := len(line)
-
-		// Locate value start:
-		pos := handling.prefixLen
-		for ; pos < lineLen && isWhitespace[line[pos]]; pos++ {
-		}
-		if pos == lineLen {
-			return fmt.Errorf(
-				"%s#%d: %q: truncated line",
-				pidStatus.path, lineIndex+1, string(line),
-			)
-		}
-		// Handle the field according to its type:
-		dataType, fieldIndex := handling.dataType, handling.index
-		switch dataType {
-		case PID_STATUS_SINGLE_VAL_DATA, PID_STATUS_SINGLE_VAL_UNIT_DATA:
-			valueStart := pos
-			for ; pos < lineLen && !isWhitespace[line[pos]]; pos++ {
+		if handling != nil {
+			// Locate value start:
+			pos := lineStart + handling.prefixLen
+			for ; pos < lineEnd && isWhitespace[buf[pos]]; pos++ {
 			}
-			n, err := byteSliceFieldsBuf.Write(line[valueStart:pos])
-			if err != nil {
+			if pos == lineEnd {
 				return fmt.Errorf(
-					"%s#%d: %q: %v",
-					pidStatus.path, lineIndex+1, string(line), err,
+					"%s#%d: %q: truncated line",
+					pidStatus.path, lineIndex+1, string(buf[lineStart:lineEnd]),
 				)
 			}
-			byteSliceFieldOffsets[fieldIndex].Start = byteSliceFieldsBufOff
-			byteSliceFieldsBufOff += n
-			byteSliceFieldOffsets[fieldIndex].End = byteSliceFieldsBufOff
-
-		case PID_STATUS_LIST_DATA:
-			// Join the words separated by a single, standard, sep:
-			for firstWord := true; err == nil && pos < lineLen; {
-				valueStart, n := pos, 0
-				for ; pos < lineLen && !isWhitespace[line[pos]]; pos++ {
+			// Handle the field according to its type:
+			dataType, fieldIndex := handling.dataType, handling.index
+			switch dataType {
+			case PID_STATUS_SINGLE_VAL_DATA, PID_STATUS_SINGLE_VAL_UNIT_DATA:
+				valueStart := pos
+				for ; pos < lineEnd && !isWhitespace[buf[pos]]; pos++ {
 				}
-				if firstWord {
-					byteSliceFieldOffsets[fieldIndex].Start = byteSliceFieldsBufOff
-					firstWord = false
-				} else {
-					err = byteSliceFieldsBuf.WriteByte(PID_STATUS_LIST_DATA_SEP)
-					byteSliceFieldsBufOff++
-				}
-				if err == nil {
-					n, err = byteSliceFieldsBuf.Write(line[valueStart:pos])
-				}
-				if err == nil {
-					byteSliceFieldsBufOff += n
-					for ; pos < lineLen && isWhitespace[line[pos]]; pos++ {
-					}
-				}
-			}
-			if err != nil {
-				return fmt.Errorf(
-					"%s#%d: %q: %v",
-					pidStatus.path, lineIndex+1, string(line), err,
-				)
-			}
-			byteSliceFieldOffsets[fieldIndex].End = byteSliceFieldsBufOff
-
-		case PID_STATUS_ULONG_DATA:
-			value := uint64(0)
-			for ; pos < lineLen; pos++ {
-				c := line[pos]
-				if digit := c - '0'; digit < 10 {
-					value = (value << 3) + (value << 1) + uint64(digit)
-				} else if isWhitespace[c] {
-					break
-				} else {
+				n, err := byteSliceFieldsBuf.Write(buf[valueStart:pos])
+				if err != nil {
 					return fmt.Errorf(
-						"%s#%d: %q: `%c' invalid value for a digit",
-						pidStatus.path, lineIndex+1, string(line), line[pos],
+						"%s#%d: %q: %v",
+						pidStatus.path, lineIndex+1, string(buf[lineStart:lineEnd]), err,
 					)
 				}
-			}
-			pidStatus.NumericFields[fieldIndex] = value
-		}
-	}
+				byteSliceFieldOffsets[fieldIndex].Start = byteSliceFieldsBufOff
+				byteSliceFieldsBufOff += n
+				byteSliceFieldOffsets[fieldIndex].End = byteSliceFieldsBufOff
 
-	err = scanner.Err()
-	if err != nil {
-		return fmt.Errorf("%s: %v", pidStatus.path, err)
+			case PID_STATUS_LIST_DATA:
+				// Join the words separated by a single, standard, sep:
+				for firstWord := true; err == nil && pos < lineEnd; {
+					valueStart, n := pos, 0
+					for ; pos < lineEnd && !isWhitespace[buf[pos]]; pos++ {
+					}
+					if firstWord {
+						byteSliceFieldOffsets[fieldIndex].Start = byteSliceFieldsBufOff
+						firstWord = false
+					} else {
+						err = byteSliceFieldsBuf.WriteByte(PID_STATUS_LIST_DATA_SEP)
+						byteSliceFieldsBufOff++
+					}
+					if err == nil {
+						n, err = byteSliceFieldsBuf.Write(buf[valueStart:pos])
+					}
+					if err == nil {
+						byteSliceFieldsBufOff += n
+						for ; pos < lineEnd && isWhitespace[buf[pos]]; pos++ {
+						}
+					}
+				}
+				if err != nil {
+					return fmt.Errorf(
+						"%s#%d: %q: %v",
+						pidStatus.path, lineIndex+1, string(buf[lineStart:lineEnd]), err,
+					)
+				}
+				byteSliceFieldOffsets[fieldIndex].End = byteSliceFieldsBufOff
+
+			case PID_STATUS_ULONG_DATA:
+				value := uint64(0)
+				for ; pos < lineEnd; pos++ {
+					c := buf[pos]
+					if digit := c - '0'; digit < 10 {
+						value = (value << 3) + (value << 1) + uint64(digit)
+					} else if isWhitespace[c] {
+						break
+					} else {
+						return fmt.Errorf(
+							"%s#%d: %q: `%c' invalid value for a digit",
+							pidStatus.path, lineIndex+1, string(buf[lineStart:lineEnd]), c,
+						)
+					}
+				}
+				pidStatus.NumericFields[fieldIndex] = value
+			}
+		}
+
+		lineStart = lineEnd + 1
+
 	}
 
 	// Sanity check: got all the expected lines?
