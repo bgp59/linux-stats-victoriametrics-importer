@@ -98,7 +98,7 @@ func (p *ReadFileBufPool) ReadFile(path string) (*bytes.Buffer, error) {
 			err = ErrReadFileBufPotentialTruncation
 		}
 	} else {
-		_, err = io.Copy(b, f)
+		_, err = b.ReadFrom(f)
 	}
 	if err == nil {
 		return b, nil
@@ -109,10 +109,11 @@ func (p *ReadFileBufPool) ReadFile(path string) (*bytes.Buffer, error) {
 
 // Predefined pools:
 var (
-	ReadFileBufPool16k  = NewReadFileBufPool(32, 0x4000)
-	ReadFileBufPool32k  = NewReadFileBufPool(32, 0x8000)
-	ReadFileBufPool64k  = NewReadFileBufPool(32, 0x10000)
-	ReadFileBufPool128k = NewReadFileBufPool(16, 0x20000)
-	ReadFileBufPool256k = NewReadFileBufPool(8, 0x40000)
-	ReadFileBufPool1m   = NewReadFileBufPool(4, 0x100000)
+	ReadFileBufPool16k         = NewReadFileBufPool(32, 0x4000)
+	ReadFileBufPool32k         = NewReadFileBufPool(32, 0x8000)
+	ReadFileBufPool64k         = NewReadFileBufPool(32, 0x10000)
+	ReadFileBufPool128k        = NewReadFileBufPool(16, 0x20000)
+	ReadFileBufPool256k        = NewReadFileBufPool(8, 0x40000)
+	ReadFileBufPool1m          = NewReadFileBufPool(4, 0x100000)
+	ReadFileBufPoolReadUnbound = NewReadFileBufPool(4, READ_FILE_BUF_POOL_MAX_READ_SIZE_UNBOUND)
 )

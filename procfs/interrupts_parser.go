@@ -3,10 +3,8 @@
 package procfs
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
-	"os"
 	"path"
 )
 
@@ -69,6 +67,8 @@ type Interrupts struct {
 	// unchanged from the previous run then the mapping is still valid.
 	cpuHeaderLine []byte
 }
+
+var interruptsReadFileBufPool = ReadFileBufPoolReadUnbound
 
 func NewInterrupts(procfsRoot string) *Interrupts {
 	return &Interrupts{
@@ -206,50 +206,54 @@ func updateInterruptDescription(description *InterruptDescription, irqInfo []byt
 }
 
 func (interrupts *Interrupts) Parse() error {
-	file, err := os.Open(interrupts.path)
+	fBuf, err := interruptsReadFileBufPool.ReadFile(interrupts.path)
 	if err != nil {
 		return err
 	}
-	scanner := bufio.NewScanner(file)
+	defer interruptsReadFileBufPool.ReturnBuf(fBuf)
+
+	buf, l := fBuf.Bytes(), fBuf.Len()
+
 	numCpus := interrupts.NumCpus
 	scanNum := interrupts.scanNum + 1
-	for lineNum := 1; scanner.Scan(); lineNum++ {
-		line := scanner.Bytes()
+	for lineStart, lineNum := 0, 1; lineStart < l; lineNum++ {
+		lineEnd := lineStart
+		for ; lineEnd < l && buf[lineEnd] != '\n'; lineEnd++ {
+		}
 
 		if lineNum == 1 {
 			// CPU header, look for changes in CPU#NN cols:
-			if !bytes.Equal(line, interrupts.cpuHeaderLine) {
-				err = interrupts.updateColIndexToCpuNumMap(line)
+			cpuHeaderLine := buf[lineStart:lineEnd]
+			if !bytes.Equal(cpuHeaderLine, interrupts.cpuHeaderLine) {
+				err = interrupts.updateColIndexToCpuNumMap(cpuHeaderLine)
 				if err != nil {
-					return fmt.Errorf("%s#%d: %q: %v", interrupts.path, lineNum, line, err)
+					return fmt.Errorf("%s#%d: %q: %v", interrupts.path, lineNum, cpuHeaderLine, err)
 				}
 				numCpus = interrupts.NumCpus
 			}
+			lineStart = lineEnd + 1
 			continue
 		}
 
 		// IRQ line:
-		pos, l := 0, len(line)
+		pos := lineStart
 
 		// Parse `   IRQ:':
-		for ; pos < l && isWhitespace[line[pos]]; pos++ {
+		for ; pos < lineEnd && isWhitespace[buf[pos]]; pos++ {
 		}
-		irqStart, irqEnd, irqIsNum := pos, pos, true
-		for ; pos < l; pos++ {
-			c := line[pos]
+		irqStart, irqEnd, irqIsNum := pos, -1, true
+		for ; irqEnd < 0 && pos < lineEnd; pos++ {
+			c := buf[pos]
 			if c == ':' {
 				irqEnd = pos
-				pos++
-				break
-			}
-			if c-'0' >= 10 {
+			} else if irqIsNum && c-'0' >= 10 {
 				irqIsNum = false
 			}
 		}
 		if irqStart >= irqEnd {
-			return fmt.Errorf("%s#%d: %q: missing `IRQ:'", interrupts.path, lineNum, line)
+			return fmt.Errorf("%s#%d: %q: missing `IRQ:'", interrupts.path, lineNum, buf[lineStart:lineEnd])
 		}
-		irq := string(line[irqStart:irqEnd])
+		irq := string(buf[irqStart:irqEnd])
 
 		// Parse ` NNNN NNN ... NNN' interrupt counters:
 		perCpuIrqCounter := interrupts.Irq[irq]
@@ -262,21 +266,21 @@ func (interrupts *Interrupts) Parse() error {
 		}
 
 		counterIndex := 0
-		for pos < l && counterIndex < numCpus {
+		for pos < lineEnd && counterIndex < numCpus {
 			// Locate next NNNN:
-			for ; pos < l && isWhitespace[line[pos]]; pos++ {
+			for ; pos < lineEnd && isWhitespace[buf[pos]]; pos++ {
 			}
 			startPos, counter := pos, uint64(0)
-			for done := false; !done && pos < l; pos++ {
-				c := line[pos]
-				if digit := c - '0'; digit <= '9' {
+			for done := false; !done && pos < lineEnd; pos++ {
+				c := buf[pos]
+				if digit := c - '0'; digit < 10 {
 					counter = (counter << 3) + (counter << 1) + uint64(digit)
 				} else if isWhitespace[c] {
 					done = true
 				} else {
 					return fmt.Errorf(
 						"%s#%d: %q: `%c' invalid value for digit",
-						interrupts.path, lineNum, line, c,
+						interrupts.path, lineNum, buf[lineStart:lineEnd], c,
 					)
 				}
 			}
@@ -288,15 +292,15 @@ func (interrupts *Interrupts) Parse() error {
 		if counterIndex < numCpus {
 			return fmt.Errorf(
 				"%s#%d: %q: invalid number of counters %d (< %d)",
-				interrupts.path, lineNum, line, counterIndex, numCpus,
+				interrupts.path, lineNum, buf[lineStart:lineEnd], counterIndex, numCpus,
 			)
 		}
 
 		// Handle description, applicable for numerical IRQs only:
 		if irqIsNum {
-			for ; pos < l && isWhitespace[line[pos]]; pos++ {
+			for ; pos < lineEnd && isWhitespace[buf[pos]]; pos++ {
 			}
-			irqInfo := line[pos:]
+			irqInfo := buf[pos:lineEnd]
 			description := interrupts.Description[irq]
 			if description == nil {
 				description = &InterruptDescription{}
@@ -310,11 +314,8 @@ func (interrupts *Interrupts) Parse() error {
 
 		// Mark IRQ as found at this scan:
 		interrupts.irqScanNum[irq] = scanNum
-	}
 
-	err = scanner.Err()
-	if err != nil {
-		return fmt.Errorf("%s: %v", interrupts.path, err)
+		lineStart = lineEnd + 1
 	}
 
 	// Cleanup IRQs no longer in use, if any:
