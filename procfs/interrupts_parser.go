@@ -255,7 +255,7 @@ func (interrupts *Interrupts) Parse() error {
 		}
 		irq := string(buf[irqStart:irqEnd])
 
-		// Parse ` NNNN NNN ... NNN' interrupt counters:
+		// Parse ` NNN NNN ... NNN' interrupt counters:
 		perCpuIrqCounter := interrupts.Irq[irq]
 		if cap(perCpuIrqCounter) < numCpus {
 			perCpuIrqCounter = make([]uint64, numCpus)

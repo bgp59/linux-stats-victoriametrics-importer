@@ -66,13 +66,13 @@ func (netSnmp6 *NetSnmp6) Clone(full bool) *NetSnmp6 {
 }
 
 func (netSnmp6 *NetSnmp6) Parse() error {
-	bBuf, err := netSnmp6ReadFileBufPool.ReadFile(netSnmp6.path)
+	fBuf, err := netSnmp6ReadFileBufPool.ReadFile(netSnmp6.path)
 	if err != nil {
 		return err
 	}
-	defer netSnmp6ReadFileBufPool.ReturnBuf(bBuf)
+	defer netSnmp6ReadFileBufPool.ReturnBuf(fBuf)
 
-	buf, l := bBuf.Bytes(), bBuf.Len()
+	buf, l := fBuf.Bytes(), fBuf.Len()
 
 	names, values, nameCheckRef := netSnmp6.Names, netSnmp6.Values, netSnmp6.nameCheckRef
 	firstPass := nameCheckRef == nil
@@ -121,7 +121,7 @@ func (netSnmp6 *NetSnmp6) Parse() error {
 				hasValue = true
 			} else {
 				return fmt.Errorf(
-					"%s: %q: `%c' : non-digit characte",
+					"%s: %q: `%c' not a valid digit",
 					netSnmp6.path, getCurrentLine(buf, nameStart), c,
 				)
 			}
@@ -150,7 +150,7 @@ func (netSnmp6 *NetSnmp6) Parse() error {
 		netSnmp6.nameCheckRef = nameCheckRef
 	} else if nameCheckPos != nameCheckRefLen {
 		return fmt.Errorf(
-			"%s: missing names: %q",
+			"%s: missing name(s): %q",
 			netSnmp6.path, string(nameCheckRef[nameCheckPos:]),
 		)
 	}
