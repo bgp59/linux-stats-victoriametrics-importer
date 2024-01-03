@@ -32,7 +32,16 @@ const (
 )
 
 type Mountinfo struct {
-	// Per line index,field index offsets for the fields:
+	// All information will be presented as byte slices; the backing for all the
+	// slices is `.content'. Given a majorMinor = "major:minor" for a device,
+	// this is how a specific field, e.g. MOUNTINFO_MOUNT_POINT can be accessed:
+	//	lineIndex = mountinfo.DevMountInfoIndex[majorMinor]
+	//	devMountInfo = mountinfo.DevMountInfo[lineIndex]
+	//	sliceOffset = devMountInfo[MOUNTINFO_MOUNT_POINT]
+	//	content = mountinfo.content
+	//	mountPoint = content[sliceOffset.Start:sliceOffset.End]
+
+	// Per line index, field index offsets for the fields.
 	DevMountInfo [][]SliceOffsets
 
 	// The info is indexed by the device "major:minor":

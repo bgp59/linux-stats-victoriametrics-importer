@@ -36,9 +36,9 @@ func BenchmarkMountinfoParser(b *testing.B) {
 // goarch: amd64
 // pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
 // cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
-// BenchmarkMountinfoParserIO 	   						   68350	     16833 ns/op	     152 B/op	       3 allocs/op
-// BenchmarkMountinfoParser/forceUpdate=true         	   50479	     24163 ns/op	     312 B/op	      39 allocs/op
-// BenchmarkMountinfoParser/forceUpdate=false        	   73543	     16280 ns/op	     176 B/op	       4 allocs/op
+// BenchmarkMountinfoParser/forceUpdate=false        	   73179	     17320 ns/op	     176 B/op	       4 allocs/op
+// BenchmarkMountinfoParserIO 	  						   69116	     17884 ns/op	     152 B/op	       3 allocs/op
+// BenchmarkMountinfoParser/forceUpdate=true         	   47803	     24499 ns/op	     312 B/op	      39 allocs/op
 
 func BenchmarkMountinfoFileRead(b *testing.B) {
 	for op, name := range benchFileReadOpMap {
@@ -55,8 +55,8 @@ func BenchmarkMountinfoFileRead(b *testing.B) {
 // goarch: amd64
 // pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
 // cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
-// BenchmarkMountinfoFileRead/BENCH_FILE_READ         	   			   70930	     16781 ns/op	     152 B/op	       3 allocs/op
-// BenchmarkMountinfoFileRead/BENCH_FILE_READ_SCAN_BYTES         	   60697	     18974 ns/op	    4248 B/op	       4 allocs/op
-// BenchmarkMountinfoFileRead/BENCH_FILE_READ_SCAN_TEXT          	   57072	     21670 ns/op	    8088 B/op	      39 allocs/op
-// BenchmarkMountinfoFileRead/BENCH_FILE_SCAN_BYTES              	   59659	     18960 ns/op	    4248 B/op	       4 allocs/op
-// BenchmarkMountinfoFileRead/BENCH_FILE_SCAN_TEXT               	   57039	     20412 ns/op	    8088 B/op	      39 allocs/op
+// BenchmarkMountinfoFileRead/BENCH_FILE_READ         	   			   68134	     17004 ns/op	     152 B/op	       3 allocs/op
+// BenchmarkMountinfoFileRead/BENCH_FILE_READ_SCAN_BYTES         	   61975	     19412 ns/op	    4248 B/op	       4 allocs/op
+// BenchmarkMountinfoFileRead/BENCH_FILE_SCAN_BYTES              	   62101	     19436 ns/op	    4248 B/op	       4 allocs/op
+// BenchmarkMountinfoFileRead/BENCH_FILE_SCAN_TEXT               	   56610	     21636 ns/op	    8088 B/op	      39 allocs/op
+// BenchmarkMountinfoFileRead/BENCH_FILE_READ_SCAN_TEXT          	   59616	     22286 ns/op	    8088 B/op	      39 allocs/op
