@@ -27,13 +27,17 @@ var isWhitespaceNl = [256]bool{
 	'\n': true,
 }
 
-func locateLineEnd(buf []byte, lineStart int) int {
-	pos, l := lineStart, len(buf)
-	for ; pos < l && buf[pos] != '\n'; pos++ {
+func getCurrentLine(buf []byte, pos int) string {
+	var lineStart, lineEnd int
+	l := len(buf)
+	if pos < 0 {
+		lineStart, lineEnd = -pos, -pos
+		for ; lineStart > 0 && buf[lineStart-1] != '\n'; lineStart-- {
+		}
+	} else {
+		lineStart, lineEnd = pos, pos
 	}
-	return pos
-}
-
-func getCurrentLine(buf []byte, lineStart int) string {
-	return string(buf[lineStart:locateLineEnd(buf, lineStart)])
+	for ; lineEnd < l && buf[lineEnd] != '\n'; lineEnd++ {
+	}
+	return string(buf[lineStart:lineEnd])
 }

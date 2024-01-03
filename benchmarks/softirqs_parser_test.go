@@ -42,9 +42,9 @@ func BenchmarkSoftirqsParserProm(b *testing.B) {
 // goarch: amd64
 // pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
 // cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
-// BenchmarkSoftirqsParserIO   	   47666	     24957 ns/op	     136 B/op	       3 allocs/op
-// BenchmarkSoftirqsParser     	   37726	     31667 ns/op	    4296 B/op	      14 allocs/op
-// BenchmarkSoftirqsParserProm 	   26047	     46424 ns/op	   14992 B/op	      42 allocs/op
+// BenchmarkSoftirqsParserIO   	   71206	     16226 ns/op	     136 B/op	       3 allocs/op
+// BenchmarkSoftirqsParser     	   64414	     18889 ns/op	     200 B/op	      13 allocs/op
+// BenchmarkSoftirqsParserProm 	   38815	     31456 ns/op	   14992 B/op	      42 allocs/op
 
 func BenchmarkSoftirqsFileRead(b *testing.B) {
 	for op, name := range benchFileReadOpMap {
@@ -61,8 +61,8 @@ func BenchmarkSoftirqsFileRead(b *testing.B) {
 // goarch: amd64
 // pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
 // cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
-// BenchmarkSoftirqsFileRead/BENCH_FILE_SCAN_TEXT         	   41954	     27995 ns/op	    6344 B/op	      15 allocs/op
-// BenchmarkSoftirqsFileRead/BENCH_FILE_READ              	   48457	     24798 ns/op	     136 B/op	       3 allocs/op
-// BenchmarkSoftirqsFileRead/BENCH_FILE_READ_SCAN_BYTES   	   43401	     26891 ns/op	    4232 B/op	       4 allocs/op
-// BenchmarkSoftirqsFileRead/BENCH_FILE_READ_SCAN_TEXT    	   42246	     28439 ns/op	    6344 B/op	      15 allocs/op
-// BenchmarkSoftirqsFileRead/BENCH_FILE_SCAN_BYTES        	   43953	     26772 ns/op	    4232 B/op	       4 allocs/op
+// BenchmarkSoftirqsFileRead/BENCH_FILE_READ         	   			   67806	     16610 ns/op	     136 B/op	       3 allocs/op
+// BenchmarkSoftirqsFileRead/BENCH_FILE_READ_SCAN_BYTES         	   61936	     18959 ns/op	    4232 B/op	       4 allocs/op
+// BenchmarkSoftirqsFileRead/BENCH_FILE_SCAN_BYTES              	   61742	     19149 ns/op	    4232 B/op	       4 allocs/op
+// BenchmarkSoftirqsFileRead/BENCH_FILE_READ_SCAN_TEXT          	   61707	     20052 ns/op	    6344 B/op	      15 allocs/op
+// BenchmarkSoftirqsFileRead/BENCH_FILE_SCAN_TEXT               	   60798	     20153 ns/op	    6344 B/op	      15 allocs/op

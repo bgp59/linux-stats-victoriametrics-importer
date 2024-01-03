@@ -180,7 +180,7 @@ func (stat *Stat) Parse() error {
 		)
 
 		// Line starts here:
-		lineStart, eol := pos, false
+		eol := false
 
 		// Locate prefix start:
 		for ; pos < l && isWhitespace[buf[pos]]; pos++ {
@@ -220,7 +220,7 @@ func (stat *Stat) Parse() error {
 						} else {
 							return fmt.Errorf(
 								"%s#%d: %q: cpu# `%c': invalid digit",
-								stat.path, lineNum, buf[lineStart:locateLineEnd(buf, lineStart)], c,
+								stat.path, lineNum, getCurrentLine(buf, pos), c,
 							)
 						}
 					}
@@ -277,7 +277,7 @@ func (stat *Stat) Parse() error {
 					} else {
 						return fmt.Errorf(
 							"%s#%d: %q: `%c': invalid digit",
-							stat.path, lineNum, buf[lineStart:locateLineEnd(buf, lineStart)], c,
+							stat.path, lineNum, getCurrentLine(buf, pos), c,
 						)
 					}
 				}
@@ -292,7 +292,7 @@ func (stat *Stat) Parse() error {
 			if fieldIndex < minNumFields {
 				return fmt.Errorf(
 					"%s#%d: %q: invalid value count: want (at least) %d, got: %d",
-					stat.path, lineNum, buf[lineStart:locateLineEnd(buf, lineStart)], minNumFields, fieldIndex,
+					stat.path, lineNum, getCurrentLine(buf, pos), minNumFields, fieldIndex,
 				)
 			}
 		}

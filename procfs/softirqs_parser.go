@@ -3,10 +3,8 @@
 package procfs
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
-	"os"
 	"path"
 )
 
@@ -34,6 +32,8 @@ type Softirqs struct {
 	// The path file to  read:
 	path string
 }
+
+var softirqsReadFileBufPool = ReadFileBufPoolReadUnbound
 
 func NewSoftirqs(procfsRoot string) *Softirqs {
 	return &Softirqs{
@@ -109,40 +109,60 @@ func (softirqs *Softirqs) updateColIndexToCpuNumMap(cpuHeaderLine []byte) error 
 }
 
 func (softirqs *Softirqs) Parse() error {
-	file, err := os.Open(softirqs.path)
+	fBuf, err := softirqsReadFileBufPool.ReadFile(softirqs.path)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer softirqsReadFileBufPool.ReturnBuf(fBuf)
+	buf, l := fBuf.Bytes(), fBuf.Len()
 
-	scanner := bufio.NewScanner(file)
-	scanNum := softirqs.scanNum + 1
 	numCpus := 0
-	for lineNum := 1; scanner.Scan(); lineNum++ {
-		line := scanner.Bytes()
+	scanNum := softirqs.scanNum + 1
+	for pos, lineNum := 0, 1; pos < l; lineNum++ {
+		// Line starts here:
+		startLine, eol := pos, false
+
 		if lineNum == 1 {
-			if !bytes.Equal(line, softirqs.cpuHeaderLine) {
-				err = softirqs.updateColIndexToCpuNumMap(line)
+			cpuHeaderLine := softirqs.cpuHeaderLine
+			cpuHeaderLineLen := len(cpuHeaderLine)
+			for ; pos < l && pos < cpuHeaderLineLen && buf[pos] == cpuHeaderLine[pos]; pos++ {
+			}
+			if pos != cpuHeaderLineLen || (pos < l && buf[pos] != '\n') {
+				// The CPU header has changed:
+				for ; pos < l && buf[pos] != '\n'; pos++ {
+				}
+				err = softirqs.updateColIndexToCpuNumMap(buf[0:pos])
 				if err != nil {
-					return fmt.Errorf("%s#%d: %q: %v", softirqs.path, lineNum, string(line), err)
+					return fmt.Errorf(
+						"%s#%d: %q: %v",
+						softirqs.path, lineNum, getCurrentLine(buf, startLine), err,
+					)
 				}
 			}
 			numCpus = softirqs.NumCpus
+			pos++
 			continue
 		}
 
-		// IRQ: NN .. NN:
-		pos, l := 0, len(line)
-		for ; pos < l && isWhitespace[line[pos]]; pos++ {
+		// IRQ: NN .. NN line:
+		for ; pos < l && isWhitespace[buf[pos]]; pos++ {
 		}
-		irqStart := pos
-		for ; pos < l && line[pos] != ':'; pos++ {
+		irqStart, irqEnd := pos, -1
+		for ; !eol && irqEnd < 0 && pos < l; pos++ {
+			c := buf[pos]
+			if c == ':' {
+				irqEnd = pos
+			} else {
+				eol = (c == '\n')
+			}
 		}
-		if irqStart >= pos {
-			return fmt.Errorf("%s#%d: %q: invalid `SOFTIRQ:'", softirqs.path, lineNum, string(line))
+		if irqEnd < 0 {
+			return fmt.Errorf(
+				"%s#%d: %q: invalid `SOFTIRQ:'",
+				softirqs.path, lineNum, getCurrentLine(buf, startLine),
+			)
 		}
-		irq := string(line[irqStart:pos])
-		pos++
+		irq := string(buf[irqStart:irqEnd])
 
 		perCpuIrqCounter := softirqs.Irq[irq]
 		if len(perCpuIrqCounter) < numCpus {
@@ -150,39 +170,52 @@ func (softirqs *Softirqs) Parse() error {
 			softirqs.Irq[irq] = perCpuIrqCounter
 		}
 
-		irqIndex := 0
-		for pos < l && irqIndex < numCpus {
-			for ; pos < l && isWhitespace[line[pos]]; pos++ {
+		counterIndex := 0
+		for !eol && pos < l && counterIndex < numCpus {
+			for ; pos < l && isWhitespace[buf[pos]]; pos++ {
 			}
-			value, done := uint64(0), false
-			for ; !done && pos < l; pos++ {
-				c := line[pos]
+			value, foundValue := uint64(0), false
+			for done := false; !done && pos < l; pos++ {
+				c := buf[pos]
 				if digit := c - '0'; digit < 10 {
 					value = (value << 3) + (value << 1) + uint64(digit)
-				} else if isWhitespace[c] {
+					foundValue = true
+				} else if eol = (c == '\n'); eol || isWhitespace[c] {
 					done = true
 				} else {
 					return fmt.Errorf(
 						"%s#%d: %q: `%c' not a valid digit",
-						softirqs.path, lineNum, string(line), line[pos],
+						softirqs.path, lineNum, getCurrentLine(buf, startLine), buf[pos],
 					)
 				}
 			}
-			perCpuIrqCounter[irqIndex] = value
-			irqIndex++
+			if foundValue {
+				perCpuIrqCounter[counterIndex] = value
+				counterIndex++
+			}
 		}
 
-		if irqIndex < numCpus {
+		// Enough columns?
+		if counterIndex < numCpus {
 			return fmt.Errorf(
 				"%s#%d: %q: missing IRQs: want: %d, got: %d",
-				softirqs.path, lineNum, string(line), numCpus, irqIndex,
+				softirqs.path, lineNum, getCurrentLine(buf, startLine), numCpus, counterIndex,
 			)
 		}
+
+		// Locate EOL; only whitespaces are allowed at this point:
+		for ; !eol && pos < l; pos++ {
+			c := buf[pos]
+			if eol = (c == '\n'); !eol && !isWhitespace[c] {
+				return fmt.Errorf(
+					"%s#%d: %q: %q unexpected content after IRQ counter(s)",
+					softirqs.path, lineNum, getCurrentLine(buf, startLine), getCurrentLine(buf, pos),
+				)
+			}
+		}
+
+		// Mark this irq as found during the scan:
 		softirqs.irqScanNum[irq] = scanNum
-	}
-	err = scanner.Err()
-	if err != nil {
-		return fmt.Errorf("%s: %v", softirqs.path, err)
 	}
 
 	// Cleanup IRQs no longer in use, if any:
