@@ -32,20 +32,12 @@ const (
 )
 
 type Mountinfo struct {
-	// All information will be presented as byte slices; the backing for all the
-	// slices is `.content'. Given a majorMinor = "major:minor" for a device,
-	// this is how a specific field, e.g. MOUNTINFO_MOUNT_POINT can be accessed:
-	//	lineIndex = mountinfo.DevMountInfoIndex[majorMinor]
-	//	devMountInfo = mountinfo.DevMountInfo[lineIndex]
-	//	sliceOffset = devMountInfo[MOUNTINFO_MOUNT_POINT]
-	//	content = mountinfo.content
-	//	mountPoint = content[sliceOffset.Start:sliceOffset.End]
-
-	// Per line index, field index offsets for the fields.
-	DevMountInfo [][]SliceOffsets
-
-	// The info is indexed by the device "major:minor":
-	DevMountInfoIndex map[string]int
+	// All information will be presented as byte slices, indexed by
+	// "major:minor"; the backing for all the slices is `.content'.
+	// e.g. MOUNTINFO_MOUNT_POINT for "major:minor"
+	//   sliceOffset = .devMountInfo["major:minor"][MOUNTINFO_MOUNT_POINT]
+	//   mountPoint = .content.Bytes()[sliceOffset.Start:sliceOffset.End]
+	DevMountInfo map[string][]SliceOffsets
 
 	// The file is not expected to change very often, so in order to avoid a
 	// rather expensive parsing, its previous content is cached and the parsing
@@ -69,16 +61,15 @@ var mountinfoReadFileBufPool = ReadFileBufPool256k
 
 func NewMountInfo(procfsRoot string, pid int) *Mountinfo {
 	return &Mountinfo{
-		DevMountInfo:      make([][]SliceOffsets, 0),
-		DevMountInfoIndex: map[string]int{},
-		content:           &bytes.Buffer{},
-		path:              path.Join(procfsRoot, strconv.Itoa(pid), "mountinfo"),
+		DevMountInfo: map[string][]SliceOffsets{},
+		content:      &bytes.Buffer{},
+		path:         path.Join(procfsRoot, strconv.Itoa(pid), "mountinfo"),
 	}
 }
 
 func (mountinfo *Mountinfo) Clone(full bool) *Mountinfo {
 	newMountInfo := &Mountinfo{
-		DevMountInfo: make([][]SliceOffsets, len(mountinfo.DevMountInfo)),
+		DevMountInfo: map[string][]SliceOffsets{},
 		ParseCount:   mountinfo.ParseCount,
 		ChangeCount:  mountinfo.ChangeCount,
 		Changed:      mountinfo.Changed,
@@ -92,17 +83,10 @@ func (mountinfo *Mountinfo) Clone(full bool) *Mountinfo {
 		newMountInfo.content = &bytes.Buffer{}
 	}
 
-	for i, info := range mountinfo.DevMountInfo {
-		newMountInfo.DevMountInfo[i] = make([]SliceOffsets, MOUNTINFO_NUM_FIELDS)
+	for majorMinor, info := range mountinfo.DevMountInfo {
+		newMountInfo.DevMountInfo[majorMinor] = make([]SliceOffsets, MOUNTINFO_NUM_FIELDS)
 		if full {
-			copy(newMountInfo.DevMountInfo[i], info)
-		}
-	}
-
-	if mountinfo.DevMountInfoIndex != nil {
-		newMountInfo.DevMountInfoIndex = make(map[string]int)
-		for dev, index := range mountinfo.DevMountInfoIndex {
-			newMountInfo.DevMountInfoIndex[dev] = index
+			copy(newMountInfo.DevMountInfo[majorMinor], info)
 		}
 	}
 
@@ -110,27 +94,11 @@ func (mountinfo *Mountinfo) Clone(full bool) *Mountinfo {
 }
 
 func (mountinfo *Mountinfo) update() error {
-	// Max out the capacity already available in DevMountInfo (the actual length
-	// will be adjusted at the end):
-	devMountInfo := mountinfo.DevMountInfo[:cap(mountinfo.DevMountInfo)]
-
 	buf, l := mountinfo.content.Bytes(), mountinfo.content.Len()
-	lineIndex := 0
+	info := make([]SliceOffsets, MOUNTINFO_NUM_FIELDS)
 
-	devMountInfoIndex := mountinfo.DevMountInfoIndex
-	// Mark all index entries as no longer in use, they will be updated as the
-	// file is being parsed:
-	for dev := range devMountInfoIndex {
-		devMountInfoIndex[dev] = -1
-	}
-
-	for pos := 0; pos < l; {
-		// Start parsing a new line:
-		if len(devMountInfo) <= lineIndex {
-			devMountInfo = append(devMountInfo, make([]SliceOffsets, MOUNTINFO_NUM_FIELDS))
-		}
-		info := devMountInfo[lineIndex]
-
+	devMountInfo := mountinfo.DevMountInfo
+	for pos, lineNum := 0, 1; pos < l; lineNum++ {
 		lineStart, fieldIndex, eol := pos, MOUNTINFO_MOUNT_ID, false
 		optionalFieldsStart, optionalFieldsEnd := -1, -1
 		for ; !eol && pos < l && fieldIndex < MOUNTINFO_NUM_FIELDS; pos++ {
@@ -171,8 +139,8 @@ func (mountinfo *Mountinfo) update() error {
 		if fieldIndex < MOUNTINFO_NUM_FIELDS {
 			// Missing fields:
 			return fmt.Errorf(
-				"%s#%d: %q: missing fields (< %d)",
-				mountinfo.path, lineIndex+1, getCurrentLine(buf, lineStart), MOUNTINFO_NUM_FIELDS,
+				"%s#%d: %q: missing fields: want: %d, got: %d",
+				mountinfo.path, lineNum, getCurrentLine(buf, lineStart), MOUNTINFO_NUM_FIELDS, fieldIndex,
 			)
 		}
 		// Advance to EOL:
@@ -180,26 +148,21 @@ func (mountinfo *Mountinfo) update() error {
 			c := buf[pos]
 			if eol = (c == '\n'); !eol && !isWhitespace[c] {
 				return fmt.Errorf(
-					"%s#%d: ... %q: unexpected data after the last field",
-					mountinfo.path, lineIndex+1, getCurrentLine(buf, pos),
+					"%s#%d: %q: %q: unexpected content after the last field",
+					mountinfo.path, lineNum, getCurrentLine(buf, lineStart), getCurrentLine(buf, pos),
 				)
 			}
 		}
 
 		// Update the "major:minor" index:
 		startEnd := info[MOUNTINFO_MAJOR_MINOR]
-		devMountInfoIndex[string(buf[startEnd.Start:startEnd.End])] = lineIndex
-		lineIndex++
-	}
-
-	// Trim back dev info to match the actual number of lines:
-	mountinfo.DevMountInfo = devMountInfo[:lineIndex]
-
-	// Prune no longer existent mounts:
-	for dev, index := range devMountInfoIndex {
-		if index < 0 {
-			delete(devMountInfoIndex, dev)
+		majorMinor := string(buf[startEnd.Start:startEnd.End])
+		devInfo := devMountInfo[majorMinor]
+		if devInfo == nil {
+			devInfo = make([]SliceOffsets, MOUNTINFO_NUM_FIELDS)
+			devMountInfo[majorMinor] = devInfo
 		}
+		copy(devInfo, info)
 	}
 
 	// Update change stats:
