@@ -38,12 +38,13 @@ func BenchmarkNetDevParserProm(b *testing.B) {
 	}
 }
 
+// goos: darwin
 // goarch: amd64
 // pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
 // cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
-// BenchmarkNetDevParserIO   	   48913	     23218 ns/op	     136 B/op	       3 allocs/op
-// BenchmarkNetDevParser     	   50480	     23842 ns/op	     168 B/op	       6 allocs/op
-// BenchmarkNetDevParserProm 	   39608	     27756 ns/op	    5896 B/op	      16 allocs/op
+// BenchmarkNetDevParserIO   	   50041	     23874 ns/op	     136 B/op	       3 allocs/op
+// BenchmarkNetDevParser     	   50775	     24370 ns/op	     168 B/op	       6 allocs/op
+// BenchmarkNetDevParserProm 	   42555	     28978 ns/op	    5896 B/op	      16 allocs/op
 
 func BenchmarkNetDevFileRead(b *testing.B) {
 	for op, name := range benchFileReadOpMap {

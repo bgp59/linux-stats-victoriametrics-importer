@@ -37,18 +37,28 @@ const (
 	NET_DEV_TX_CARRIER
 	NET_DEV_TX_COMPRESSED
 
-	// Must be last:
-	NET_DEV_NUM_STATS
+	// Must be last! See NetDev struct for explanation about the scan#:
+	NET_DEV_SCAN_NUMBER
+)
+
+const (
+	NET_DEV_NUM_STATS = NET_DEV_SCAN_NUMBER + 1
 )
 
 type NetDev struct {
-	// Stats per line:
-	DevStats [][]uint64
+	// Stats indexed by device name:
+	DevStats map[string][]uint64
 
-	// Indexed by device name; DevStats[DevStatsIndex[dev]]
-	DevStatsIndex map[string]int
 	// The path file to  read:
 	path string
+
+	// Devices may appear/disappear dynamically. To detect and remove deleted
+	// devices from DevStats, the scan# below is incremented at the beginning of
+	// the scan and each device found at the current scan will have its
+	// NET_DEV_SCAN_NUMBER value updated with it. At the end of the scan, all
+	// devices found NET_DEV_SCAN_NUMBER not matching will be removed.
+	scanNum uint64
+
 	// The parser assumes certain fields, based on the first N lines. The file
 	// will be validated only for the 1st pass, since the file syntax cannot
 	// change without a kernel change, i.e. a reboot. The validated header is
@@ -62,12 +72,12 @@ type NetDev struct {
 var netDevReadFileBufPool = ReadFileBufPool256k
 
 // To protect against changes in kernel that may alter the exposed stats, the
-// header of the file is checked, once/1st time, against the known headers
+// header of the file is checked once (1st time), against the known headers
 // listed below:
 var netDevValidHeaders = [][]byte{
 	// Note: to make it easier to cut and paste actual lines, they are enclosed
 	// between `` marks, the latter on *separate* lines for readability. This
-	// introduces a `\n` as the first byte and it has to be removed from
+	// introduces a `\n' as the first byte and it has to be removed from
 	// comparison, hence the [1:] slice construct.
 	[]byte(`
 Inter-|   Receive                                                |  Transmit
@@ -77,32 +87,28 @@ Inter-|   Receive                                                |  Transmit
 
 func NewNetDev(procfsRoot string) *NetDev {
 	return &NetDev{
-		DevStats:      make([][]uint64, 0),
-		DevStatsIndex: map[string]int{},
-		path:          path.Join(procfsRoot, "net", "dev"),
+		DevStats: map[string][]uint64{},
+		path:     path.Join(procfsRoot, "net", "dev"),
 	}
 }
 
 func (netDev *NetDev) Clone(full bool) *NetDev {
 	newNetDev := &NetDev{
-		DevStats:       make([][]uint64, len(netDev.DevStats)),
-		DevStatsIndex:  map[string]int{},
+		DevStats:       map[string][]uint64{},
 		path:           netDev.path,
 		validHeader:    make([]byte, len(netDev.validHeader)),
 		numLinesHeader: netDev.numLinesHeader,
 	}
 
-	for i, devStats := range netDev.DevStats {
-		newNetDev.DevStats[i] = make([]uint64, NET_DEV_NUM_STATS)
+	for dev, devStats := range netDev.DevStats {
+		newNetDev.DevStats[dev] = make([]uint64, NET_DEV_NUM_STATS)
 		if full {
-			copy(newNetDev.DevStats[i], devStats)
+			copy(newNetDev.DevStats[dev], devStats)
 		}
 	}
 
 	if full {
-		for dev, index := range netDev.DevStatsIndex {
-			newNetDev.DevStatsIndex[dev] = index
-		}
+		newNetDev.scanNum = netDev.scanNum
 	}
 
 	copy(newNetDev.validHeader, netDev.validHeader)
@@ -149,54 +155,42 @@ func (netDev *NetDev) Parse() error {
 		return fmt.Errorf("%s: invalid/changed file header", netDev.path)
 	}
 
-	// Max out the capacity already available in dev stats. The actual length
-	// will be adjusted at the end:
-	devStats := netDev.DevStats[:cap(netDev.DevStats)]
-
-	// Initialize dev index w/ -1; the actual index will be updated as devices
-	// are being parsed and entries for devices no longer available will be
-	// pruned at the end:
-	devStatsIndex := netDev.DevStatsIndex
-	for dev := range devStatsIndex {
-		devStatsIndex[dev] = -1
-	}
-
-	devIndex := 0
-	for pos := statsOff; pos < l; devIndex++ {
-		// Start parsing a new line:
-		if len(devStats) <= devIndex {
-			devStats = append(devStats, make([]uint64, NET_DEV_NUM_STATS))
-		}
-		stats := devStats[devIndex]
-
+	scanNum := netDev.scanNum + 1
+	for pos, lineNum := statsOff, netDev.numLinesHeader+1; pos < l; lineNum++ {
+		// New line starts here:
 		lineStart, eol := pos, false
-		for ; pos < l && isWhitespace[buf[pos]]; pos++ {
-		}
 
 		// Extract the device:
-		hasDev := false
+		for ; pos < l && isWhitespace[buf[pos]]; pos++ {
+		}
+		dev := ""
 		for devStart, done := pos, false; !done && pos < l; pos++ {
 			c := buf[pos]
 			if c == ':' {
 				if devStart < pos-1 {
-					devStatsIndex[string(buf[devStart:pos])] = devIndex
-					hasDev = true
+					dev = string(buf[devStart:pos])
 				}
 				done = true
 			} else if eol = (c == '\n'); eol || isWhitespace[c] {
 				done = true
 			}
 		}
-		if !hasDev {
+		if dev == "" {
 			return fmt.Errorf(
 				"%s#%d: %q: missing `DEV:'",
-				netDev.path, netDev.numLinesHeader+devIndex+1, getCurrentLine(buf, lineStart),
+				netDev.path, lineNum, getCurrentLine(buf, lineStart),
 			)
+		}
+
+		stats := netDev.DevStats[dev]
+		if stats == nil {
+			stats = make([]uint64, NET_DEV_NUM_STATS)
+			netDev.DevStats[dev] = stats
 		}
 
 		// Extract stats values:
 		statIndex := 0
-		for !eol && pos < l && statIndex < NET_DEV_NUM_STATS {
+		for !eol && pos < l && statIndex < NET_DEV_SCAN_NUMBER {
 			for ; pos < l && isWhitespace[buf[pos]]; pos++ {
 			}
 			value, hasValue := uint64(0), false
@@ -211,7 +205,7 @@ func (netDev *NetDev) Parse() error {
 				} else {
 					return fmt.Errorf(
 						"%s#%d: %q: invalid value",
-						netDev.path, netDev.numLinesHeader+devIndex+1, getCurrentLine(buf, lineStart),
+						netDev.path, lineNum, getCurrentLine(buf, lineStart),
 					)
 				}
 			}
@@ -222,34 +216,37 @@ func (netDev *NetDev) Parse() error {
 		}
 
 		// All values retrieved?
-		if statIndex < NET_DEV_NUM_STATS {
+		if statIndex < NET_DEV_SCAN_NUMBER {
 			return fmt.Errorf(
-				"%s#%d: %q: not enough values (< %d)",
-				netDev.path, netDev.numLinesHeader+devIndex+1, getCurrentLine(buf, lineStart), NET_DEV_NUM_STATS,
+				"%s#%d: %q: not enough values: want: %d, got: %d",
+				netDev.path, lineNum, getCurrentLine(buf, lineStart), NET_DEV_SCAN_NUMBER, statIndex,
 			)
 		}
+
+		// Sync scan# for this device:
+		stats[NET_DEV_SCAN_NUMBER] = scanNum
 
 		// Advance to EOL:
 		for ; !eol && pos < l; pos++ {
 			c := buf[pos]
 			if eol = (c == '\n'); !eol && !isWhitespace[c] {
 				return fmt.Errorf(
-					"%s#%d: %q: invalid value",
-					netDev.path, netDev.numLinesHeader+devIndex+1, getCurrentLine(buf, lineStart),
+					"%s#%d: %q: %q: unexpected content after dev counters",
+					netDev.path, lineNum, getCurrentLine(buf, lineStart), getCurrentLine(buf, pos),
 				)
 			}
 		}
 	}
 
-	// Trim back dev stats to match the actual number of devices:
-	netDev.DevStats = devStats[:devIndex]
-
 	// Prune dev stats index for devices no longer found:
-	for dev, index := range devStatsIndex {
-		if index == -1 {
-			delete(devStatsIndex, dev)
+	for dev, stats := range netDev.DevStats {
+		if stats[NET_DEV_SCAN_NUMBER] != scanNum {
+			delete(netDev.DevStats, dev)
 		}
 	}
+
+	// Update scan#:
+	netDev.scanNum = scanNum
 
 	return nil
 }

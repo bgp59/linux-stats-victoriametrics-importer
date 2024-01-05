@@ -73,13 +73,20 @@ func testNetDevParser(tc *NetDevTestCase, t *testing.T) {
 
 	diffBuf := &bytes.Buffer{}
 
-	for i, wantDevStats := range wantNetDev.DevStats {
-		gotDevStats := netDev.DevStats[i]
+	for dev, wantDevStats := range wantNetDev.DevStats {
+		gotDevStats := netDev.DevStats[dev]
+		if gotDevStats == nil {
+			fmt.Fprintf(
+				diffBuf,
+				"\nDevStats[%q]: missing device", dev,
+			)
+			continue
+		}
 		if len(wantDevStats) != len(gotDevStats) {
 			fmt.Fprintf(
 				diffBuf,
-				"\nlen(DevStats[%d]): want: %d, got: %d",
-				i, len(wantDevStats), len(gotDevStats),
+				"\nlen(DevStats[%q]): want: %d, got: %d",
+				dev, len(wantDevStats), len(gotDevStats),
 			)
 		} else {
 			for statIndex, wantStat := range wantDevStats {
@@ -87,37 +94,20 @@ func testNetDevParser(tc *NetDevTestCase, t *testing.T) {
 				if wantStat != gotStat {
 					fmt.Fprintf(
 						diffBuf,
-						"\nDevStats[%d][%d (%s)]: want: %d, got: %d",
-						i, statIndex, netDevStatName[statIndex], wantStat, gotStat,
+						"\nDevStats[%q][%d (%s)]: want: %d, got: %d",
+						dev, statIndex, netDevStatName[statIndex], wantStat, gotStat,
 					)
 				}
 			}
 		}
 	}
 
-	for dev, wantIndex := range wantNetDev.DevStatsIndex {
-		gotIndex, ok := netDev.DevStatsIndex[dev]
+	for dev := range netDev.DevStats {
+		_, ok := wantNetDev.DevStats[dev]
 		if !ok {
 			fmt.Fprintf(
 				diffBuf,
-				"\nDevStatsIndex[%s]: missing device", dev,
-			)
-		} else if wantIndex != gotIndex {
-			fmt.Fprintf(
-				diffBuf,
-				"\nDevStatsIn dex[%s]: want: %d, got: %d",
-				dev, wantIndex, gotIndex,
-			)
-
-		}
-	}
-
-	for dev := range netDev.DevStatsIndex {
-		_, ok := wantNetDev.DevStatsIndex[dev]
-		if !ok {
-			fmt.Fprintf(
-				diffBuf,
-				"\nDevStatsIndex[%s]: unexpected device", dev,
+				"\nDevStatsIndex[%q]: unexpected device", dev,
 			)
 		}
 	}
@@ -132,13 +122,9 @@ func TestNetDevParser(t *testing.T) {
 		&NetDevTestCase{
 			procfsRoot: path.Join(netDevTestdataDir, "field_mapping"),
 			wantNetDev: &NetDev{
-				DevStats: [][]uint64{
-					{1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015},
-					{2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015},
-				},
-				DevStatsIndex: map[string]int{
-					"lo":   0,
-					"eth0": 1,
+				DevStats: map[string][]uint64{
+					"lo":   {1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1},
+					"eth0": {2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 1},
 				},
 			},
 		},
@@ -146,25 +132,18 @@ func TestNetDevParser(t *testing.T) {
 			name:       "reuse",
 			procfsRoot: path.Join(netDevTestdataDir, "field_mapping"),
 			primeNetDev: &NetDev{
-				DevStats: [][]uint64{
-					make([]uint64, NET_DEV_NUM_STATS),
-					make([]uint64, NET_DEV_NUM_STATS),
+				DevStats: map[string][]uint64{
+					"lo":   make([]uint64, NET_DEV_NUM_STATS),
+					"eth0": make([]uint64, NET_DEV_NUM_STATS),
 				},
-				DevStatsIndex: map[string]int{
-					"lo":   0,
-					"eth0": 1,
-				},
+				scanNum:        11111110,
 				validHeader:    testNetDevHeader,
 				numLinesHeader: testNetDevNumLinesHeader,
 			},
 			wantNetDev: &NetDev{
-				DevStats: [][]uint64{
-					{1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015},
-					{2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015},
-				},
-				DevStatsIndex: map[string]int{
-					"lo":   0,
-					"eth0": 1,
+				DevStats: map[string][]uint64{
+					"lo":   {1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 11111111},
+					"eth0": {2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 11111111},
 				},
 			},
 		},
@@ -172,44 +151,29 @@ func TestNetDevParser(t *testing.T) {
 			name:       "remove_dev",
 			procfsRoot: path.Join(netDevTestdataDir, "field_mapping"),
 			primeNetDev: &NetDev{
-				DevStats: [][]uint64{
-					make([]uint64, NET_DEV_NUM_STATS),
-					make([]uint64, NET_DEV_NUM_STATS),
-					make([]uint64, NET_DEV_NUM_STATS),
-				},
-				DevStatsIndex: map[string]int{
-					"lo":     0,
-					"remove": 1,
-					"eth0":   2,
+				DevStats: map[string][]uint64{
+					"lo":     make([]uint64, NET_DEV_NUM_STATS),
+					"remove": make([]uint64, NET_DEV_NUM_STATS),
+					"eth0":   make([]uint64, NET_DEV_NUM_STATS),
 				},
 				validHeader:    testNetDevHeader,
 				numLinesHeader: testNetDevNumLinesHeader,
 			},
 			wantNetDev: &NetDev{
-				DevStats: [][]uint64{
-					{1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015},
-					{2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015},
-				},
-				DevStatsIndex: map[string]int{
-					"lo":   0,
-					"eth0": 1,
+				DevStats: map[string][]uint64{
+					"lo":   {1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1},
+					"eth0": {2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 1},
 				},
 			},
 		},
 		&NetDevTestCase{
 			procfsRoot: path.Join(netDevTestdataDir, "whitespaces"),
 			wantNetDev: &NetDev{
-				DevStats: [][]uint64{
-					{1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015},
-					{2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015},
-					{3000, 3001, 3002, 3003, 3004, 3005, 3006, 3007, 3008, 3009, 3010, 3011, 3012, 3013, 3014, 3015},
-					{4000, 4001, 4002, 4003, 4004, 4005, 4006, 4007, 4008, 4009, 4010, 4011, 4012, 4013, 4014, 4015},
-				},
-				DevStatsIndex: map[string]int{
-					"dev1": 0,
-					"dev2": 1,
-					"dev3": 2,
-					"dev4": 3,
+				DevStats: map[string][]uint64{
+					"dev1": {1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1},
+					"dev2": {2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 1},
+					"dev3": {3000, 3001, 3002, 3003, 3004, 3005, 3006, 3007, 3008, 3009, 3010, 3011, 3012, 3013, 3014, 3015, 1},
+					"dev4": {4000, 4001, 4002, 4003, 4004, 4005, 4006, 4007, 4008, 4009, 4010, 4011, 4012, 4013, 4014, 4015, 1},
 				},
 			},
 		},
