@@ -123,6 +123,8 @@ func (softirqs *Softirqs) Parse() error {
 		startLine, eol := pos, false
 
 		if lineNum == 1 {
+			// Look for changes in the CPU header line; update col# to cpu# as
+			// needed:
 			cpuHeaderLine := softirqs.cpuHeaderLine
 			cpuHeaderLineLen := len(cpuHeaderLine)
 			for ; pos < l && pos < cpuHeaderLineLen && buf[pos] == cpuHeaderLine[pos]; pos++ {

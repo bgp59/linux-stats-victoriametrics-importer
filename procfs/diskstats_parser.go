@@ -70,7 +70,7 @@ type DiskstatsDevInfo struct {
 }
 
 type Diskstats struct {
-	// All device stats and info is indexed by "major:minor":
+	// Device stats and info, indexed by "major:minor":
 	DevInfoMap map[string]*DiskstatsDevInfo
 	// Devices may be appear/disappear dynamically. To keep track of deletion,
 	// each parse invocation is associated with a different from before scan#
@@ -191,11 +191,12 @@ func (diskstats *Diskstats) Parse() error {
 		for fieldNum = 0; !eol && pos < l && fieldNum < DISKSTATS_VALUE_FIELDS_NUM; pos++ {
 			for ; pos < l && isWhitespace[buf[pos]]; pos++ {
 			}
-			fieldStart, value := pos, uint32(0)
+			value, valueFound := uint32(0), false
 			for ; pos < l; pos++ {
 				c := buf[pos]
 				if digit := c - '0'; digit < 10 {
 					value = (value << 3) + (value << 1) + uint32(digit)
+					valueFound = true
 				} else if eol = (c == '\n'); eol || isWhitespace[c] {
 					break
 				} else {
@@ -205,7 +206,7 @@ func (diskstats *Diskstats) Parse() error {
 					)
 				}
 			}
-			if fieldStart < pos {
+			if valueFound {
 				if jiffiesToMillisec > 0 && fieldsInJiffies[fieldNum] {
 					value *= jiffiesToMillisec
 				}
