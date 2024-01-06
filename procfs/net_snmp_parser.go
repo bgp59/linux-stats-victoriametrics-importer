@@ -3,9 +3,7 @@
 package procfs
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"path"
 	"strings"
 )
@@ -47,6 +45,8 @@ type NetSnmp struct {
 	lineInfo []*NetSnmpLineInfo
 }
 
+var netSnmpReadFileBufPool = ReadFileBufPool32k
+
 func NewNetSnmp(procfsRoot string) *NetSnmp {
 	return &NetSnmp{
 		Names:    make([]string, 0),
@@ -78,17 +78,27 @@ func (netSnmp *NetSnmp) Clone(full bool) *NetSnmp {
 }
 
 func (netSnmp *NetSnmp) Parse() error {
-	file, err := os.Open(netSnmp.path)
+	fBuf, err := netSnmpReadFileBufPool.ReadFile(netSnmp.path)
 	if err != nil {
 		return err
 	}
-	scanner := bufio.NewScanner(file)
+	defer netSnmpReadFileBufPool.ReturnBuf(fBuf)
+
+	buf, l := fBuf.Bytes(), fBuf.Len()
+
 	parseNames := len(netSnmp.Names) == 0
-	for lineNum, valueIndex, valuesLen := 1, 0, len(netSnmp.Values); scanner.Scan(); lineNum++ {
+	valueIndex := 0
+	for pos, lineNum := 0, 1; pos < l; lineNum++ {
+		// Line starts here:
+		lineStart, eol := pos, false
+
 		// For odd lines parse names as needed:
 		if lineNum&1 == 1 {
+			lineEnd := lineStart
+			for ; lineEnd < l && buf[lineEnd] != '\n'; lineEnd++ {
+			}
 			if parseNames {
-				line := scanner.Text()
+				line := string(buf[lineStart:lineEnd])
 				fields := strings.Fields(line)
 				if len(fields) < 2 || len(fields[0]) < 2 || fields[0][len(fields[0])-1] != ':' {
 					return fmt.Errorf(
@@ -105,90 +115,100 @@ func (netSnmp *NetSnmp) Parse() error {
 				}
 				netSnmp.Names = append(netSnmp.Names, names...)
 				netSnmp.Values = append(netSnmp.Values, make([]int64, numVals)...)
-				valuesLen = len(netSnmp.Values)
 				lineInfo := &NetSnmpLineInfo{
 					prefix:  []byte(fields[0]),
 					numVals: numVals,
 				}
 				netSnmp.lineInfo = append(netSnmp.lineInfo, lineInfo)
 			}
+			pos = lineEnd + 1
 			continue
 		}
-		// Even lines, parse data:
-		line := scanner.Bytes()
-		pos, l := 0, len(line)
 
+		// Even lines, parse data:
+
+		// Validate prefix:
 		lineInfoIndex := (lineNum - 1) >> 1
 		if lineInfoIndex >= len(netSnmp.lineInfo) {
 			return fmt.Errorf(
 				"%s#%d: %q: unexpected line# (> %d)",
-				netSnmp.path, lineNum, string(line), len(netSnmp.lineInfo)*2,
+				netSnmp.path, lineNum, getCurrentLine(buf, lineStart), len(netSnmp.lineInfo)*2,
 			)
 		}
 		lineInfo := netSnmp.lineInfo[lineInfoIndex]
-		expectPrefix, expectNumVals := lineInfo.prefix, lineInfo.numVals
-
-		for ; pos < l && pos < len(expectPrefix) && line[pos] == expectPrefix[pos]; pos++ {
+		expectPrefix := lineInfo.prefix
+		prefixPos, expectPrefixLen := 0, len(expectPrefix)
+		for ; pos < l && prefixPos < expectPrefixLen && buf[pos] == expectPrefix[prefixPos]; pos++ {
+			prefixPos++
 		}
-		if pos != len(expectPrefix) {
+		if prefixPos != expectPrefixLen {
 			return fmt.Errorf(
 				"%s#%d: %q: unexpected prefix, want %q",
-				netSnmp.path, lineNum, line, expectPrefix,
+				netSnmp.path, lineNum, getCurrentLine(buf, lineStart), expectPrefix,
 			)
 		}
 
-		numVals := 0
-		for ; pos < l; pos++ {
-			for ; pos < l && isWhitespace[line[pos]]; pos++ {
-			}
-			if pos == l {
-				break
+		lineValueIndex, lineExpectedNumVals := 0, lineInfo.numVals
+		for !eol && pos < l && lineValueIndex < lineExpectedNumVals {
+			for ; pos < l && isWhitespace[buf[pos]]; pos++ {
 			}
 
-			value, isNegative := int64(0), false
-			if line[pos] == '-' {
+			value, hasValue, isNegative := int64(0), false, false
+			if buf[pos] == '-' {
 				isNegative = true
 				pos++
 			}
-			startPos := pos
-			for ; pos < l; pos++ {
-				c := line[pos]
-				if digit := c - '0'; digit <= 9 {
+			for done := false; !done && pos < l; pos++ {
+				c := buf[pos]
+				if digit := c - '0'; digit < 10 {
 					value = (value << 3) + (value << 1) + int64(digit)
-				} else if isWhitespace[c] {
-					break
+					hasValue = true
+				} else if eol = (c == '\n'); eol || isWhitespace[c] {
+					done = true
 				} else {
 					return fmt.Errorf(
-						"%s#%d: %q: `%c': non-digit character",
-						netSnmp.path, lineNum, line, c,
+						"%s#%d: %q: `%c': not a valid digit",
+						netSnmp.path, lineNum, getCurrentLine(buf, lineStart), c,
 					)
 				}
 			}
-			if startPos < pos {
-				numVals++
-				if numVals > expectNumVals || valueIndex >= valuesLen {
-					return fmt.Errorf(
-						"%s#%d: %q: too many values: line want: %d, got: %d, total want: %d, got: %d)",
-						netSnmp.path, lineNum, line, expectNumVals, numVals, valuesLen, valueIndex,
-					)
-				}
-				if isNegative {
-					value = -value
-				}
+			if isNegative {
+				value = -value
+			}
+			if hasValue {
+				lineValueIndex++
 				netSnmp.Values[valueIndex] = value
 				valueIndex++
 			}
 		}
-		if numVals < expectNumVals {
+
+		// Enough values?
+		if lineValueIndex < lineExpectedNumVals {
 			return fmt.Errorf(
-				"%s#%d: %q: not enough value(s): want: %d, got: %d",
-				netSnmp.path, lineNum, line, expectNumVals, numVals,
+				"%s#%d: %q: missing values: want: %d, got: %d",
+				netSnmp.path, lineNum, getCurrentLine(buf, lineStart), lineExpectedNumVals, lineValueIndex,
 			)
 		}
+
+		// Locate EOL; only whitespaces are allowed at this point:
+		for ; !eol && pos < l; pos++ {
+			c := buf[pos]
+			if eol = (c == '\n'); !eol && !isWhitespace[c] {
+				return fmt.Errorf(
+					"%s#%d: %q: %q unexpected content after IRQ counter(s)",
+					netSnmp.path, lineNum, getCurrentLine(buf, lineStart), getCurrentLine(buf, pos),
+				)
+			}
+		}
 	}
-	err = scanner.Err()
-	if err != nil {
-		return fmt.Errorf("%s: %v", netSnmp.path, err)
+
+	// Verify that expected number of values were parsed:
+	if valueIndex != len(netSnmp.Values) {
+		return fmt.Errorf(
+			"%s: mismatched number of values: want: %d, got: %d",
+			netSnmp.path, len(netSnmp.Values), valueIndex,
+		)
 	}
+
 	return nil
 }

@@ -33,7 +33,7 @@ func TestGetCurrentLine(t *testing.T) {
 		},
 		{
 			getCurrentLineTestBuf,
-			1,
+			-1,
 			"line 1",
 		},
 		{
@@ -43,7 +43,7 @@ func TestGetCurrentLine(t *testing.T) {
 		},
 		{
 			getCurrentLineTestBuf,
-			12,
+			-12,
 			"line 2",
 		},
 	} {
