@@ -1,0 +1,151 @@
+package procfs
+
+import (
+	"fmt"
+	"os"
+	"path"
+	"testing"
+)
+
+type PidCmdlineTestCase struct {
+	procfsRoot   string
+	pid, tid     int
+	poolReadSize int64
+	cmdline      string
+	wantCmdline  string
+	wantError    error
+}
+
+var pidCmdlineTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "pid_cmdline")
+
+func testPidCmdlineParser(tc *PidCmdlineTestCase, t *testing.T) {
+	if tc.poolReadSize > 0 {
+		orgPoolReadSize := pidCmdlineReadFileBufPool.maxReadSize
+		pidCmdlineReadFileBufPool.maxReadSize = tc.poolReadSize
+		defer func() { pidCmdlineReadFileBufPool.maxReadSize = orgPoolReadSize }()
+	}
+
+	pidCmdline := NewPidCmdline(tc.procfsRoot, tc.pid, tc.tid)
+
+	if tc.cmdline != "" {
+		err := os.MkdirAll(path.Dir(pidCmdline.path), os.ModePerm)
+		if err != nil {
+			t.Fatal(err)
+		}
+		file, err := os.Create(pidCmdline.path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = file.WriteString(tc.cmdline)
+		if err != nil {
+			t.Fatal(err)
+		}
+		file.Close()
+	}
+
+	err := pidCmdline.Parse()
+	if tc.wantError == nil && err != nil {
+		t.Fatal(err)
+	}
+	if tc.wantError != nil {
+		if err == nil || tc.wantError.Error() != err.Error() {
+			t.Fatalf("error: want: %v, got: %v", tc.wantError, err)
+		}
+	}
+	gotCmdline := pidCmdline.Cmdline.String()
+	if tc.wantCmdline != gotCmdline {
+		t.Fatalf("cmdline: want: %q, got: %q", tc.wantCmdline, gotCmdline)
+	}
+}
+
+func TestPidCmdlineParser(t *testing.T) {
+	for _, tc := range []*PidCmdlineTestCase{
+		{
+			procfsRoot:  pidCmdlineTestdataDir,
+			pid:         1,
+			tid:         PID_STAT_PID_ONLY_TID,
+			wantCmdline: `/sbin/init`,
+		},
+		{
+			procfsRoot:  pidCmdlineTestdataDir,
+			pid:         101,
+			tid:         PID_STAT_PID_ONLY_TID,
+			cmdline:     "arg0\x00arg1\x00",
+			wantCmdline: `arg0 arg1`,
+		},
+		{
+			procfsRoot:  pidCmdlineTestdataDir,
+			pid:         101,
+			tid:         101,
+			cmdline:     "arg0\x00arg1\x00\x00",
+			wantCmdline: `arg0 arg1`,
+		},
+		{
+			procfsRoot:  pidCmdlineTestdataDir,
+			pid:         102,
+			tid:         PID_STAT_PID_ONLY_TID,
+			cmdline:     "arg0\x00arg1\x00arg\n2\x00",
+			wantCmdline: `arg0 arg1 arg\n2`,
+		},
+		{
+			procfsRoot:  pidCmdlineTestdataDir,
+			pid:         103,
+			tid:         PID_STAT_PID_ONLY_TID,
+			cmdline:     "arg0\x00arg1\x00\"arg 2\"\x00",
+			wantCmdline: `arg0 arg1 \"arg 2\"`,
+		},
+		{
+			procfsRoot:   pidCmdlineTestdataDir,
+			pid:          1001,
+			tid:          PID_STAT_PID_ONLY_TID,
+			poolReadSize: 10,
+			cmdline:      "arg0\x00arg1\x00arg2\x00",
+			wantCmdline:  `arg0 ar...`,
+		},
+		{
+			procfsRoot:   pidCmdlineTestdataDir,
+			pid:          1002,
+			tid:          10,
+			poolReadSize: 10,
+			cmdline:      "Hello\x00世界\x00",
+			wantCmdline:  `Hello...`,
+		},
+		{
+			procfsRoot:   pidCmdlineTestdataDir,
+			pid:          1002,
+			tid:          11,
+			poolReadSize: 11,
+			cmdline:      "Hello\x00世界\x00",
+			wantCmdline:  `Hello ...`,
+		},
+		{
+			procfsRoot:   pidCmdlineTestdataDir,
+			pid:          1002,
+			tid:          12,
+			poolReadSize: 12,
+			cmdline:      "Hello\x00世界\x00",
+			wantCmdline:  `Hello 世...`,
+		},
+		{
+			procfsRoot:   pidCmdlineTestdataDir,
+			pid:          1002,
+			tid:          13,
+			poolReadSize: 13,
+			cmdline:      "Hello\x00世界\x00",
+			wantCmdline:  `Hello 世...`,
+		},
+		{
+			procfsRoot:   pidCmdlineTestdataDir,
+			pid:          1002,
+			tid:          14,
+			poolReadSize: 14,
+			cmdline:      "Hello\x00世界\x00",
+			wantCmdline:  `Hello 世界`,
+		},
+	} {
+		t.Run(
+			fmt.Sprintf("procfsRoot=%s,pid=%d,tid=%d", tc.procfsRoot, tc.pid, tc.tid),
+			func(t *testing.T) { testPidCmdlineParser(tc, t) },
+		)
+	}
+}

@@ -100,8 +100,8 @@ func (p *ReadFileBufPool) ReadFile(path string) (*bytes.Buffer, error) {
 	} else {
 		_, err = b.ReadFrom(f)
 	}
-	if err == nil {
-		return b, nil
+	if err == nil || err == ErrReadFileBufPotentialTruncation {
+		return b, err
 	}
 	p.ReturnBuf(b)
 	return nil, err

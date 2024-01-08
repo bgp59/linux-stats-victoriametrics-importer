@@ -82,10 +82,12 @@ func testReadFileBufPoolReadFile(t *testing.T, maxReadSize int64, filePath strin
 	for k := 0; k < 2; k++ {
 		b, err := p.ReadFile(filePath)
 		if maxReadSize > 0 && maxReadSize <= fileSize {
-			if b != nil || err != ErrReadFileBufPotentialTruncation {
-				t.Fatalf(
-					"ReadFile(%s): want: nil, %v, got: %v, %v",
-					filePath, ErrReadFileBufPotentialTruncation, b, err,
+			if err != ErrReadFileBufPotentialTruncation {
+				t.Fatalf("error: want: %v, got: %v", ErrReadFileBufPotentialTruncation, err)
+			}
+			if int64(b.Len()) != maxReadSize {
+				t.Fatalf("size: want: %d, got: %d",
+					maxReadSize, b.Len(),
 				)
 			}
 		} else {
