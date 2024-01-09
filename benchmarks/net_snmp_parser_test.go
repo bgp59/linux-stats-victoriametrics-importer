@@ -50,6 +50,7 @@ func BenchmarkNetSnmpParserProm(b *testing.B) {
 // BenchmarkNetSnmpParserIO   	   49680	     23647 ns/op	     136 B/op	       3 allocs/op
 // BenchmarkNetSnmpParser     	   48039	     24677 ns/op	     160 B/op	       4 allocs/op
 // BenchmarkNetSnmpParserProm 	   28135	     44407 ns/op	   11960 B/op	     117 allocs/op
+
 func BenchmarkNetSnmpFileRead(b *testing.B) {
 	for op, name := range benchFileReadOpMap {
 		b.Run(

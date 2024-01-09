@@ -45,6 +45,7 @@ func BenchmarkDiskstatsParserProm(b *testing.B) {
 // BenchmarkDiskstatsParserIO   	   71402	     17087 ns/op	     152 B/op	       3 allocs/op
 // BenchmarkDiskstatsParser     	   58149	     21128 ns/op	     336 B/op	      38 allocs/op
 // BenchmarkDiskstatsParserProm 	   10000	    101076 ns/op	   14744 B/op	     176 allocs/op
+
 func BenchmarkDiskstatsFileRead(b *testing.B) {
 	for op, name := range benchFileReadOpMap {
 		b.Run(
