@@ -196,8 +196,7 @@ func (netDev *NetDev) Parse() error {
 			value, hasValue := uint64(0), false
 			for done := false; !done && pos < l; pos++ {
 				c := buf[pos]
-				digit := c - '0'
-				if digit < 10 {
+				if digit := c - '0'; digit < 10 {
 					value = (value << 3) + (value << 1) + uint64(digit)
 					hasValue = true
 				} else if eol = (c == '\n'); eol || isWhitespace[c] {

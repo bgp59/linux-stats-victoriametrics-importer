@@ -105,10 +105,26 @@ func TestPidCmdlineParser(t *testing.T) {
 		{
 			procfsRoot:   pidCmdlineTestdataDir,
 			pid:          1002,
+			tid:          8,
+			poolReadSize: 8,
+			cmdline:      "Hello\x00世界\x00",
+			wantCmdline:  `Hello...`,
+		},
+		{
+			procfsRoot:   pidCmdlineTestdataDir,
+			pid:          1002,
+			tid:          9,
+			poolReadSize: 9,
+			cmdline:      "Hello\x00世界\x00",
+			wantCmdline:  `Hello ...`,
+		},
+		{
+			procfsRoot:   pidCmdlineTestdataDir,
+			pid:          1002,
 			tid:          10,
 			poolReadSize: 10,
 			cmdline:      "Hello\x00世界\x00",
-			wantCmdline:  `Hello...`,
+			wantCmdline:  `Hello ...`,
 		},
 		{
 			procfsRoot:   pidCmdlineTestdataDir,
