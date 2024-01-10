@@ -135,10 +135,10 @@ func (netDev *NetDev) ValidateHeader(buf []byte) {
 
 func (netDev *NetDev) Parse() error {
 	fBuf, err := netDevReadFileBufPool.ReadFile(netDev.path)
+	defer netDevReadFileBufPool.ReturnBuf(fBuf)
 	if err != nil {
 		return err
 	}
-	defer netDevReadFileBufPool.ReturnBuf(fBuf)
 
 	buf, l := fBuf.Bytes(), fBuf.Len()
 

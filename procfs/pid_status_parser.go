@@ -343,10 +343,10 @@ func (pidStatus *PidStatus) Parse() error {
 	}
 
 	fBuf, err := pidStatusReadFileBufPool.ReadFile(pidStatus.path)
+	defer pidStatusReadFileBufPool.ReturnBuf(fBuf)
 	if err != nil {
 		return err
 	}
-	defer pidStatusReadFileBufPool.ReturnBuf(fBuf)
 	buf, l := fBuf.Bytes(), fBuf.Len()
 
 	byteSliceFieldsBuf := pidStatus.ByteSliceFieldsBuf

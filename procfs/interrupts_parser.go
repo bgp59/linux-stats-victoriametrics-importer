@@ -207,10 +207,10 @@ func (description *InterruptDescription) update(irqInfo []byte) {
 
 func (interrupts *Interrupts) Parse() error {
 	fBuf, err := interruptsReadFileBufPool.ReadFile(interrupts.path)
+	defer interruptsReadFileBufPool.ReturnBuf(fBuf)
 	if err != nil {
 		return err
 	}
-	defer interruptsReadFileBufPool.ReturnBuf(fBuf)
 
 	buf, l := fBuf.Bytes(), fBuf.Len()
 

@@ -79,10 +79,10 @@ func (netSnmp *NetSnmp) Clone(full bool) *NetSnmp {
 
 func (netSnmp *NetSnmp) Parse() error {
 	fBuf, err := netSnmpReadFileBufPool.ReadFile(netSnmp.path)
+	defer netSnmpReadFileBufPool.ReturnBuf(fBuf)
 	if err != nil {
 		return err
 	}
-	defer netSnmpReadFileBufPool.ReturnBuf(fBuf)
 
 	buf, l := fBuf.Bytes(), fBuf.Len()
 

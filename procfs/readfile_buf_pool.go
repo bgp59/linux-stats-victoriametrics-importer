@@ -63,6 +63,9 @@ func (p *ReadFileBufPool) GetBuf() *bytes.Buffer {
 }
 
 func (p *ReadFileBufPool) ReturnBuf(b *bytes.Buffer) {
+	if b == nil {
+		return
+	}
 	p.lock.Lock()
 	defer p.lock.Unlock()
 

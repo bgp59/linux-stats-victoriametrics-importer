@@ -131,10 +131,10 @@ func (diskstats *Diskstats) Clone(full bool) *Diskstats {
 
 func (diskstats *Diskstats) Parse() error {
 	fBuf, err := diskstatsReadFileBufPool.ReadFile(diskstats.path)
+	defer diskstatsReadFileBufPool.ReturnBuf(fBuf)
 	if err != nil {
 		return err
 	}
-	defer diskstatsReadFileBufPool.ReturnBuf(fBuf)
 
 	buf, l := fBuf.Bytes(), fBuf.Len()
 

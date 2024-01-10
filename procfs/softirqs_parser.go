@@ -110,10 +110,10 @@ func (softirqs *Softirqs) updateColIndexToCpuNumMap(cpuHeaderLine []byte) error 
 
 func (softirqs *Softirqs) Parse() error {
 	fBuf, err := softirqsReadFileBufPool.ReadFile(softirqs.path)
+	defer softirqsReadFileBufPool.ReturnBuf(fBuf)
 	if err != nil {
 		return err
 	}
-	defer softirqsReadFileBufPool.ReturnBuf(fBuf)
 	buf, l := fBuf.Bytes(), fBuf.Len()
 
 	numCpus := 0

@@ -158,10 +158,10 @@ func (stat *Stat) Clone() *Stat {
 
 func (stat *Stat) Parse() error {
 	fBuf, err := statReadFileBufPool.ReadFile(stat.path)
+	defer statReadFileBufPool.ReturnBuf(fBuf)
 	if err != nil {
 		return err
 	}
-	defer statReadFileBufPool.ReturnBuf(fBuf)
 
 	buf, l := fBuf.Bytes(), fBuf.Len()
 

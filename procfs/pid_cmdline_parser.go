@@ -48,11 +48,11 @@ func (pidCmdline *PidCmdline) ReturnBuf() {
 
 func (pidCmdline *PidCmdline) Parse() error {
 	fBuf, err := pidCmdlineReadFileBufPool.ReadFile(pidCmdline.path)
+	defer pidCmdlineReadFileBufPool.ReturnBuf(fBuf)
 	truncated := (err == ErrReadFileBufPotentialTruncation)
 	if err != nil && !truncated {
 		return err
 	}
-	defer pidCmdlineReadFileBufPool.ReturnBuf(fBuf)
 
 	buf, l := fBuf.Bytes(), fBuf.Len()
 

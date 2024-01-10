@@ -67,10 +67,10 @@ func (netSnmp6 *NetSnmp6) Clone(full bool) *NetSnmp6 {
 
 func (netSnmp6 *NetSnmp6) Parse() error {
 	fBuf, err := netSnmp6ReadFileBufPool.ReadFile(netSnmp6.path)
+	defer netSnmp6ReadFileBufPool.ReturnBuf(fBuf)
 	if err != nil {
 		return err
 	}
-	defer netSnmp6ReadFileBufPool.ReturnBuf(fBuf)
 
 	buf, l := fBuf.Bytes(), fBuf.Len()
 
