@@ -11,6 +11,7 @@ import (
 type NetSnmpTestCase struct {
 	name        string
 	procfsRoot  string
+	clone       bool
 	wantNetSnmp *NetSnmp
 	wantError   error
 }
@@ -106,56 +107,56 @@ func testNetSnmpTwosComplement(i int32) uint32 {
 }
 
 func testNetSnmpParser(tc *NetSnmpTestCase, t *testing.T) {
-	var netSnmp *NetSnmp
-
 	wantNetSnmp := tc.wantNetSnmp
-	for pass := 0; pass < 2; pass++ {
-		if netSnmp == nil {
-			netSnmp = NewNetSnmp(tc.procfsRoot)
-		} else {
-			netSnmp.Clone(false)
+	netSnmp := NewNetSnmp(tc.procfsRoot)
+	err := netSnmp.Parse()
+	if tc.wantError != nil {
+		if err == nil || tc.wantError.Error() != err.Error() {
+			t.Fatalf("want: %v error, got: %v", tc.wantError, err)
 		}
-		err := netSnmp.Parse()
-		if tc.wantError != nil {
-			if err == nil || tc.wantError.Error() != err.Error() {
-				t.Fatalf("want: %v error, got: %v", tc.wantError, err)
-			}
-			return
-		}
+		return
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if tc.clone {
+		netSnmp.Clone(false)
+		err = netSnmp.Parse()
 		if err != nil {
 			t.Fatal(err)
 		}
+	}
 
-		diffBuf := &bytes.Buffer{}
+	diffBuf := &bytes.Buffer{}
 
-		if len(wantNetSnmp.Values) != len(netSnmp.Values) {
+	if len(wantNetSnmp.Values) != len(netSnmp.Values) {
+		fmt.Fprintf(
+			diffBuf,
+			"\nlen(Values): want: %d, got: %d",
+			len(wantNetSnmp.Values), len(netSnmp.Values),
+		)
+	}
+	if diffBuf.Len() > 0 {
+		t.Fatal(diffBuf.String())
+	}
+
+	for i, wantValue := range wantNetSnmp.Values {
+		gotValue := netSnmp.Values[i]
+		if wantValue != gotValue {
+			indexName, ok := netSnmpIndexName[i]
+			if !ok {
+				indexName = strconv.Itoa(i)
+			}
 			fmt.Fprintf(
 				diffBuf,
-				"\nlen(Values): want: %d, got: %d",
-				len(wantNetSnmp.Values), len(netSnmp.Values),
+				"\nValues[%s]: want: %d, got: %d",
+				indexName, wantValue, gotValue,
 			)
 		}
-		if diffBuf.Len() > 0 {
-			t.Fatal(diffBuf.String())
-		}
-
-		for i, wantValue := range wantNetSnmp.Values {
-			gotValue := netSnmp.Values[i]
-			if wantValue != gotValue {
-				indexName, ok := netSnmpIndexName[i]
-				if !ok {
-					indexName = strconv.Itoa(i)
-				}
-				fmt.Fprintf(
-					diffBuf,
-					"\nValues[%s]: want: %d, got: %d",
-					indexName, wantValue, gotValue,
-				)
-			}
-		}
-		if diffBuf.Len() > 0 {
-			t.Fatal(diffBuf.String())
-		}
+	}
+	if diffBuf.Len() > 0 {
+		t.Fatal(diffBuf.String())
 	}
 }
 
@@ -174,12 +175,26 @@ func TestNetSnmpParser(t *testing.T) {
 				},
 			},
 		},
+		{
+			procfsRoot: path.Join(netSnmpTestdataDir, "field_mapping"),
+			clone:      true,
+			wantNetSnmp: &NetSnmp{
+				Values: []uint32{
+					1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018,
+					3000, 3001, 3002, 3003, 3004, 3005, 3006, 3007, 3008, 3009, 3010, 3011, 3012, 3013, 3014, 3015, 3016, 3017, 3018, 3019, 3020, 3021, 3022, 3023, 3024, 3025, 3026,
+					5000, 5001,
+					7000, 7001, 7002, testNetSnmpTwosComplement(-7003), 7004, 7005, 7006, 7007, 7008, 7009, 7010, 7011, 7012, 7013, 7014,
+					9000, 9001, 9002, 9003, 9004, 9005, 9006, 9007, 9008,
+					11000, 11001, 11002, 11003, 11004, 11005, 11006, 11007, 11008,
+				},
+			},
+		},
 	} {
 		var name string
 		if tc.name != "" {
-			name = fmt.Sprintf("name=%s,procfsRoot=%s", tc.name, tc.procfsRoot)
+			name = fmt.Sprintf("name=%s,procfsRoot=%s,clone=%v", tc.name, tc.procfsRoot, tc.clone)
 		} else {
-			name = fmt.Sprintf("procfsRoot=%s", tc.procfsRoot)
+			name = fmt.Sprintf("procfsRoot=%s,clone=%v", tc.procfsRoot, tc.clone)
 		}
 		t.Run(
 			name,
