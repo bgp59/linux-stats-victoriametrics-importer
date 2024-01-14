@@ -4,40 +4,114 @@ import (
 	"bytes"
 	"fmt"
 	"path"
+	"strconv"
 	"testing"
 )
 
 type NetSnmp6TestCase struct {
-	name          string
-	procfsRoot    string
-	primeNetSnmp6 *NetSnmp6
-	wantNetSnmp6  *NetSnmp6
-	wantError     error
+	name         string
+	procfsRoot   string
+	clone        bool
+	wantNetSnmp6 *NetSnmp6
+	wantError    error
 }
 
 var netSnmp6TestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "net", "snmp6")
 
+var netSnmp6IndexName = map[int]string{
+	NET_SNMP6_IP6_IN_RECEIVES:                   "NET_SNMP6_IP6_IN_RECEIVES",
+	NET_SNMP6_IP6_IN_HDR_ERRORS:                 "NET_SNMP6_IP6_IN_HDR_ERRORS",
+	NET_SNMP6_IP6_IN_TOO_BIG_ERRORS:             "NET_SNMP6_IP6_IN_TOO_BIG_ERRORS",
+	NET_SNMP6_IP6_IN_NO_ROUTES:                  "NET_SNMP6_IP6_IN_NO_ROUTES",
+	NET_SNMP6_IP6_IN_ADDR_ERRORS:                "NET_SNMP6_IP6_IN_ADDR_ERRORS",
+	NET_SNMP6_IP6_IN_UNKNOWN_PROTOS:             "NET_SNMP6_IP6_IN_UNKNOWN_PROTOS",
+	NET_SNMP6_IP6_IN_TRUNCATED_PKTS:             "NET_SNMP6_IP6_IN_TRUNCATED_PKTS",
+	NET_SNMP6_IP6_IN_DISCARDS:                   "NET_SNMP6_IP6_IN_DISCARDS",
+	NET_SNMP6_IP6_IN_DELIVERS:                   "NET_SNMP6_IP6_IN_DELIVERS",
+	NET_SNMP6_IP6_OUT_FORW_DATAGRAMS:            "NET_SNMP6_IP6_OUT_FORW_DATAGRAMS",
+	NET_SNMP6_IP6_OUT_REQUESTS:                  "NET_SNMP6_IP6_OUT_REQUESTS",
+	NET_SNMP6_IP6_OUT_DISCARDS:                  "NET_SNMP6_IP6_OUT_DISCARDS",
+	NET_SNMP6_IP6_OUT_NO_ROUTES:                 "NET_SNMP6_IP6_OUT_NO_ROUTES",
+	NET_SNMP6_IP6_REASM_TIMEOUT:                 "NET_SNMP6_IP6_REASM_TIMEOUT",
+	NET_SNMP6_IP6_REASM_REQDS:                   "NET_SNMP6_IP6_REASM_REQDS",
+	NET_SNMP6_IP6_REASM_OKS:                     "NET_SNMP6_IP6_REASM_OKS",
+	NET_SNMP6_IP6_REASM_FAILS:                   "NET_SNMP6_IP6_REASM_FAILS",
+	NET_SNMP6_IP6_FRAG_OKS:                      "NET_SNMP6_IP6_FRAG_OKS",
+	NET_SNMP6_IP6_FRAG_FAILS:                    "NET_SNMP6_IP6_FRAG_FAILS",
+	NET_SNMP6_IP6_FRAG_CREATES:                  "NET_SNMP6_IP6_FRAG_CREATES",
+	NET_SNMP6_IP6_IN_MCAST_PKTS:                 "NET_SNMP6_IP6_IN_MCAST_PKTS",
+	NET_SNMP6_IP6_OUT_MCAST_PKTS:                "NET_SNMP6_IP6_OUT_MCAST_PKTS",
+	NET_SNMP6_IP6_IN_OCTETS:                     "NET_SNMP6_IP6_IN_OCTETS",
+	NET_SNMP6_IP6_OUT_OCTETS:                    "NET_SNMP6_IP6_OUT_OCTETS",
+	NET_SNMP6_IP6_IN_MCAST_OCTETS:               "NET_SNMP6_IP6_IN_MCAST_OCTETS",
+	NET_SNMP6_IP6_OUT_MCAST_OCTETS:              "NET_SNMP6_IP6_OUT_MCAST_OCTETS",
+	NET_SNMP6_IP6_IN_BCAST_OCTETS:               "NET_SNMP6_IP6_IN_BCAST_OCTETS",
+	NET_SNMP6_IP6_OUT_BCAST_OCTETS:              "NET_SNMP6_IP6_OUT_BCAST_OCTETS",
+	NET_SNMP6_IP6_IN_NO_ECT_PKTS:                "NET_SNMP6_IP6_IN_NO_ECT_PKTS",
+	NET_SNMP6_IP6_IN_ECT1_PKTS:                  "NET_SNMP6_IP6_IN_ECT1_PKTS",
+	NET_SNMP6_IP6_IN_ECT0_PKTS:                  "NET_SNMP6_IP6_IN_ECT0_PKTS",
+	NET_SNMP6_IP6_IN_CE_PKTS:                    "NET_SNMP6_IP6_IN_CE_PKTS",
+	NET_SNMP6_ICMP6_IN_MSGS:                     "NET_SNMP6_ICMP6_IN_MSGS",
+	NET_SNMP6_ICMP6_IN_ERRORS:                   "NET_SNMP6_ICMP6_IN_ERRORS",
+	NET_SNMP6_ICMP6_OUT_MSGS:                    "NET_SNMP6_ICMP6_OUT_MSGS",
+	NET_SNMP6_ICMP6_OUT_ERRORS:                  "NET_SNMP6_ICMP6_OUT_ERRORS",
+	NET_SNMP6_ICMP6_IN_CSUM_ERRORS:              "NET_SNMP6_ICMP6_IN_CSUM_ERRORS",
+	NET_SNMP6_ICMP6_IN_DEST_UNREACHS:            "NET_SNMP6_ICMP6_IN_DEST_UNREACHS",
+	NET_SNMP6_ICMP6_IN_PKT_TOO_BIGS:             "NET_SNMP6_ICMP6_IN_PKT_TOO_BIGS",
+	NET_SNMP6_ICMP6_IN_TIME_EXCDS:               "NET_SNMP6_ICMP6_IN_TIME_EXCDS",
+	NET_SNMP6_ICMP6_IN_PARM_PROBLEMS:            "NET_SNMP6_ICMP6_IN_PARM_PROBLEMS",
+	NET_SNMP6_ICMP6_IN_ECHOS:                    "NET_SNMP6_ICMP6_IN_ECHOS",
+	NET_SNMP6_ICMP6_IN_ECHO_REPLIES:             "NET_SNMP6_ICMP6_IN_ECHO_REPLIES",
+	NET_SNMP6_ICMP6_IN_GROUP_MEMB_QUERIES:       "NET_SNMP6_ICMP6_IN_GROUP_MEMB_QUERIES",
+	NET_SNMP6_ICMP6_IN_GROUP_MEMB_RESPONSES:     "NET_SNMP6_ICMP6_IN_GROUP_MEMB_RESPONSES",
+	NET_SNMP6_ICMP6_IN_GROUP_MEMB_REDUCTIONS:    "NET_SNMP6_ICMP6_IN_GROUP_MEMB_REDUCTIONS",
+	NET_SNMP6_ICMP6_IN_ROUTER_SOLICITS:          "NET_SNMP6_ICMP6_IN_ROUTER_SOLICITS",
+	NET_SNMP6_ICMP6_IN_ROUTER_ADVERTISEMENTS:    "NET_SNMP6_ICMP6_IN_ROUTER_ADVERTISEMENTS",
+	NET_SNMP6_ICMP6_IN_NEIGHBOR_SOLICITS:        "NET_SNMP6_ICMP6_IN_NEIGHBOR_SOLICITS",
+	NET_SNMP6_ICMP6_IN_NEIGHBOR_ADVERTISEMENTS:  "NET_SNMP6_ICMP6_IN_NEIGHBOR_ADVERTISEMENTS",
+	NET_SNMP6_ICMP6_IN_REDIRECTS:                "NET_SNMP6_ICMP6_IN_REDIRECTS",
+	NET_SNMP6_ICMP6_IN_MLD_V2_REPORTS:           "NET_SNMP6_ICMP6_IN_MLD_V2_REPORTS",
+	NET_SNMP6_ICMP6_OUT_DEST_UNREACHS:           "NET_SNMP6_ICMP6_OUT_DEST_UNREACHS",
+	NET_SNMP6_ICMP6_OUT_PKT_TOO_BIGS:            "NET_SNMP6_ICMP6_OUT_PKT_TOO_BIGS",
+	NET_SNMP6_ICMP6_OUT_TIME_EXCDS:              "NET_SNMP6_ICMP6_OUT_TIME_EXCDS",
+	NET_SNMP6_ICMP6_OUT_PARM_PROBLEMS:           "NET_SNMP6_ICMP6_OUT_PARM_PROBLEMS",
+	NET_SNMP6_ICMP6_OUT_ECHOS:                   "NET_SNMP6_ICMP6_OUT_ECHOS",
+	NET_SNMP6_ICMP6_OUT_ECHO_REPLIES:            "NET_SNMP6_ICMP6_OUT_ECHO_REPLIES",
+	NET_SNMP6_ICMP6_OUT_GROUP_MEMB_QUERIES:      "NET_SNMP6_ICMP6_OUT_GROUP_MEMB_QUERIES",
+	NET_SNMP6_ICMP6_OUT_GROUP_MEMB_RESPONSES:    "NET_SNMP6_ICMP6_OUT_GROUP_MEMB_RESPONSES",
+	NET_SNMP6_ICMP6_OUT_GROUP_MEMB_REDUCTIONS:   "NET_SNMP6_ICMP6_OUT_GROUP_MEMB_REDUCTIONS",
+	NET_SNMP6_ICMP6_OUT_ROUTER_SOLICITS:         "NET_SNMP6_ICMP6_OUT_ROUTER_SOLICITS",
+	NET_SNMP6_ICMP6_OUT_ROUTER_ADVERTISEMENTS:   "NET_SNMP6_ICMP6_OUT_ROUTER_ADVERTISEMENTS",
+	NET_SNMP6_ICMP6_OUT_NEIGHBOR_SOLICITS:       "NET_SNMP6_ICMP6_OUT_NEIGHBOR_SOLICITS",
+	NET_SNMP6_ICMP6_OUT_NEIGHBOR_ADVERTISEMENTS: "NET_SNMP6_ICMP6_OUT_NEIGHBOR_ADVERTISEMENTS",
+	NET_SNMP6_ICMP6_OUT_REDIRECTS:               "NET_SNMP6_ICMP6_OUT_REDIRECTS",
+	NET_SNMP6_ICMP6_OUT_MLD_V2_REPORTS:          "NET_SNMP6_ICMP6_OUT_MLD_V2_REPORTS",
+	NET_SNMP6_ICMP6_OUT_TYPE133:                 "NET_SNMP6_ICMP6_OUT_TYPE133",
+	NET_SNMP6_ICMP6_OUT_TYPE135:                 "NET_SNMP6_ICMP6_OUT_TYPE135",
+	NET_SNMP6_ICMP6_OUT_TYPE143:                 "NET_SNMP6_ICMP6_OUT_TYPE143",
+	NET_SNMP6_UDP6_IN_DATAGRAMS:                 "NET_SNMP6_UDP6_IN_DATAGRAMS",
+	NET_SNMP6_UDP6_NO_PORTS:                     "NET_SNMP6_UDP6_NO_PORTS",
+	NET_SNMP6_UDP6_IN_ERRORS:                    "NET_SNMP6_UDP6_IN_ERRORS",
+	NET_SNMP6_UDP6_OUT_DATAGRAMS:                "NET_SNMP6_UDP6_OUT_DATAGRAMS",
+	NET_SNMP6_UDP6_RCVBUF_ERRORS:                "NET_SNMP6_UDP6_RCVBUF_ERRORS",
+	NET_SNMP6_UDP6_SNDBUF_ERRORS:                "NET_SNMP6_UDP6_SNDBUF_ERRORS",
+	NET_SNMP6_UDP6_IN_CSUM_ERRORS:               "NET_SNMP6_UDP6_IN_CSUM_ERRORS",
+	NET_SNMP6_UDP6_IGNORED_MULTI:                "NET_SNMP6_UDP6_IGNORED_MULTI",
+	NET_SNMP6_UDP6_MEM_ERRORS:                   "NET_SNMP6_UDP6_MEM_ERRORS",
+	NET_SNMP6_UDPLITE6_IN_DATAGRAMS:             "NET_SNMP6_UDPLITE6_IN_DATAGRAMS",
+	NET_SNMP6_UDPLITE6_NO_PORTS:                 "NET_SNMP6_UDPLITE6_NO_PORTS",
+	NET_SNMP6_UDPLITE6_IN_ERRORS:                "NET_SNMP6_UDPLITE6_IN_ERRORS",
+	NET_SNMP6_UDPLITE6_OUT_DATAGRAMS:            "NET_SNMP6_UDPLITE6_OUT_DATAGRAMS",
+	NET_SNMP6_UDPLITE6_RCVBUF_ERRORS:            "NET_SNMP6_UDPLITE6_RCVBUF_ERRORS",
+	NET_SNMP6_UDPLITE6_SNDBUF_ERRORS:            "NET_SNMP6_UDPLITE6_SNDBUF_ERRORS",
+	NET_SNMP6_UDPLITE6_IN_CSUM_ERRORS:           "NET_SNMP6_UDPLITE6_IN_CSUM_ERRORS",
+	NET_SNMP6_UDPLITE6_MEM_ERRORS:               "NET_SNMP6_UDPLITE6_MEM_ERRORS",
+}
+
 func testNetSnmp6Parser(tc *NetSnmp6TestCase, t *testing.T) {
-	var netSnmp6 *NetSnmp6
 
 	wantNetSnmp6 := tc.wantNetSnmp6
-
-	// Sanity check:
-	if len(wantNetSnmp6.Names) != len(wantNetSnmp6.Values) {
-		t.Fatalf(
-			"len(wantNetSnmp6.Names): %d != %d len(wantNetSnmp6.Values)",
-			len(wantNetSnmp6.Names), len(wantNetSnmp6.Values),
-		)
-	}
-
-	if tc.primeNetSnmp6 != nil {
-		netSnmp6 = tc.primeNetSnmp6.Clone(true)
-		if netSnmp6.path == "" {
-			netSnmp6.path = path.Join(tc.procfsRoot, "net", "snmp6")
-		}
-	} else {
-		netSnmp6 = NewNetSnmp6(tc.procfsRoot)
-	}
+	netSnmp6 := NewNetSnmp6(tc.procfsRoot)
 
 	err := netSnmp6.Parse()
 	if tc.wantError != nil {
@@ -50,32 +124,15 @@ func testNetSnmp6Parser(tc *NetSnmp6TestCase, t *testing.T) {
 		t.Fatal(err)
 	}
 
-	diffBuf := &bytes.Buffer{}
-
-	if len(wantNetSnmp6.Names) != len(netSnmp6.Names) {
-		fmt.Fprintf(
-			diffBuf,
-			"\nlen(Names): want: %d, got: %d",
-			len(wantNetSnmp6.Names), len(netSnmp6.Names),
-		)
-	}
-	if diffBuf.Len() > 0 {
-		t.Fatal(diffBuf.String())
-	}
-	for i, wantName := range wantNetSnmp6.Names {
-		gotName := netSnmp6.Names[i]
-		if wantName != gotName {
-			fmt.Fprintf(
-				diffBuf,
-				"\nNames[%d]: want: %q, got: %q",
-				i, wantName, gotName,
-			)
+	if tc.clone {
+		netSnmp6 = netSnmp6.Clone(false)
+		err = netSnmp6.Parse()
+		if err != nil {
+			t.Fatal(err)
 		}
 	}
-	if diffBuf.Len() > 0 {
-		t.Fatal(diffBuf.String())
-	}
 
+	diffBuf := &bytes.Buffer{}
 	if len(wantNetSnmp6.Values) != len(netSnmp6.Values) {
 		fmt.Fprintf(
 			diffBuf,
@@ -90,10 +147,14 @@ func testNetSnmp6Parser(tc *NetSnmp6TestCase, t *testing.T) {
 	for i, wantValue := range wantNetSnmp6.Values {
 		gotValue := netSnmp6.Values[i]
 		if wantValue != gotValue {
+			indexName, ok := netSnmp6IndexName[i]
+			if !ok {
+				indexName = strconv.Itoa(i)
+			}
 			fmt.Fprintf(
 				diffBuf,
-				"\nValues[i]: want: %d, got: %d",
-				wantValue, gotValue,
+				"\nValues[%s]: want: %d, got: %d",
+				indexName, wantValue, gotValue,
 			)
 		}
 	}
@@ -107,30 +168,6 @@ func TestNetSnmp6Parser(t *testing.T) {
 		&NetSnmp6TestCase{
 			procfsRoot: path.Join(netSnmp6TestdataDir, "field_mapping"),
 			wantNetSnmp6: &NetSnmp6{
-				Names: []string{
-					"Ip6InReceives", "Ip6InHdrErrors", "Ip6InTooBigErrors", "Ip6InNoRoutes",
-					"Ip6InAddrErrors", "Ip6InUnknownProtos", "Ip6InTruncatedPkts", "Ip6InDiscards",
-					"Ip6InDelivers", "Ip6OutForwDatagrams", "Ip6OutRequests", "Ip6OutDiscards",
-					"Ip6OutNoRoutes", "Ip6ReasmTimeout", "Ip6ReasmReqds", "Ip6ReasmOKs",
-					"Ip6ReasmFails", "Ip6FragOKs", "Ip6FragFails", "Ip6FragCreates",
-					"Ip6InMcastPkts", "Ip6OutMcastPkts", "Ip6InOctets", "Ip6OutOctets",
-					"Ip6InMcastOctets", "Ip6OutMcastOctets", "Ip6InBcastOctets", "Ip6OutBcastOctets",
-					"Ip6InNoECTPkts", "Ip6InECT1Pkts", "Ip6InECT0Pkts", "Ip6InCEPkts",
-					"Icmp6InMsgs", "Icmp6InErrors", "Icmp6OutMsgs", "Icmp6OutErrors",
-					"Icmp6InCsumErrors", "Icmp6InDestUnreachs", "Icmp6InPktTooBigs", "Icmp6InTimeExcds",
-					"Icmp6InParmProblems", "Icmp6InEchos", "Icmp6InEchoReplies", "Icmp6InGroupMembQueries",
-					"Icmp6InGroupMembResponses", "Icmp6InGroupMembReductions", "Icmp6InRouterSolicits", "Icmp6InRouterAdvertisements",
-					"Icmp6InNeighborSolicits", "Icmp6InNeighborAdvertisements", "Icmp6InRedirects", "Icmp6InMLDv2Reports",
-					"Icmp6OutDestUnreachs", "Icmp6OutPktTooBigs", "Icmp6OutTimeExcds", "Icmp6OutParmProblems",
-					"Icmp6OutEchos", "Icmp6OutEchoReplies", "Icmp6OutGroupMembQueries", "Icmp6OutGroupMembResponses",
-					"Icmp6OutGroupMembReductions", "Icmp6OutRouterSolicits", "Icmp6OutRouterAdvertisements", "Icmp6OutNeighborSolicits",
-					"Icmp6OutNeighborAdvertisements", "Icmp6OutRedirects", "Icmp6OutMLDv2Reports", "Icmp6OutType133",
-					"Icmp6OutType135", "Icmp6OutType143", "Udp6InDatagrams", "Udp6NoPorts",
-					"Udp6InErrors", "Udp6OutDatagrams", "Udp6RcvbufErrors", "Udp6SndbufErrors",
-					"Udp6InCsumErrors", "Udp6IgnoredMulti", "Udp6MemErrors", "UdpLite6InDatagrams",
-					"UdpLite6NoPorts", "UdpLite6InErrors", "UdpLite6OutDatagrams", "UdpLite6RcvbufErrors",
-					"UdpLite6SndbufErrors", "UdpLite6InCsumErrors", "UdpLite6MemErrors",
-				},
 				Values: []uint64{
 					10000000000001, 10000000000002, 10000000000003, 10000000000004,
 					10000000000005, 10000000000006, 10000000000007, 10000000000008,
@@ -158,83 +195,9 @@ func TestNetSnmp6Parser(t *testing.T) {
 			},
 		},
 		&NetSnmp6TestCase{
-			name:       "reuse",
 			procfsRoot: path.Join(netSnmp6TestdataDir, "field_mapping"),
-			primeNetSnmp6: &NetSnmp6{
-				Names: []string{
-					"Ip6InReceives", "Ip6InHdrErrors", "Ip6InTooBigErrors", "Ip6InNoRoutes",
-					"Ip6InAddrErrors", "Ip6InUnknownProtos", "Ip6InTruncatedPkts", "Ip6InDiscards",
-					"Ip6InDelivers", "Ip6OutForwDatagrams", "Ip6OutRequests", "Ip6OutDiscards",
-					"Ip6OutNoRoutes", "Ip6ReasmTimeout", "Ip6ReasmReqds", "Ip6ReasmOKs",
-					"Ip6ReasmFails", "Ip6FragOKs", "Ip6FragFails", "Ip6FragCreates",
-					"Ip6InMcastPkts", "Ip6OutMcastPkts", "Ip6InOctets", "Ip6OutOctets",
-					"Ip6InMcastOctets", "Ip6OutMcastOctets", "Ip6InBcastOctets", "Ip6OutBcastOctets",
-					"Ip6InNoECTPkts", "Ip6InECT1Pkts", "Ip6InECT0Pkts", "Ip6InCEPkts",
-					"Icmp6InMsgs", "Icmp6InErrors", "Icmp6OutMsgs", "Icmp6OutErrors",
-					"Icmp6InCsumErrors", "Icmp6InDestUnreachs", "Icmp6InPktTooBigs", "Icmp6InTimeExcds",
-					"Icmp6InParmProblems", "Icmp6InEchos", "Icmp6InEchoReplies", "Icmp6InGroupMembQueries",
-					"Icmp6InGroupMembResponses", "Icmp6InGroupMembReductions", "Icmp6InRouterSolicits", "Icmp6InRouterAdvertisements",
-					"Icmp6InNeighborSolicits", "Icmp6InNeighborAdvertisements", "Icmp6InRedirects", "Icmp6InMLDv2Reports",
-					"Icmp6OutDestUnreachs", "Icmp6OutPktTooBigs", "Icmp6OutTimeExcds", "Icmp6OutParmProblems",
-					"Icmp6OutEchos", "Icmp6OutEchoReplies", "Icmp6OutGroupMembQueries", "Icmp6OutGroupMembResponses",
-					"Icmp6OutGroupMembReductions", "Icmp6OutRouterSolicits", "Icmp6OutRouterAdvertisements", "Icmp6OutNeighborSolicits",
-					"Icmp6OutNeighborAdvertisements", "Icmp6OutRedirects", "Icmp6OutMLDv2Reports", "Icmp6OutType133",
-					"Icmp6OutType135", "Icmp6OutType143", "Udp6InDatagrams", "Udp6NoPorts",
-					"Udp6InErrors", "Udp6OutDatagrams", "Udp6RcvbufErrors", "Udp6SndbufErrors",
-					"Udp6InCsumErrors", "Udp6IgnoredMulti", "Udp6MemErrors", "UdpLite6InDatagrams",
-					"UdpLite6NoPorts", "UdpLite6InErrors", "UdpLite6OutDatagrams", "UdpLite6RcvbufErrors",
-					"UdpLite6SndbufErrors", "UdpLite6InCsumErrors", "UdpLite6MemErrors",
-				},
-				Values: make([]uint64, 87),
-				nameCheckRef: []byte(
-					"Ip6InReceives Ip6InHdrErrors Ip6InTooBigErrors Ip6InNoRoutes " +
-						"Ip6InAddrErrors Ip6InUnknownProtos Ip6InTruncatedPkts Ip6InDiscards " +
-						"Ip6InDelivers Ip6OutForwDatagrams Ip6OutRequests Ip6OutDiscards " +
-						"Ip6OutNoRoutes Ip6ReasmTimeout Ip6ReasmReqds Ip6ReasmOKs " +
-						"Ip6ReasmFails Ip6FragOKs Ip6FragFails Ip6FragCreates " +
-						"Ip6InMcastPkts Ip6OutMcastPkts Ip6InOctets Ip6OutOctets " +
-						"Ip6InMcastOctets Ip6OutMcastOctets Ip6InBcastOctets Ip6OutBcastOctets " +
-						"Ip6InNoECTPkts Ip6InECT1Pkts Ip6InECT0Pkts Ip6InCEPkts " +
-						"Icmp6InMsgs Icmp6InErrors Icmp6OutMsgs Icmp6OutErrors " +
-						"Icmp6InCsumErrors Icmp6InDestUnreachs Icmp6InPktTooBigs Icmp6InTimeExcds " +
-						"Icmp6InParmProblems Icmp6InEchos Icmp6InEchoReplies Icmp6InGroupMembQueries " +
-						"Icmp6InGroupMembResponses Icmp6InGroupMembReductions Icmp6InRouterSolicits Icmp6InRouterAdvertisements " +
-						"Icmp6InNeighborSolicits Icmp6InNeighborAdvertisements Icmp6InRedirects Icmp6InMLDv2Reports " +
-						"Icmp6OutDestUnreachs Icmp6OutPktTooBigs Icmp6OutTimeExcds Icmp6OutParmProblems " +
-						"Icmp6OutEchos Icmp6OutEchoReplies Icmp6OutGroupMembQueries Icmp6OutGroupMembResponses " +
-						"Icmp6OutGroupMembReductions Icmp6OutRouterSolicits Icmp6OutRouterAdvertisements Icmp6OutNeighborSolicits " +
-						"Icmp6OutNeighborAdvertisements Icmp6OutRedirects Icmp6OutMLDv2Reports Icmp6OutType133 " +
-						"Icmp6OutType135 Icmp6OutType143 Udp6InDatagrams Udp6NoPorts " +
-						"Udp6InErrors Udp6OutDatagrams Udp6RcvbufErrors Udp6SndbufErrors " +
-						"Udp6InCsumErrors Udp6IgnoredMulti Udp6MemErrors UdpLite6InDatagrams " +
-						"UdpLite6NoPorts UdpLite6InErrors UdpLite6OutDatagrams UdpLite6RcvbufErrors " +
-						"UdpLite6SndbufErrors UdpLite6InCsumErrors UdpLite6MemErrors "),
-			},
+			clone:      true,
 			wantNetSnmp6: &NetSnmp6{
-				Names: []string{
-					"Ip6InReceives", "Ip6InHdrErrors", "Ip6InTooBigErrors", "Ip6InNoRoutes",
-					"Ip6InAddrErrors", "Ip6InUnknownProtos", "Ip6InTruncatedPkts", "Ip6InDiscards",
-					"Ip6InDelivers", "Ip6OutForwDatagrams", "Ip6OutRequests", "Ip6OutDiscards",
-					"Ip6OutNoRoutes", "Ip6ReasmTimeout", "Ip6ReasmReqds", "Ip6ReasmOKs",
-					"Ip6ReasmFails", "Ip6FragOKs", "Ip6FragFails", "Ip6FragCreates",
-					"Ip6InMcastPkts", "Ip6OutMcastPkts", "Ip6InOctets", "Ip6OutOctets",
-					"Ip6InMcastOctets", "Ip6OutMcastOctets", "Ip6InBcastOctets", "Ip6OutBcastOctets",
-					"Ip6InNoECTPkts", "Ip6InECT1Pkts", "Ip6InECT0Pkts", "Ip6InCEPkts",
-					"Icmp6InMsgs", "Icmp6InErrors", "Icmp6OutMsgs", "Icmp6OutErrors",
-					"Icmp6InCsumErrors", "Icmp6InDestUnreachs", "Icmp6InPktTooBigs", "Icmp6InTimeExcds",
-					"Icmp6InParmProblems", "Icmp6InEchos", "Icmp6InEchoReplies", "Icmp6InGroupMembQueries",
-					"Icmp6InGroupMembResponses", "Icmp6InGroupMembReductions", "Icmp6InRouterSolicits", "Icmp6InRouterAdvertisements",
-					"Icmp6InNeighborSolicits", "Icmp6InNeighborAdvertisements", "Icmp6InRedirects", "Icmp6InMLDv2Reports",
-					"Icmp6OutDestUnreachs", "Icmp6OutPktTooBigs", "Icmp6OutTimeExcds", "Icmp6OutParmProblems",
-					"Icmp6OutEchos", "Icmp6OutEchoReplies", "Icmp6OutGroupMembQueries", "Icmp6OutGroupMembResponses",
-					"Icmp6OutGroupMembReductions", "Icmp6OutRouterSolicits", "Icmp6OutRouterAdvertisements", "Icmp6OutNeighborSolicits",
-					"Icmp6OutNeighborAdvertisements", "Icmp6OutRedirects", "Icmp6OutMLDv2Reports", "Icmp6OutType133",
-					"Icmp6OutType135", "Icmp6OutType143", "Udp6InDatagrams", "Udp6NoPorts",
-					"Udp6InErrors", "Udp6OutDatagrams", "Udp6RcvbufErrors", "Udp6SndbufErrors",
-					"Udp6InCsumErrors", "Udp6IgnoredMulti", "Udp6MemErrors", "UdpLite6InDatagrams",
-					"UdpLite6NoPorts", "UdpLite6InErrors", "UdpLite6OutDatagrams", "UdpLite6RcvbufErrors",
-					"UdpLite6SndbufErrors", "UdpLite6InCsumErrors", "UdpLite6MemErrors",
-				},
 				Values: []uint64{
 					10000000000001, 10000000000002, 10000000000003, 10000000000004,
 					10000000000005, 10000000000006, 10000000000007, 10000000000008,
@@ -264,9 +227,9 @@ func TestNetSnmp6Parser(t *testing.T) {
 	} {
 		var name string
 		if tc.name != "" {
-			name = fmt.Sprintf("name=%s,procfsRoot=%s", tc.name, tc.procfsRoot)
+			name = fmt.Sprintf("name=%s,procfsRoot=%s,clone=%v", tc.name, tc.procfsRoot, tc.clone)
 		} else {
-			name = fmt.Sprintf("procfsRoot=%s", tc.procfsRoot)
+			name = fmt.Sprintf("procfsRoot=%s,clone=%v", tc.procfsRoot, tc.clone)
 		}
 		t.Run(
 			name,

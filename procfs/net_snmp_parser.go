@@ -226,7 +226,8 @@ var netSnmpIndexMap = map[string]map[string]int{
 // Values that are to be ignored will be mapped into a negative inddex.
 
 type NetSnmpLineInfo struct {
-	// Line prefix, inclsive of `:', it will be used for sanity checks:
+	// Line prefix, inculsive of `:', discovered during the 1st pass, it will be
+	// used for sanity checks in all subsequent passes:
 	prefix []byte
 	// Index mapping: 0..N-1 -> index0, index1, ..., index(N-1),
 	//  where N = number of variables

@@ -47,9 +47,9 @@ func BenchmarkNetSnmp6ParserProm(b *testing.B) {
 // goarch: amd64
 // pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
 // cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
-// BenchmarkNetSnmp6ParserIO   	   49198	     25769 ns/op	     152 B/op	       3 allocs/op
-// BenchmarkNetSnmp6Parser     	   38978	     29780 ns/op	     176 B/op	       4 allocs/op
-// BenchmarkNetSnmp6ParserProm 	   19743	     66610 ns/op	   20040 B/op	     275 allocs/op
+// BenchmarkNetSnmp6ParserIO   	   49981	     23716 ns/op	     152 B/op	       3 allocs/op
+// BenchmarkNetSnmp6Parser     	   44732	     26978 ns/op	     176 B/op	       4 allocs/op
+// BenchmarkNetSnmp6ParserProm 	   20006	     61643 ns/op	   20040 B/op	     275 allocs/op
 
 func BenchmarkNetSnmp6FileRead(b *testing.B) {
 	for op, name := range benchFileReadOpMap {
