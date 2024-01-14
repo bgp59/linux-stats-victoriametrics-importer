@@ -262,6 +262,7 @@ func NewNetSnmp(procfsRoot string) *NetSnmp {
 func (netSnmp *NetSnmp) Clone(full bool) *NetSnmp {
 	newNetSnmp := &NetSnmp{
 		Values:   make([]uint32, len(netSnmp.Values)),
+		path:     netSnmp.path,
 		lineInfo: make([]*NetSnmpLineInfo, len(netSnmp.lineInfo)),
 	}
 	for i, lineInfo := range netSnmp.lineInfo {
