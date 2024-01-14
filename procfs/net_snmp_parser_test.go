@@ -197,12 +197,11 @@ func TestNetSnmpParser(t *testing.T) {
 	}
 }
 
-func TestMain(m *testing.M) {
+func init() {
 	netSnmpTestReference = NewNetSnmp(path.Join(netSnmpTestdataDir, "reference"))
 	err := netSnmpTestReference.Parse()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-	os.Exit(m.Run())
 }
