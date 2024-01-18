@@ -63,7 +63,7 @@ const (
 	PID_STAT_RT_PRIORITY
 	PID_STAT_POLICY
 
-	// Must by last!
+	// Must be last!
 	PID_STAT_BYTE_SLICE_FIELD_COUNT
 )
 
@@ -74,7 +74,7 @@ const (
 	PID_STAT_UTIME
 	PID_STAT_STIME
 
-	// Must by last!
+	// Must be last!
 	PID_STAT_ULONG_FIELD_COUNT
 )
 

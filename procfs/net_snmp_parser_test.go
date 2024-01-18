@@ -3,7 +3,6 @@ package procfs
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"path"
 	"testing"
 )
@@ -17,7 +16,6 @@ type NetSnmpTestCase struct {
 }
 
 var netSnmpTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "net", "snmp")
-var netSnmpTestReference *NetSnmp
 
 var netSnmpIndexName = []string{
 	"NET_SNMP_IP_FORWARDING",
@@ -153,7 +151,7 @@ func testNetSnmpParser(tc *NetSnmpTestCase, t *testing.T) {
 	}
 }
 
-func TestNetSnmpParser(t *testing.T) {
+func TestNetSnmpParserBasic(t *testing.T) {
 	for _, tc := range []*NetSnmpTestCase{
 		{
 			procfsRoot: path.Join(netSnmpTestdataDir, "field_mapping"),
@@ -168,6 +166,27 @@ func TestNetSnmpParser(t *testing.T) {
 				},
 			},
 		},
+	} {
+		var name string
+		if tc.name != "" {
+			name = fmt.Sprintf("name=%s,procfsRoot=%s", tc.name, tc.procfsRoot)
+		} else {
+			name = fmt.Sprintf("procfsRoot=%s", tc.procfsRoot)
+		}
+		t.Run(
+			name,
+			func(t *testing.T) { testNetSnmpParser(tc, t) },
+		)
+	}
+}
+
+func TestNetSnmpParserComplex(t *testing.T) {
+	netSnmpTestReference := NewNetSnmp(path.Join(netSnmpTestdataDir, "reference"))
+	err := netSnmpTestReference.Parse()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []*NetSnmpTestCase{
 		{
 			name:         "reuse",
 			procfsRoot:   path.Join(netSnmpTestdataDir, "field_mapping"),
@@ -194,14 +213,5 @@ func TestNetSnmpParser(t *testing.T) {
 			name,
 			func(t *testing.T) { testNetSnmpParser(tc, t) },
 		)
-	}
-}
-
-func init() {
-	netSnmpTestReference = NewNetSnmp(path.Join(netSnmpTestdataDir, "reference"))
-	err := netSnmpTestReference.Parse()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
 	}
 }

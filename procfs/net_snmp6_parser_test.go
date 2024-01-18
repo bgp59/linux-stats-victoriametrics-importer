@@ -3,7 +3,6 @@ package procfs
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"path"
 	"testing"
 )
@@ -155,7 +154,7 @@ func testNetSnmp6Parser(tc *NetSnmp6TestCase, t *testing.T) {
 	}
 }
 
-func TestNetSnmp6Parser(t *testing.T) {
+func TestNetSnmp6ParserBasic(t *testing.T) {
 	for _, tc := range []*NetSnmp6TestCase{
 		&NetSnmp6TestCase{
 			procfsRoot: path.Join(netSnmp6TestdataDir, "field_mapping"),
@@ -186,6 +185,28 @@ func TestNetSnmp6Parser(t *testing.T) {
 				},
 			},
 		},
+	} {
+		var name string
+		if tc.name != "" {
+			name = fmt.Sprintf("name=%s,procfsRoot=%s", tc.name, tc.procfsRoot)
+		} else {
+			name = fmt.Sprintf("procfsRoot=%s", tc.procfsRoot)
+		}
+		t.Run(
+			name,
+			func(t *testing.T) { testNetSnmp6Parser(tc, t) },
+		)
+	}
+}
+
+func TestNetSnmp6ParserComplex(t *testing.T) {
+	netSnmp6TestReference := NewNetSnmp6(path.Join(netSnmp6TestdataDir, "reference"))
+	err := netSnmp6TestReference.Parse()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range []*NetSnmp6TestCase{
 		&NetSnmp6TestCase{
 			name:          "reuse",
 			procfsRoot:    path.Join(netSnmp6TestdataDir, "field_mapping"),
@@ -228,14 +249,5 @@ func TestNetSnmp6Parser(t *testing.T) {
 			name,
 			func(t *testing.T) { testNetSnmp6Parser(tc, t) },
 		)
-	}
-}
-
-func init() {
-	netSnmp6TestReference = NewNetSnmp6(path.Join(netSnmp6TestdataDir, "reference"))
-	err := netSnmp6TestReference.Parse()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
 	}
 }

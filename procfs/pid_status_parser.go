@@ -453,7 +453,6 @@ func (pidStatus *PidStatus) Parse() error {
 		}
 
 		lineStart = lineEnd + 1
-
 	}
 
 	// Sanity check: got all the expected lines?
