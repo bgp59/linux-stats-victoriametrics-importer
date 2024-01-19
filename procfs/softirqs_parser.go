@@ -8,102 +8,120 @@ import (
 	"path"
 )
 
+type SoftirqsIrq struct {
+	// IRQ counters:
+	Counters []uint64
+	// The scan# where this IRQ was found, used for removing out of scope IRQs,
+	// see scanNum in Softirqs.
+	scanNum int
+}
+
 type Softirqs struct {
+	// IRQs:
+	Irq map[string]*SoftirqsIrq
+
 	// The CPU#NN heading; presently softirqs implementation uses all possible
 	// CPU's (see:
 	// https://github.com/torvalds/linux/blob/d2f51b3516dade79269ff45eae2a7668ae711b25/fs/proc/softirqs.c#L22
 	// ) but to future proof for different handling of CPU Hot Plug (CPUHP),
-	// maintain a mapping from col# to CPU#. If the mapping is nil, then it
-	// means that CPU#NN was in column index NN.
-	ColIndexToCpuNum []int
-	// The number of CPU's, needed in case ColIndexToCpuNum is nil:
-	NumCpus int
-	// IRQ -> [N, N, ,,, N] map:
-	Irq map[string][]uint64
-	// Cache the line used for building the ColIndexToCpuNum mapping; if the
-	// line is unchanged from the previous run then the mapping is still valid.
-	cpuHeaderLine []byte
-	// IRQs may disappear from one scan to the next one keep track of IRQs found
-	// in the current scan; each scan has a different scan# from the previous
-	// one. IRQ's not associated with the most recent scan will be removed from
-	// Irq map:
-	irqScanNum map[string]int
-	scanNum    int
+	// maintain a mapping from col# to CPU#; set to nil if no mapping is
+	// needed, i.e. counter# == CPU#:
+	CounterIndexToCpuNum []int
+	// Whether the mapping has changed in the current scan or not:
+	IndexToCpuChanged bool
+
 	// The path file to  read:
 	path string
+	// Cache the line used for building the counter# -> CPU# mappings above; if
+	// the line is unchanged from the previous run then the mapping is still
+	// valid.
+	cpuHeaderLine []byte
+	// The number of counters per line; this is needed if CounterIndexToCpuNum
+	// is nil, since it cannot be inferred:
+	numCounters int
+	// Each scan has a different scan# from the previous one. IRQ's not
+	// associated with the most recent scan will be removed:
+	scanNum int
 }
 
 var softirqsReadFileBufPool = ReadFileBufPoolReadUnbound
 
 func NewSoftirqs(procfsRoot string) *Softirqs {
 	return &Softirqs{
-		Irq:        make(map[string][]uint64),
-		irqScanNum: map[string]int{},
-		path:       path.Join(procfsRoot, "softirqs"),
+		Irq:  make(map[string]*SoftirqsIrq),
+		path: path.Join(procfsRoot, "softirqs"),
 	}
 }
 
 func (softirqs *Softirqs) Clone(full bool) *Softirqs {
 	newSoftirqs := &Softirqs{
-		Irq:        make(map[string][]uint64),
-		NumCpus:    softirqs.NumCpus,
-		irqScanNum: map[string]int{},
-		path:       softirqs.path,
+		path:              softirqs.path,
+		IndexToCpuChanged: softirqs.IndexToCpuChanged,
+		numCounters:       softirqs.numCounters,
+		scanNum:           softirqs.scanNum,
 	}
-	if softirqs.ColIndexToCpuNum != nil {
-		newSoftirqs.ColIndexToCpuNum = make([]int, len(softirqs.ColIndexToCpuNum))
-		copy(newSoftirqs.ColIndexToCpuNum, softirqs.ColIndexToCpuNum)
+	if softirqs.CounterIndexToCpuNum != nil {
+		newSoftirqs.CounterIndexToCpuNum = make([]int, len(softirqs.CounterIndexToCpuNum))
+		copy(newSoftirqs.CounterIndexToCpuNum, softirqs.CounterIndexToCpuNum)
+	}
+	if softirqs.Irq != nil {
+		newSoftirqs.Irq = make(map[string]*SoftirqsIrq)
+		for irq, softirqsIrq := range softirqs.Irq {
+			newSoftirqsIrq := &SoftirqsIrq{
+				scanNum: softirqsIrq.scanNum,
+			}
+			if softirqsIrq.Counters != nil {
+				newSoftirqsIrq.Counters = make([]uint64, len(softirqsIrq.Counters))
+				if full {
+					copy(newSoftirqsIrq.Counters, softirqsIrq.Counters)
+				}
+			}
+			newSoftirqs.Irq[irq] = newSoftirqsIrq
+		}
 	}
 	if softirqs.cpuHeaderLine != nil {
 		newSoftirqs.cpuHeaderLine = make([]byte, len(softirqs.cpuHeaderLine))
 		copy(newSoftirqs.cpuHeaderLine, softirqs.cpuHeaderLine)
 	}
-	for irq, perCpuIrqCounter := range softirqs.Irq {
-		newSoftirqs.Irq[irq] = make([]uint64, len(perCpuIrqCounter))
-		if full {
-			copy(newSoftirqs.Irq[irq], perCpuIrqCounter)
-		}
-	}
-	if full {
-		for irq, scanNum := range softirqs.irqScanNum {
-			newSoftirqs.irqScanNum[irq] = scanNum
-		}
-		newSoftirqs.scanNum = softirqs.scanNum
-	}
 	return newSoftirqs
 }
 
-func (softirqs *Softirqs) updateColIndexToCpuNumMap(cpuHeaderLine []byte) error {
-	needsColIndexToCpuNumMap := false
+func (softirqs *Softirqs) updateCounterIndexToCpuNumMap(cpuHeaderLine []byte) error {
+	needsCounterIndexToCpuNumMap := false
 	fields := bytes.Fields(cpuHeaderLine)
-	softirqs.NumCpus = len(fields)
-	colIndexToCpuNum := make([]int, softirqs.NumCpus)
-	for index, cpuSpec := range fields {
-		if len(cpuSpec) <= 3 {
-			return fmt.Errorf("invalid cpu spec")
+	softirqs.numCounters = len(fields)
+	counterIndexToCpuNum := make([]int, softirqs.numCounters)
+	for index, cpu := range fields {
+		cpuNum, l := 0, len(cpu)
+		if l <= 3 {
+			return fmt.Errorf("%q: invalid cpu spec, not CPUNNN", string(cpu))
 		}
-		cpuNum := 0
-		for pos := 3; pos < len(cpuSpec); pos++ {
-			if digit := cpuSpec[pos] - '0'; digit < 10 {
+		for pos := 3; pos < l; pos++ {
+			digit := cpu[pos] - '0'
+			if digit < 10 {
 				cpuNum = (cpuNum << 3) + (cpuNum << 1) + int(digit)
 			} else {
-				return fmt.Errorf(
-					"%q: invalid CPUNN, `%c' not a valid digit",
-					string(cpuSpec), cpuSpec[pos],
-				)
+				return fmt.Errorf("%q: invalid cpu spec, not CPUNNN", string(cpu))
 			}
 		}
-		colIndexToCpuNum[index] = cpuNum
+		counterIndexToCpuNum[index] = cpuNum
 		if index != cpuNum {
-			needsColIndexToCpuNumMap = true
+			needsCounterIndexToCpuNumMap = true
 		}
 	}
-	softirqs.cpuHeaderLine = make([]byte, len(cpuHeaderLine))
-	copy(softirqs.cpuHeaderLine, cpuHeaderLine)
-	if needsColIndexToCpuNumMap {
-		softirqs.ColIndexToCpuNum = colIndexToCpuNum
+	if needsCounterIndexToCpuNumMap {
+		softirqs.CounterIndexToCpuNum = counterIndexToCpuNum
 	} else {
-		softirqs.ColIndexToCpuNum = nil
+		softirqs.CounterIndexToCpuNum = nil
+	}
+	dstHdrCap, srcHdrLen := cap(softirqs.cpuHeaderLine), len(cpuHeaderLine)
+	if dstHdrCap < srcHdrLen {
+		softirqs.cpuHeaderLine = make([]byte, srcHdrLen)
+		copy(softirqs.cpuHeaderLine, cpuHeaderLine)
+	} else {
+		softirqs.cpuHeaderLine = softirqs.cpuHeaderLine[:dstHdrCap]
+		copy(softirqs.cpuHeaderLine, cpuHeaderLine)
+		softirqs.cpuHeaderLine = softirqs.cpuHeaderLine[:srcHdrLen]
 	}
 	return nil
 }
@@ -116,8 +134,8 @@ func (softirqs *Softirqs) Parse() error {
 	}
 	buf, l := fBuf.Bytes(), fBuf.Len()
 
-	numCpus := 0
 	scanNum := softirqs.scanNum + 1
+	numCounters := softirqs.numCounters
 	for pos, lineNum := 0, 1; pos < l; lineNum++ {
 		// Line starts here:
 		startLine, eol := pos, false
@@ -133,15 +151,18 @@ func (softirqs *Softirqs) Parse() error {
 				// The CPU header has changed:
 				for ; pos < l && buf[pos] != '\n'; pos++ {
 				}
-				err = softirqs.updateColIndexToCpuNumMap(buf[0:pos])
+				err = softirqs.updateCounterIndexToCpuNumMap(buf[0:pos])
 				if err != nil {
 					return fmt.Errorf(
 						"%s#%d: %q: %v",
 						softirqs.path, lineNum, getCurrentLine(buf, startLine), err,
 					)
 				}
+				softirqs.IndexToCpuChanged = true
+				numCounters = softirqs.numCounters
+			} else {
+				softirqs.IndexToCpuChanged = false
 			}
-			numCpus = softirqs.NumCpus
 			pos++
 			continue
 		}
@@ -166,14 +187,28 @@ func (softirqs *Softirqs) Parse() error {
 		}
 		irq := string(buf[irqStart:irqEnd])
 
-		perCpuIrqCounter := softirqs.Irq[irq]
-		if len(perCpuIrqCounter) < numCpus {
-			perCpuIrqCounter = make([]uint64, numCpus)
-			softirqs.Irq[irq] = perCpuIrqCounter
+		// Parse ` NNN NNN ... NNN' softirq counters:
+		var counters []uint64
+		softirqsIrq := softirqs.Irq[irq]
+		if softirqsIrq == nil {
+			softirqsIrq = &SoftirqsIrq{
+				Counters: make([]uint64, numCounters),
+			}
+			softirqs.Irq[irq] = softirqsIrq
+			counters = softirqsIrq.Counters
+		} else {
+			counters = softirqsIrq.Counters
+			if cap(counters) < numCounters {
+				counters = make([]uint64, numCounters)
+				softirqsIrq.Counters = counters
+			} else if len(counters) != numCounters {
+				counters = counters[:numCounters]
+				softirqsIrq.Counters = counters
+			}
 		}
 
 		counterIndex := 0
-		for !eol && pos < l && counterIndex < numCpus {
+		for !eol && pos < l && counterIndex < numCounters {
 			for ; pos < l && isWhitespace[buf[pos]]; pos++ {
 			}
 			value, foundValue := uint64(0), false
@@ -192,16 +227,15 @@ func (softirqs *Softirqs) Parse() error {
 				}
 			}
 			if foundValue {
-				perCpuIrqCounter[counterIndex] = value
+				counters[counterIndex] = value
 				counterIndex++
 			}
 		}
-
 		// Enough columns?
-		if counterIndex < numCpus {
+		if counterIndex < numCounters {
 			return fmt.Errorf(
 				"%s#%d: %q: missing IRQs: want: %d, got: %d",
-				softirqs.path, lineNum, getCurrentLine(buf, startLine), numCpus, counterIndex,
+				softirqs.path, lineNum, getCurrentLine(buf, startLine), numCounters, counterIndex,
 			)
 		}
 
@@ -217,12 +251,12 @@ func (softirqs *Softirqs) Parse() error {
 		}
 
 		// Mark this irq as found during the scan:
-		softirqs.irqScanNum[irq] = scanNum
+		softirqsIrq.scanNum = scanNum
 	}
 
 	// Cleanup IRQs no longer in use, if any:
-	for irq, irqScanNum := range softirqs.irqScanNum {
-		if irqScanNum != scanNum {
+	for irq, softirqsIrq := range softirqs.Irq {
+		if softirqsIrq.scanNum != scanNum {
 			delete(softirqs.Irq, irq)
 		}
 	}

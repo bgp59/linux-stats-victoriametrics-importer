@@ -42,9 +42,9 @@ func BenchmarkSoftirqsParserProm(b *testing.B) {
 // goarch: amd64
 // pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
 // cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
-// BenchmarkSoftirqsParserIO   	   71206	     16226 ns/op	     136 B/op	       3 allocs/op
-// BenchmarkSoftirqsParser     	   64414	     18889 ns/op	     200 B/op	      13 allocs/op
-// BenchmarkSoftirqsParserProm 	   38815	     31456 ns/op	   14992 B/op	      42 allocs/op
+// BenchmarkSoftirqsParserIO   	   69418	     16342 ns/op	     136 B/op	       3 allocs/op
+// BenchmarkSoftirqsParser     	   65466	     18810 ns/op	     200 B/op	      13 allocs/op
+// BenchmarkSoftirqsParserProm 	   39843	     32084 ns/op	   14992 B/op	      42 allocs/op
 
 func BenchmarkSoftirqsFileRead(b *testing.B) {
 	for op, name := range benchFileReadOpMap {

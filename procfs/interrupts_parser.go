@@ -45,9 +45,8 @@ type InterruptsIrq struct {
 	// Cache line part used to build the info above; if unchanged from the
 	// previous scan, the information is still valid:
 	info []byte
-	// The scan# where this IRQ
-	// was found, used for removing out of scope IRQs, see scanNum in
-	// Interrupts.
+	// The scan# where this IRQ was found, used for removing out of scope IRQs,
+	// see scanNum in Interrupts.
 	scanNum int
 }
 
@@ -69,7 +68,6 @@ type Interrupts struct {
 	// The number of counters per line; this is needed if CounterIndexToCpuNum
 	// is nil, since it cannot be inferred:
 	numCounters int
-
 	// Each scan has a different scan# from the previous one. IRQ's not
 	// associated with the most recent scan will be removed:
 	scanNum int
@@ -97,21 +95,21 @@ func (interrupts *Interrupts) Clone(full bool) *Interrupts {
 	}
 	if interrupts.Irq != nil {
 		newInterrupts.Irq = make(map[string]*InterruptsIrq)
-		for irq, interruptIrq := range interrupts.Irq {
-			newInterruptIrq := &InterruptsIrq{
-				InfoChanged: interruptIrq.InfoChanged,
-				scanNum:     interruptIrq.scanNum,
+		for irq, interruptsIrq := range interrupts.Irq {
+			newInterruptsIrq := &InterruptsIrq{
+				InfoChanged: interruptsIrq.InfoChanged,
+				scanNum:     interruptsIrq.scanNum,
 			}
-			if interruptIrq.Counters != nil {
-				newInterruptIrq.Counters = make([]uint64, len(interruptIrq.Counters))
+			if interruptsIrq.Counters != nil {
+				newInterruptsIrq.Counters = make([]uint64, len(interruptsIrq.Counters))
 				if full {
-					copy(newInterruptIrq.Counters, interruptIrq.Counters)
+					copy(newInterruptsIrq.Counters, interruptsIrq.Counters)
 				}
 			}
-			if interruptIrq.info != nil {
-				newInterruptIrq.updateInfo(interruptIrq.info)
+			if interruptsIrq.info != nil {
+				newInterruptsIrq.updateInfo(interruptsIrq.info)
 			}
-			newInterrupts.Irq[irq] = newInterruptIrq
+			newInterrupts.Irq[irq] = newInterruptsIrq
 		}
 	}
 	if interrupts.cpuHeaderLine != nil {
