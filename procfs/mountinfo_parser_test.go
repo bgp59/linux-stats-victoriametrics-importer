@@ -50,7 +50,6 @@ func testMountinfoParser(tc *MountinfoTestCase, t *testing.T) {
 
 	diffBuf := &bytes.Buffer{}
 
-	buf := mountinfo.content.Bytes()
 	for majorMinor, wantInfo := range wantDevMountInfo {
 		gotInfo := mountinfo.DevMountInfo[majorMinor]
 		if gotInfo == nil {
@@ -70,13 +69,12 @@ func testMountinfoParser(tc *MountinfoTestCase, t *testing.T) {
 			continue
 		}
 		for j, wantOpt := range wantInfo {
-			startEnd := gotInfo[j]
-			gotOpt := string(buf[startEnd.Start:startEnd.End])
+			gotOpt := string(gotInfo[j])
 			if wantOpt != gotOpt {
 				fmt.Fprintf(
 					diffBuf,
-					"\nDevMountInfo[%q][%d (%s)]: want: %q, got: %q",
-					majorMinor, j, mountinfoIndexName[j], wantOpt, gotOpt,
+					"\nDevMountInfo[%q][%s]: want: %q, got: %q",
+					majorMinor, mountinfoIndexName[j], wantOpt, gotOpt,
 				)
 			}
 		}
