@@ -17,7 +17,7 @@ const (
 
 var pidStatTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "pid_stat")
 
-var pidStatByteFieldsIndexName = []string{
+var pidStatByteSliceFieldsIndexName = []string{
 	"PID_STAT_COMM",
 	"PID_STAT_STATE",
 	"PID_STAT_PPID",
@@ -82,7 +82,7 @@ func testPidStatParser(tc *PidStatTestCase, t *testing.T) {
 				fmt.Fprintf(
 					diffBuf,
 					"\nfield[%s]: want: %q, got: %q",
-					pidStatByteFieldsIndexName[i],
+					pidStatByteSliceFieldsIndexName[i],
 					wantValue,
 					gotValue,
 				)
