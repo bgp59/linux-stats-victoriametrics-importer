@@ -32,14 +32,14 @@ const (
 )
 
 type PidStat struct {
-	// Read the raw content of the file here:
-	Buf *bytes.Buffer
-	// Start/end index for each as-is field (byte slice):
-	ByteFields []SliceOffsets
+	// As-is fields:
+	ByteSliceFields [][]byte
 	// Numeric fields:
 	NumericFields []uint64
 	// The path file to read:
 	path string
+	// Buffer to read the content of the file, also backing storage for the ByteSliceFields:
+	fBuf *bytes.Buffer
 }
 
 // The indices for byte slice fields;
@@ -171,9 +171,9 @@ var pidStatFieldHandling = [PID_STAT_MAX_FIELD_NUM + 1]*PidStatFieldHandling{
 
 func NewPidStat(procfsRoot string, pid, tid int) *PidStat {
 	pidStat := &PidStat{
-		Buf:           &bytes.Buffer{},
-		ByteFields:    make([]SliceOffsets, PID_STAT_BYTE_SLICE_FIELD_COUNT),
-		NumericFields: make([]uint64, PID_STAT_ULONG_FIELD_COUNT),
+		ByteSliceFields: make([][]byte, PID_STAT_BYTE_SLICE_FIELD_COUNT),
+		NumericFields:   make([]uint64, PID_STAT_ULONG_FIELD_COUNT),
+		fBuf:            &bytes.Buffer{},
 	}
 	if tid == PID_STAT_PID_ONLY_TID {
 		pidStat.path = path.Join(procfsRoot, strconv.Itoa(pid), "stat")
@@ -189,12 +189,13 @@ func (pidStat *PidStat) Parse() error {
 		return err
 	}
 	defer file.Close()
-	_, err = pidStat.Buf.ReadFrom(file)
+	pidStat.fBuf.Reset()
+	_, err = pidStat.fBuf.ReadFrom(file)
 	if err != nil {
 		return err
 	}
 
-	buf, l := pidStat.Buf.Bytes(), pidStat.Buf.Len()
+	buf, l := pidStat.fBuf.Bytes(), pidStat.fBuf.Len()
 
 	// Locate '(' for comm start:
 	commStart := -1
@@ -228,8 +229,7 @@ func (pidStat *PidStat) Parse() error {
 	}
 
 	fieldNum := 2
-	pidStat.ByteFields[PID_STAT_COMM].Start = commStart
-	pidStat.ByteFields[PID_STAT_COMM].End = commEnd
+	pidStat.ByteSliceFields[PID_STAT_COMM] = buf[commStart:commEnd]
 
 	for pos := commEnd + 1; pos < l && fieldNum < PID_STAT_MAX_FIELD_NUM; pos++ {
 		for ; pos < l && isWhitespaceNl[buf[pos]]; pos++ {
@@ -248,8 +248,7 @@ func (pidStat *PidStat) Parse() error {
 		index := fieldHandling.index
 		switch fieldHandling.dataType {
 		case PID_STAT_BYTES_DATA:
-			pidStat.ByteFields[index].Start = fieldStart
-			pidStat.ByteFields[index].End = pos
+			pidStat.ByteSliceFields[index] = buf[fieldStart:pos]
 		case PID_STAT_ULONG_DATA:
 			val := uint64(0)
 			for i := fieldStart; i < pos; i++ {

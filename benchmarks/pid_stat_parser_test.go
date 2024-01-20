@@ -60,6 +60,6 @@ func BenchmarkPidStatParserProm(b *testing.B) {
 // goarch: amd64
 // pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
 // cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
-// BenchmarkPidStatParserIO   	   70147	     16857 ns/op	     152 B/op	       3 allocs/op
-// BenchmarkPidStatParser     	   73059	     17176 ns/op	    1070 B/op	       3 allocs/op
-// BenchmarkPidStatParserProm 	   44281	     27217 ns/op	    1336 B/op	      31 allocs/op
+// BenchmarkPidStatParserIO   	   71313	     16506 ns/op	     152 B/op	       3 allocs/op
+// BenchmarkPidStatParser     	   62602	     18215 ns/op	    1223 B/op	       3 allocs/op
+// BenchmarkPidStatParserProm 	   43171	     27330 ns/op	    1336 B/op	      31 allocs/op

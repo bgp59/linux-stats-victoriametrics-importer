@@ -10,41 +10,46 @@ import (
 
 const (
 	PID_STAT_PROCFS_PID = 0
+	PID_STAT_PROCFS_TID = PID_STAT_PID_ONLY_TID
+	PID_STAT_LSVMI_PID  = 468
+	PID_STAT_LSVMI_TID  = 486
 )
 
 var pidStatTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "pid_stat")
 
-var pidStatByteSliceFieldName = map[int]string{
-	PID_STAT_COMM:        "PID_STAT_COMM",
-	PID_STAT_STATE:       "PID_STAT_STATE",
-	PID_STAT_PPID:        "PID_STAT_PPID",
-	PID_STAT_PGRP:        "PID_STAT_PGRP",
-	PID_STAT_SESSION:     "PID_STAT_SESSION",
-	PID_STAT_TTY_NR:      "PID_STAT_TTY_NR",
-	PID_STAT_TPGID:       "PID_STAT_TPGID",
-	PID_STAT_FLAGS:       "PID_STAT_FLAGS",
-	PID_STAT_PRIORITY:    "PID_STAT_PRIORITY",
-	PID_STAT_NICE:        "PID_STAT_NICE",
-	PID_STAT_NUM_THREADS: "PID_STAT_NUM_THREADS",
-	PID_STAT_STARTTIME:   "PID_STAT_STARTTIME",
-	PID_STAT_VSIZE:       "PID_STAT_VSIZE",
-	PID_STAT_RSS:         "PID_STAT_RSS",
-	PID_STAT_RSSLIM:      "PID_STAT_RSSLIM",
-	PID_STAT_PROCESSOR:   "PID_STAT_PROCESSOR",
-	PID_STAT_RT_PRIORITY: "PID_STAT_RT_PRIORITY",
-	PID_STAT_POLICY:      "PID_STAT_POLICY",
+var pidStatByteFieldsIndexName = []string{
+	"PID_STAT_COMM",
+	"PID_STAT_STATE",
+	"PID_STAT_PPID",
+	"PID_STAT_PGRP",
+	"PID_STAT_SESSION",
+	"PID_STAT_TTY_NR",
+	"PID_STAT_TPGID",
+	"PID_STAT_FLAGS",
+	"PID_STAT_PRIORITY",
+	"PID_STAT_NICE",
+	"PID_STAT_NUM_THREADS",
+	"PID_STAT_STARTTIME",
+	"PID_STAT_VSIZE",
+	"PID_STAT_RSS",
+	"PID_STAT_RSSLIM",
+	"PID_STAT_PROCESSOR",
+	"PID_STAT_RT_PRIORITY",
+	"PID_STAT_POLICY",
 }
 
-var pidStatNumericFieldName = map[int]string{
-	PID_STAT_MINFLT: "PID_STAT_MINFLT",
-	PID_STAT_MAJFLT: "PID_STAT_MAJFLT",
-	PID_STAT_UTIME:  "PID_STAT_UTIME",
-	PID_STAT_STIME:  "PID_STAT_STIME",
+var pidStatNumericFieldsIndexName = []string{
+	"PID_STAT_MINFLT",
+	"PID_STAT_MAJFLT",
+	"PID_STAT_UTIME",
+	"PID_STAT_STIME",
 }
 
 type PidStatTestCase struct {
+	name                string
 	procfsRoot          string
 	pid, tid            int
+	primePidStat        bool
 	wantByteSliceFields map[int]string
 	wantNumericFields   map[int]uint64
 	wantError           error
@@ -52,6 +57,13 @@ type PidStatTestCase struct {
 
 func testPidStatParser(tc *PidStatTestCase, t *testing.T) {
 	pidStat := NewPidStat(tc.procfsRoot, tc.pid, tc.tid)
+	if tc.primePidStat {
+		pidStat.fBuf.Write(make([]byte, PID_STAT_BYTE_SLICE_FIELD_COUNT, 10*PID_STAT_BYTE_SLICE_FIELD_COUNT))
+		buf := pidStat.fBuf.Bytes()
+		for i := 0; i < PID_STAT_BYTE_SLICE_FIELD_COUNT; i++ {
+			pidStat.ByteSliceFields[i] = buf[i : i+1]
+		}
+	}
 	err := pidStat.Parse()
 	if tc.wantError == nil && err != nil {
 		t.Fatal(err)
@@ -62,18 +74,15 @@ func testPidStatParser(tc *PidStatTestCase, t *testing.T) {
 			t.Fatalf("error: want: %v, got: %v", wantError, err)
 		}
 	}
-	b := pidStat.Buf.Bytes()
 	diffBuf := &bytes.Buffer{}
 	if tc.wantByteSliceFields != nil {
 		for i, wantValue := range tc.wantByteSliceFields {
-			startEnd := pidStat.ByteFields[i]
-			gotValue := string(b[startEnd.Start:startEnd.End])
+			gotValue := string(pidStat.ByteSliceFields[i])
 			if wantValue != gotValue {
 				fmt.Fprintf(
 					diffBuf,
-					"\nfield[%s] ([%d:%d]): want: %q, got: %q",
-					pidStatByteSliceFieldName[i],
-					startEnd.Start, startEnd.End,
+					"\nfield[%s]: want: %q, got: %q",
+					pidStatByteFieldsIndexName[i],
 					wantValue,
 					gotValue,
 				)
@@ -84,7 +93,7 @@ func testPidStatParser(tc *PidStatTestCase, t *testing.T) {
 		for i, wantValue := range tc.wantNumericFields {
 			gotValue := pidStat.NumericFields[i]
 			if wantValue != gotValue {
-				fmt.Fprintf(diffBuf, "\nfield[%s]: want: %d, got: %d", pidStatNumericFieldName[i], wantValue, gotValue)
+				fmt.Fprintf(diffBuf, "\nfield[%s]: want: %d, got: %d", pidStatNumericFieldsIndexName[i], wantValue, gotValue)
 			}
 		}
 	}
@@ -97,8 +106,8 @@ func TestPidStatParser(t *testing.T) {
 	for _, tc := range []*PidStatTestCase{
 		{
 			procfsRoot: LSVMI_TESTDATA_PROCFS_ROOT,
-			pid:        468,
-			tid:        486,
+			pid:        PID_STAT_LSVMI_PID,
+			tid:        PID_STAT_LSVMI_TID,
 			wantByteSliceFields: map[int]string{
 				PID_STAT_COMM:        "rs:main Q:Reg",
 				PID_STAT_STATE:       "S",
@@ -129,7 +138,40 @@ func TestPidStatParser(t *testing.T) {
 		{
 			procfsRoot: path.Join(pidStatTestdataDir, "field_mapping"),
 			pid:        PID_STAT_PROCFS_PID,
-			tid:        PID_STAT_PID_ONLY_TID,
+			tid:        PID_STAT_PROCFS_TID,
+			wantByteSliceFields: map[int]string{
+				PID_STAT_COMM:        "comm",
+				PID_STAT_STATE:       "state",
+				PID_STAT_PPID:        "ppid",
+				PID_STAT_PGRP:        "pgrp",
+				PID_STAT_SESSION:     "session",
+				PID_STAT_TTY_NR:      "tty_nr",
+				PID_STAT_TPGID:       "tpgid",
+				PID_STAT_FLAGS:       "flags",
+				PID_STAT_PRIORITY:    "priority",
+				PID_STAT_NICE:        "nice",
+				PID_STAT_NUM_THREADS: "num_threads",
+				PID_STAT_STARTTIME:   "starttime",
+				PID_STAT_VSIZE:       "vsize",
+				PID_STAT_RSS:         "rss",
+				PID_STAT_RSSLIM:      "rsslim",
+				PID_STAT_PROCESSOR:   "processor",
+				PID_STAT_RT_PRIORITY: "rt_priority",
+				PID_STAT_POLICY:      "policy",
+			},
+			wantNumericFields: map[int]uint64{
+				PID_STAT_MINFLT: 1000,
+				PID_STAT_MAJFLT: 1001,
+				PID_STAT_UTIME:  10000,
+				PID_STAT_STIME:  10001,
+			},
+		},
+		{
+			name:         "reuse",
+			procfsRoot:   path.Join(pidStatTestdataDir, "field_mapping"),
+			pid:          PID_STAT_PROCFS_PID,
+			tid:          PID_STAT_PROCFS_TID,
+			primePidStat: true,
 			wantByteSliceFields: map[int]string{
 				PID_STAT_COMM:        "comm",
 				PID_STAT_STATE:       "state",
@@ -160,7 +202,7 @@ func TestPidStatParser(t *testing.T) {
 		{
 			procfsRoot: path.Join(pidStatTestdataDir, "comm_too_long"),
 			pid:        PID_STAT_PROCFS_PID,
-			tid:        PID_STAT_PID_ONLY_TID,
+			tid:        PID_STAT_PROCFS_TID,
 			wantByteSliceFields: map[int]string{
 				PID_STAT_COMM:        "command longer than sixteen bytes",
 				PID_STAT_STATE:       "state",
@@ -191,7 +233,7 @@ func TestPidStatParser(t *testing.T) {
 		{
 			procfsRoot: path.Join(pidStatTestdataDir, "comm_utf8"),
 			pid:        PID_STAT_PROCFS_PID,
-			tid:        PID_STAT_PID_ONLY_TID,
+			tid:        PID_STAT_PROCFS_TID,
 			wantByteSliceFields: map[int]string{
 				PID_STAT_COMM:        "Nǐ hǎo shìjiè 你好世界",
 				PID_STAT_STATE:       "state",
@@ -222,30 +264,37 @@ func TestPidStatParser(t *testing.T) {
 		{
 			procfsRoot: path.Join(pidStatTestdataDir, "comm_missing_open_par"),
 			pid:        PID_STAT_PROCFS_PID,
-			tid:        PID_STAT_PID_ONLY_TID,
+			tid:        PID_STAT_PROCFS_TID,
 			wantError:  fmt.Errorf("cannot locate '('"),
 		},
 		{
 			procfsRoot: path.Join(pidStatTestdataDir, "comm_missing_close_par"),
 			pid:        PID_STAT_PROCFS_PID,
-			tid:        PID_STAT_PID_ONLY_TID,
+			tid:        PID_STAT_PROCFS_TID,
 			wantError:  fmt.Errorf("cannot locate ')'"),
 		},
 		{
 			procfsRoot: path.Join(pidStatTestdataDir, "conversion_error"),
 			pid:        PID_STAT_PROCFS_PID,
-			tid:        PID_STAT_PID_ONLY_TID,
+			tid:        PID_STAT_PROCFS_TID,
 			wantError:  fmt.Errorf(`field# 10: "_1000": invalid numerical value`),
 		},
 		{
 			procfsRoot: path.Join(pidStatTestdataDir, "not_enough_fields"),
 			pid:        PID_STAT_PROCFS_PID,
-			tid:        PID_STAT_PID_ONLY_TID,
+			tid:        PID_STAT_PROCFS_TID,
 			wantError:  fmt.Errorf("not enough fields: want: %d, got: %d", PID_STAT_MAX_FIELD_NUM, PID_STAT_MAX_FIELD_NUM-1),
 		},
 	} {
+		var name string
+		if tc.name != "" {
+			name = fmt.Sprintf("name=%s,procfsRoot=%s,pid=%d,tid=%d", tc.name, tc.procfsRoot, tc.pid, tc.tid)
+		} else {
+			name = fmt.Sprintf("procfsRoot=%s,pid=%d,tid=%d", tc.procfsRoot, tc.pid, tc.tid)
+		}
 		t.Run(
-			fmt.Sprintf("procfsRoot=%s,pid=%d,tid=%d", tc.procfsRoot, tc.pid, tc.tid),
-			func(t *testing.T) { testPidStatParser(tc, t) })
+			name,
+			func(t *testing.T) { testPidStatParser(tc, t) },
+		)
 	}
 }
