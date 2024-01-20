@@ -27,42 +27,42 @@ type PidStatusTestCase struct {
 	wantError                error
 }
 
-var pidStatusTestByteDataIndexToName = map[int]string{
-	PID_STATUS_UID:               "PID_STATUS_UID",
-	PID_STATUS_GID:               "PID_STATUS_GID",
-	PID_STATUS_GROUPS:            "PID_STATUS_GROUPS",
-	PID_STATUS_VM_PEAK:           "PID_STATUS_VM_PEAK",
-	PID_STATUS_VM_SIZE:           "PID_STATUS_VM_SIZE",
-	PID_STATUS_VM_LCK:            "PID_STATUS_VM_LCK",
-	PID_STATUS_VM_PIN:            "PID_STATUS_VM_PIN",
-	PID_STATUS_VM_HWM:            "PID_STATUS_VM_HWM",
-	PID_STATUS_VM_RSS:            "PID_STATUS_VM_RSS",
-	PID_STATUS_RSS_ANON:          "PID_STATUS_RSS_ANON",
-	PID_STATUS_RSS_FILE:          "PID_STATUS_RSS_FILE",
-	PID_STATUS_RSS_SHMEM:         "PID_STATUS_RSS_SHMEM",
-	PID_STATUS_VM_DATA:           "PID_STATUS_VM_DATA",
-	PID_STATUS_VM_STK:            "PID_STATUS_VM_STK",
-	PID_STATUS_VM_EXE:            "PID_STATUS_VM_EXE",
-	PID_STATUS_VM_LIB:            "PID_STATUS_VM_LIB",
-	PID_STATUS_VM_PTE:            "PID_STATUS_VM_PTE",
-	PID_STATUS_VM_PMD:            "PID_STATUS_VM_PMD",
-	PID_STATUS_VM_SWAP:           "PID_STATUS_VM_SWAP",
-	PID_STATUS_HUGETLBPAGES:      "PID_STATUS_HUGETLBPAGES",
-	PID_STATUS_CPUS_ALLOWED_LIST: "PID_STATUS_CPUS_ALLOWED_LIST",
-	PID_STATUS_MEMS_ALLOWED_LIST: "PID_STATUS_MEMS_ALLOWED_LIST",
+var pidStatusByteSliceFieldsIndexToName = []string{
+	"PID_STATUS_UID",
+	"PID_STATUS_GID",
+	"PID_STATUS_GROUPS",
+	"PID_STATUS_VM_PEAK",
+	"PID_STATUS_VM_SIZE",
+	"PID_STATUS_VM_LCK",
+	"PID_STATUS_VM_PIN",
+	"PID_STATUS_VM_HWM",
+	"PID_STATUS_VM_RSS",
+	"PID_STATUS_RSS_ANON",
+	"PID_STATUS_RSS_FILE",
+	"PID_STATUS_RSS_SHMEM",
+	"PID_STATUS_VM_DATA",
+	"PID_STATUS_VM_STK",
+	"PID_STATUS_VM_EXE",
+	"PID_STATUS_VM_LIB",
+	"PID_STATUS_VM_PTE",
+	"PID_STATUS_VM_PMD",
+	"PID_STATUS_VM_SWAP",
+	"PID_STATUS_HUGETLBPAGES",
+	"PID_STATUS_CPUS_ALLOWED_LIST",
+	"PID_STATUS_MEMS_ALLOWED_LIST",
 }
 
-var pidStatusTestParseCloneToName = map[int]string{
-	PID_STATUS_TEST_PARSE_CLONE_NONE:  "PARSE_CLONE_NONE",
-	PID_STATUS_TEST_PARSE_CLONE_ONLY:  "PARSE_CLONE_ONLY",
-	PID_STATUS_TEST_PARSE_CLONE_FIRST: "PARSE_CLONE_FIRST",
-	PID_STATUS_TEST_PARSE_CLONE_LAST:  "PARSE_CLONE_LAST",
-	PID_STATUS_TEST_PARSE_CLONE_BOTH:  "PARSE_CLONE_BOTH",
+var pidStatusNumericFieldsIndexToName = []string{
+	"PID_STATUS_VOLUNTARY_CTXT_SWITCHES",
+	"PID_STATUS_NONVOLUNTARY_CTXT_SWITCHES",
 }
 
-var pidStatusTestUlongDataIndexToName = map[int]string{
-	PID_STATUS_VOLUNTARY_CTXT_SWITCHES:    "PID_STATUS_VOLUNTARY_CTXT_SWITCHES",
-	PID_STATUS_NONVOLUNTARY_CTXT_SWITCHES: "PID_STATUS_NONVOLUNTARY_CTXT_SWITCHES",
+var pidStatusTestParseCloneToName = []string{
+	"PARSE_CLONE_NONE",
+	"PARSE_CLONE_ONLY",
+	"PARSE_CLONE_FIRST",
+	"PARSE_CLONE_LAST",
+	"PARSE_CLONE_BOTH",
 }
 
 func testPidStatusParser(tc *PidStatusTestCase, parseClone int, t *testing.T) {
@@ -104,7 +104,7 @@ func testPidStatusParser(tc *PidStatusTestCase, parseClone int, t *testing.T) {
 				fmt.Fprintf(
 					diffBuf,
 					"\nBytesSliceFields[%s]: want: %q, got: %q",
-					pidStatusTestByteDataIndexToName[index],
+					pidStatusByteSliceFieldsIndexToName[index],
 					wantVal,
 					gotVal,
 				)
@@ -118,7 +118,7 @@ func testPidStatusParser(tc *PidStatusTestCase, parseClone int, t *testing.T) {
 				fmt.Fprintf(
 					diffBuf,
 					"\nunit[%s]: want: %q, got: %q",
-					pidStatusTestByteDataIndexToName[index],
+					pidStatusByteSliceFieldsIndexToName[index],
 					wantUnit,
 					gotUnit,
 				)
@@ -132,7 +132,7 @@ func testPidStatusParser(tc *PidStatusTestCase, parseClone int, t *testing.T) {
 				fmt.Fprintf(
 					diffBuf,
 					"\nuNumericFields[%s]: want: %d, got: %d",
-					pidStatusTestUlongDataIndexToName[index],
+					pidStatusNumericFieldsIndexToName[index],
 					wantVal,
 					gotVal,
 				)
