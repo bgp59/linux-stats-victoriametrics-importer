@@ -27,6 +27,12 @@ var isWhitespaceNl = [256]bool{
 	'\n': true,
 }
 
+// Helper for error messages: given a buffer that holds the content of a file
+// and the current position in the buffer (presumably where the error occureed)
+// return the line that contains that position. If the position is >= 0, look
+// for the line ending at or after pos. If the position is < 0, then look the
+// start at the line left of -position and for the end of line right of
+// -position.
 func getCurrentLine(buf []byte, pos int) string {
 	var lineStart, lineEnd int
 	l := len(buf)
