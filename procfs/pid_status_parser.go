@@ -104,7 +104,7 @@ type PidStatus struct {
 	ByteSliceFieldOffsets []SliceOffsets
 	// ByteSliceFieldUnit, it will be replicated from pidStatusParserInfo:
 	ByteSliceFieldUnit [][]byte
-	// Unsigned log data:
+	// Unsigned long data:
 	NumericFields []uint64
 	// Path to the file:
 	path string
