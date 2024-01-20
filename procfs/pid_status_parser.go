@@ -163,7 +163,7 @@ var pidStatusOptionalPrefixes = []string{
 
 // The parser will use the following structure, built JIT at the 1st invocation:
 var pidStatusParserInfo = struct {
-	// Array indexed by line# (from 0), based on pidStatusLineHandlingMap:
+	// Array by line index (from 0), based on pidStatusLineHandlingMap:
 	lineHandling []*PidStatusLineHandling
 	// Units, where applicable. The units are kernel dependent so they are
 	// discovered once and reused:
