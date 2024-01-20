@@ -58,9 +58,9 @@ type PidStatTestCase struct {
 func testPidStatParser(tc *PidStatTestCase, t *testing.T) {
 	pidStat := NewPidStat(tc.procfsRoot, tc.pid, tc.tid)
 	if tc.primePidStat {
-		pidStat.fBuf.Write(make([]byte, PID_STAT_BYTE_SLICE_FIELD_COUNT, 10*PID_STAT_BYTE_SLICE_FIELD_COUNT))
+		pidStat.fBuf.Write(make([]byte, PID_STAT_BYTE_SLICE_NUM_FIELDS, 10*PID_STAT_BYTE_SLICE_NUM_FIELDS))
 		buf := pidStat.fBuf.Bytes()
-		for i := 0; i < PID_STAT_BYTE_SLICE_FIELD_COUNT; i++ {
+		for i := 0; i < PID_STAT_BYTE_SLICE_NUM_FIELDS; i++ {
 			pidStat.ByteSliceFields[i] = buf[i : i+1]
 		}
 	}

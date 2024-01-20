@@ -81,7 +81,7 @@ const (
 	PID_STATUS_CPUS_ALLOWED_LIST
 	PID_STATUS_MEMS_ALLOWED_LIST
 	// Must be last:
-	PID_STATUS_AS_IS_NUM_FIELDS
+	PID_STATUS_BYTE_SLICE_NUM_FIELDS
 )
 
 // Indexes for numerical data:
@@ -221,7 +221,7 @@ func initPidStatusParserInfo(path string) error {
 	}
 
 	lineHandling = make([]*PidStatusLineHandling, 0)
-	byteSliceFieldUnit = make([][]byte, PID_STATUS_AS_IS_NUM_FIELDS)
+	byteSliceFieldUnit = make([][]byte, PID_STATUS_BYTE_SLICE_NUM_FIELDS)
 	scanner := bufio.NewScanner(file)
 	for lineIndex := 0; scanner.Scan(); lineIndex++ {
 		line := scanner.Bytes()
@@ -283,7 +283,7 @@ func initPidStatusParserInfo(path string) error {
 func NewPidStatus(procfsRoot string, pid, tid int) *PidStatus {
 	pidStatus := &PidStatus{
 		ByteSliceFieldsBuf:    &bytes.Buffer{},
-		ByteSliceFieldOffsets: make([]SliceOffsets, PID_STATUS_AS_IS_NUM_FIELDS),
+		ByteSliceFieldOffsets: make([]SliceOffsets, PID_STATUS_BYTE_SLICE_NUM_FIELDS),
 		NumericFields:         make([]uint64, PID_STATUS_ULONG_NUM_FIELDS),
 	}
 	if tid == PID_STAT_PID_ONLY_TID {
@@ -296,7 +296,7 @@ func NewPidStatus(procfsRoot string, pid, tid int) *PidStatus {
 
 func (pidStatus *PidStatus) Clone(full bool) *PidStatus {
 	newPidStatus := &PidStatus{
-		ByteSliceFieldOffsets: make([]SliceOffsets, PID_STATUS_AS_IS_NUM_FIELDS),
+		ByteSliceFieldOffsets: make([]SliceOffsets, PID_STATUS_BYTE_SLICE_NUM_FIELDS),
 		NumericFields:         make([]uint64, PID_STATUS_ULONG_NUM_FIELDS),
 		path:                  pidStatus.path,
 		lineHandling:          pidStatus.lineHandling,

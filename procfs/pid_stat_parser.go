@@ -64,7 +64,7 @@ const (
 	PID_STAT_POLICY
 
 	// Must be last!
-	PID_STAT_BYTE_SLICE_FIELD_COUNT
+	PID_STAT_BYTE_SLICE_NUM_FIELDS
 )
 
 // The indices for unsigned long fields:
@@ -75,7 +75,7 @@ const (
 	PID_STAT_STIME
 
 	// Must be last!
-	PID_STAT_ULONG_FIELD_COUNT
+	PID_STAT_ULONG_FIELD_NUM_FIELDS
 )
 
 // Field handling:
@@ -171,8 +171,8 @@ var pidStatFieldHandling = [PID_STAT_MAX_FIELD_NUM + 1]*PidStatFieldHandling{
 
 func NewPidStat(procfsRoot string, pid, tid int) *PidStat {
 	pidStat := &PidStat{
-		ByteSliceFields: make([][]byte, PID_STAT_BYTE_SLICE_FIELD_COUNT),
-		NumericFields:   make([]uint64, PID_STAT_ULONG_FIELD_COUNT),
+		ByteSliceFields: make([][]byte, PID_STAT_BYTE_SLICE_NUM_FIELDS),
+		NumericFields:   make([]uint64, PID_STAT_ULONG_FIELD_NUM_FIELDS),
 		fBuf:            &bytes.Buffer{},
 	}
 	if tid == PID_STAT_PID_ONLY_TID {
