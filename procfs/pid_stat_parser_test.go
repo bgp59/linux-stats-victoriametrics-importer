@@ -8,13 +8,6 @@ import (
 	"testing"
 )
 
-const (
-	PID_STAT_PROCFS_PID = 0
-	PID_STAT_PROCFS_TID = PID_STAT_PID_ONLY_TID
-	PID_STAT_LSVMI_PID  = 468
-	PID_STAT_LSVMI_TID  = 486
-)
-
 var pidStatTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "pid_stat")
 
 var pidStatByteSliceFieldsIndexName = []string{
