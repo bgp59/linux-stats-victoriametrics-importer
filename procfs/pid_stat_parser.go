@@ -19,11 +19,23 @@ const (
 	PID_STAT_PID_ONLY_TID = 0
 )
 
-// The data gleaned from this file is of 2 types, depending on its use case:
-//  - as-is: the value from the file is the (label) value associated w/ the metric, e.g. priority
-//  - numerical: for calculations, e.g. utime/stime
-// As-is data will be returned such that it can be easily converted to byte
-// slices whereas numerical data will be returned as an unsigned long.
+// The data gleaned from this file is of two types, depending on its use case:
+// - byte slice: used as-is, the value from the file is the (label) value
+//   associated w/ the metric, e.g. priority
+//  - numerical: used for calculations, e.g. utime/stime
+
+// Note about PID stats parsers:
+//
+// The metrics generator for PID stats will maintain a cache of previous scan
+// objects on a per thread basis + an extra scratch object for the current scan.
+// The flow is as follows:
+//   pull previous_pid_stat object from cache for the target PID, TID
+//   invoke parse method on scratch_pid_stat using the file path from previous_pid_stat
+//   compare scratch_pid_stat v. previous_pid_stat for deltas
+//   scratch_pid_stat becomes the new state in the cache and the freed previous_pid_stat
+//   becomes the new scratch object
+// Therefore, unlike other parsers, the parse method should provide the ability
+// to change the path without allocating new objects.
 
 // Parsed data types:
 const (
@@ -36,8 +48,8 @@ type PidStat struct {
 	ByteSliceFields [][]byte
 	// Numeric fields:
 	NumericFields []uint64
-	// The path file to read:
-	path string
+	// The path file to read as a pointer (see Note about PID stats parsers):
+	path *string
 	// Buffer to read the content of the file, also backing storage for the ByteSliceFields:
 	fBuf *bytes.Buffer
 }
@@ -175,16 +187,22 @@ func NewPidStat(procfsRoot string, pid, tid int) *PidStat {
 		NumericFields:   make([]uint64, PID_STAT_ULONG_FIELD_NUM_FIELDS),
 		fBuf:            &bytes.Buffer{},
 	}
+	var fPath string
 	if tid == PID_STAT_PID_ONLY_TID {
-		pidStat.path = path.Join(procfsRoot, strconv.Itoa(pid), "stat")
+		fPath = path.Join(procfsRoot, strconv.Itoa(pid), "stat")
 	} else {
-		pidStat.path = path.Join(procfsRoot, strconv.Itoa(pid), "task", strconv.Itoa(tid), "stat")
+		fPath = path.Join(procfsRoot, strconv.Itoa(pid), "task", strconv.Itoa(tid), "stat")
 	}
+	pidStat.path = &fPath
 	return pidStat
 }
 
-func (pidStat *PidStat) Parse() error {
-	file, err := os.Open(pidStat.path)
+// Parse file and update the fields.
+func (pidStat *PidStat) Parse(pathFrom *PidStat) error {
+	if pathFrom != nil {
+		pidStat.path = pathFrom.path
+	}
+	file, err := os.Open(*pidStat.path)
 	if err != nil {
 		return err
 	}
@@ -207,7 +225,7 @@ func (pidStat *PidStat) Parse() error {
 		}
 	}
 	if commStart < 0 {
-		return fmt.Errorf("%s: cannot locate '('", pidStat.path)
+		return fmt.Errorf("%s: cannot locate '('", *pidStat.path)
 	}
 	// Locate ')' for comm end, it should be at most TASK_COMM_LEN after
 	// commStart:
@@ -224,7 +242,7 @@ func (pidStat *PidStat) Parse() error {
 		for ; commEnd >= commStart && buf[commEnd] != ')'; commEnd-- {
 		}
 		if commEnd < commStart {
-			return fmt.Errorf("%s: cannot locate ')'", pidStat.path)
+			return fmt.Errorf("%s: cannot locate ')'", *pidStat.path)
 		}
 	}
 
@@ -257,7 +275,7 @@ func (pidStat *PidStat) Parse() error {
 				} else {
 					return fmt.Errorf(
 						"%s: field# %d: %q: invalid numerical value",
-						pidStat.path, fieldNum, string(buf[fieldStart:pos]),
+						*pidStat.path, fieldNum, string(buf[fieldStart:pos]),
 					)
 				}
 			}
@@ -266,7 +284,7 @@ func (pidStat *PidStat) Parse() error {
 	}
 	// Sanity check:
 	if fieldNum != PID_STAT_MAX_FIELD_NUM {
-		return fmt.Errorf("%s: not enough fields: want: %d, got: %d", pidStat.path, PID_STAT_MAX_FIELD_NUM, fieldNum)
+		return fmt.Errorf("%s: not enough fields: want: %d, got: %d", *pidStat.path, PID_STAT_MAX_FIELD_NUM, fieldNum)
 	}
 	return nil
 }

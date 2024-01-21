@@ -64,12 +64,12 @@ func testPidStatParser(tc *PidStatTestCase, t *testing.T) {
 			pidStat.ByteSliceFields[i] = buf[i : i+1]
 		}
 	}
-	err := pidStat.Parse()
+	err := pidStat.Parse(nil)
 	if tc.wantError == nil && err != nil {
 		t.Fatal(err)
 	}
 	if tc.wantError != nil {
-		wantError := fmt.Errorf("%s: %v", pidStat.path, tc.wantError)
+		wantError := fmt.Errorf("%s: %v", *pidStat.path, tc.wantError)
 		if err == nil || wantError.Error() != err.Error() {
 			t.Fatalf("error: want: %v, got: %v", wantError, err)
 		}
