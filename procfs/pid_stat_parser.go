@@ -22,7 +22,7 @@ const (
 // The data gleaned from this file is of two types, depending on its use case:
 // - byte slice: used as-is, the value from the file is the (label) value
 //   associated w/ the metric, e.g. priority
-//  - numerical: used for calculations, e.g. utime/stime
+// - numerical: used for calculations, e.g. utime/stime
 
 // Note about PID stats parsers:
 //

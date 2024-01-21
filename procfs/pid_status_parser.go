@@ -35,15 +35,14 @@ import (
 // voluntary_ctxt_switches:	2588
 // nonvoluntary_ctxt_switches:	12
 
-// The data gleaned from this file has two use cases:
-//  - as-is: the value from the file is the value associated w/ the metric, e.g. Vm... stats
-//  - for numerical calculations, e.g. voluntary_ctxt_switches
-// As-is data will be returned such that it can be easily converted to byte
-// slices whereas numerical data will be returned as unsigned long.
+// The data gleaned from this file is of two types, depending on its use case:
+// - byte slice: used as-is, the value from the file is the (label) value
+//   associated w/ the metric, e.g. Vm... stats
+// - numerical: used for calculations, e.g. voluntary_ctxt_switches
 // As-is data comes in 3 flavors:
-//   - single value              // Umask:	0022
-//   - single value + ByteSliceFieldUnit       // VmPeak:	  222400 kB
-//   - list                      // Uid:	104	104	104	104
+//   - single value              					// Umask:	0022
+//   - single value + unit (a parallel [][]byte)	// VmPeak:	  222400 kB <- umnit
+//   - list											// Uid:	104	104	104	104
 
 // Parsed data types:
 const (
@@ -53,10 +52,10 @@ const (
 	PID_STATUS_ULONG_DATA
 )
 
-// The parsed data will be stored into 2 array sets: one for byte slices, the
+// The parsed data will be stored into 2 lists: one for byte slices, the
 // other for numerical, using the following indexes:
 
-// Indexes for byte slices data:
+// Indexes for byte slice data:
 const (
 	PID_STATUS_UID = iota
 	PID_STATUS_GID
@@ -93,21 +92,20 @@ const (
 )
 
 const (
+	// The character used to concatenate list values:
 	PID_STATUS_LIST_DATA_SEP = ','
 )
 
 type PidStatus struct {
-	// Backing buffer for byte slice fields:
-	ByteSliceFieldsBuf *bytes.Buffer
-	// Start/end offsets for byte slice fields;
-	//  field# i = ByteSliceFieldsBuf[ByteSliceFieldOffsets[i].Start:ByteSliceFieldOffsets[i].End]
-	ByteSliceFieldOffsets []SliceOffsets
+	// As-is fields:
+	ByteSliceFields [][]byte
 	// ByteSliceFieldUnit, it will be replicated from pidStatusParserInfo:
 	ByteSliceFieldUnit [][]byte
-	// Unsigned long data:
+	// Numeric fierlds:
 	NumericFields []uint64
-	// Path to the file:
-	path string
+	// The path file to read as a pointer (see "Note about PID stats parsers" in
+	// pid_stat_parser.go):
+	path *string
 	// Parsing info replicated as a reference; this is to avoid locking, once
 	// the reference was pulled:
 	lineHandling []*PidStatusLineHandling
@@ -282,45 +280,24 @@ func initPidStatusParserInfo(path string) error {
 
 func NewPidStatus(procfsRoot string, pid, tid int) *PidStatus {
 	pidStatus := &PidStatus{
-		ByteSliceFieldsBuf:    &bytes.Buffer{},
-		ByteSliceFieldOffsets: make([]SliceOffsets, PID_STATUS_BYTE_SLICE_NUM_FIELDS),
-		NumericFields:         make([]uint64, PID_STATUS_ULONG_NUM_FIELDS),
+		ByteSliceFields: make([][]byte, PID_STATUS_BYTE_SLICE_NUM_FIELDS),
+		NumericFields:   make([]uint64, PID_STATUS_ULONG_NUM_FIELDS),
 	}
+	var fPath string
 	if tid == PID_STAT_PID_ONLY_TID {
-		pidStatus.path = path.Join(procfsRoot, strconv.Itoa(pid), "status")
+		fPath = path.Join(procfsRoot, strconv.Itoa(pid), "status")
 	} else {
-		pidStatus.path = path.Join(procfsRoot, strconv.Itoa(pid), "task", strconv.Itoa(tid), "status")
+		fPath = path.Join(procfsRoot, strconv.Itoa(pid), "task", strconv.Itoa(tid), "status")
 	}
+	pidStatus.path = &fPath
 	return pidStatus
-}
-
-func (pidStatus *PidStatus) Clone(full bool) *PidStatus {
-	newPidStatus := &PidStatus{
-		ByteSliceFieldOffsets: make([]SliceOffsets, PID_STATUS_BYTE_SLICE_NUM_FIELDS),
-		NumericFields:         make([]uint64, PID_STATUS_ULONG_NUM_FIELDS),
-		path:                  pidStatus.path,
-		lineHandling:          pidStatus.lineHandling,
-		ByteSliceFieldUnit:    pidStatus.ByteSliceFieldUnit,
-	}
-
-	if pidStatus.ByteSliceFieldsBuf == nil {
-		newPidStatus.ByteSliceFieldsBuf = &bytes.Buffer{}
-	} else {
-		newPidStatus.ByteSliceFieldsBuf = bytes.NewBuffer(make([]byte, pidStatus.ByteSliceFieldsBuf.Cap()))
-	}
-	if full {
-		newPidStatus.ByteSliceFieldsBuf.Write(pidStatus.ByteSliceFieldsBuf.Bytes())
-		copy(newPidStatus.ByteSliceFieldOffsets, pidStatus.ByteSliceFieldOffsets)
-		copy(newPidStatus.NumericFields, pidStatus.NumericFields)
-	}
-	return newPidStatus
 }
 
 func (pidStatus *PidStatus) setLineHandling() error {
 	pidStatusParserInfo.lock.Lock()
 	defer pidStatusParserInfo.lock.Unlock()
 	if pidStatusParserInfo.lineHandling == nil {
-		err := initPidStatusParserInfo(pidStatus.path)
+		err := initPidStatusParserInfo(*pidStatus.path)
 		if err != nil {
 			return err
 		}
@@ -330,10 +307,11 @@ func (pidStatus *PidStatus) setLineHandling() error {
 	return nil
 }
 
-// The parser will populate PidStatus with the latest information. If the
-// returned error is not nil, then the data part of PidStatus is undefined, it
-// may contain leftovers + partially new data, up to the point of error.
-func (pidStatus *PidStatus) Parse() error {
+func (pidStatus *PidStatus) Parse(pathFrom *PidStatus) error {
+	if pathFrom != nil {
+		pidStatus.path = pathFrom.path
+	}
+
 	// Copy reference of parser info, as needed. Build the latter JIT as needed.
 	if pidStatus.lineHandling == nil {
 		err := pidStatus.setLineHandling()
@@ -342,100 +320,93 @@ func (pidStatus *PidStatus) Parse() error {
 		}
 	}
 
-	fBuf, err := pidStatusReadFileBufPool.ReadFile(pidStatus.path)
+	fBuf, err := pidStatusReadFileBufPool.ReadFile(*pidStatus.path)
 	defer pidStatusReadFileBufPool.ReturnBuf(fBuf)
 	if err != nil {
 		return err
 	}
 	buf, l := fBuf.Bytes(), fBuf.Len()
 
-	byteSliceFieldsBuf := pidStatus.ByteSliceFieldsBuf
-	if byteSliceFieldsBuf == nil {
-		byteSliceFieldsBuf := &bytes.Buffer{}
-		pidStatus.ByteSliceFieldsBuf = byteSliceFieldsBuf
-	} else {
-		byteSliceFieldsBuf.Reset()
-	}
-	byteSliceFieldOffsets := pidStatus.ByteSliceFieldOffsets
+	byteSliceFields, numericFields := pidStatus.ByteSliceFields, pidStatus.NumericFields
 	lineHandling := pidStatus.lineHandling
 	lineIndex, maxLineIndex := 0, len(lineHandling)
-	for lineStart, byteSliceFieldsBufOff := 0, 0; lineStart < l; lineIndex++ {
+	for lineStartPos := 0; lineStartPos < l; lineIndex++ {
 		// Sanity check: too many lines?
 		if lineIndex >= maxLineIndex {
 			return fmt.Errorf(
 				"%s: too many lines (> %d)",
-				pidStatus.path, maxLineIndex,
+				*pidStatus.path, maxLineIndex,
 			)
 		}
 
-		lineEnd := lineStart
-		for ; lineEnd < l && buf[lineEnd] != '\n'; lineEnd++ {
+		// TODO: find a strict one pass implementation. For now the compromise
+		// is to perform quick scan to detect the line end:
+		lineEndPos := lineStartPos
+		for ; lineEndPos < l && buf[lineEndPos] != '\n'; lineEndPos++ {
 		}
 
 		// Handle this line or ignore?
 		handling := lineHandling[lineIndex]
 		if handling != nil {
 			// Locate value start:
-			pos := lineStart + handling.prefixLen
-			for ; pos < lineEnd && isWhitespace[buf[pos]]; pos++ {
+			pos := lineStartPos + handling.prefixLen
+			for ; pos < lineEndPos && isWhitespace[buf[pos]]; pos++ {
 			}
-			if pos == lineEnd {
+			if pos >= lineEndPos {
 				return fmt.Errorf(
 					"%s#%d: %q: truncated line",
-					pidStatus.path, lineIndex+1, string(buf[lineStart:lineEnd]),
+					*pidStatus.path, lineIndex+1, string(buf[lineStartPos:lineEndPos]),
 				)
 			}
 			// Handle the field according to its type:
 			dataType, fieldIndex := handling.dataType, handling.index
 			switch dataType {
 			case PID_STATUS_SINGLE_VAL_DATA, PID_STATUS_SINGLE_VAL_UNIT_DATA:
+				field := byteSliceFields[fieldIndex]
 				valueStart := pos
-				for ; pos < lineEnd && !isWhitespace[buf[pos]]; pos++ {
+				for ; pos < lineEndPos && !isWhitespace[buf[pos]]; pos++ {
 				}
-				n, err := byteSliceFieldsBuf.Write(buf[valueStart:pos])
-				if err != nil {
-					return fmt.Errorf(
-						"%s#%d: %q: %v",
-						pidStatus.path, lineIndex+1, string(buf[lineStart:lineEnd]), err,
-					)
+				valueLen := pos - valueStart
+				if cap(field) < valueLen {
+					field = make([]byte, valueLen)
+				} else if len(field) != valueLen {
+					field = field[:valueLen]
 				}
-				byteSliceFieldOffsets[fieldIndex].Start = byteSliceFieldsBufOff
-				byteSliceFieldsBufOff += n
-				byteSliceFieldOffsets[fieldIndex].End = byteSliceFieldsBufOff
+				copy(field, buf[valueStart:pos])
+				byteSliceFields[fieldIndex] = field
 
 			case PID_STATUS_LIST_DATA:
-				// Join the words separated by a single, standard, sep:
-				for firstWord := true; err == nil && pos < lineEnd; {
-					valueStart, n := pos, 0
-					for ; pos < lineEnd && !isWhitespace[buf[pos]]; pos++ {
+				// Join the words separated by the single standard separator:
+				field := byteSliceFields[fieldIndex]
+				// For capacity purposes assume the worst case scenario:
+				maxFieldLen := lineEndPos - pos
+				if cap(field) < maxFieldLen {
+					field = make([]byte, maxFieldLen)
+				} else if len(field) < maxFieldLen {
+					field = field[:maxFieldLen]
+				}
+				fieldPos := 0
+				for firstWord := true; pos < lineEndPos; {
+					valueStart := pos
+					for ; pos < lineEndPos && !isWhitespace[buf[pos]]; pos++ {
 					}
-					if firstWord {
-						byteSliceFieldOffsets[fieldIndex].Start = byteSliceFieldsBufOff
-						firstWord = false
+					if !firstWord {
+						field[fieldPos] = PID_STATUS_LIST_DATA_SEP
+						fieldPos++
 					} else {
-						err = byteSliceFieldsBuf.WriteByte(PID_STATUS_LIST_DATA_SEP)
-						byteSliceFieldsBufOff++
+						firstWord = false
 					}
-					if err == nil {
-						n, err = byteSliceFieldsBuf.Write(buf[valueStart:pos])
-					}
-					if err == nil {
-						byteSliceFieldsBufOff += n
-						for ; pos < lineEnd && isWhitespace[buf[pos]]; pos++ {
-						}
+					copy(field[fieldPos:], buf[valueStart:pos])
+					fieldPos += pos - valueStart
+					// Skip over trailing whitespaces:
+					for ; pos < lineEndPos && isWhitespace[buf[pos]]; pos++ {
 					}
 				}
-				if err != nil {
-					return fmt.Errorf(
-						"%s#%d: %q: %v",
-						pidStatus.path, lineIndex+1, string(buf[lineStart:lineEnd]), err,
-					)
-				}
-				byteSliceFieldOffsets[fieldIndex].End = byteSliceFieldsBufOff
+				byteSliceFields[fieldIndex] = field[:fieldPos]
 
 			case PID_STATUS_ULONG_DATA:
 				value := uint64(0)
-				for ; pos < lineEnd; pos++ {
+				for ; pos < lineEndPos; pos++ {
 					c := buf[pos]
 					if digit := c - '0'; digit < 10 {
 						value = (value << 3) + (value << 1) + uint64(digit)
@@ -444,22 +415,22 @@ func (pidStatus *PidStatus) Parse() error {
 					} else {
 						return fmt.Errorf(
 							"%s#%d: %q: `%c' invalid value for a digit",
-							pidStatus.path, lineIndex+1, string(buf[lineStart:lineEnd]), c,
+							*pidStatus.path, lineIndex+1, string(buf[lineStartPos:lineEndPos]), c,
 						)
 					}
 				}
-				pidStatus.NumericFields[fieldIndex] = value
+				numericFields[fieldIndex] = value
 			}
 		}
 
-		lineStart = lineEnd + 1
+		lineStartPos = lineEndPos + 1
 	}
 
 	// Sanity check: got all the expected lines?
 	if lineIndex < maxLineIndex {
 		return fmt.Errorf(
-			"%s: missing lines: want: %d, got %d",
-			pidStatus.path, maxLineIndex, lineIndex,
+			"%s: missing lines: want: %d, got: %d",
+			*pidStatus.path, maxLineIndex, lineIndex,
 		)
 	}
 

@@ -25,7 +25,7 @@ func BenchmarkPidStatusParserIO(b *testing.B) {
 func BenchmarkPidStatusParser(b *testing.B) {
 	pidStatus := procfs.NewPidStatus(LSVMI_TESTDATA_PROCFS_ROOT, pidStatusTestPid, pidStatusTestTid)
 	for n := 0; n < b.N; n++ {
-		err := pidStatus.Parse()
+		err := pidStatus.Parse(nil)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -60,9 +60,9 @@ func BenchmarkPidStatusParserProm(b *testing.B) {
 // goarch: amd64
 // pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
 // cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
-// BenchmarkPidStatusParserIO   	   68760	     16658 ns/op	     152 B/op	       3 allocs/op
-// BenchmarkPidStatusParser     	   60675	     19738 ns/op	    4248 B/op	       4 allocs/op
-// BenchmarkPidStatusParserProm 	   44347	     26402 ns/op	    1336 B/op	      31 allocs/op
+// BenchmarkPidStatusParserIO   	   69541	     16960 ns/op	     152 B/op	       3 allocs/op
+// BenchmarkPidStatusParser     	   67520	     18458 ns/op	     176 B/op	       4 allocs/op
+// BenchmarkPidStatusParserProm 	   44492	     27708 ns/op	    1336 B/op	      31 allocs/op
 
 func BenchmarkPidStatusFileRead(b *testing.B) {
 	path := pidTidPath(LSVMI_TESTDATA_PROCFS_ROOT, pidStatTestPid, pidStatTestTid, "status")
