@@ -19,6 +19,7 @@ const (
 var pidStatusTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "pid_status")
 
 type PidStatusTestCase struct {
+	name                     string
 	procfsRoot               string
 	pid, tid                 int
 	wantByteSliceFieldValues map[int]string
@@ -124,6 +125,7 @@ func testPidStatusParser(tc *PidStatusTestCase, t *testing.T) {
 func TestPidStatusParser(t *testing.T) {
 	for _, tc := range []*PidStatusTestCase{
 		{
+			name:       "real_life",
 			procfsRoot: pidStatusTestdataDir,
 			pid:        468,
 			tid:        486,
@@ -181,8 +183,14 @@ func TestPidStatusParser(t *testing.T) {
 			},
 		},
 	} {
+		var name string
+		if tc.name != "" {
+			name = fmt.Sprintf("name=%s,procfsRoot=%s,pid=%d,tid=%d", tc.name, tc.procfsRoot, tc.pid, tc.tid)
+		} else {
+			name = fmt.Sprintf("procfsRoot=%s,pid=%d,tid=%d", tc.procfsRoot, tc.pid, tc.tid)
+		}
 		t.Run(
-			fmt.Sprintf("pid=%d,tid=%d", tc.pid, tc.tid),
+			name,
 			func(t *testing.T) { testPidStatusParser(tc, t) },
 		)
 	}
