@@ -307,9 +307,9 @@ func (pidStatus *PidStatus) setLineHandling() error {
 	return nil
 }
 
-func (pidStatus *PidStatus) Parse(pathFrom *PidStatus) error {
-	if pathFrom != nil {
-		pidStatus.path = pathFrom.path
+func (pidStatus *PidStatus) Parse(usePathFrom *PidStatus) error {
+	if usePathFrom != nil {
+		pidStatus.path = usePathFrom.path
 	}
 
 	// Copy reference of parser info, as needed. Build the latter JIT as needed.

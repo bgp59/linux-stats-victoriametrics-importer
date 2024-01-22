@@ -42,23 +42,54 @@ type PidStatTestCase struct {
 	name                string
 	procfsRoot          string
 	pid, tid            int
-	primePidStat        bool
+	primeProcfsRoot     string
+	primePid, primeTid  int
 	wantByteSliceFields map[int]string
 	wantNumericFields   map[int]uint64
 	wantError           error
 }
 
-func testPidStatParser(tc *PidStatTestCase, t *testing.T) {
-	pidStat := NewPidStat(tc.procfsRoot, tc.pid, tc.tid)
-	if tc.primePidStat {
-		// Stage some data as if this object were used in a previous scan:
-		pidStat.fBuf.Write(make([]byte, PID_STAT_BYTE_SLICE_NUM_FIELDS, 10*PID_STAT_BYTE_SLICE_NUM_FIELDS))
-		buf := pidStat.fBuf.Bytes()
-		for i := 0; i < PID_STAT_BYTE_SLICE_NUM_FIELDS; i++ {
-			pidStat.ByteSliceFields[i] = buf[i : i+1]
+func pidStatSubtestName(tc *PidStatTestCase) string {
+	name := ""
+	if tc.name != "" {
+		name += fmt.Sprintf("name=%s", tc.name)
+	}
+	if name != "" {
+		name += ","
+	}
+	name += fmt.Sprintf("procfsRoot=%s,pid=%d", tc.procfsRoot, tc.pid)
+	if tc.tid != PID_STAT_PID_ONLY_TID {
+		name += fmt.Sprintf(",tid=%d", tc.tid)
+	}
+	if tc.primePid > 0 {
+		if tc.primeProcfsRoot != "" {
+			name += fmt.Sprintf(",primeProcfsRoot=%s", tc.primeProcfsRoot)
+		}
+		name += fmt.Sprintf(",primePid=%d", tc.primePid)
+		if tc.primeTid != PID_STAT_PID_ONLY_TID {
+			name += fmt.Sprintf(",primeTid=%d", tc.primeTid)
 		}
 	}
-	err := pidStat.Parse(nil)
+	return name
+}
+
+func testPidStatParser(tc *PidStatTestCase, t *testing.T) {
+	var pidStat, usePathFrom *PidStat
+	if tc.primePid > 0 {
+		primeProcfsRoot := tc.primeProcfsRoot
+		if primeProcfsRoot == "" {
+			primeProcfsRoot = tc.procfsRoot
+		}
+		pidStat = NewPidStat(primeProcfsRoot, tc.primePid, tc.primeTid)
+		err := pidStat.Parse(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		usePathFrom = NewPidStat(tc.procfsRoot, tc.pid, tc.tid)
+	} else {
+		pidStat = NewPidStat(tc.procfsRoot, tc.pid, tc.tid)
+	}
+	err := pidStat.Parse(usePathFrom)
 	if tc.wantError == nil && err != nil {
 		t.Fatal(err)
 	}
@@ -131,11 +162,10 @@ func TestPidStatParser(t *testing.T) {
 			},
 		},
 		{
-			name:         "reuse",
-			procfsRoot:   pidStatTestdataDir,
-			pid:          1000,
-			tid:          PID_STAT_PID_ONLY_TID,
-			primePidStat: true,
+			name:       "reuse",
+			procfsRoot: pidStatTestdataDir,
+			pid:        1000,
+			tid:        PID_STAT_PID_ONLY_TID,
 			wantByteSliceFields: map[int]string{
 				PID_STAT_COMM:        "comm",
 				PID_STAT_STATE:       "state",
@@ -168,6 +198,8 @@ func TestPidStatParser(t *testing.T) {
 			procfsRoot: pidStatTestdataDir,
 			pid:        468,
 			tid:        486,
+			primePid:   1000,
+			primeTid:   PID_STAT_PID_ONLY_TID,
 			wantByteSliceFields: map[int]string{
 				PID_STAT_COMM:        "rs:main Q:Reg",
 				PID_STAT_STATE:       "S",
@@ -288,14 +320,8 @@ func TestPidStatParser(t *testing.T) {
 			wantError:  fmt.Errorf("not enough fields: want: %d, got: %d", PID_STAT_MAX_FIELD_NUM, PID_STAT_MAX_FIELD_NUM-1),
 		},
 	} {
-		var name string
-		if tc.name != "" {
-			name = fmt.Sprintf("name=%s,procfsRoot=%s,pid=%d,tid=%d", tc.name, tc.procfsRoot, tc.pid, tc.tid)
-		} else {
-			name = fmt.Sprintf("procfsRoot=%s,pid=%d,tid=%d", tc.procfsRoot, tc.pid, tc.tid)
-		}
 		t.Run(
-			name,
+			pidStatSubtestName(tc),
 			func(t *testing.T) { testPidStatParser(tc, t) },
 		)
 	}

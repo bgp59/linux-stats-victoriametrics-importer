@@ -198,9 +198,9 @@ func NewPidStat(procfsRoot string, pid, tid int) *PidStat {
 }
 
 // Parse file and update the fields.
-func (pidStat *PidStat) Parse(pathFrom *PidStat) error {
-	if pathFrom != nil {
-		pidStat.path = pathFrom.path
+func (pidStat *PidStat) Parse(usePathFrom *PidStat) error {
+	if usePathFrom != nil {
+		pidStat.path = usePathFrom.path
 	}
 	file, err := os.Open(*pidStat.path)
 	if err != nil {
