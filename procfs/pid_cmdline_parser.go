@@ -22,6 +22,8 @@ type PidCmdline struct {
 	// The buffer used to store the sanitized command line, if nil them it must
 	// be allocated from the pool:
 	Cmdline *bytes.Buffer
+	// Proc file system root, needed if pid, tid are changed at parse time:
+	procfsRoot string
 	// Path to the file:
 	path string
 }
@@ -46,7 +48,14 @@ func (pidCmdline *PidCmdline) ReturnBuf() {
 	}
 }
 
-func (pidCmdline *PidCmdline) Parse() error {
+func (pidCmdline *PidCmdline) Parse(pid, tid int) error {
+	if pid > 0 {
+		if tid == PID_STAT_PID_ONLY_TID {
+			pidCmdline.path = path.Join(pidCmdline.procfsRoot, strconv.Itoa(pid), "cmdline")
+		} else {
+			pidCmdline.path = path.Join(pidCmdline.procfsRoot, strconv.Itoa(pid), "task", strconv.Itoa(tid), "cmdline")
+		}
+	}
 	fBuf, err := pidCmdlineReadFileBufPool.ReadFile(pidCmdline.path)
 	defer pidCmdlineReadFileBufPool.ReturnBuf(fBuf)
 	truncated := (err == ErrReadFileBufPotentialTruncation)

@@ -43,7 +43,7 @@ func testPidCmdlineParser(tc *PidCmdlineTestCase, t *testing.T) {
 		file.Close()
 	}
 
-	err := pidCmdline.Parse()
+	err := pidCmdline.Parse(0, 0)
 	if tc.wantError == nil && err != nil {
 		t.Fatal(err)
 	}

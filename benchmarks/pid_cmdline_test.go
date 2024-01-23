@@ -24,7 +24,7 @@ func BenchmarkPidCmdlineParserIO(b *testing.B) {
 func benchmarkPidCmdlineParser(retBuf bool, b *testing.B) {
 	pidCmdline := procfs.NewPidCmdline(pidCmdlineProcfsRoot, pidCmdlineTestPid, pidCmdlineTestTid)
 	for n := 0; n < b.N; n++ {
-		err := pidCmdline.Parse()
+		err := pidCmdline.Parse(0, 0)
 		if retBuf {
 			pidCmdline.ReturnBuf()
 		}
