@@ -182,19 +182,18 @@ var pidStatFieldHandling = [PID_STAT_MAX_FIELD_NUM + 1]*PidStatFieldHandling{
 }
 
 func NewPidStat(procfsRoot string, pid, tid int) *PidStat {
-	pidStat := &PidStat{
-		ByteSliceFields: make([][]byte, PID_STAT_BYTE_SLICE_NUM_FIELDS),
-		NumericFields:   make([]uint64, PID_STAT_ULONG_FIELD_NUM_FIELDS),
-		fBuf:            &bytes.Buffer{},
-	}
 	var fPath string
 	if tid == PID_STAT_PID_ONLY_TID {
 		fPath = path.Join(procfsRoot, strconv.Itoa(pid), "stat")
 	} else {
 		fPath = path.Join(procfsRoot, strconv.Itoa(pid), "task", strconv.Itoa(tid), "stat")
 	}
-	pidStat.path = &fPath
-	return pidStat
+	return &PidStat{
+		ByteSliceFields: make([][]byte, PID_STAT_BYTE_SLICE_NUM_FIELDS),
+		NumericFields:   make([]uint64, PID_STAT_ULONG_FIELD_NUM_FIELDS),
+		path:            &fPath,
+		fBuf:            &bytes.Buffer{},
+	}
 }
 
 // Parse file and update the fields.
@@ -284,7 +283,10 @@ func (pidStat *PidStat) Parse(usePathFrom *PidStat) error {
 	}
 	// Sanity check:
 	if fieldNum != PID_STAT_MAX_FIELD_NUM {
-		return fmt.Errorf("%s: not enough fields: want: %d, got: %d", *pidStat.path, PID_STAT_MAX_FIELD_NUM, fieldNum)
+		return fmt.Errorf(
+			"%s: not enough fields: want: %d, got: %d",
+			*pidStat.path, PID_STAT_MAX_FIELD_NUM, fieldNum,
+		)
 	}
 	return nil
 }

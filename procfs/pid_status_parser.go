@@ -101,6 +101,9 @@ type PidStatus struct {
 	// The path file to read as a pointer (see "Note about PID stats parsers" in
 	// pid_stat_parser.go):
 	path *string
+	// Whether ByteSliceFieldUnit is shared or not; if the latter then the unit
+	// field will not be parsed (see pidStatusByteSliceFieldUnit):
+	sharedByteSliceFieldUnit bool
 }
 
 type PidStatusLineHandling struct {
@@ -109,7 +112,7 @@ type PidStatusLineHandling struct {
 	// Array index where to store the result; the actual array depends upon the
 	// data type:
 	index int
-	// Whether empty value is accepted or not:
+	// Whether an empty value is accepted or not:
 	emptyValueOK bool
 }
 
@@ -146,19 +149,18 @@ var pidStatusLineHandlingMap = map[string]*PidStatusLineHandling{
 var pidStatusReadFileBufPool = ReadFileBufPool16k
 
 func NewPidStatus(procfsRoot string, pid, tid int) *PidStatus {
-	pidStatus := &PidStatus{
-		ByteSliceFields:    make([][]byte, PID_STATUS_BYTE_SLICE_NUM_FIELDS),
-		ByteSliceFieldUnit: make([][]byte, PID_STATUS_BYTE_SLICE_NUM_FIELDS),
-		NumericFields:      make([]uint64, PID_STATUS_ULONG_NUM_FIELDS),
-	}
 	var fPath string
 	if tid == PID_STAT_PID_ONLY_TID {
 		fPath = path.Join(procfsRoot, strconv.Itoa(pid), "status")
 	} else {
 		fPath = path.Join(procfsRoot, strconv.Itoa(pid), "task", strconv.Itoa(tid), "status")
 	}
-	pidStatus.path = &fPath
-	return pidStatus
+	return &PidStatus{
+		ByteSliceFields:    make([][]byte, PID_STATUS_BYTE_SLICE_NUM_FIELDS),
+		ByteSliceFieldUnit: make([][]byte, PID_STATUS_BYTE_SLICE_NUM_FIELDS),
+		NumericFields:      make([]uint64, PID_STATUS_ULONG_NUM_FIELDS),
+		path:               &fPath,
+	}
 }
 
 func (pidStatus *PidStatus) Parse(usePathFrom *PidStatus) error {
@@ -174,9 +176,10 @@ func (pidStatus *PidStatus) Parse(usePathFrom *PidStatus) error {
 
 	byteSliceFields, byteSliceFieldUnit := pidStatus.ByteSliceFields, pidStatus.ByteSliceFieldUnit
 	numericFields := pidStatus.NumericFields
+
 	pos, lineNum, eol := 0, 0, true
 	// Keep track of found fields; those not found should be cleared at the end:
-	foundByteSliceFields, foundByteSliceFieldsCnt := [PID_STATUS_BYTE_SLICE_NUM_FIELDS]bool{}, 0
+	foundByteSliceFields, missingByteSliceFieldsCnt := [PID_STATUS_BYTE_SLICE_NUM_FIELDS]bool{}, PID_STATUS_BYTE_SLICE_NUM_FIELDS
 	for {
 		// It not at EOL, locate the end of the current line and move past it;
 		// this may happen if the previous line wasn't fully used:
@@ -328,11 +331,11 @@ func (pidStatus *PidStatus) Parse(usePathFrom *PidStatus) error {
 
 		// Mark it as found:
 		foundByteSliceFields[fieldIndex] = true
-		foundByteSliceFieldsCnt++
+		missingByteSliceFieldsCnt--
 	}
 
-	// Clear not found fields as needed:
-	if foundByteSliceFieldsCnt < PID_STATUS_BYTE_SLICE_NUM_FIELDS {
+	if missingByteSliceFieldsCnt > 0 {
+		// Clear not found fields:
 		for fieldIndex, found := range foundByteSliceFields {
 			if !found && byteSliceFields[fieldIndex] != nil {
 				byteSliceFields[fieldIndex] = nil
