@@ -73,6 +73,8 @@ func getTestPidStatList() ([]*procfs.PidStat, error) {
 	return testPidStatList, nil
 }
 
+// Benchmark a single file:
+
 func BenchmarkPidStatParserIO(b *testing.B) {
 	benchmarkFileRead(
 		pidTidPath(pidStatTestProcfsRoot, pidStatTestPid, pidStatTestTid, "stat"),
@@ -123,8 +125,11 @@ func BenchmarkPidStatParserProm(b *testing.B) {
 // BenchmarkPidStatParser     	   66681	     17642 ns/op	     152 B/op	       3 allocs/op
 // BenchmarkPidStatParserProm 	   45513	     26569 ns/op	    1336 B/op	      31 allocs/op
 
+// Benchmark all files (closer to real life situation):
+
 func benchmarkPidStatAllParserIO(fPathList []string, b *testing.B) {
 	buf := &bytes.Buffer{}
+
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		for _, fPath := range fPathList {

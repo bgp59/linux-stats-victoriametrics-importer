@@ -118,20 +118,21 @@ func testPidStatusParser(tc *PidStatusTestCase, t *testing.T) {
 				wantVal,
 				gotVal,
 			)
+			continue
 		}
-	}
-
-	for index := range tc.wantByteSliceFieldUnit {
-		wantUnit := tc.wantByteSliceFieldUnit[index]
-		gotUnit := string(pidStatus.ByteSliceFieldUnit[index])
-		if wantUnit != gotUnit {
-			fmt.Fprintf(
-				diffBuf,
-				"\nByteSliceFieldUnit[%s]: want: %q, got: %q",
-				pidStatusByteSliceFieldsIndexToName[index],
-				wantUnit,
-				gotUnit,
-			)
+		if pidStatus.ByteSliceFields[index] != nil {
+			// Check unit as well:
+			wantUnit := tc.wantByteSliceFieldUnit[index]
+			gotUnit := string(pidStatus.ByteSliceFieldUnit[index])
+			if wantUnit != gotUnit {
+				fmt.Fprintf(
+					diffBuf,
+					"\nByteSliceFieldUnit[%s]: want: %q, got: %q",
+					pidStatusByteSliceFieldsIndexToName[index],
+					wantUnit,
+					gotUnit,
+				)
+			}
 		}
 	}
 
@@ -165,6 +166,64 @@ func TestPidStatusParser(t *testing.T) {
 				PID_STATUS_UID:               "900,901,902,903",
 				PID_STATUS_GID:               "1000,1001,1002,1003",
 				PID_STATUS_GROUPS:            "1200,1201,1202",
+				PID_STATUS_VM_PEAK:           "1700",
+				PID_STATUS_VM_SIZE:           "1800",
+				PID_STATUS_VM_LCK:            "1900",
+				PID_STATUS_VM_PIN:            "2000",
+				PID_STATUS_VM_HWM:            "2100",
+				PID_STATUS_VM_RSS:            "2200",
+				PID_STATUS_RSS_ANON:          "2300",
+				PID_STATUS_RSS_FILE:          "2400",
+				PID_STATUS_RSS_SHMEM:         "2500",
+				PID_STATUS_VM_DATA:           "2600",
+				PID_STATUS_VM_STK:            "2700",
+				PID_STATUS_VM_EXE:            "2800",
+				PID_STATUS_VM_LIB:            "2900",
+				PID_STATUS_VM_PTE:            "3000",
+				PID_STATUS_VM_PMD:            "",
+				PID_STATUS_VM_SWAP:           "3100",
+				PID_STATUS_HUGETLBPAGES:      "3200",
+				PID_STATUS_CPUS_ALLOWED_LIST: "5300,5301,5302,5303",
+				PID_STATUS_MEMS_ALLOWED_LIST: "5500,5501",
+			},
+			wantByteSliceFieldUnit: map[int]string{
+				PID_STATUS_UID:               "",
+				PID_STATUS_GID:               "",
+				PID_STATUS_GROUPS:            "",
+				PID_STATUS_VM_PEAK:           "kB",
+				PID_STATUS_VM_SIZE:           "kB",
+				PID_STATUS_VM_LCK:            "kB",
+				PID_STATUS_VM_PIN:            "kB",
+				PID_STATUS_VM_HWM:            "kB",
+				PID_STATUS_VM_RSS:            "kB",
+				PID_STATUS_RSS_ANON:          "kB",
+				PID_STATUS_RSS_FILE:          "kB",
+				PID_STATUS_RSS_SHMEM:         "kB",
+				PID_STATUS_VM_DATA:           "kB",
+				PID_STATUS_VM_STK:            "kB",
+				PID_STATUS_VM_EXE:            "kB",
+				PID_STATUS_VM_LIB:            "kB",
+				PID_STATUS_VM_PTE:            "kB",
+				PID_STATUS_VM_PMD:            "",
+				PID_STATUS_VM_SWAP:           "kB",
+				PID_STATUS_HUGETLBPAGES:      "kB",
+				PID_STATUS_CPUS_ALLOWED_LIST: "",
+				PID_STATUS_MEMS_ALLOWED_LIST: "",
+			},
+			wantNumericFields: map[int]uint64{
+				PID_STATUS_VOLUNTARY_CTXT_SWITCHES:    5600,
+				PID_STATUS_NONVOLUNTARY_CTXT_SWITCHES: 5700,
+			},
+		},
+		{
+			name:       "empty_fields",
+			procfsRoot: pidStatusTestdataDir,
+			pid:        1001,
+			tid:        PID_STAT_PID_ONLY_TID,
+			wantByteSliceFieldValues: map[int]string{
+				PID_STATUS_UID:               "900,901,902,903",
+				PID_STATUS_GID:               "1000,1001,1002,1003",
+				PID_STATUS_GROUPS:            "",
 				PID_STATUS_VM_PEAK:           "1700",
 				PID_STATUS_VM_SIZE:           "1800",
 				PID_STATUS_VM_LCK:            "1900",
@@ -272,6 +331,66 @@ func TestPidStatusParser(t *testing.T) {
 			wantNumericFields: map[int]uint64{
 				PID_STATUS_VOLUNTARY_CTXT_SWITCHES:    2588,
 				PID_STATUS_NONVOLUNTARY_CTXT_SWITCHES: 12,
+			},
+		},
+		{
+			name:       "real_life_missing_fields",
+			procfsRoot: pidStatusTestdataDir,
+			pid:        98,
+			tid:        PID_STAT_PID_ONLY_TID,
+			primePid:   1000,
+			primeTid:   PID_STAT_PID_ONLY_TID,
+			wantByteSliceFieldValues: map[int]string{
+				PID_STATUS_UID:               "0,0,0,0",
+				PID_STATUS_GID:               "0,0,0,0",
+				PID_STATUS_GROUPS:            "",
+				PID_STATUS_VM_PEAK:           "",
+				PID_STATUS_VM_SIZE:           "",
+				PID_STATUS_VM_LCK:            "",
+				PID_STATUS_VM_PIN:            "",
+				PID_STATUS_VM_HWM:            "",
+				PID_STATUS_VM_RSS:            "",
+				PID_STATUS_RSS_ANON:          "",
+				PID_STATUS_RSS_FILE:          "",
+				PID_STATUS_RSS_SHMEM:         "",
+				PID_STATUS_VM_DATA:           "",
+				PID_STATUS_VM_STK:            "",
+				PID_STATUS_VM_EXE:            "",
+				PID_STATUS_VM_LIB:            "",
+				PID_STATUS_VM_PTE:            "",
+				PID_STATUS_VM_PMD:            "",
+				PID_STATUS_VM_SWAP:           "",
+				PID_STATUS_HUGETLBPAGES:      "",
+				PID_STATUS_CPUS_ALLOWED_LIST: "0-14",
+				PID_STATUS_MEMS_ALLOWED_LIST: "0",
+			},
+			wantByteSliceFieldUnit: map[int]string{
+				PID_STATUS_UID:               "",
+				PID_STATUS_GID:               "",
+				PID_STATUS_GROUPS:            "",
+				PID_STATUS_VM_PEAK:           "ignore",
+				PID_STATUS_VM_SIZE:           "ignore",
+				PID_STATUS_VM_LCK:            "ignore",
+				PID_STATUS_VM_PIN:            "ignore",
+				PID_STATUS_VM_HWM:            "ignore",
+				PID_STATUS_VM_RSS:            "ignore",
+				PID_STATUS_RSS_ANON:          "ignore",
+				PID_STATUS_RSS_FILE:          "ignore",
+				PID_STATUS_RSS_SHMEM:         "ignore",
+				PID_STATUS_VM_DATA:           "ignore",
+				PID_STATUS_VM_STK:            "ignore",
+				PID_STATUS_VM_EXE:            "ignore",
+				PID_STATUS_VM_LIB:            "ignore",
+				PID_STATUS_VM_PTE:            "ignore",
+				PID_STATUS_VM_PMD:            "ignore",
+				PID_STATUS_VM_SWAP:           "ignore",
+				PID_STATUS_HUGETLBPAGES:      "ignore",
+				PID_STATUS_CPUS_ALLOWED_LIST: "",
+				PID_STATUS_MEMS_ALLOWED_LIST: "",
+			},
+			wantNumericFields: map[int]uint64{
+				PID_STATUS_VOLUNTARY_CTXT_SWITCHES:    4,
+				PID_STATUS_NONVOLUNTARY_CTXT_SWITCHES: 0,
 			},
 		},
 	} {

@@ -15,10 +15,16 @@ if __name__ == '__main__':
     p = subprocess.run(
         ['go', 'test', '-benchmem', '-cpu', '1', '-bench', args.benchmark[0]],
         cwd=this_dir,
-        check=True,
+        check=False,
         capture_output=True,
         encoding='utf-8',
     )
+    if p.returncode != 0:
+        print(p.stdout)
+        print(p.stderr, file=sys.stderr)
+        print(f"exit code {p.returncode}", file=sys.stderr)
+        sys.exit(p.returncode)
+
     output, results_by_ns_per_op = [], {}
     for line in p.stdout.splitlines():
         words = line.split()
