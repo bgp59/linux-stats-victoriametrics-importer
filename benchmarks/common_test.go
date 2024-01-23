@@ -9,6 +9,8 @@ import (
 	"path"
 	"strconv"
 	"testing"
+
+	"github.com/eparparita/linux-stats-victoriametrics-importer/procfs"
 )
 
 const (
@@ -22,6 +24,8 @@ const (
 	BENCH_FILE_SCAN_BYTES
 	BENCH_FILE_SCAN_TEXT
 )
+
+type PidTidPair [2]int
 
 var benchFileReadOpMap = map[int]string{
 	BENCH_FILE_READ:            "BENCH_FILE_READ",
@@ -43,10 +47,10 @@ func pidTidPath(procfsRoot string, pid, tid int, statFile string) string {
 	}
 }
 
-func benchmarkFileRead(path string, op int, b *testing.B) {
+func benchmarkFileRead(fPath string, op int, b *testing.B) {
 	buf := &bytes.Buffer{}
 	for n := 0; n < b.N; n++ {
-		f, err := os.Open(path)
+		f, err := os.Open(fPath)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -87,4 +91,31 @@ func benchmarkFileRead(path string, op int, b *testing.B) {
 		}
 		f.Close()
 	}
+}
+
+func getPidTidList(procfsRoot string, pidOnly bool) ([]PidTidPair, error) {
+	dirEntries, err := os.ReadDir(procfsRoot)
+	if err != nil {
+		return nil, err
+	}
+	pidTidList := make([]PidTidPair, 0)
+	for _, dirEntry := range dirEntries {
+		name := dirEntry.Name()
+		pid, err := strconv.Atoi(name)
+		if err == nil && pid > 0 {
+			pidTidList = append(pidTidList, PidTidPair{pid, procfs.PID_STAT_PID_ONLY_TID})
+			if !pidOnly {
+				dirEntries, err := os.ReadDir(path.Join(procfsRoot, name, "task"))
+				if err == nil {
+					for _, dirEntry := range dirEntries {
+						tid, err := strconv.Atoi(dirEntry.Name())
+						if err == nil && tid > 0 {
+							pidTidList = append(pidTidList, PidTidPair{pid, tid})
+						}
+					}
+				}
+			}
+		}
+	}
+	return pidTidList, nil
 }
