@@ -200,7 +200,7 @@ func testInterruptsParser(tc *InterruptsTestCase, t *testing.T) {
 }
 
 func TestInterruptsParser(t *testing.T) {
-	for _, tc := range []*InterruptsTestCase{
+	for i, tc := range []*InterruptsTestCase{
 		{
 			procfsRoot: path.Join(interruptsTestdataDir, "field_mapping"),
 			wantInterrupts: &Interrupts{
@@ -417,9 +417,9 @@ func TestInterruptsParser(t *testing.T) {
 	} {
 		var name string
 		if tc.name != "" {
-			name = fmt.Sprintf("name=%s,procfsRoot=%s", tc.name, tc.procfsRoot)
+			name = fmt.Sprintf("tc=%d,name=%s,procfsRoot=%s", i, tc.name, tc.procfsRoot)
 		} else {
-			name = fmt.Sprintf("procfsRoot=%s", tc.procfsRoot)
+			name = fmt.Sprintf("tc=%d,procfsRoot=%s", i, tc.procfsRoot)
 		}
 		t.Run(
 			name,

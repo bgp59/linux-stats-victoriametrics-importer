@@ -152,7 +152,7 @@ func testNetSnmpParser(tc *NetSnmpTestCase, t *testing.T) {
 }
 
 func TestNetSnmpParserBasic(t *testing.T) {
-	for _, tc := range []*NetSnmpTestCase{
+	for i, tc := range []*NetSnmpTestCase{
 		{
 			procfsRoot: path.Join(netSnmpTestdataDir, "field_mapping"),
 			wantNetSnmp: &NetSnmp{
@@ -169,9 +169,9 @@ func TestNetSnmpParserBasic(t *testing.T) {
 	} {
 		var name string
 		if tc.name != "" {
-			name = fmt.Sprintf("name=%s,procfsRoot=%s", tc.name, tc.procfsRoot)
+			name = fmt.Sprintf("tc=%d, name=%s,procfsRoot=%s", i, tc.name, tc.procfsRoot)
 		} else {
-			name = fmt.Sprintf("procfsRoot=%s", tc.procfsRoot)
+			name = fmt.Sprintf("tc=%d,procfsRoot=%s", i, tc.procfsRoot)
 		}
 		t.Run(
 			name,
@@ -186,7 +186,7 @@ func TestNetSnmpParserComplex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, tc := range []*NetSnmpTestCase{
+	for i, tc := range []*NetSnmpTestCase{
 		{
 			name:         "reuse",
 			procfsRoot:   path.Join(netSnmpTestdataDir, "field_mapping"),
@@ -205,9 +205,9 @@ func TestNetSnmpParserComplex(t *testing.T) {
 	} {
 		var name string
 		if tc.name != "" {
-			name = fmt.Sprintf("name=%s,procfsRoot=%s", tc.name, tc.procfsRoot)
+			name = fmt.Sprintf("tc=%d,name=%s,procfsRoot=%s", i, tc.name, tc.procfsRoot)
 		} else {
-			name = fmt.Sprintf("procfsRoot=%s", tc.procfsRoot)
+			name = fmt.Sprintf("tc=%d,procfsRoot=%s", i, tc.procfsRoot)
 		}
 		t.Run(
 			name,

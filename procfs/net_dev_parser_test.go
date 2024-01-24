@@ -118,7 +118,7 @@ func testNetDevParser(tc *NetDevTestCase, t *testing.T) {
 }
 
 func TestNetDevParser(t *testing.T) {
-	for _, tc := range []*NetDevTestCase{
+	for i, tc := range []*NetDevTestCase{
 		&NetDevTestCase{
 			procfsRoot: path.Join(netDevTestdataDir, "field_mapping"),
 			wantNetDev: &NetDev{
@@ -180,9 +180,9 @@ func TestNetDevParser(t *testing.T) {
 	} {
 		var name string
 		if tc.name != "" {
-			name = fmt.Sprintf("name=%s,procfsRoot=%s", tc.name, tc.procfsRoot)
+			name = fmt.Sprintf("tc=%d,name=%s,procfsRoot=%s", i, tc.name, tc.procfsRoot)
 		} else {
-			name = fmt.Sprintf("procfsRoot=%s", tc.procfsRoot)
+			name = fmt.Sprintf("tc=%d,procfsRoot=%s", i, tc.procfsRoot)
 		}
 		t.Run(
 			name,

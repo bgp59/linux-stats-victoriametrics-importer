@@ -59,7 +59,7 @@ func testPidCmdlineParser(tc *PidCmdlineTestCase, t *testing.T) {
 }
 
 func TestPidCmdlineParser(t *testing.T) {
-	for _, tc := range []*PidCmdlineTestCase{
+	for i, tc := range []*PidCmdlineTestCase{
 		{
 			procfsRoot:  pidCmdlineTestdataDir,
 			pid:         1,
@@ -160,7 +160,7 @@ func TestPidCmdlineParser(t *testing.T) {
 		},
 	} {
 		t.Run(
-			fmt.Sprintf("procfsRoot=%s,pid=%d,tid=%d", tc.procfsRoot, tc.pid, tc.tid),
+			fmt.Sprintf("tc=%d,procfsRoot=%s,pid=%d,tid=%d", i, tc.procfsRoot, tc.pid, tc.tid),
 			func(t *testing.T) { testPidCmdlineParser(tc, t) },
 		)
 	}

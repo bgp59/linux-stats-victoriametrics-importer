@@ -25,7 +25,7 @@ func testGetCurrentLine(tc *getCurrentLineTestCase, t *testing.T) {
 }
 
 func TestGetCurrentLine(t *testing.T) {
-	for _, tc := range []*getCurrentLineTestCase{
+	for i, tc := range []*getCurrentLineTestCase{
 		{
 			getCurrentLineTestBuf,
 			0,
@@ -48,7 +48,7 @@ func TestGetCurrentLine(t *testing.T) {
 		},
 	} {
 		t.Run(
-			fmt.Sprintf("pos=%d", tc.pos),
+			fmt.Sprintf("tc=%d,pos=%d", i, tc.pos),
 			func(t *testing.T) { testGetCurrentLine(tc, t) },
 		)
 	}

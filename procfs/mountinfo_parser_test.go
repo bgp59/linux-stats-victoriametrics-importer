@@ -96,7 +96,7 @@ func testMountinfoParser(tc *MountinfoTestCase, t *testing.T) {
 }
 
 func TestMountinfoParser(t *testing.T) {
-	for _, tc := range []*MountinfoTestCase{
+	for i, tc := range []*MountinfoTestCase{
 		&MountinfoTestCase{
 			procfsRoot: path.Join(mountinfoTestdataDir, "field_mapping"),
 			wantDevMountInfo: map[string][]string{
@@ -108,9 +108,9 @@ func TestMountinfoParser(t *testing.T) {
 	} {
 		var name string
 		if tc.name != "" {
-			name = fmt.Sprintf("name=%s,procfsRoot=%s", tc.name, tc.procfsRoot)
+			name = fmt.Sprintf("tc=%d,name=%s,procfsRoot=%s", i, tc.name, tc.procfsRoot)
 		} else {
-			name = fmt.Sprintf("procfsRoot=%s", tc.procfsRoot)
+			name = fmt.Sprintf("tc=%d,procfsRoot=%s", i, tc.procfsRoot)
 		}
 		t.Run(
 			name,

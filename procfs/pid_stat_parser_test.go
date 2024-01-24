@@ -49,15 +49,12 @@ type PidStatTestCase struct {
 	wantError           error
 }
 
-func pidStatSubtestName(tc *PidStatTestCase) string {
-	name := ""
+func pidStatSubtestName(tcI int, tc *PidStatTestCase) string {
+	name := fmt.Sprintf("tc=%d", tcI)
 	if tc.name != "" {
-		name += fmt.Sprintf("name=%s", tc.name)
+		name += fmt.Sprintf(",name=%s", tc.name)
 	}
-	if name != "" {
-		name += ","
-	}
-	name += fmt.Sprintf("procfsRoot=%s,pid=%d", tc.procfsRoot, tc.pid)
+	name += fmt.Sprintf(",procfsRoot=%s,pid=%d", tc.procfsRoot, tc.pid)
 	if tc.tid != PID_STAT_PID_ONLY_TID {
 		name += fmt.Sprintf(",tid=%d", tc.tid)
 	}
@@ -128,7 +125,7 @@ func testPidStatParser(tc *PidStatTestCase, t *testing.T) {
 }
 
 func TestPidStatParser(t *testing.T) {
-	for _, tc := range []*PidStatTestCase{
+	for i, tc := range []*PidStatTestCase{
 		{
 			name:       "field_mapping",
 			procfsRoot: pidStatTestdataDir,
@@ -321,7 +318,7 @@ func TestPidStatParser(t *testing.T) {
 		},
 	} {
 		t.Run(
-			pidStatSubtestName(tc),
+			pidStatSubtestName(i, tc),
 			func(t *testing.T) { testPidStatParser(tc, t) },
 		)
 	}

@@ -16,7 +16,6 @@ type NetSnmp6TestCase struct {
 }
 
 var netSnmp6TestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "net", "snmp6")
-var netSnmp6TestReference *NetSnmp6
 
 var netSnmp6IndexName = []string{
 	"NET_SNMP6_IP6_IN_RECEIVES",
@@ -155,7 +154,7 @@ func testNetSnmp6Parser(tc *NetSnmp6TestCase, t *testing.T) {
 }
 
 func TestNetSnmp6ParserBasic(t *testing.T) {
-	for _, tc := range []*NetSnmp6TestCase{
+	for i, tc := range []*NetSnmp6TestCase{
 		&NetSnmp6TestCase{
 			procfsRoot: path.Join(netSnmp6TestdataDir, "field_mapping"),
 			wantNetSnmp6: &NetSnmp6{
@@ -188,9 +187,9 @@ func TestNetSnmp6ParserBasic(t *testing.T) {
 	} {
 		var name string
 		if tc.name != "" {
-			name = fmt.Sprintf("name=%s,procfsRoot=%s", tc.name, tc.procfsRoot)
+			name = fmt.Sprintf("tc=%d,name=%s,procfsRoot=%s", i, tc.name, tc.procfsRoot)
 		} else {
-			name = fmt.Sprintf("procfsRoot=%s", tc.procfsRoot)
+			name = fmt.Sprintf("tc=%d,procfsRoot=%s", i, tc.procfsRoot)
 		}
 		t.Run(
 			name,
@@ -206,7 +205,7 @@ func TestNetSnmp6ParserComplex(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, tc := range []*NetSnmp6TestCase{
+	for i, tc := range []*NetSnmp6TestCase{
 		&NetSnmp6TestCase{
 			name:          "reuse",
 			procfsRoot:    path.Join(netSnmp6TestdataDir, "field_mapping"),
@@ -241,9 +240,9 @@ func TestNetSnmp6ParserComplex(t *testing.T) {
 	} {
 		var name string
 		if tc.name != "" {
-			name = fmt.Sprintf("name=%s,procfsRoot=%s", tc.name, tc.procfsRoot)
+			name = fmt.Sprintf("tc=%d, name=%s,procfsRoot=%s", i, tc.name, tc.procfsRoot)
 		} else {
-			name = fmt.Sprintf("procfsRoot=%s", tc.procfsRoot)
+			name = fmt.Sprintf("tc=%d,procfsRoot=%s", i, tc.procfsRoot)
 		}
 		t.Run(
 			name,

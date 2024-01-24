@@ -150,7 +150,7 @@ func testSoftirqsParser(tc *SoftirqsTestCase, t *testing.T) {
 }
 
 func TestSoftirqsParser(t *testing.T) {
-	for _, tc := range []*SoftirqsTestCase{
+	for i, tc := range []*SoftirqsTestCase{
 		{
 			procfsRoot: path.Join(softirqsTestdataDir, "field_mapping"),
 			wantSoftirqs: &Softirqs{
@@ -223,9 +223,9 @@ func TestSoftirqsParser(t *testing.T) {
 	} {
 		var name string
 		if tc.name != "" {
-			name = fmt.Sprintf("name=%s,procfsRoot=%s", tc.name, tc.procfsRoot)
+			name = fmt.Sprintf("tc=%d,name=%s,procfsRoot=%s", i, tc.name, tc.procfsRoot)
 		} else {
-			name = fmt.Sprintf("procfsRoot=%s", tc.procfsRoot)
+			name = fmt.Sprintf("tc=%d,procfsRoot=%s", i, tc.procfsRoot)
 		}
 		t.Run(
 			name,

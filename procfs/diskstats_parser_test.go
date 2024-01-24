@@ -123,7 +123,7 @@ func testDiskstatsParser(tc *DiskstatsTestCase, t *testing.T) {
 }
 
 func TestDiskstatsParser(t *testing.T) {
-	for _, tc := range []*DiskstatsTestCase{
+	for i, tc := range []*DiskstatsTestCase{
 		&DiskstatsTestCase{
 			procfsRoot:               path.Join(diskstatsTestdataDir, "field_mapping"),
 			disableJiffiesToMillisec: true,
@@ -247,9 +247,9 @@ func TestDiskstatsParser(t *testing.T) {
 	} {
 		var name string
 		if tc.name != "" {
-			name = fmt.Sprintf("name=%s,procfsRoot=%s", tc.name, tc.procfsRoot)
+			name = fmt.Sprintf("tc=%d,name=%s,procfsRoot=%s", i, tc.name, tc.procfsRoot)
 		} else {
-			name = fmt.Sprintf("procfsRoot=%s", tc.procfsRoot)
+			name = fmt.Sprintf("tc=%d,procfsRoot=%s", i, tc.procfsRoot)
 		}
 		t.Run(
 			name,

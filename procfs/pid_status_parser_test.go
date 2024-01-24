@@ -52,15 +52,12 @@ var pidStatusNumericFieldsIndexToName = []string{
 	"PID_STATUS_NONVOLUNTARY_CTXT_SWITCHES",
 }
 
-func pidStatusSubtestName(tc *PidStatusTestCase) string {
-	name := ""
+func pidStatusSubtestName(tcI int, tc *PidStatusTestCase) string {
+	name := fmt.Sprintf("tc=%d", tcI)
 	if tc.name != "" {
-		name += fmt.Sprintf("name=%s", tc.name)
+		name += fmt.Sprintf(",name=%s", tc.name)
 	}
-	if name != "" {
-		name += ","
-	}
-	name += fmt.Sprintf("procfsRoot=%s,pid=%d", tc.procfsRoot, tc.pid)
+	name += fmt.Sprintf(",procfsRoot=%s,pid=%d", tc.procfsRoot, tc.pid)
 	if tc.tid != PID_STAT_PID_ONLY_TID {
 		name += fmt.Sprintf(",tid=%d", tc.tid)
 	}
@@ -156,7 +153,7 @@ func testPidStatusParser(tc *PidStatusTestCase, t *testing.T) {
 }
 
 func TestPidStatusParser(t *testing.T) {
-	for _, tc := range []*PidStatusTestCase{
+	for i, tc := range []*PidStatusTestCase{
 		{
 			name:       "field_mapping",
 			procfsRoot: pidStatusTestdataDir,
@@ -395,7 +392,7 @@ func TestPidStatusParser(t *testing.T) {
 		},
 	} {
 		t.Run(
-			pidStatusSubtestName(tc),
+			pidStatusSubtestName(i, tc),
 			func(t *testing.T) { testPidStatusParser(tc, t) },
 		)
 	}

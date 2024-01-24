@@ -123,7 +123,7 @@ func testStatParser(tc *StatTestCase, t *testing.T) {
 }
 
 func TestStatParser(t *testing.T) {
-	for _, tc := range []*StatTestCase{
+	for i, tc := range []*StatTestCase{
 		{
 			procfsRoot: path.Join(statTestdataDir, "field_mapping"),
 			wantStat: &Stat{
@@ -168,7 +168,7 @@ func TestStatParser(t *testing.T) {
 		},
 	} {
 		t.Run(
-			fmt.Sprintf("procfsRoot=%s,primeStat=%v", tc.procfsRoot, tc.primeStat != nil),
+			fmt.Sprintf("tc=%d,procfsRoot=%s,primeStat=%v", i, tc.procfsRoot, tc.primeStat != nil),
 			func(t *testing.T) { testStatParser(tc, t) },
 		)
 	}
