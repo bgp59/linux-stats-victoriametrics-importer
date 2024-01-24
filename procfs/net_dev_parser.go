@@ -56,7 +56,7 @@ type NetDev struct {
 	// devices from DevStats, the scan# below is incremented at the beginning of
 	// the scan and each device found at the current scan will have its
 	// NET_DEV_SCAN_NUMBER value updated with it. At the end of the scan, all
-	// devices found NET_DEV_SCAN_NUMBER not matching will be removed.
+	// devices with NET_DEV_SCAN_NUMBER not matching will be removed.
 	scanNum uint64
 
 	// The parser assumes certain fields, based on the first N lines. The file

@@ -11,23 +11,6 @@ import (
 	"path"
 )
 
-type Stat struct {
-	// The all CPU info:
-	CpuAll []uint64
-	// The per CPU info is stored in a list of lists, the 1st indexList being CPU#
-	// (0..MAX_CPU-1) and the second the CPU statistic.
-	Cpu [][]uint64
-	// Some CPU's might be disabled via CPU Hot Plug and their stat may not be
-	// available; maintain a bitmap for CPU# found in the current scan:
-	CpuPresent []uint64
-	// The max CPU# ever found:
-	MaxCpuNum int
-	// Any other info is a scalar in a list:
-	NumericFields []uint64
-	// The path file to read:
-	path string
-}
-
 // Indexes for cpu[] stats:
 const (
 	STAT_CPU_USER_TICKS = iota
@@ -41,14 +24,23 @@ const (
 	STAT_CPU_GUEST_TICKS
 	STAT_CPU_GUEST_NICE_TICKS
 
-	STAT_CPU_STATS_COUNT // Must be last!
+	// Must be last! See Sta struct for explanation about the scan#:
+	STAT_CPU_SCAN_NUMBER
 )
 
 const (
+	// The pseudo cpu# used for all:
+	STAT_CPU_ALL = -1
+	// The pseudo cpu# used to indicate that the prefix is not a CPU:
+	STAT_NO_CPU_PREFIX = -2
+
+	// The minimum number of columns expected for cpu stats:
 	STAT_CPU_MIN_NUM_FIELDS = STAT_CPU_SOFTIRQ_TICKS + 1
+	// The size of the per cpu []int list:
+	STAT_CPU_NUM_STATS = STAT_CPU_SCAN_NUMBER + 1
 )
 
-// Indexes for NumericFields:
+// Indexes for Values:
 const (
 	STAT_PAGE_IN = iota
 	STAT_PAGE_OUT
@@ -60,37 +52,27 @@ const (
 	STAT_PROCS_RUNNING
 	STAT_PROCS_BLOCKED
 
-	STAT_NUMERIC_FIELDS_COUNT // Must be last!
+	// Must be last!
+	STAT_NUMERIC_NUM_STATS
 )
 
-var statLinePrefixSeparator = [256]bool{
-	' ':  true,
-	'\t': true,
-	// Include digits for cpuNN:
-	'0': true,
-	'1': true,
-	'2': true,
-	'3': true,
-	'4': true,
-	'5': true,
-	'6': true,
-	'7': true,
-	'8': true,
-	'9': true,
+type Stat struct {
+	// CPU stats indexed by CPU#; STAT_CPU_ALL is the index for all CPU:
+	Cpu map[int][]uint64
+	// Any other info is a scalar in a list:
+	NumericFields []uint64
+	// The path file to read:
+	path string
+	// CPUs may appear/disappear dynamically via the Hot Plug. The scan# below
+	// is incremented at the beginning of the scan and each CPU found at the
+	// current scan will have its STAT_CPU_SCAN_NUMBER value updated with it. At
+	// the end of the scan, all CPUs with STAT_CPU_SCAN_NUMBER not matching will
+	// be removed.
+	scanNum uint64
 }
 
 // Given a line prefix, map the associated data fields into indexes where the
 // parsed value will be stored.
-// e.g.:
-//
-//	"PREFIX": []int{INDEX0, INDEX1, ...}
-//
-// when the line:
-//
-//	PREFIX: VAL0 VAL1 ...
-//
-// is parsed, VAL0 -> DATA[INDEX0], VAL1 -> DATA[INDEX1], ...
-// where DATA is ether a Cpu list or NumericFields:
 var statPrefixToDstIndexList = map[string][]int{
 	"cpu": []int{
 		STAT_CPU_USER_TICKS,
@@ -129,29 +111,33 @@ var statPrefixToDstIndexList = map[string][]int{
 	},
 }
 
+var statCpuPrefix = []byte("cpu")
+var statCpuPrefixLen = len(statCpuPrefix)
+
 var statReadFileBufPool = ReadFileBufPool256k
 
 func NewStat(procfsRoot string) *Stat {
 	return &Stat{
-		CpuAll:        make([]uint64, STAT_CPU_STATS_COUNT),
-		Cpu:           make([][]uint64, 0),
-		CpuPresent:    make([]uint64, 16),
-		NumericFields: make([]uint64, STAT_NUMERIC_FIELDS_COUNT),
+		Cpu:           make(map[int][]uint64),
+		NumericFields: make([]uint64, STAT_NUMERIC_NUM_STATS),
 		path:          path.Join(procfsRoot, "stat"),
 	}
 }
 
-func (stat *Stat) Clone() *Stat {
+func (stat *Stat) Clone(full bool) *Stat {
 	newStat := &Stat{
-		CpuAll:        make([]uint64, STAT_CPU_STATS_COUNT),
-		Cpu:           make([][]uint64, len(stat.Cpu)),
-		CpuPresent:    make([]uint64, len(stat.CpuPresent)),
-		MaxCpuNum:     stat.MaxCpuNum,
-		NumericFields: make([]uint64, STAT_NUMERIC_FIELDS_COUNT),
+		Cpu:           make(map[int][]uint64),
+		NumericFields: make([]uint64, STAT_NUMERIC_NUM_STATS),
+		scanNum:       stat.scanNum,
 		path:          stat.path,
 	}
-	for i := 0; i < len(stat.Cpu); i++ {
-		newStat.Cpu[i] = make([]uint64, STAT_CPU_STATS_COUNT)
+	for cpu, cpuStats := range stat.Cpu {
+		newStat.Cpu[cpu] = make([]uint64, STAT_CPU_NUM_STATS)
+		if full {
+			copy(newStat.Cpu[cpu], cpuStats)
+		} else {
+			newStat.Cpu[cpu][STAT_CPU_SCAN_NUMBER] = cpuStats[STAT_CPU_SCAN_NUMBER]
+		}
 	}
 	return newStat
 }
@@ -165,143 +151,138 @@ func (stat *Stat) Parse() error {
 
 	buf, l := fBuf.Bytes(), fBuf.Len()
 
-	for i := 0; i < len(stat.CpuPresent) && i <= (stat.MaxCpuNum>>6); i++ {
-		stat.CpuPresent[i] = 0
-	}
+	var (
+		// Where to store the data parsed from a line, it will be updated w/ the
+		// proper reference depending upon the line prefix:
+		Values []uint64
 
-	for pos, lineNum := 0, 1; pos < l; lineNum++ {
-		var (
-			// Where to store the data parsed from a line, it will be updated w/ the
-			// proper reference depending upon the line prefix:
-			numericFields []uint64
+		// The minimum number of fields, prefix dependent:
+		minNumValues int
 
-			// The minimum number of fields, prefix dependent:
-			minNumFields int
-		)
+		// The col# -> index list:
+		indexList []int
+	)
+
+	scanNum := stat.scanNum + 1
+
+	pos, lineNum, eol := 0, 0, true
+	for {
+		// It not at EOL, locate the end of the current line and move past it;
+		// this may happen if the previous line wasn't fully used:
+		for ; !eol && pos < l; pos++ {
+			eol = (buf[pos] == '\n')
+		}
+
+		// Loop end condition, the entire buffer was used:
+		if pos >= l {
+			break
+		}
 
 		// Line starts here:
-		eol := false
+		lineStartPos := pos
+		eol = false
+		lineNum++
 
-		// Locate prefix start:
+		// Parse prefix; during the scan assess whether it is "cpu", "cpuNN" or
+		// something else:
 		for ; pos < l && isWhitespace[buf[pos]]; pos++ {
 		}
-		prefixStart := pos
+		prefixStartPos, prefixIndex, cpuNum := pos, 0, STAT_CPU_ALL
 
-		// Locate prefix end:
-		for ; !eol && pos < l; pos++ {
+		for done := false; !eol && pos < l && !done; pos++ {
 			c := buf[pos]
-			eol = (c == '\n')
-			if statLinePrefixSeparator[c] {
-				break
+			if eol = (c == '\n'); eol || isWhitespace[c] {
+				done = true
+				continue
 			}
+			if prefixIndex < statCpuPrefixLen {
+				if c != statCpuPrefix[prefixIndex] {
+					cpuNum = STAT_NO_CPU_PREFIX
+				}
+			} else if cpuNum != STAT_NO_CPU_PREFIX {
+				if cpuNum == STAT_CPU_ALL {
+					cpuNum = 0
+				}
+				if digit := c - '0'; digit < 10 {
+					cpuNum = (cpuNum << 3) + (cpuNum << 1) + int(digit)
+				} else {
+					return fmt.Errorf(
+						"%s#%d: %q: cpu# `%c': invalid digit",
+						stat.path, lineNum, getCurrentLine(buf, lineStartPos), c,
+					)
+
+				}
+			}
+			prefixIndex++
 		}
-		if eol {
+		if prefixIndex == 0 {
 			// Ignore empty lines, there shouldn't be any, though:
 			continue
 		}
 
-		// Extract the prefix and determine the destination for the parsed values:
-		prefix := string(buf[prefixStart:pos])
-		indexList := statPrefixToDstIndexList[prefix]
-		if indexList != nil {
-			if prefix == "cpu" {
-				// Extract cpu#, if any:
-				cpuNum := -1
-				for done := false; !done && pos < l; pos++ {
-					c := buf[pos]
-					if eol = (c == '\n'); eol || isWhitespace[c] {
-						done = true
-					} else {
-						if digit := c - '0'; digit < 10 {
-							if cpuNum < 0 {
-								cpuNum = 0
-							}
-							cpuNum = (cpuNum << 3) + (cpuNum << 1) + int(digit)
-						} else {
-							return fmt.Errorf(
-								"%s#%d: %q: cpu# `%c': invalid digit",
-								stat.path, lineNum, getCurrentLine(buf, pos), c,
-							)
-						}
-					}
-				}
+		if cpuNum != STAT_NO_CPU_PREFIX {
+			// It is a cpu prefix:
+			indexList = statPrefixToDstIndexList["cpu"]
+			Values = stat.Cpu[cpuNum]
+			if Values == nil {
+				Values = make([]uint64, STAT_CPU_NUM_STATS)
+				stat.Cpu[cpuNum] = Values
+			}
+			minNumValues = STAT_CPU_MIN_NUM_FIELDS
+			Values[STAT_CPU_SCAN_NUMBER] = scanNum
+		} else {
+			indexList = statPrefixToDstIndexList[string(buf[prefixStartPos:prefixStartPos+prefixIndex])]
+			minNumValues = len(indexList)
+			Values = stat.NumericFields
+		}
 
-				// Determine which cpuStats should hold the parsed data:
-				if cpuNum >= 0 {
-					if cpuNum >= stat.MaxCpuNum {
-						stat.MaxCpuNum = cpuNum
-					}
-					cpuPresentChunkNum := cpuNum >> 6 // / 64
-					if cpuPresentChunkNum >= len(stat.CpuPresent) {
-						newCpuPresent := make([]uint64, cpuPresentChunkNum+1)
-						copy(newCpuPresent, stat.CpuPresent)
-						stat.CpuPresent = newCpuPresent
-					}
-					stat.CpuPresent[cpuPresentChunkNum] |= (1 << (cpuNum & ((1 << 6) - 1)))
-					if cpuNum >= len(stat.Cpu) {
-						newCpu := make([][]uint64, cpuNum+1)
-						copy(newCpu, stat.Cpu)
-						stat.Cpu = newCpu
-					}
-					numericFields = stat.Cpu[cpuNum]
-					if numericFields == nil {
-						numericFields = make([]uint64, STAT_CPU_STATS_COUNT)
-						stat.Cpu[cpuNum] = numericFields
-					}
+		// Parse the fields into numeric values, stored to the right index
+		// of Values:
+		fieldIndex, numValues := 0, len(indexList)
+		for !eol && pos < l && fieldIndex < numValues {
+			// Field start:
+			for ; pos < l && isWhitespace[buf[pos]]; pos++ {
+			}
+
+			// Parse the numerical value:
+			val, hasVal := uint64(0), false
+			for done := false; !done && pos < l; pos++ {
+				c := buf[pos]
+				if digit := c - '0'; digit < 10 {
+					hasVal = true
+					val = (val << 3) + (val << 1) + uint64(digit)
+				} else if eol = (c == '\n'); eol || isWhitespace[c] {
+					done = true
 				} else {
-					numericFields = stat.CpuAll
-				}
-				minNumFields = STAT_CPU_MIN_NUM_FIELDS
-			} else {
-				numericFields = stat.NumericFields
-				minNumFields = len(indexList)
-			}
-
-			// Parse the fields into numeric values, stored to the right index
-			// of numericFields:
-			fieldIndex, numFields := 0, len(indexList)
-			for !eol && pos < l && fieldIndex < numFields {
-				// Field start:
-				for ; pos < l && isWhitespace[buf[pos]]; pos++ {
-				}
-
-				// Parse the numerical value:
-				val, hasVal := uint64(0), false
-				for done := false; !done && pos < l; pos++ {
-					c := buf[pos]
-					if digit := c - '0'; digit < 10 {
-						hasVal = true
-						val = (val << 3) + (val << 1) + uint64(digit)
-					} else if eol = (c == '\n'); eol || isWhitespace[c] {
-						done = true
-					} else {
-						return fmt.Errorf(
-							"%s#%d: %q: `%c': invalid digit",
-							stat.path, lineNum, getCurrentLine(buf, pos), c,
-						)
-					}
-				}
-				// If a value was found, assign it to the right index:
-				if hasVal {
-					numericFields[indexList[fieldIndex]] = val
-					fieldIndex++
+					return fmt.Errorf(
+						"%s#%d: %q: `%c': invalid digit",
+						stat.path, lineNum, getCurrentLine(buf, pos), c,
+					)
 				}
 			}
-
-			// Verify that enough values were parsed:
-			if fieldIndex < minNumFields {
-				return fmt.Errorf(
-					"%s#%d: %q: invalid value count: want (at least) %d, got: %d",
-					stat.path, lineNum, getCurrentLine(buf, pos), minNumFields, fieldIndex,
-				)
+			// If a value was found, assign it to the right index:
+			if hasVal {
+				Values[indexList[fieldIndex]] = val
+				fieldIndex++
 			}
 		}
 
-		// Locate EOL:
-		for ; !eol && pos < l; pos++ {
-			eol = (buf[pos] == '\n')
+		// Verify that enough values were parsed:
+		if fieldIndex < minNumValues {
+			return fmt.Errorf(
+				"%s#%d: %q: invalid value count: want (at least) %d, got: %d",
+				stat.path, lineNum, getCurrentLine(buf, lineStartPos), minNumValues, fieldIndex,
+			)
 		}
 	}
+
+	// Remove stats for CPUs no longer found at this scan; update the scan#:
+	for cpu, cpuStats := range stat.Cpu {
+		if cpuStats[STAT_CPU_SCAN_NUMBER] != scanNum {
+			delete(stat.Cpu, cpu)
+		}
+	}
+	stat.scanNum = scanNum
 
 	return nil
 }
