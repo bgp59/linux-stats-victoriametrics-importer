@@ -8,11 +8,11 @@ import (
 )
 
 type NetSnmp6TestCase struct {
-	name          string
-	procfsRoot    string
-	primeNetSnmp6 *NetSnmp6
-	wantNetSnmp6  *NetSnmp6
-	wantError     error
+	name            string
+	procfsRoot      string
+	primeProcfsRoot string
+	wantNetSnmp6    *NetSnmp6
+	wantError       error
 }
 
 var netSnmp6TestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "net", "snmp6")
@@ -108,20 +108,27 @@ var netSnmp6IndexName = []string{
 }
 
 func testNetSnmp6Parser(tc *NetSnmp6TestCase, t *testing.T) {
-	if tc.name != "" {
-		t.Logf("name: %q, procfsRoot: %q", tc.name, tc.procfsRoot)
-	} else {
-		t.Logf("procfsRoot: %q", tc.procfsRoot)
-	}
+	t.Logf(`
+name=%q
+procfsRoot=%q
+primeProcfsRoot=%q
+`,
+		tc.name, tc.procfsRoot, tc.primeProcfsRoot,
+	)
 
 	var netSnmp6 *NetSnmp6
-	if tc.primeNetSnmp6 == nil {
-		netSnmp6 = NewNetSnmp6(tc.procfsRoot)
-	} else {
-		netSnmp6 = tc.primeNetSnmp6.Clone(true)
-		if tc.procfsRoot != "" {
-			netSnmp6.path = NewNetSnmp6(tc.procfsRoot).path
+	if tc.primeProcfsRoot != "" {
+		primeNetSnmp6 := NewNetSnmp6(tc.primeProcfsRoot)
+		err := primeNetSnmp6.Parse()
+		if err != nil {
+			t.Fatal(err)
 		}
+		netSnmp6 = primeNetSnmp6.Clone(true)
+		if tc.procfsRoot != "" {
+			netSnmp6.path = NetSnmp6Path(tc.procfsRoot)
+		}
+	} else {
+		netSnmp6 = NewNetSnmp6(tc.procfsRoot)
 	}
 
 	err := netSnmp6.Parse()
@@ -149,8 +156,8 @@ func testNetSnmp6Parser(tc *NetSnmp6TestCase, t *testing.T) {
 		if wantValue != gotValue {
 			fmt.Fprintf(
 				diffBuf,
-				"\nValues[%s]: want: %d, got: %d",
-				netSnmp6IndexName[i], wantValue, gotValue,
+				"\nValues[%d (%s)]: want: %d, got: %d",
+				i, netSnmp6IndexName[i], wantValue, gotValue,
 			)
 		}
 	}
@@ -159,9 +166,10 @@ func testNetSnmp6Parser(tc *NetSnmp6TestCase, t *testing.T) {
 	}
 }
 
-func TestNetSnmp6ParserBasic(t *testing.T) {
-	for i, tc := range []*NetSnmp6TestCase{
+func TestNetSnmp6Parser(t *testing.T) {
+	for _, tc := range []*NetSnmp6TestCase{
 		&NetSnmp6TestCase{
+			name:       "field_mapping",
 			procfsRoot: path.Join(netSnmp6TestdataDir, "field_mapping"),
 			wantNetSnmp6: &NetSnmp6{
 				Values: []uint64{
@@ -190,26 +198,10 @@ func TestNetSnmp6ParserBasic(t *testing.T) {
 				},
 			},
 		},
-	} {
-		t.Run(
-			fmt.Sprintf("tc=%d", i),
-			func(t *testing.T) { testNetSnmp6Parser(tc, t) },
-		)
-	}
-}
-
-func TestNetSnmp6ParserComplex(t *testing.T) {
-	netSnmp6TestReference := NewNetSnmp6(path.Join(netSnmp6TestdataDir, "reference"))
-	err := netSnmp6TestReference.Parse()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for i, tc := range []*NetSnmp6TestCase{
 		&NetSnmp6TestCase{
-			name:          "reuse",
-			procfsRoot:    path.Join(netSnmp6TestdataDir, "field_mapping"),
-			primeNetSnmp6: netSnmp6TestReference,
+			name:            "reuse",
+			procfsRoot:      path.Join(netSnmp6TestdataDir, "field_mapping"),
+			primeProcfsRoot: path.Join(netSnmp6TestdataDir, "reference"),
 			wantNetSnmp6: &NetSnmp6{
 				Values: []uint64{
 					10000000000001, 10000000000002, 10000000000003, 10000000000004,
@@ -239,7 +231,7 @@ func TestNetSnmp6ParserComplex(t *testing.T) {
 		},
 	} {
 		t.Run(
-			fmt.Sprintf("tc=%d", i),
+			tc.name,
 			func(t *testing.T) { testNetSnmp6Parser(tc, t) },
 		)
 	}

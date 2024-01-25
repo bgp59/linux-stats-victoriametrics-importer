@@ -251,10 +251,14 @@ var NetSnmpValueMayBeNegative = [NET_SNMP_NUM_VALUES]bool{
 // Pool for reading the file in one go:
 var netSnmpReadFileBufPool = ReadFileBufPool32k
 
+func NetSnmpPath(procfsRoot string) string {
+	return path.Join(procfsRoot, "net", "snmp")
+}
+
 func NewNetSnmp(procfsRoot string) *NetSnmp {
 	return &NetSnmp{
 		Values:   make([]uint32, NET_SNMP_NUM_VALUES),
-		path:     path.Join(procfsRoot, "net", "snmp"),
+		path:     NetSnmpPath(procfsRoot),
 		lineInfo: make([]*NetSnmpLineInfo, 0),
 	}
 }

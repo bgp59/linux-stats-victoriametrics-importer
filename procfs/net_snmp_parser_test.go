@@ -8,11 +8,11 @@ import (
 )
 
 type NetSnmpTestCase struct {
-	name         string
-	procfsRoot   string
-	primeNetSnmp *NetSnmp
-	wantNetSnmp  *NetSnmp
-	wantError    error
+	name            string
+	procfsRoot      string
+	primeProcfsRoot string
+	wantNetSnmp     *NetSnmp
+	wantError       error
 }
 
 var netSnmpTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "net", "snmp")
@@ -101,25 +101,32 @@ var netSnmpIndexName = []string{
 	"NET_SNMP_UDPLITE_MEM_ERRORS",
 }
 
-func testNetSnmpTwosComplement(i int32) uint32 {
+func testNetSnmpAsUInt32(i int32) uint32 {
 	return uint32(i)
 }
 
 func testNetSnmpParser(tc *NetSnmpTestCase, t *testing.T) {
-	if tc.name != "" {
-		t.Logf("name: %q, procfsRoot: %q", tc.name, tc.procfsRoot)
-	} else {
-		t.Logf("procfsRoot: %q", tc.procfsRoot)
-	}
+	t.Logf(`
+name=%q
+procfsRoot=%q
+primeProcfsRoot=%q
+`,
+		tc.name, tc.procfsRoot, tc.primeProcfsRoot,
+	)
 
 	var netSnmp *NetSnmp
-	if tc.primeNetSnmp == nil {
-		netSnmp = NewNetSnmp(tc.procfsRoot)
-	} else {
-		netSnmp = tc.primeNetSnmp.Clone(true)
-		if tc.procfsRoot != "" {
-			netSnmp.path = NewNetSnmp(tc.procfsRoot).path
+	if tc.primeProcfsRoot != "" {
+		primeNetSnmp := NewNetSnmp(tc.primeProcfsRoot)
+		err := primeNetSnmp.Parse()
+		if err != nil {
+			t.Fatal(err)
 		}
+		netSnmp = primeNetSnmp.Clone(true)
+		if tc.procfsRoot != "" {
+			netSnmp.path = NetSnmpPath(tc.procfsRoot)
+		}
+	} else {
+		netSnmp = NewNetSnmp(tc.procfsRoot)
 	}
 
 	err := netSnmp.Parse()
@@ -147,8 +154,8 @@ func testNetSnmpParser(tc *NetSnmpTestCase, t *testing.T) {
 		if wantValue != gotValue {
 			fmt.Fprintf(
 				diffBuf,
-				"\nValues[%s]: want: %d, got: %d",
-				netSnmpIndexName[i], wantValue, gotValue,
+				"\nValues[%d (%s)]: want: %d, got: %d",
+				i, netSnmpIndexName[i], wantValue, gotValue,
 			)
 		}
 	}
@@ -157,46 +164,37 @@ func testNetSnmpParser(tc *NetSnmpTestCase, t *testing.T) {
 	}
 }
 
-func TestNetSnmpParserBasic(t *testing.T) {
-	for i, tc := range []*NetSnmpTestCase{
+func TestNetSnmpParser(t *testing.T) {
+	netSnmpTestReference := NewNetSnmp(path.Join(netSnmpTestdataDir, "reference"))
+	err := netSnmpTestReference.Parse()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []*NetSnmpTestCase{
 		{
+			name:       "field_mapping",
 			procfsRoot: path.Join(netSnmpTestdataDir, "field_mapping"),
 			wantNetSnmp: &NetSnmp{
 				Values: []uint32{
 					1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018,
 					3000, 3001, 3002, 3003, 3004, 3005, 3006, 3007, 3008, 3009, 3010, 3011, 3012, 3013, 3014, 3015, 3016, 3017, 3018, 3019, 3020, 3021, 3022, 3023, 3024, 3025, 3026,
 					5000, 5001,
-					7000, 7001, 7002, testNetSnmpTwosComplement(-7003), 7004, 7005, 7006, 7007, 7008, 7009, 7010, 7011, 7012, 7013, 7014,
+					7000, 7001, 7002, testNetSnmpAsUInt32(-7003), 7004, 7005, 7006, 7007, 7008, 7009, 7010, 7011, 7012, 7013, 7014,
 					9000, 9001, 9002, 9003, 9004, 9005, 9006, 9007, 9008,
 					11000, 11001, 11002, 11003, 11004, 11005, 11006, 11007, 11008,
 				},
 			},
 		},
-	} {
-		t.Run(
-			fmt.Sprintf("tc=%d", i),
-			func(t *testing.T) { testNetSnmpParser(tc, t) },
-		)
-	}
-}
-
-func TestNetSnmpParserComplex(t *testing.T) {
-	netSnmpTestReference := NewNetSnmp(path.Join(netSnmpTestdataDir, "reference"))
-	err := netSnmpTestReference.Parse()
-	if err != nil {
-		t.Fatal(err)
-	}
-	for i, tc := range []*NetSnmpTestCase{
 		{
-			name:         "reuse",
-			procfsRoot:   path.Join(netSnmpTestdataDir, "field_mapping"),
-			primeNetSnmp: netSnmpTestReference,
+			name:            "reuse",
+			procfsRoot:      path.Join(netSnmpTestdataDir, "field_mapping"),
+			primeProcfsRoot: path.Join(netSnmpTestdataDir, "reference"),
 			wantNetSnmp: &NetSnmp{
 				Values: []uint32{
 					1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018,
 					3000, 3001, 3002, 3003, 3004, 3005, 3006, 3007, 3008, 3009, 3010, 3011, 3012, 3013, 3014, 3015, 3016, 3017, 3018, 3019, 3020, 3021, 3022, 3023, 3024, 3025, 3026,
 					5000, 5001,
-					7000, 7001, 7002, testNetSnmpTwosComplement(-7003), 7004, 7005, 7006, 7007, 7008, 7009, 7010, 7011, 7012, 7013, 7014,
+					7000, 7001, 7002, testNetSnmpAsUInt32(-7003), 7004, 7005, 7006, 7007, 7008, 7009, 7010, 7011, 7012, 7013, 7014,
 					9000, 9001, 9002, 9003, 9004, 9005, 9006, 9007, 9008,
 					11000, 11001, 11002, 11003, 11004, 11005, 11006, 11007, 11008,
 				},
@@ -204,7 +202,7 @@ func TestNetSnmpParserComplex(t *testing.T) {
 		},
 	} {
 		t.Run(
-			fmt.Sprintf("tc=%d", i),
+			tc.name,
 			func(t *testing.T) { testNetSnmpParser(tc, t) },
 		)
 	}

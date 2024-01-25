@@ -5,8 +5,13 @@ import (
 )
 
 func TestOsUtils(t *testing.T) {
-	t.Logf(
-		"\nOSName: %q\nOSRelease: %q\nOSReleaseVer: %v\nLinuxClktck: %d\nLinuxClktckSec: %.06f\n",
+	t.Logf(`
+OSName:         %q
+OSRelease:      %q
+OSReleaseVer:   %v
+LinuxClktck:    %d
+LinuxClktckSec: %.06f
+`,
 		OSName, OSRelease, OSReleaseVer, LinuxClktck, LinuxClktckSec,
 	)
 }

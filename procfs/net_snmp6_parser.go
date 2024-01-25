@@ -233,10 +233,14 @@ type NetSnmp6 struct {
 // Pool for reading the file in one go:
 var netSnmp6ReadFileBufPool = ReadFileBufPool32k
 
+func NetSnmp6Path(procfsRoot string) string {
+	return path.Join(procfsRoot, "net", "snmp6")
+}
+
 func NewNetSnmp6(procfsRoot string) *NetSnmp6 {
 	return &NetSnmp6{
 		Values:   make([]uint64, NET_SNMP6_NUM_VALUES),
-		path:     path.Join(procfsRoot, "net", "snmp6"),
+		path:     NetSnmp6Path(procfsRoot),
 		lineInfo: make([]*NetSnmp6LineInfo, 0),
 	}
 }
