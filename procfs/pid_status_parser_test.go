@@ -52,28 +52,30 @@ var pidStatusNumericFieldsIndexToName = []string{
 	"PID_STATUS_NONVOLUNTARY_CTXT_SWITCHES",
 }
 
-func pidStatusSubtestName(tcI int, tc *PidStatusTestCase) string {
-	name := fmt.Sprintf("tc=%d", tcI)
+func pidStatusSubtestInfo(tc *PidStatusTestCase) string {
+	testInfo := ""
 	if tc.name != "" {
-		name += fmt.Sprintf(",name=%s", tc.name)
+		testInfo += fmt.Sprintf("name: %q, ", tc.name)
 	}
-	name += fmt.Sprintf(",procfsRoot=%s,pid=%d", tc.procfsRoot, tc.pid)
+	testInfo += fmt.Sprintf("procfsRoot: %q, pid: %d", tc.procfsRoot, tc.pid)
 	if tc.tid != PID_STAT_PID_ONLY_TID {
-		name += fmt.Sprintf(",tid=%d", tc.tid)
+		testInfo += fmt.Sprintf(", tid=%d", tc.tid)
 	}
 	if tc.primePid > 0 {
 		if tc.primeProcfsRoot != "" {
-			name += fmt.Sprintf(",primeProcfsRoot=%s", tc.primeProcfsRoot)
+			testInfo += fmt.Sprintf(", primeProcfsRoot: %q", tc.primeProcfsRoot)
 		}
-		name += fmt.Sprintf(",primePid=%d", tc.primePid)
+		testInfo += fmt.Sprintf(", primePid: %d", tc.primePid)
 		if tc.primeTid != PID_STAT_PID_ONLY_TID {
-			name += fmt.Sprintf(",primeTid=%d", tc.primeTid)
+			testInfo += fmt.Sprintf(", primeTid: %d", tc.primeTid)
 		}
 	}
-	return name
+	return testInfo
 }
 
 func testPidStatusParser(tc *PidStatusTestCase, t *testing.T) {
+	t.Logf(pidStatusSubtestInfo(tc))
+
 	var pidStatus, usePathFrom *PidStatus
 	if tc.primePid > 0 {
 		primeProcfsRoot := tc.primeProcfsRoot
@@ -392,7 +394,7 @@ func TestPidStatusParser(t *testing.T) {
 		},
 	} {
 		t.Run(
-			pidStatusSubtestName(i, tc),
+			fmt.Sprintf("tc=%d", i),
 			func(t *testing.T) { testPidStatusParser(tc, t) },
 		)
 	}

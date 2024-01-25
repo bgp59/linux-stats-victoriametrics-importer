@@ -75,10 +75,14 @@ type Interrupts struct {
 
 var interruptsReadFileBufPool = ReadFileBufPoolReadUnbound
 
+func InterruptsPath(procfsRoot string) string {
+	return path.Join(procfsRoot, "interrupts")
+}
+
 func NewInterrupts(procfsRoot string) *Interrupts {
 	return &Interrupts{
 		Irq:  map[string]*InterruptsIrq{},
-		path: path.Join(procfsRoot, "interrupts"),
+		path: InterruptsPath(procfsRoot),
 	}
 }
 

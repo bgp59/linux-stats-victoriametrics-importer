@@ -39,13 +39,20 @@ var diskstatsIndexName = []string{
 var diskstatsTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "diskstats")
 
 func testDiskstatsParser(tc *DiskstatsTestCase, t *testing.T) {
+	t.Logf(`
+name=%q
+procfsRoot=%q
+primeDiskstats=%v
+disableJiffiesToMillisec=%v
+`,
+		tc.name, tc.procfsRoot, (tc.primeDiskstats != nil), tc.disableJiffiesToMillisec,
+	)
+
 	var diskstats *Diskstats
 
 	if tc.primeDiskstats != nil {
 		diskstats = tc.primeDiskstats.Clone(true)
-		if diskstats.path == "" {
-			diskstats.path = path.Join(tc.procfsRoot, "diskstats")
-		}
+		diskstats.path = DiskstatsPath(tc.procfsRoot)
 	} else {
 		diskstats = NewDiskstats(tc.procfsRoot)
 		if tc.disableJiffiesToMillisec {
@@ -123,10 +130,10 @@ func testDiskstatsParser(tc *DiskstatsTestCase, t *testing.T) {
 }
 
 func TestDiskstatsParser(t *testing.T) {
-	for i, tc := range []*DiskstatsTestCase{
+	for _, tc := range []*DiskstatsTestCase{
 		&DiskstatsTestCase{
-			procfsRoot:               path.Join(diskstatsTestdataDir, "field_mapping"),
-			disableJiffiesToMillisec: true,
+			name:       "field_mapping",
+			procfsRoot: path.Join(diskstatsTestdataDir, "field_mapping"),
 			wantDiskstats: &Diskstats{
 				DevInfoMap: map[string]*DiskstatsDevInfo{
 					"0:0": &DiskstatsDevInfo{
@@ -139,6 +146,7 @@ func TestDiskstatsParser(t *testing.T) {
 					},
 				},
 			},
+			disableJiffiesToMillisec: true,
 		},
 		&DiskstatsTestCase{
 			name:       "reuse",
@@ -245,14 +253,8 @@ func TestDiskstatsParser(t *testing.T) {
 			},
 		},
 	} {
-		var name string
-		if tc.name != "" {
-			name = fmt.Sprintf("tc=%d,name=%s,procfsRoot=%s", i, tc.name, tc.procfsRoot)
-		} else {
-			name = fmt.Sprintf("tc=%d,procfsRoot=%s", i, tc.procfsRoot)
-		}
 		t.Run(
-			name,
+			tc.name,
 			func(t *testing.T) { testDiskstatsParser(tc, t) },
 		)
 	}

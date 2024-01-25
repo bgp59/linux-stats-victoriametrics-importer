@@ -91,11 +91,15 @@ type Diskstats struct {
 // Read the entire file in one go, using a ReadFileBufPool:
 var diskstatsReadFileBufPool = ReadFileBufPool256k
 
+func DiskstatsPath(procfsRoot string) string {
+	return path.Join(procfsRoot, "diskstats")
+}
+
 func NewDiskstats(procfsRoot string) *Diskstats {
 	newDiskstats := &Diskstats{
 		DevInfoMap:      make(map[string]*DiskstatsDevInfo),
 		scanNum:         0,
-		path:            path.Join(procfsRoot, "diskstats"),
+		path:            DiskstatsPath(procfsRoot),
 		fieldsInJiffies: diskstatsFieldsInJiffies,
 	}
 

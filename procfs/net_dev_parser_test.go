@@ -44,6 +44,12 @@ Inter-|   Receive                                                |  Transmit
 var testNetDevNumLinesHeader = 2
 
 func testNetDevParser(tc *NetDevTestCase, t *testing.T) {
+	if tc.name != "" {
+		t.Logf("name: %q, procfsRoot: %q", tc.name, tc.procfsRoot)
+	} else {
+		t.Logf("procfsRoot: %q", tc.procfsRoot)
+	}
+
 	var netDev *NetDev
 
 	if tc.primeNetDev != nil {
@@ -178,14 +184,8 @@ func TestNetDevParser(t *testing.T) {
 			},
 		},
 	} {
-		var name string
-		if tc.name != "" {
-			name = fmt.Sprintf("tc=%d,name=%s,procfsRoot=%s", i, tc.name, tc.procfsRoot)
-		} else {
-			name = fmt.Sprintf("tc=%d,procfsRoot=%s", i, tc.procfsRoot)
-		}
 		t.Run(
-			name,
+			fmt.Sprintf("tc=%d", i),
 			func(t *testing.T) { testNetDevParser(tc, t) },
 		)
 	}

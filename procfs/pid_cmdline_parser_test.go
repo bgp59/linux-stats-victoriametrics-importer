@@ -19,6 +19,8 @@ type PidCmdlineTestCase struct {
 var pidCmdlineTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "pid_cmdline")
 
 func testPidCmdlineParser(tc *PidCmdlineTestCase, t *testing.T) {
+	t.Logf("procfsRoot: %q, pid: %d, tid: %d", tc.procfsRoot, tc.pid, tc.tid)
+
 	if tc.poolReadSize > 0 {
 		orgPoolReadSize := pidCmdlineReadFileBufPool.maxReadSize
 		pidCmdlineReadFileBufPool.maxReadSize = tc.poolReadSize
@@ -160,7 +162,7 @@ func TestPidCmdlineParser(t *testing.T) {
 		},
 	} {
 		t.Run(
-			fmt.Sprintf("tc=%d,procfsRoot=%s,pid=%d,tid=%d", i, tc.procfsRoot, tc.pid, tc.tid),
+			fmt.Sprintf("tc=%d", i),
 			func(t *testing.T) { testPidCmdlineParser(tc, t) },
 		)
 	}

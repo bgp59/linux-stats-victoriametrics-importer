@@ -58,16 +58,20 @@ type Mountinfo struct {
 // Read the entire file in one go, using a ReadFileBufPool:
 var mountinfoReadFileBufPool = ReadFileBufPool256k
 
-func NewMountInfo(procfsRoot string, pid int) *Mountinfo {
+func MountinfoPath(procfsRoot string, pid int) string {
+	return path.Join(procfsRoot, strconv.Itoa(pid), "mountinfo")
+}
+
+func NewMountinfo(procfsRoot string, pid int) *Mountinfo {
 	return &Mountinfo{
 		DevMountInfo: make(map[string][][]byte),
 		content:      &bytes.Buffer{},
-		path:         path.Join(procfsRoot, strconv.Itoa(pid), "mountinfo"),
+		path:         MountinfoPath(procfsRoot, pid),
 	}
 }
 
 func (mountinfo *Mountinfo) Clone(full bool) *Mountinfo {
-	newMountInfo := &Mountinfo{
+	NewMountinfo := &Mountinfo{
 		DevMountInfo: make(map[string][][]byte),
 		ParseCount:   mountinfo.ParseCount,
 		ChangeCount:  mountinfo.ChangeCount,
@@ -76,14 +80,14 @@ func (mountinfo *Mountinfo) Clone(full bool) *Mountinfo {
 	}
 
 	if full {
-		newMountInfo.content = bytes.NewBuffer(mountinfo.content.Bytes())
-		newMountInfo.ForceUpdate = mountinfo.ForceUpdate
-		newMountInfo.update()
+		NewMountinfo.content = bytes.NewBuffer(mountinfo.content.Bytes())
+		NewMountinfo.ForceUpdate = mountinfo.ForceUpdate
+		NewMountinfo.update()
 	} else {
-		newMountInfo.content = &bytes.Buffer{}
+		NewMountinfo.content = &bytes.Buffer{}
 	}
 
-	return newMountInfo
+	return NewMountinfo
 }
 
 func (mountinfo *Mountinfo) update() error {

@@ -18,12 +18,18 @@ type InterruptsTestCase struct {
 var interruptsTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "interrupts")
 
 func testInterruptsParser(tc *InterruptsTestCase, t *testing.T) {
+	t.Logf(`
+name=%q
+procfsRoot=%q
+primeInterrupts=%v
+`,
+		tc.name, tc.procfsRoot, (tc.primeInterrupts != nil),
+	)
+
 	var interrupts *Interrupts
 	if tc.primeInterrupts != nil {
 		interrupts = tc.primeInterrupts.Clone(true)
-		if interrupts.path == "" {
-			interrupts.path = path.Join(tc.procfsRoot, "interrupts")
-		}
+		interrupts.path = InterruptsPath(tc.procfsRoot)
 	} else {
 		interrupts = NewInterrupts(tc.procfsRoot)
 	}
@@ -200,8 +206,9 @@ func testInterruptsParser(tc *InterruptsTestCase, t *testing.T) {
 }
 
 func TestInterruptsParser(t *testing.T) {
-	for i, tc := range []*InterruptsTestCase{
+	for _, tc := range []*InterruptsTestCase{
 		{
+			name:       "field_mapping",
 			procfsRoot: path.Join(interruptsTestdataDir, "field_mapping"),
 			wantInterrupts: &Interrupts{
 				CounterIndexToCpuNum: nil,
@@ -334,6 +341,7 @@ func TestInterruptsParser(t *testing.T) {
 			},
 		},
 		{
+			name:       "remove_cpu",
 			procfsRoot: path.Join(interruptsTestdataDir, "remove_cpu"),
 			primeInterrupts: &Interrupts{
 				CounterIndexToCpuNum: nil,
@@ -415,14 +423,8 @@ func TestInterruptsParser(t *testing.T) {
 			},
 		},
 	} {
-		var name string
-		if tc.name != "" {
-			name = fmt.Sprintf("tc=%d,name=%s,procfsRoot=%s", i, tc.name, tc.procfsRoot)
-		} else {
-			name = fmt.Sprintf("tc=%d,procfsRoot=%s", i, tc.procfsRoot)
-		}
 		t.Run(
-			name,
+			tc.name,
 			func(t *testing.T) { testInterruptsParser(tc, t) },
 		)
 	}

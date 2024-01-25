@@ -108,6 +108,12 @@ var netSnmp6IndexName = []string{
 }
 
 func testNetSnmp6Parser(tc *NetSnmp6TestCase, t *testing.T) {
+	if tc.name != "" {
+		t.Logf("name: %q, procfsRoot: %q", tc.name, tc.procfsRoot)
+	} else {
+		t.Logf("procfsRoot: %q", tc.procfsRoot)
+	}
+
 	var netSnmp6 *NetSnmp6
 	if tc.primeNetSnmp6 == nil {
 		netSnmp6 = NewNetSnmp6(tc.procfsRoot)
@@ -185,14 +191,8 @@ func TestNetSnmp6ParserBasic(t *testing.T) {
 			},
 		},
 	} {
-		var name string
-		if tc.name != "" {
-			name = fmt.Sprintf("tc=%d,name=%s,procfsRoot=%s", i, tc.name, tc.procfsRoot)
-		} else {
-			name = fmt.Sprintf("tc=%d,procfsRoot=%s", i, tc.procfsRoot)
-		}
 		t.Run(
-			name,
+			fmt.Sprintf("tc=%d", i),
 			func(t *testing.T) { testNetSnmp6Parser(tc, t) },
 		)
 	}
@@ -238,14 +238,8 @@ func TestNetSnmp6ParserComplex(t *testing.T) {
 			},
 		},
 	} {
-		var name string
-		if tc.name != "" {
-			name = fmt.Sprintf("tc=%d, name=%s,procfsRoot=%s", i, tc.name, tc.procfsRoot)
-		} else {
-			name = fmt.Sprintf("tc=%d,procfsRoot=%s", i, tc.procfsRoot)
-		}
 		t.Run(
-			name,
+			fmt.Sprintf("tc=%d", i),
 			func(t *testing.T) { testNetSnmp6Parser(tc, t) },
 		)
 	}

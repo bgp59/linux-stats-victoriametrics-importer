@@ -78,6 +78,7 @@ func TestReadFileBufPoolGetReturn(t *testing.T) {
 }
 
 func testReadFileBufPoolReadFile(t *testing.T, maxReadSize int64, filePath string, fileSize int64) {
+	t.Logf("maxReadSize: %d, fileSize: %d", maxReadSize, fileSize)
 	p := NewReadFileBufPool(0, maxReadSize)
 	for k := 0; k < 2; k++ {
 		b, err := p.ReadFile(filePath)
@@ -124,7 +125,7 @@ func TestReadFileBufPoolReadFile(t *testing.T) {
 		fileSize,
 	} {
 		t.Run(
-			fmt.Sprintf("tc=%d,maxReadSize=%d,fileSize=%d", i, maxReadSize, fileSize),
+			fmt.Sprintf("tc=%d", i),
 			func(t *testing.T) { testReadFileBufPoolReadFile(t, maxReadSize, filePath, fileSize) },
 		)
 	}

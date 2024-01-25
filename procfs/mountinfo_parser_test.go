@@ -31,7 +31,14 @@ var mountinfoIndexName = []string{
 var mountinfoTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "mountinfo")
 
 func testMountinfoParser(tc *MountinfoTestCase, t *testing.T) {
-	mountinfo := NewMountInfo(tc.procfsRoot, 1)
+	t.Logf(`
+name=%q
+procfsRoot=%q
+`,
+		tc.name, tc.procfsRoot,
+	)
+
+	mountinfo := NewMountinfo(tc.procfsRoot, 1)
 	err := mountinfo.Parse()
 	if tc.wantError != nil {
 		if err == nil || tc.wantError.Error() != err.Error() {
@@ -73,8 +80,8 @@ func testMountinfoParser(tc *MountinfoTestCase, t *testing.T) {
 			if wantOpt != gotOpt {
 				fmt.Fprintf(
 					diffBuf,
-					"\nDevMountInfo[%q][%s]: want: %q, got: %q",
-					majorMinor, mountinfoIndexName[j], wantOpt, gotOpt,
+					"\nDevMountInfo[%q][%d (%s)]: want: %q, got: %q",
+					majorMinor, j, mountinfoIndexName[j], wantOpt, gotOpt,
 				)
 			}
 		}
@@ -96,8 +103,9 @@ func testMountinfoParser(tc *MountinfoTestCase, t *testing.T) {
 }
 
 func TestMountinfoParser(t *testing.T) {
-	for i, tc := range []*MountinfoTestCase{
+	for _, tc := range []*MountinfoTestCase{
 		&MountinfoTestCase{
+			name:       "field_mapping",
 			procfsRoot: path.Join(mountinfoTestdataDir, "field_mapping"),
 			wantDevMountInfo: map[string][]string{
 				"11:0": {"10", "1", "11:0", "/root200", "/mount_point200", "mount,options=200", "value200:tag200", "-", "fstype200", "dev200", "super,options=200"},
@@ -106,14 +114,8 @@ func TestMountinfoParser(t *testing.T) {
 			},
 		},
 	} {
-		var name string
-		if tc.name != "" {
-			name = fmt.Sprintf("tc=%d,name=%s,procfsRoot=%s", i, tc.name, tc.procfsRoot)
-		} else {
-			name = fmt.Sprintf("tc=%d,procfsRoot=%s", i, tc.procfsRoot)
-		}
 		t.Run(
-			name,
+			tc.name,
 			func(t *testing.T) { testMountinfoParser(tc, t) },
 		)
 	}

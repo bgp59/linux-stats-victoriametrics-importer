@@ -13,7 +13,7 @@ func BenchmarkMountinfoParserIO(b *testing.B) {
 }
 
 func benchmarkMountinfoParser(forceUpdate bool, b *testing.B) {
-	mountinfo := procfs.NewMountInfo(LSVMI_TESTDATA_PROCFS_ROOT, 1)
+	mountinfo := procfs.NewMountinfo(LSVMI_TESTDATA_PROCFS_ROOT, 1)
 	mountinfo.ForceUpdate = forceUpdate
 	for n := 0; n < b.N; n++ {
 		err := mountinfo.Parse()

@@ -49,28 +49,30 @@ type PidStatTestCase struct {
 	wantError           error
 }
 
-func pidStatSubtestName(tcI int, tc *PidStatTestCase) string {
-	name := fmt.Sprintf("tc=%d", tcI)
+func pidStatSubtestInfo(tc *PidStatTestCase) string {
+	testInfo := ""
 	if tc.name != "" {
-		name += fmt.Sprintf(",name=%s", tc.name)
+		testInfo += fmt.Sprintf("name: %q, ", tc.name)
 	}
-	name += fmt.Sprintf(",procfsRoot=%s,pid=%d", tc.procfsRoot, tc.pid)
+	testInfo += fmt.Sprintf("procfsRoot: %q, pid: %d", tc.procfsRoot, tc.pid)
 	if tc.tid != PID_STAT_PID_ONLY_TID {
-		name += fmt.Sprintf(",tid=%d", tc.tid)
+		testInfo += fmt.Sprintf(", tid=%d", tc.tid)
 	}
 	if tc.primePid > 0 {
 		if tc.primeProcfsRoot != "" {
-			name += fmt.Sprintf(",primeProcfsRoot=%s", tc.primeProcfsRoot)
+			testInfo += fmt.Sprintf(", primeProcfsRoot: %q", tc.primeProcfsRoot)
 		}
-		name += fmt.Sprintf(",primePid=%d", tc.primePid)
+		testInfo += fmt.Sprintf(", primePid: %d", tc.primePid)
 		if tc.primeTid != PID_STAT_PID_ONLY_TID {
-			name += fmt.Sprintf(",primeTid=%d", tc.primeTid)
+			testInfo += fmt.Sprintf(", primeTid: %d", tc.primeTid)
 		}
 	}
-	return name
+	return testInfo
 }
 
 func testPidStatParser(tc *PidStatTestCase, t *testing.T) {
+	t.Logf(pidStatSubtestInfo(tc))
+
 	var pidStat, usePathFrom *PidStat
 	if tc.primePid > 0 {
 		primeProcfsRoot := tc.primeProcfsRoot
@@ -318,7 +320,7 @@ func TestPidStatParser(t *testing.T) {
 		},
 	} {
 		t.Run(
-			pidStatSubtestName(i, tc),
+			fmt.Sprintf("tc=%d", i),
 			func(t *testing.T) { testPidStatParser(tc, t) },
 		)
 	}

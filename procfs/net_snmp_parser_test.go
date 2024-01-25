@@ -106,6 +106,12 @@ func testNetSnmpTwosComplement(i int32) uint32 {
 }
 
 func testNetSnmpParser(tc *NetSnmpTestCase, t *testing.T) {
+	if tc.name != "" {
+		t.Logf("name: %q, procfsRoot: %q", tc.name, tc.procfsRoot)
+	} else {
+		t.Logf("procfsRoot: %q", tc.procfsRoot)
+	}
+
 	var netSnmp *NetSnmp
 	if tc.primeNetSnmp == nil {
 		netSnmp = NewNetSnmp(tc.procfsRoot)
@@ -167,14 +173,8 @@ func TestNetSnmpParserBasic(t *testing.T) {
 			},
 		},
 	} {
-		var name string
-		if tc.name != "" {
-			name = fmt.Sprintf("tc=%d, name=%s,procfsRoot=%s", i, tc.name, tc.procfsRoot)
-		} else {
-			name = fmt.Sprintf("tc=%d,procfsRoot=%s", i, tc.procfsRoot)
-		}
 		t.Run(
-			name,
+			fmt.Sprintf("tc=%d", i),
 			func(t *testing.T) { testNetSnmpParser(tc, t) },
 		)
 	}
@@ -203,14 +203,8 @@ func TestNetSnmpParserComplex(t *testing.T) {
 			},
 		},
 	} {
-		var name string
-		if tc.name != "" {
-			name = fmt.Sprintf("tc=%d,name=%s,procfsRoot=%s", i, tc.name, tc.procfsRoot)
-		} else {
-			name = fmt.Sprintf("tc=%d,procfsRoot=%s", i, tc.procfsRoot)
-		}
 		t.Run(
-			name,
+			fmt.Sprintf("tc=%d", i),
 			func(t *testing.T) { testNetSnmpParser(tc, t) },
 		)
 	}
