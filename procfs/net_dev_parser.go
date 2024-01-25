@@ -85,10 +85,14 @@ Inter-|   Receive                                                |  Transmit
 `)[1:],
 }
 
+func NetDevPath(procfsRoot string) string {
+	return path.Join(procfsRoot, "net", "dev")
+}
+
 func NewNetDev(procfsRoot string) *NetDev {
 	return &NetDev{
 		DevStats: map[string][]uint64{},
-		path:     path.Join(procfsRoot, "net", "dev"),
+		path:     NetDevPath(procfsRoot),
 	}
 }
 

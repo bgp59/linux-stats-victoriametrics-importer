@@ -44,11 +44,13 @@ Inter-|   Receive                                                |  Transmit
 var testNetDevNumLinesHeader = 2
 
 func testNetDevParser(tc *NetDevTestCase, t *testing.T) {
-	if tc.name != "" {
-		t.Logf("name: %q, procfsRoot: %q", tc.name, tc.procfsRoot)
-	} else {
-		t.Logf("procfsRoot: %q", tc.procfsRoot)
-	}
+	t.Logf(`
+name=%q
+procfsRoot=%q
+primeNetDev=%v
+`,
+		tc.name, tc.procfsRoot, (tc.primeNetDev != nil),
+	)
 
 	var netDev *NetDev
 
@@ -95,13 +97,13 @@ func testNetDevParser(tc *NetDevTestCase, t *testing.T) {
 				dev, len(wantDevStats), len(gotDevStats),
 			)
 		} else {
-			for statIndex, wantStat := range wantDevStats {
-				gotStat := gotDevStats[statIndex]
+			for i, wantStat := range wantDevStats {
+				gotStat := gotDevStats[i]
 				if wantStat != gotStat {
 					fmt.Fprintf(
 						diffBuf,
 						"\nDevStats[%q][%d (%s)]: want: %d, got: %d",
-						dev, statIndex, netDevStatName[statIndex], wantStat, gotStat,
+						dev, i, netDevStatName[i], wantStat, gotStat,
 					)
 				}
 			}
@@ -124,8 +126,9 @@ func testNetDevParser(tc *NetDevTestCase, t *testing.T) {
 }
 
 func TestNetDevParser(t *testing.T) {
-	for i, tc := range []*NetDevTestCase{
+	for _, tc := range []*NetDevTestCase{
 		&NetDevTestCase{
+			name:       "field_mapping",
 			procfsRoot: path.Join(netDevTestdataDir, "field_mapping"),
 			wantNetDev: &NetDev{
 				DevStats: map[string][]uint64{
@@ -173,6 +176,7 @@ func TestNetDevParser(t *testing.T) {
 			},
 		},
 		&NetDevTestCase{
+			name:       "whitespaces",
 			procfsRoot: path.Join(netDevTestdataDir, "whitespaces"),
 			wantNetDev: &NetDev{
 				DevStats: map[string][]uint64{
@@ -185,7 +189,7 @@ func TestNetDevParser(t *testing.T) {
 		},
 	} {
 		t.Run(
-			fmt.Sprintf("tc=%d", i),
+			tc.name,
 			func(t *testing.T) { testNetDevParser(tc, t) },
 		)
 	}
