@@ -101,9 +101,6 @@ type PidStatus struct {
 	// The path file to read as a pointer (see "Note about PID stats parsers" in
 	// pid_stat_parser.go):
 	path *string
-	// Whether ByteSliceFieldUnit is shared or not; if the latter then the unit
-	// field will not be parsed (see pidStatusByteSliceFieldUnit):
-	sharedByteSliceFieldUnit bool
 }
 
 type PidStatusLineHandling struct {
