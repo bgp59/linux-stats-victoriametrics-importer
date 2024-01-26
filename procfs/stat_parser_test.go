@@ -10,6 +10,7 @@ import (
 )
 
 type StatTestCase struct {
+	name       string
 	procfsRoot string
 	primeStat  *Stat
 	wantStat   *Stat
@@ -44,6 +45,14 @@ var statNumericFieldsIndexNameMap = []string{
 }
 
 func testStatParser(tc *StatTestCase, t *testing.T) {
+	t.Logf(`
+name=%q
+procfsRoot=%q
+primeStat=%v
+`,
+		tc.name, tc.procfsRoot, (tc.primeStat != nil),
+	)
+
 	getCpuName := func(cpu int) string {
 		if cpu == STAT_CPU_ALL {
 			return "all"
@@ -54,8 +63,8 @@ func testStatParser(tc *StatTestCase, t *testing.T) {
 	var stat *Stat
 	if tc.primeStat != nil {
 		stat = tc.primeStat.Clone(true)
-		if stat.path == "" {
-			stat.path = NewStat(tc.procfsRoot).path
+		if tc.procfsRoot != "" {
+			stat.path = StatPath(tc.procfsRoot)
 		}
 	} else {
 		stat = NewStat(tc.procfsRoot)
@@ -123,8 +132,9 @@ func testStatParser(tc *StatTestCase, t *testing.T) {
 }
 
 func TestStatParser(t *testing.T) {
-	for i, tc := range []*StatTestCase{
+	for _, tc := range []*StatTestCase{
 		{
+			name:       "field_mapping",
 			procfsRoot: path.Join(statTestdataDir, "field_mapping"),
 			wantStat: &Stat{
 				Cpu: map[int][]uint64{
@@ -136,6 +146,7 @@ func TestStatParser(t *testing.T) {
 			},
 		},
 		{
+			name:       "missing_cpu",
 			procfsRoot: path.Join(statTestdataDir, "missing_cpu"),
 			wantStat: &Stat{
 				Cpu: map[int][]uint64{
@@ -147,6 +158,7 @@ func TestStatParser(t *testing.T) {
 			},
 		},
 		{
+			name:       "missing_cpu_primed",
 			procfsRoot: path.Join(statTestdataDir, "missing_cpu"),
 			primeStat: &Stat{
 				Cpu: map[int][]uint64{
@@ -168,7 +180,7 @@ func TestStatParser(t *testing.T) {
 		},
 	} {
 		t.Run(
-			fmt.Sprintf("tc=%d,procfsRoot=%s,primeStat=%v", i, tc.procfsRoot, tc.primeStat != nil),
+			tc.name,
 			func(t *testing.T) { testStatParser(tc, t) },
 		)
 	}

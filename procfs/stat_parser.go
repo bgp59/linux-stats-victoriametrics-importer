@@ -116,11 +116,15 @@ var statCpuPrefixLen = len(statCpuPrefix)
 
 var statReadFileBufPool = ReadFileBufPool256k
 
+func StatPath(procfsRoot string) string {
+	return path.Join(procfsRoot, "stat")
+}
+
 func NewStat(procfsRoot string) *Stat {
 	return &Stat{
 		Cpu:           make(map[int][]uint64),
 		NumericFields: make([]uint64, STAT_NUMERIC_NUM_STATS),
-		path:          path.Join(procfsRoot, "stat"),
+		path:          StatPath(procfsRoot),
 	}
 }
 
