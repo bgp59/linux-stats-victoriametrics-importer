@@ -1,13 +1,13 @@
 package procfs
 
 import (
-	"fmt"
 	"os"
 	"path"
 	"testing"
 )
 
 type PidCmdlineTestCase struct {
+	name         string
 	procfsRoot   string
 	pid, tid     int
 	poolReadSize int64
@@ -19,7 +19,13 @@ type PidCmdlineTestCase struct {
 var pidCmdlineTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "pid_cmdline")
 
 func testPidCmdlineParser(tc *PidCmdlineTestCase, t *testing.T) {
-	t.Logf("procfsRoot: %q, pid: %d, tid: %d", tc.procfsRoot, tc.pid, tc.tid)
+	t.Logf(`
+procfsRoot:=%q, pid=%d, tid=%d
+cmdline=%q (%d bytes)
+poolReadSize=%d
+`,
+		tc.procfsRoot, tc.pid, tc.tid, tc.cmdline, len(tc.cmdline), tc.poolReadSize,
+	)
 
 	if tc.poolReadSize > 0 {
 		orgPoolReadSize := pidCmdlineReadFileBufPool.maxReadSize
@@ -61,7 +67,7 @@ func testPidCmdlineParser(tc *PidCmdlineTestCase, t *testing.T) {
 }
 
 func TestPidCmdlineParser(t *testing.T) {
-	for i, tc := range []*PidCmdlineTestCase{
+	for _, tc := range []*PidCmdlineTestCase{
 		{
 			procfsRoot:  pidCmdlineTestdataDir,
 			pid:         1,
@@ -162,7 +168,7 @@ func TestPidCmdlineParser(t *testing.T) {
 		},
 	} {
 		t.Run(
-			fmt.Sprintf("tc=%d", i),
+			tc.name,
 			func(t *testing.T) { testPidCmdlineParser(tc, t) },
 		)
 	}

@@ -181,13 +181,16 @@ var pidStatFieldHandling = [PID_STAT_MAX_FIELD_NUM + 1]*PidStatFieldHandling{
 	// (52) exit_code  %d  (since Linux 3.5)  [PT]
 }
 
-func NewPidStat(procfsRoot string, pid, tid int) *PidStat {
-	var fPath string
+func PidStatPath(procfsRoot string, pid, tid int) string {
 	if tid == PID_STAT_PID_ONLY_TID {
-		fPath = path.Join(procfsRoot, strconv.Itoa(pid), "stat")
+		return path.Join(procfsRoot, strconv.Itoa(pid), "stat")
 	} else {
-		fPath = path.Join(procfsRoot, strconv.Itoa(pid), "task", strconv.Itoa(tid), "stat")
+		return path.Join(procfsRoot, strconv.Itoa(pid), "task", strconv.Itoa(tid), "stat")
 	}
+}
+
+func NewPidStat(procfsRoot string, pid, tid int) *PidStat {
+	fPath := PidStatPath(procfsRoot, pid, tid)
 	return &PidStat{
 		ByteSliceFields: make([][]byte, PID_STAT_BYTE_SLICE_NUM_FIELDS),
 		NumericFields:   make([]uint64, PID_STAT_ULONG_FIELD_NUM_FIELDS),

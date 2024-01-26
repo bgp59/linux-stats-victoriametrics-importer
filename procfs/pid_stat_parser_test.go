@@ -49,29 +49,16 @@ type PidStatTestCase struct {
 	wantError           error
 }
 
-func pidStatSubtestInfo(tc *PidStatTestCase) string {
-	testInfo := ""
-	if tc.name != "" {
-		testInfo += fmt.Sprintf("name: %q, ", tc.name)
-	}
-	testInfo += fmt.Sprintf("procfsRoot: %q, pid: %d", tc.procfsRoot, tc.pid)
-	if tc.tid != PID_STAT_PID_ONLY_TID {
-		testInfo += fmt.Sprintf(", tid=%d", tc.tid)
-	}
-	if tc.primePid > 0 {
-		if tc.primeProcfsRoot != "" {
-			testInfo += fmt.Sprintf(", primeProcfsRoot: %q", tc.primeProcfsRoot)
-		}
-		testInfo += fmt.Sprintf(", primePid: %d", tc.primePid)
-		if tc.primeTid != PID_STAT_PID_ONLY_TID {
-			testInfo += fmt.Sprintf(", primeTid: %d", tc.primeTid)
-		}
-	}
-	return testInfo
-}
-
 func testPidStatParser(tc *PidStatTestCase, t *testing.T) {
-	t.Logf(pidStatSubtestInfo(tc))
+	t.Logf(`
+name=%q
+procfsRoot=%q, pid=%d, tid=%d
+primeProcfsRoot=%q, primePid=%d, PrimeTid=%d
+`,
+		tc.name,
+		tc.procfsRoot, tc.pid, tc.tid,
+		tc.primeProcfsRoot, tc.primePid, tc.primeTid,
+	)
 
 	var pidStat, usePathFrom *PidStat
 	if tc.primePid > 0 {
@@ -127,7 +114,7 @@ func testPidStatParser(tc *PidStatTestCase, t *testing.T) {
 }
 
 func TestPidStatParser(t *testing.T) {
-	for i, tc := range []*PidStatTestCase{
+	for _, tc := range []*PidStatTestCase{
 		{
 			name:       "field_mapping",
 			procfsRoot: pidStatTestdataDir,
@@ -320,7 +307,7 @@ func TestPidStatParser(t *testing.T) {
 		},
 	} {
 		t.Run(
-			fmt.Sprintf("tc=%d", i),
+			tc.name,
 			func(t *testing.T) { testPidStatParser(tc, t) },
 		)
 	}

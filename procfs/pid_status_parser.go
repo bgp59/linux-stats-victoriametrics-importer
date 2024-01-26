@@ -148,13 +148,16 @@ var pidStatusLineHandlingMap = map[string]*PidStatusLineHandling{
 
 var pidStatusReadFileBufPool = ReadFileBufPool16k
 
-func NewPidStatus(procfsRoot string, pid, tid int) *PidStatus {
-	var fPath string
+func PidStatusPath(procfsRoot string, pid, tid int) string {
 	if tid == PID_STAT_PID_ONLY_TID {
-		fPath = path.Join(procfsRoot, strconv.Itoa(pid), "status")
+		return path.Join(procfsRoot, strconv.Itoa(pid), "status")
 	} else {
-		fPath = path.Join(procfsRoot, strconv.Itoa(pid), "task", strconv.Itoa(tid), "status")
+		return path.Join(procfsRoot, strconv.Itoa(pid), "task", strconv.Itoa(tid), "status")
 	}
+}
+
+func NewPidStatus(procfsRoot string, pid, tid int) *PidStatus {
+	fPath := PidStatusPath(procfsRoot, pid, tid)
 	return &PidStatus{
 		ByteSliceFields:    make([][]byte, PID_STATUS_BYTE_SLICE_NUM_FIELDS),
 		ByteSliceFieldUnit: make([][]byte, PID_STATUS_BYTE_SLICE_NUM_FIELDS),
