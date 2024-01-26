@@ -119,13 +119,13 @@ func TestReadFileBufPoolReadFile(t *testing.T) {
 	}
 	fileSize := fileInfo.Size()
 
-	for i, maxReadSize := range []int64{
+	for _, maxReadSize := range []int64{
 		0,
 		fileSize + 1,
 		fileSize,
 	} {
 		t.Run(
-			fmt.Sprintf("tc=%d", i),
+			fmt.Sprintf("maxReadSize=%d", maxReadSize),
 			func(t *testing.T) { testReadFileBufPoolReadFile(t, maxReadSize, filePath, fileSize) },
 		)
 	}
