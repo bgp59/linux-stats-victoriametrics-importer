@@ -18,11 +18,19 @@ type SoftirqsTestCase struct {
 var softirqsTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "softirqs")
 
 func testSoftirqsParser(tc *SoftirqsTestCase, t *testing.T) {
+	t.Logf(`
+name=%q
+procfsRoot=%q
+primeSoftirqs=%v
+`,
+		tc.name, tc.procfsRoot, (tc.primeSoftirqs != nil),
+	)
+
 	var softirqs *Softirqs
 	if tc.primeSoftirqs != nil {
 		softirqs = tc.primeSoftirqs.Clone(true)
-		if softirqs.path == "" {
-			softirqs.path = path.Join(tc.procfsRoot, "softirqs")
+		if tc.procfsRoot != "" {
+			softirqs.path = SoftirqsPath(tc.procfsRoot)
 		}
 	} else {
 		softirqs = NewSoftirqs(tc.procfsRoot)
@@ -150,8 +158,9 @@ func testSoftirqsParser(tc *SoftirqsTestCase, t *testing.T) {
 }
 
 func TestSoftirqsParser(t *testing.T) {
-	for i, tc := range []*SoftirqsTestCase{
+	for _, tc := range []*SoftirqsTestCase{
 		{
+			name:       "field_mapping",
 			procfsRoot: path.Join(softirqsTestdataDir, "field_mapping"),
 			wantSoftirqs: &Softirqs{
 				CounterIndexToCpuNum: nil,
@@ -194,6 +203,7 @@ func TestSoftirqsParser(t *testing.T) {
 			},
 		},
 		{
+			name:       "remove_cpu",
 			procfsRoot: path.Join(softirqsTestdataDir, "remove_cpu"),
 			primeSoftirqs: &Softirqs{
 				CounterIndexToCpuNum: nil,
@@ -221,14 +231,8 @@ func TestSoftirqsParser(t *testing.T) {
 			},
 		},
 	} {
-		var name string
-		if tc.name != "" {
-			name = fmt.Sprintf("tc=%d,name=%s,procfsRoot=%s", i, tc.name, tc.procfsRoot)
-		} else {
-			name = fmt.Sprintf("tc=%d,procfsRoot=%s", i, tc.procfsRoot)
-		}
 		t.Run(
-			name,
+			tc.name,
 			func(t *testing.T) { testSoftirqsParser(tc, t) },
 		)
 	}

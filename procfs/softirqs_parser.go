@@ -46,10 +46,14 @@ type Softirqs struct {
 
 var softirqsReadFileBufPool = ReadFileBufPoolReadUnbound
 
+func SoftirqsPath(procfsRoot string) string {
+	return path.Join(procfsRoot, "softirqs")
+}
+
 func NewSoftirqs(procfsRoot string) *Softirqs {
 	return &Softirqs{
 		Irq:  make(map[string]*SoftirqsIrq),
-		path: path.Join(procfsRoot, "softirqs"),
+		path: SoftirqsPath(procfsRoot),
 	}
 }
 
