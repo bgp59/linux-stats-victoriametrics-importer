@@ -3,7 +3,6 @@
 package benchmarks
 
 import (
-	"path"
 	"testing"
 
 	"github.com/eparparita/linux-stats-victoriametrics-importer/procfs"
@@ -13,7 +12,7 @@ import (
 )
 
 func BenchmarkStatParserIO(b *testing.B) {
-	benchmarkFileRead(path.Join(LSVMI_TESTDATA_PROCFS_ROOT, "stat"), BENCH_FILE_READ, b)
+	benchmarkFileRead(procfs.StatPath(LSVMI_TESTDATA_PROCFS_ROOT), BENCH_FILE_READ, b)
 }
 
 func BenchmarkStatParser(b *testing.B) {

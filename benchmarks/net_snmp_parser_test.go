@@ -1,7 +1,6 @@
 package benchmarks
 
 import (
-	"path"
 	"testing"
 
 	"github.com/eparparita/linux-stats-victoriametrics-importer/procfs"
@@ -11,7 +10,7 @@ import (
 )
 
 func BenchmarkNetSnmpParserIO(b *testing.B) {
-	benchmarkFileRead(path.Join(LSVMI_TESTDATA_PROCFS_ROOT, "net", "snmp"), BENCH_FILE_READ, b)
+	benchmarkFileRead(procfs.NetSnmpPath(LSVMI_TESTDATA_PROCFS_ROOT), BENCH_FILE_READ, b)
 }
 
 func BenchmarkNetSnmpParser(b *testing.B) {
@@ -56,7 +55,7 @@ func BenchmarkNetSnmpFileRead(b *testing.B) {
 		b.Run(
 			name,
 			func(b *testing.B) {
-				benchmarkFileRead(path.Join(LSVMI_TESTDATA_PROCFS_ROOT, "net", "snmp"), op, b)
+				benchmarkFileRead(procfs.NetSnmpPath(LSVMI_TESTDATA_PROCFS_ROOT), op, b)
 			},
 		)
 	}

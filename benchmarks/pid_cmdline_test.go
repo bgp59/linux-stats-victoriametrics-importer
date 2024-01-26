@@ -15,7 +15,7 @@ var (
 
 func BenchmarkPidCmdlineParserIO(b *testing.B) {
 	benchmarkFileRead(
-		pidTidPath(pidCmdlineProcfsRoot, pidCmdlineTestPid, pidCmdlineTestTid, "cmdline"),
+		procfs.PidCmdlinePath(pidCmdlineProcfsRoot, pidCmdlineTestPid, pidCmdlineTestTid),
 		BENCH_FILE_READ,
 		b,
 	)

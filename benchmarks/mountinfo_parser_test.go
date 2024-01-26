@@ -2,14 +2,13 @@ package benchmarks
 
 import (
 	"fmt"
-	"path"
 	"testing"
 
 	"github.com/eparparita/linux-stats-victoriametrics-importer/procfs"
 )
 
 func BenchmarkMountinfoParserIO(b *testing.B) {
-	benchmarkFileRead(path.Join(LSVMI_TESTDATA_PROCFS_ROOT, "1", "mountinfo"), BENCH_FILE_READ, b)
+	benchmarkFileRead(procfs.MountinfoPath(LSVMI_TESTDATA_PROCFS_ROOT, 1), BENCH_FILE_READ, b)
 }
 
 func benchmarkMountinfoParser(forceUpdate bool, b *testing.B) {
@@ -45,7 +44,7 @@ func BenchmarkMountinfoFileRead(b *testing.B) {
 		b.Run(
 			name,
 			func(b *testing.B) {
-				benchmarkFileRead(path.Join(LSVMI_TESTDATA_PROCFS_ROOT, "1", "mountinfo"), op, b)
+				benchmarkFileRead(procfs.MountinfoPath(LSVMI_TESTDATA_PROCFS_ROOT, 1), op, b)
 			},
 		)
 	}

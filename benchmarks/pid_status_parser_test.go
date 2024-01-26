@@ -51,7 +51,7 @@ func getTestPidStatusFilePathList() ([]string, error) {
 		}
 		testPidStatusFilePathList = make([]string, len(pidTidList))
 		for i, pidTid := range pidTidList {
-			testPidStatusFilePathList[i] = pidTidPath(pidStatusTestProcfsRoot, pidTid[0], pidTid[1], "status")
+			testPidStatusFilePathList[i] = procfs.PidStatusPath(pidStatusTestProcfsRoot, pidTid[0], pidTid[1])
 		}
 	}
 	return testPidStatusFilePathList, nil
@@ -77,7 +77,7 @@ func getTestPidStatusList() ([]*procfs.PidStatus, error) {
 
 func BenchmarkPidStatusParserIO(b *testing.B) {
 	benchmarkFileRead(
-		pidTidPath(pidStatusTestProcfsRoot, pidStatTestPid, pidStatTestTid, "status"),
+		procfs.PidStatusPath(pidStatusTestProcfsRoot, pidStatTestPid, pidStatTestTid),
 		BENCH_FILE_READ,
 		b,
 	)
@@ -236,7 +236,7 @@ func BenchmarkPidStatusAllParserProm(b *testing.B) {
 // Benchmark file read strategies:
 
 func BenchmarkPidStatusFileRead(b *testing.B) {
-	path := pidTidPath(LSVMI_TESTDATA_PROCFS_ROOT, pidStatTestPid, pidStatTestTid, "status")
+	path := procfs.PidStatusPath(LSVMI_TESTDATA_PROCFS_ROOT, pidStatTestPid, pidStatTestTid)
 	for op, name := range benchFileReadOpMap {
 		b.Run(
 			name,

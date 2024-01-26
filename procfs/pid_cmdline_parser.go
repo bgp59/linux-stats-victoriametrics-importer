@@ -31,14 +31,17 @@ type PidCmdline struct {
 // The pool used for reading and sanitizing the command:
 var pidCmdlineReadFileBufPool = ReadFileBufPool64k
 
-func NewPidCmdline(procfsRoot string, pid, tid int) *PidCmdline {
-	pidCmdline := &PidCmdline{}
+func PidCmdlinePath(procfsRoot string, pid, tid int) string {
 	if tid == PID_STAT_PID_ONLY_TID {
-		pidCmdline.path = path.Join(procfsRoot, strconv.Itoa(pid), "cmdline")
+		return path.Join(procfsRoot, strconv.Itoa(pid), "cmdline")
 	} else {
-		pidCmdline.path = path.Join(procfsRoot, strconv.Itoa(pid), "task", strconv.Itoa(tid), "cmdline")
+		return path.Join(procfsRoot, strconv.Itoa(pid), "task", strconv.Itoa(tid), "cmdline")
 	}
-	return pidCmdline
+}
+func NewPidCmdline(procfsRoot string, pid, tid int) *PidCmdline {
+	return &PidCmdline{
+		path: PidCmdlinePath(procfsRoot, pid, tid),
+	}
 }
 
 func (pidCmdline *PidCmdline) ReturnBuf() {

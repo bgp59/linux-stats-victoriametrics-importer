@@ -1,7 +1,6 @@
 package benchmarks
 
 import (
-	"path"
 	"testing"
 
 	"github.com/eparparita/linux-stats-victoriametrics-importer/procfs"
@@ -11,7 +10,7 @@ import (
 )
 
 func BenchmarkSoftirqsParserIO(b *testing.B) {
-	benchmarkFileRead(path.Join(LSVMI_TESTDATA_PROCFS_ROOT, "softirqs"), BENCH_FILE_READ, b)
+	benchmarkFileRead(procfs.SoftirqsPath(LSVMI_TESTDATA_PROCFS_ROOT), BENCH_FILE_READ, b)
 }
 
 func BenchmarkSoftirqsParser(b *testing.B) {
@@ -51,7 +50,7 @@ func BenchmarkSoftirqsFileRead(b *testing.B) {
 		b.Run(
 			name,
 			func(b *testing.B) {
-				benchmarkFileRead(path.Join(LSVMI_TESTDATA_PROCFS_ROOT, "softirqs"), op, b)
+				benchmarkFileRead(procfs.SoftirqsPath(LSVMI_TESTDATA_PROCFS_ROOT), op, b)
 			},
 		)
 	}

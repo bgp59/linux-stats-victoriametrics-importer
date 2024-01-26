@@ -35,18 +35,6 @@ var benchFileReadOpMap = map[int]string{
 	BENCH_FILE_SCAN_TEXT:       "BENCH_FILE_SCAN_TEXT",
 }
 
-func pidTidPath(procfsRoot string, pid, tid int, statFile string) string {
-	if tid > 0 {
-		return path.Join(
-			procfsRoot, strconv.Itoa(pid), "task", strconv.Itoa(tid), statFile,
-		)
-	} else {
-		return path.Join(
-			procfsRoot, strconv.Itoa(pid), statFile,
-		)
-	}
-}
-
 func benchmarkFileRead(fPath string, op int, b *testing.B) {
 	buf := &bytes.Buffer{}
 	for n := 0; n < b.N; n++ {

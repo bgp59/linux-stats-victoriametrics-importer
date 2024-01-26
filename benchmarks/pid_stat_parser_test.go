@@ -51,7 +51,7 @@ func getTestPidStatFilePathList() ([]string, error) {
 		}
 		testPidStatFilePathList = make([]string, len(pidTidList))
 		for i, pidTid := range pidTidList {
-			testPidStatFilePathList[i] = pidTidPath(pidStatTestProcfsRoot, pidTid[0], pidTid[1], "stat")
+			testPidStatFilePathList[i] = procfs.PidStatPath(pidStatTestProcfsRoot, pidTid[0], pidTid[1])
 		}
 	}
 	return testPidStatFilePathList, nil
@@ -77,7 +77,7 @@ func getTestPidStatList() ([]*procfs.PidStat, error) {
 
 func BenchmarkPidStatParserIO(b *testing.B) {
 	benchmarkFileRead(
-		pidTidPath(pidStatTestProcfsRoot, pidStatTestPid, pidStatTestTid, "stat"),
+		procfs.PidStatPath(pidStatTestProcfsRoot, pidStatTestPid, pidStatTestTid),
 		BENCH_FILE_READ,
 		b,
 	)
