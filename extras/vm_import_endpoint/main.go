@@ -56,31 +56,35 @@ var (
 )
 
 func logTrafficRate(interval time.Duration) {
-	prevStatsTime := time.Now()
-	nextLogTime := prevStatsTime.Add(interval)
-	buf := &bytes.Buffer{}
+
+	trafficMu.Lock()
+	statsTime := time.Now()
+	nextLogTime := statsTime
+	trafficTotalBytes = 0
+	trafficBodyBytes = 0
+	trafficMu.Unlock()
 
 	for {
+		prevStatsTime := statsTime
+		nextLogTime = nextLogTime.Add(interval)
 		pause := time.Until(nextLogTime)
 		if pause > 0 {
 			time.Sleep(pause)
 		}
-		statsTime := time.Now()
-		statsIntMicroSec := float64(statsTime.Sub(prevStatsTime).Microseconds())
-		prevStatsTime = statsTime
+
 		trafficMu.Lock()
-		buf.Reset()
-		fmt.Fprintf(
-			buf,
-			"Traffic stats, Mbps: Body: %.03f, Total (est): %.03f\n",
-			float64(trafficBodyBytes)*8/statsIntMicroSec,
-			float64(trafficTotalBytes)*8/statsIntMicroSec,
-		)
+		statsTime = time.Now()
+		statsIntMicroSec := float64(statsTime.Sub(prevStatsTime).Microseconds())
+		bodyMbps := float64(trafficBodyBytes) * 8 / statsIntMicroSec
+		totalMbps := float64(trafficTotalBytes) * 8 / statsIntMicroSec
 		trafficTotalBytes = 0
 		trafficBodyBytes = 0
 		trafficMu.Unlock()
-		nextLogTime = nextLogTime.Add(interval)
-		logger.Print(buf)
+
+		logger.Printf(
+			"Traffic stats, Mbps: Body: %.03f, Total (est): %.03f\n",
+			bodyMbps, totalMbps,
+		)
 	}
 }
 
