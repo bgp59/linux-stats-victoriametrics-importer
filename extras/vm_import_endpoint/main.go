@@ -20,7 +20,7 @@ const (
 	DEFAULT_BIND_ADDR         = "localhost"
 	DEFAULT_BODY_LIMIT        = 512
 	EOL_LEN                   = len("\r\n")
-	DEFAULT_TRAFFIC_STATS_INT = "1s"
+	DEFAULT_TRAFFIC_STATS_INT = "0"
 )
 
 const (
@@ -165,16 +165,12 @@ func handleFunc(_ http.ResponseWriter, r *http.Request) {
 		for hdr, hdrVals := range r.Header {
 			fmt.Fprintf(buf, "%s: %s\n", hdr, strings.Join(hdrVals, ", "))
 		}
-		buf.WriteByte('\n')
 	}
 	if err != nil {
 		fmt.Fprintf(buf, "Error decoding request: %s\n", err)
 	} else {
-		if displayLevel >= DISPLAY_HEADERS {
-			fmt.Fprintf(buf, "Body length: %d bytes after decoding\n", len(body))
-		}
 		if body != nil && displayLevel >= DISPLAY_BODY {
-			buf.WriteByte('\n')
+			fmt.Fprintf(buf, "\nBody (%d bytes after decoding):\n\n", len(body))
 			displayBody, truncatedSize := body, 0
 			if displayBodyLimit > 0 && len(body) > displayBodyLimit {
 				displayBody = body[:displayBodyLimit]
@@ -219,7 +215,6 @@ func handleFunc(_ http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if buf.Len() > 0 {
-		buf.WriteByte('\n')
 		logger.Print(buf)
 	}
 }
@@ -314,7 +309,7 @@ func main() {
 		addr += ":" + port
 	}
 	http.HandleFunc("/", handleFunc)
-	logger.Printf("Listening on %s, display level: %d", addr, displayLevel)
+	logger.Printf("Listening on %s\n", addr)
 	err = http.ListenAndServe(addr, nil)
 	if err != nil {
 		logger.Fatal(err)
