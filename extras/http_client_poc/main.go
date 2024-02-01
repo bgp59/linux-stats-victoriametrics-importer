@@ -9,7 +9,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 	"time"
+
+	"github.com/eparparita/linux-stats-victoriametrics-importer/lsvmi"
 )
 
 const (
@@ -69,11 +73,13 @@ func generateMetrics(targetSize int, gzipCompress bool) ([]byte, error) {
 
 func main() {
 	var (
-		url          string
-		targetSize   int
-		gzipCompress bool
-		chunked      bool
-		numRequests  int
+		url           string
+		targetSize    int
+		gzipCompress  bool
+		chunked       bool
+		numRequests   int
+		rateLimitMbps string
+		creditCtl     lsvmi.CreditController
 	)
 
 	flag.StringVar(&url, "url", DEFAULT_URL, "URL for import")
@@ -81,6 +87,12 @@ func main() {
 	flag.BoolVar(&gzipCompress, "gzip", false, "Compress body w/ gzip")
 	flag.BoolVar(&chunked, "chunked", false, "Enable chunking")
 	flag.IntVar(&numRequests, "num-requests", 1, "Number of requests, use 0 for unlimited")
+	flag.StringVar(
+		&rateLimitMbps,
+		"rate-limit-mbps",
+		"",
+		"Rate limit as Mb[/duration], default duration 1s",
+	)
 	flag.Parse()
 
 	transport := &http.Transport{
@@ -95,16 +107,41 @@ func main() {
 		Transport: transport,
 	}
 
+	if rateLimitMbps != "" {
+		replenish, interval := rateLimitMbps, "1s"
+		index := strings.Index(rateLimitMbps, "/")
+		if index >= 0 {
+			replenish = rateLimitMbps[:index]
+			interval = rateLimitMbps[index+1:]
+		}
+
+		replenishFloat, err := strconv.ParseFloat(replenish, 64)
+		if err != nil {
+			logger.Fatal(err)
+		}
+		replenishValue := int(replenishFloat * 1_000_000 / 8)
+		replenishInt, err := time.ParseDuration(interval)
+		if err != nil {
+			logger.Fatal(err)
+		}
+		creditCtl = lsvmi.NewCredit(replenishValue, 0, replenishInt)
+		logger.Printf("credit: replenishValue=%d, replenishInt=%s\n", replenishValue, replenishInt)
+	}
+
 	metrics, err := generateMetrics(targetSize, gzipCompress)
 	if err != nil {
 		logger.Fatal(err)
 	}
-	body := bytes.NewReader(metrics)
 
-	logger.Printf("len(body)=%d", body.Len())
+	logger.Printf("len(metrics)=%d", len(metrics))
 
 	for k := 0; numRequests <= 0 || k < numRequests; k++ {
-		body.Seek(0, io.SeekStart)
+		var body io.Reader
+		if creditCtl != nil {
+			body = lsvmi.NewCreditReader(creditCtl, 256, metrics)
+		} else {
+			body = bytes.NewReader(metrics)
+		}
 		req, err := http.NewRequest("PUT", url, body)
 		if err != nil {
 			logger.Fatal(err)
