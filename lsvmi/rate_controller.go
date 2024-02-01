@@ -186,8 +186,8 @@ func (cr *CreditReader) Read(p []byte) (int, error) {
 // Implement Seek interface:
 
 // Modelled on io:
-var errCrWhence = errors.New("Seek: invalid whence")
-var errCrOffset = errors.New("Seek: invalid offset")
+var errCreditReaderWhence = errors.New("Seek: invalid whence")
+var errCreditReaderOffset = errors.New("Seek: invalid offset")
 
 func (cr *CreditReader) Seek(offset int64, whence int) (int64, error) {
 	var newR int64
@@ -197,12 +197,12 @@ func (cr *CreditReader) Seek(offset int64, whence int) (int64, error) {
 	case io.SeekStart:
 		newR = offset
 	case io.SeekEnd:
-		newR = int64(cr.n) + offset - 1
+		newR = int64(cr.n) - 1 + offset
 	default:
-		return 0, errCrWhence
+		return 0, errCreditReaderWhence
 	}
 	if newR < 0 || newR >= int64(cr.n) {
-		return 0, errCrOffset
+		return 0, errCreditReaderOffset
 	}
 	cr.r = int(newR)
 	return newR, nil
