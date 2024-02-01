@@ -16,6 +16,7 @@ package lsvmi
 
 import (
 	"context"
+	"io"
 	"sync"
 	"time"
 )
@@ -25,15 +26,55 @@ const (
 	CREDIT_EXACT_MATCH = 0
 )
 
+// Define an interface for testing:
+type CreditController interface {
+	GetCredit(desired, minAcceptable int) int
+}
+
+// The actual implementation:
 type Credit struct {
 	ctx            context.Context
 	cancelFunc     context.CancelFunc
 	wg             *sync.WaitGroup
 	cond           *sync.Cond
-	current        uint64
-	max            uint64
-	replenishValue uint64
+	current        int
+	max            int
+	replenishValue int
 	replenishInt   time.Duration
+}
+
+// Credit based reader:
+type CreditReader struct {
+	// Credit control:
+	cc CreditController
+	// Minimum acceptable credit:
+	minC int
+	// Bytes to return with the controlled rate:
+	b []byte
+	// Read pointer in b:
+	r int
+	// Total size of b:
+	n int
+}
+
+func NewCredit(replenishValue, max int, replenishInt time.Duration) *Credit {
+	if max != CREDIT_NO_LIMIT && max < replenishValue {
+		max = replenishValue
+	}
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+
+	c := &Credit{
+		ctx:            ctx,
+		cancelFunc:     cancelFunc,
+		wg:             &sync.WaitGroup{},
+		cond:           sync.NewCond(&sync.Mutex{}),
+		max:            max,
+		replenishValue: replenishValue,
+		replenishInt:   replenishInt,
+	}
+	c.startReplenish()
+	return c
 }
 
 func (c *Credit) startReplenish() {
@@ -75,7 +116,7 @@ func (c *Credit) StopReplenishWait() {
 	c.wg.Wait()
 }
 
-func (c *Credit) GetCredit(desired, minAcceptable uint64) (got uint64) {
+func (c *Credit) GetCredit(desired, minAcceptable int) (got int) {
 	if minAcceptable == CREDIT_EXACT_MATCH ||
 		minAcceptable > desired {
 		minAcceptable = desired
@@ -97,22 +138,38 @@ func (c *Credit) GetCredit(desired, minAcceptable uint64) (got uint64) {
 	return
 }
 
-func NewCredit(replenishValue, max uint64, replenishInt time.Duration) *Credit {
-	if max != CREDIT_NO_LIMIT && max < replenishValue {
-		max = replenishValue
+func NewCreditReader(cc CreditController, minAcceptable int, b []byte) *CreditReader {
+	if minAcceptable < 0 {
+		minAcceptable = 0
 	}
-
-	ctx, cancelFunc := context.WithCancel(context.Background())
-
-	c := &Credit{
-		ctx:            ctx,
-		cancelFunc:     cancelFunc,
-		wg:             &sync.WaitGroup{},
-		cond:           sync.NewCond(&sync.Mutex{}),
-		max:            max,
-		replenishValue: replenishValue,
-		replenishInt:   replenishInt,
+	return &CreditReader{
+		cc:   cc,
+		minC: int(minAcceptable),
+		b:    b,
+		r:    0,
+		n:    len(b),
 	}
-	c.startReplenish()
-	return c
+}
+
+// Implement the Read interface:
+func (cr *CreditReader) Read(p []byte) (int, error) {
+	available := cr.n - cr.r
+	if available <= 0 {
+		return 0, io.EOF
+	}
+	toRead := len(p)
+	if toRead == 0 {
+		return 0, nil
+	}
+	if available < toRead {
+		toRead = available
+	}
+	toRead = int(cr.cc.GetCredit(toRead, cr.minC))
+	if toRead == 0 {
+		return 0, nil
+	}
+	s := cr.r
+	cr.r += toRead
+	copy(p, cr.b[s:cr.r])
+	return toRead, nil
 }

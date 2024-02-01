@@ -50,9 +50,10 @@ var (
 	auditFileMu              = &sync.Mutex{}
 	auditFileHeaderDisplayed bool
 
-	trafficTotalBytes int
-	trafficBodyBytes  int
-	trafficMu         = &sync.Mutex{}
+	trafficByteCount int
+	bodyByteCount    int
+	requestCount     int
+	trafficMu        = &sync.Mutex{}
 )
 
 func logTrafficRate(interval time.Duration) {
@@ -60,8 +61,8 @@ func logTrafficRate(interval time.Duration) {
 	trafficMu.Lock()
 	statsTime := time.Now()
 	nextLogTime := statsTime
-	trafficTotalBytes = 0
-	trafficBodyBytes = 0
+	trafficByteCount = 0
+	bodyByteCount = 0
 	trafficMu.Unlock()
 
 	for {
@@ -75,15 +76,18 @@ func logTrafficRate(interval time.Duration) {
 		trafficMu.Lock()
 		statsTime = time.Now()
 		statsIntMicroSec := float64(statsTime.Sub(prevStatsTime).Microseconds())
-		bodyMbps := float64(trafficBodyBytes) * 8 / statsIntMicroSec
-		totalMbps := float64(trafficTotalBytes) * 8 / statsIntMicroSec
-		trafficTotalBytes = 0
-		trafficBodyBytes = 0
+		bodyMbps := float64(bodyByteCount) * 8 / statsIntMicroSec
+		totalMbps := float64(trafficByteCount) * 8 / statsIntMicroSec
+		rCnt := requestCount
+		rps := float64(requestCount) / statsIntMicroSec * 1_000_000.
+		trafficByteCount = 0
+		bodyByteCount = 0
+		requestCount = 0
 		trafficMu.Unlock()
 
 		logger.Printf(
-			"Traffic stats, Mbps: Body: %.03f, Total (est): %.03f\n",
-			bodyMbps, totalMbps,
+			"Traffic: Req: +%d, %.03f rps, Body: %.03f Mbps, Total (est): %.03f Mbps\n",
+			rCnt, rps, bodyMbps, totalMbps,
 		)
 	}
 }
@@ -105,16 +109,6 @@ func handleFunc(_ http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	_, ok := r.Header["Transfer-Encoding"]
-	if !ok && len(r.TransferEncoding) > 0 {
-		r.Header["Transfer-Encoding"] = r.TransferEncoding
-	}
-	_, ok = r.Header["Content-Length"]
-	if !ok && r.ContentLength > 0 {
-		r.Header["Content-Length"] = []string{
-			fmt.Sprintf("%d", r.ContentLength),
-		}
-	}
 	isText := true
 	for hdr, hdrVals := range r.Header {
 		rSize += len(hdr) + EOL_LEN
@@ -127,11 +121,13 @@ func handleFunc(_ http.ResponseWriter, r *http.Request) {
 				for _, val := range hdrVals {
 					switch val {
 					case "gzip":
-						b := bytes.NewBuffer(body)
-						var gzipReader *gzip.Reader
-						gzipReader, err = gzip.NewReader(b)
-						if err == nil {
-							body, err = io.ReadAll(gzipReader)
+						if displayLevel >= DISPLAY_BODY {
+							b := bytes.NewBuffer(body)
+							var gzipReader *gzip.Reader
+							gzipReader, err = gzip.NewReader(b)
+							if err == nil {
+								body, err = io.ReadAll(gzipReader)
+							}
 						}
 					case "":
 					default:
@@ -199,8 +195,9 @@ func handleFunc(_ http.ResponseWriter, r *http.Request) {
 		}
 
 		trafficMu.Lock()
-		trafficTotalBytes += rSize
-		trafficBodyBytes += bSize
+		trafficByteCount += rSize
+		bodyByteCount += bSize
+		requestCount += 1
 		trafficMu.Unlock()
 
 		if auditFile != nil {

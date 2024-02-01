@@ -40,12 +40,12 @@ type stopFunc func()
 
 type CreditTestCase struct {
 	name                   string
-	replenishValue         uint64
+	replenishValue         int
 	replenishInt           time.Duration
-	minDesired, maxDesired uint64
+	minDesired, maxDesired int
 	numRequestors          int           // superseded by len(targetCredit), if > 0
 	testDuration           time.Duration // computed based on sum(targetCredit), if len(targetCredit) > 0
-	targetCredit           []uint64
+	targetCredit           []int
 }
 
 type TestCreditContext struct {
@@ -54,9 +54,9 @@ type TestCreditContext struct {
 	m                   *sync.Mutex
 	c                   *Credit
 	stopFnList          []stopFunc
-	receivedCreditTotal uint64
-	receivedCredit      []uint64
-	creditRequestCount  uint64
+	receivedCreditTotal int
+	receivedCredit      []int
+	creditRequestCount  int
 }
 
 func (tcCtx *TestCreditContext) start() {
@@ -83,7 +83,7 @@ func NewTestCreditContext(tc *CreditTestCase) *TestCreditContext {
 	var n int
 	if tc.targetCredit != nil {
 		n = len(tc.targetCredit)
-		tcCtx.receivedCredit = make([]uint64, n)
+		tcCtx.receivedCredit = make([]int, n)
 	} else {
 		n = tc.numRequestors
 	}
@@ -102,9 +102,9 @@ func startTestCreditUser(tcCtx *TestCreditContext, clientIndex int) stopFunc {
 			case <-ctx.Done():
 				done = true
 			default:
-				desired := uint64(rand.Int63n(int64(maxDesired-minDesired))) + minDesired
+				desired := int(rand.Int63n(int64(maxDesired-minDesired))) + minDesired
 				if targetCredit != nil {
-					neededCredit := uint64(0)
+					neededCredit := int(0)
 					if targetCredit[clientIndex] > receivedCredit[clientIndex] {
 						neededCredit = targetCredit[clientIndex] - receivedCredit[clientIndex]
 					}
@@ -112,9 +112,9 @@ func startTestCreditUser(tcCtx *TestCreditContext, clientIndex int) stopFunc {
 						desired = neededCredit
 					}
 				}
-				minAcceptable := uint64(0)
+				minAcceptable := int(0)
 				if desired > 1 {
-					minAcceptable = uint64(rand.Int63n(int64(desired-1))) + 1
+					minAcceptable = int(rand.Int63n(int64(desired-1))) + 1
 				}
 				got := c.GetCredit(desired, minAcceptable)
 				if targetCredit != nil {
@@ -160,7 +160,7 @@ targetCredit=%v
 
 	var testDuration time.Duration
 	if tc.targetCredit != nil {
-		totalTargetCredit := uint64(0)
+		totalTargetCredit := int(0)
 		for _, credit := range tc.targetCredit {
 			totalTargetCredit += credit
 		}
@@ -251,7 +251,7 @@ func TestCredit(t *testing.T) {
 			replenishInt:   100 * time.Millisecond,
 			minDesired:     1,
 			maxDesired:     50_000,
-			targetCredit:   []uint64{1_250_000, 2_000_000},
+			targetCredit:   []int{1_250_000, 2_000_000},
 		},
 		{
 			name:           "under_subscription",
@@ -259,7 +259,7 @@ func TestCredit(t *testing.T) {
 			replenishInt:   100 * time.Millisecond,
 			minDesired:     1,
 			maxDesired:     5_000,
-			targetCredit:   []uint64{250_000, 2_000_000, 999_999},
+			targetCredit:   []int{250_000, 2_000_000, 999_999},
 		},
 	} {
 		t.Run(
