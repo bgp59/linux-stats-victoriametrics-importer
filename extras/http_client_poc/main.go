@@ -80,6 +80,7 @@ func main() {
 		numRequests   int
 		rateLimitMbps string
 		creditCtl     lsvmi.CreditController
+		body          io.ReadSeeker
 	)
 
 	flag.StringVar(&url, "url", DEFAULT_URL, "URL for import")
@@ -107,6 +108,11 @@ func main() {
 		Transport: transport,
 	}
 
+	metrics, err := generateMetrics(targetSize, gzipCompress)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
 	if rateLimitMbps != "" {
 		replenish, interval := rateLimitMbps, "1s"
 		index := strings.Index(rateLimitMbps, "/")
@@ -125,23 +131,16 @@ func main() {
 			logger.Fatal(err)
 		}
 		creditCtl = lsvmi.NewCredit(replenishValue, 0, replenishInt)
-		logger.Printf("credit: replenishValue=%d, replenishInt=%s\n", replenishValue, replenishInt)
-	}
-
-	metrics, err := generateMetrics(targetSize, gzipCompress)
-	if err != nil {
-		logger.Fatal(err)
+		logger.Printf("credit: replenishValue/interval=%d/%s\n", replenishValue, replenishInt)
+		body = lsvmi.NewCreditReader(creditCtl, 256, metrics)
+	} else {
+		body = bytes.NewReader(metrics)
 	}
 
 	logger.Printf("len(metrics)=%d", len(metrics))
 
 	for k := 0; numRequests <= 0 || k < numRequests; k++ {
-		var body io.Reader
-		if creditCtl != nil {
-			body = lsvmi.NewCreditReader(creditCtl, 256, metrics)
-		} else {
-			body = bytes.NewReader(metrics)
-		}
+		body.Seek(0, io.SeekStart)
 		req, err := http.NewRequest("PUT", url, body)
 		if err != nil {
 			logger.Fatal(err)

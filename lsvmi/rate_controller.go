@@ -16,6 +16,7 @@ package lsvmi
 
 import (
 	"context"
+	"errors"
 	"io"
 	"sync"
 	"time"
@@ -151,6 +152,14 @@ func NewCreditReader(cc CreditController, minAcceptable int, b []byte) *CreditRe
 	}
 }
 
+// Reuse w/ new data:
+func (cr *CreditReader) Reuse(minAcceptable int, b []byte) {
+	if minAcceptable >= 0 {
+		cr.minC = minAcceptable
+	}
+	cr.b, cr.r, cr.n = b, 0, len(b)
+}
+
 // Implement the Read interface:
 func (cr *CreditReader) Read(p []byte) (int, error) {
 	available := cr.n - cr.r
@@ -172,4 +181,29 @@ func (cr *CreditReader) Read(p []byte) (int, error) {
 	cr.r += toRead
 	copy(p, cr.b[s:cr.r])
 	return toRead, nil
+}
+
+// Implement Seek interface:
+
+// Modelled on io:
+var errCrWhence = errors.New("Seek: invalid whence")
+var errCrOffset = errors.New("Seek: invalid offset")
+
+func (cr *CreditReader) Seek(offset int64, whence int) (int64, error) {
+	var newR int64
+	switch whence {
+	case io.SeekCurrent:
+		newR = int64(cr.r) + offset
+	case io.SeekStart:
+		newR = offset
+	case io.SeekEnd:
+		newR = int64(cr.n) + offset - 1
+	default:
+		return 0, errCrWhence
+	}
+	if newR < 0 || newR >= int64(cr.n) {
+		return 0, errCrOffset
+	}
+	cr.r = int(newR)
+	return newR, nil
 }

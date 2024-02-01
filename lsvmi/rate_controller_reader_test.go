@@ -1,7 +1,6 @@
 package lsvmi
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"testing"
@@ -22,6 +21,13 @@ type CreditReaderTestStep struct {
 	wantReadErr     error
 }
 
+func (step *CreditReaderTestStep) String() string {
+	return fmt.Sprintf(
+		"{%d, %d, %v}",
+		step.getCreditRetVal, step.wantReadN, step.wantReadErr,
+	)
+}
+
 type CreditReaderTestCase struct {
 	name        string
 	readBufSize int
@@ -30,25 +36,14 @@ type CreditReaderTestCase struct {
 }
 
 func testCreditReader(tc *CreditReaderTestCase, t *testing.T) {
-	buf := &bytes.Buffer{}
-	fmt.Fprintf(
-		buf, `
+	t.Logf(`
 name=%q
 readBufSize=%d
 crBufSize=%d
-steps:
+steps=%v
 `,
-		tc.name, tc.readBufSize, tc.crBufSize,
+		tc.name, tc.readBufSize, tc.crBufSize, tc.steps,
 	)
-
-	for _, step := range tc.steps {
-		fmt.Fprintf(
-			buf,
-			"\t%d, %d, %v\n",
-			step.getCreditRetVal, step.wantReadN, step.wantReadErr,
-		)
-	}
-	t.Log(buf)
 
 	cc := &CreditMock{}
 	cr := NewCreditReader(cc, 0, make([]byte, tc.crBufSize))
