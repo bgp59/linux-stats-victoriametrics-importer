@@ -3,6 +3,7 @@ module github.com/eparparita/linux-stats-victoriametrics-importer
 go 1.19
 
 require (
+	github.com/sirupsen/logrus v1.9.3
 	github.com/tklauser/go-sysconf v0.3.12
 	golang.org/x/sys v0.15.0
 )
