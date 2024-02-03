@@ -1,0 +1,3 @@
+log_config:
+  use_json: true
+  level: error

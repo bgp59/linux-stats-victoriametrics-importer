@@ -22,8 +22,13 @@ var comp2Log = lsvmi.Log.WithField(
 
 func main() {
 	flag.Parse()
+	err := lsvmi.LoadLsvmiConfigFromArgs()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 
-	err := lsvmi.SetLogger(nil)
+	err = lsvmi.SetLogger(lsvmi.LsvmiCfg)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

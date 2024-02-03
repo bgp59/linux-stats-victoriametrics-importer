@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -19,8 +20,8 @@ const (
 )
 
 type LoggerConfig struct {
-	UseJson bool
-	Level   string
+	UseJson bool   `yaml:"use_json"`
+	Level   string `yaml:"level:`
 }
 
 var loggerUseJsonArg = NewBoolFlagCheckUsed(
@@ -140,13 +141,17 @@ func LogSortFieldKeys(keys []string) {
 
 var LogTextFormatter = &logrus.TextFormatter{
 	DisableColors:    true,
+	DisableQuote:     false,
 	FullTimestamp:    true,
+	TimestampFormat:  time.RFC1123Z,
 	CallerPrettyfier: logFunctionFileCache.LogCallerPrettyfier,
 	DisableSorting:   false,
 	SortingFunc:      LogSortFieldKeys,
 }
 
 var LogJsonFormatter = &logrus.JSONFormatter{
+	DisableTimestamp: false,
+	TimestampFormat:  time.RFC1123Z,
 	CallerPrettyfier: logFunctionFileCache.LogCallerPrettyfier,
 }
 
@@ -168,12 +173,27 @@ func GetLogLevelNames() []string {
 
 // Set the logger based on config overridden by command line args, if the latter
 // were used:
-func SetLogger(cfg *LoggerConfig) error {
-	var levelName string
+func SetLogger(cfg any) error {
+	var (
+		levelName string
+		logCfg    *LoggerConfig
+	)
+
+	if cfg != nil {
+		switch cfg.(type) {
+		case *LoggerConfig:
+			logCfg = cfg.(*LoggerConfig)
+		case *LsvmiConfig:
+			logCfg = cfg.(*LsvmiConfig).LogConfig
+		default:
+			return fmt.Errorf("cfg: %T invalid type", cfg)
+		}
+	}
+
 	if loggerLevelArg.Used {
 		levelName = loggerLevelArg.Value
-	} else if cfg != nil {
-		levelName = cfg.Level
+	} else if logCfg != nil {
+		levelName = logCfg.Level
 	}
 	if levelName != "" {
 		level, err := logrus.ParseLevel(levelName)
@@ -182,7 +202,7 @@ func SetLogger(cfg *LoggerConfig) error {
 		}
 		Log.SetLevel(level)
 	}
-	if loggerUseJsonArg.Used || (cfg != nil && cfg.UseJson) {
+	if loggerUseJsonArg.Used || (logCfg != nil && logCfg.UseJson) {
 		Log.SetFormatter(LogJsonFormatter)
 	}
 	return nil
