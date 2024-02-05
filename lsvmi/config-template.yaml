@@ -1,0 +1,15 @@
+# Configuration file template for LSVMI. Copy tp an actual file, uncomment the
+# optional sections as needed and set the desired values. The settings below are
+# set for the default values.
+
+# # Logger section:
+# log_config:
+#   # Whether to log in JSON format; it can be overridden via
+#   #   --log-json-format=false, to disable
+#   #     or
+#   #   --log-json-format, to enable
+#   use_json: false
+#   # The log level, must one of the following:
+#   #   panic, fatal, error, warning, info, debug, trace
+#   log_level: info
+

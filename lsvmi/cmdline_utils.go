@@ -5,6 +5,7 @@ package lsvmi
 import (
 	"bytes"
 	"flag"
+	"strconv"
 	"strings"
 )
 
@@ -20,10 +21,25 @@ const (
 type BoolFlagCheckUsed struct {
 	// Whether it was used on the command line or not:
 	Used bool
+	// Value, defaults to true if if no value was set on the command line:
+	Value bool
 }
 
 func (bfcu *BoolFlagCheckUsed) BoolFlagFunc(s string) error {
+	var (
+		val bool
+		err error
+	)
+	if s != "" {
+		val, err = strconv.ParseBool(s)
+		if err != nil {
+			return err
+		}
+	} else {
+		val = true
+	}
 	bfcu.Used = true
+	bfcu.Value = val
 	return nil
 }
 

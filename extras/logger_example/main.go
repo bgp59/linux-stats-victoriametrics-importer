@@ -5,20 +5,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/eparparita/linux-stats-victoriametrics-importer/lsvmi"
 )
 
-var comp1Log = lsvmi.Log.WithField(
-	lsvmi.LOGGER_COMPONENT_FIELD_NAME,
-	"Comp1",
-)
-
-var comp2Log = lsvmi.Log.WithField(
-	lsvmi.LOGGER_COMPONENT_FIELD_NAME,
-	"Comp2",
-)
+var log1 = lsvmi.NewCompLogger("Comp1")
+var log2 = lsvmi.NewCompLogger("Comp2")
 
 func main() {
 	flag.Parse()
@@ -34,12 +25,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	for _, logger := range []*logrus.Entry{
-		comp1Log, comp2Log,
-	} {
-		logger.Debug("debug test")
-		logger.Info("info test")
-		logger.Warn("warn test")
-		logger.Error("error test")
-	}
+	log1.Debug("debug test")
+	log1.Info("info test")
+	log1.Warn("warn test")
+	log1.Error("error test")
+
+	log2.Debug("debug test")
+	log2.Info("info test")
+	log2.Warn("warn test")
+	log2.Error("error test")
 }

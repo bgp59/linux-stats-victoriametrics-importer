@@ -14,7 +14,8 @@ import (
 )
 
 const (
-	DEFAULT_LOG_LEVEL = logrus.InfoLevel
+	LOGGER_DEFAULT_LEVEL    = logrus.InfoLevel
+	LOGGER_TIMESTAMP_FORMAT = time.RFC3339Nano
 	// Extra field added for component sub loggers:
 	LOGGER_COMPONENT_FIELD_NAME = "comp"
 )
@@ -31,7 +32,7 @@ var loggerUseJsonArg = NewBoolFlagCheckUsed(
 
 var loggerLevelArg = NewStringFlagCheckUsed(
 	"log-level",
-	DEFAULT_LOG_LEVEL.String(),
+	LOGGER_DEFAULT_LEVEL.String(),
 	fmt.Sprintf(`
 	Set log level, it should be one of the %s values. 
 	`, GetLogLevelNames()),
@@ -143,24 +144,22 @@ var LogTextFormatter = &logrus.TextFormatter{
 	DisableColors:    true,
 	DisableQuote:     false,
 	FullTimestamp:    true,
-	TimestampFormat:  time.RFC1123Z,
+	TimestampFormat:  LOGGER_TIMESTAMP_FORMAT,
 	CallerPrettyfier: logFunctionFileCache.LogCallerPrettyfier,
 	DisableSorting:   false,
 	SortingFunc:      LogSortFieldKeys,
 }
 
 var LogJsonFormatter = &logrus.JSONFormatter{
-	DisableTimestamp: false,
-	TimestampFormat:  time.RFC1123Z,
+	TimestampFormat:  LOGGER_TIMESTAMP_FORMAT,
 	CallerPrettyfier: logFunctionFileCache.LogCallerPrettyfier,
 }
 
 var Log = &logrus.Logger{
-	ReportCaller: true,
-	Out:          os.Stderr,
-	Formatter:    LogTextFormatter,
-	Hooks:        make(logrus.LevelHooks),
-	Level:        DEFAULT_LOG_LEVEL,
+	Out: os.Stderr,
+	//Hooks:        make(logrus.LevelHooks),
+	Formatter: LogTextFormatter,
+	Level:     LOGGER_DEFAULT_LEVEL,
 }
 
 func GetLogLevelNames() []string {
@@ -180,11 +179,11 @@ func SetLogger(cfg any) error {
 	)
 
 	if cfg != nil {
-		switch cfg.(type) {
+		switch cfg := cfg.(type) {
 		case *LoggerConfig:
-			logCfg = cfg.(*LoggerConfig)
+			logCfg = cfg
 		case *LsvmiConfig:
-			logCfg = cfg.(*LsvmiConfig).LogConfig
+			logCfg = cfg.LoggerConfig
 		default:
 			return fmt.Errorf("cfg: %T invalid type", cfg)
 		}
@@ -202,8 +201,17 @@ func SetLogger(cfg any) error {
 		}
 		Log.SetLevel(level)
 	}
-	if loggerUseJsonArg.Used || (logCfg != nil && logCfg.UseJson) {
+
+	if loggerUseJsonArg.Used {
+		if loggerUseJsonArg.Value {
+			Log.SetFormatter(LogJsonFormatter)
+		}
+	} else if logCfg != nil && logCfg.UseJson {
 		Log.SetFormatter(LogJsonFormatter)
 	}
 	return nil
+}
+
+func NewCompLogger(compName string) *logrus.Entry {
+	return Log.WithField(LOGGER_COMPONENT_FIELD_NAME, compName)
 }
