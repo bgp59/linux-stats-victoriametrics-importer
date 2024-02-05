@@ -25,13 +25,14 @@ const (
 	//  1. All intervals below are time.ParseInterval() compatible.
 
 	// Endpoint default values:
-	HTTP_ENDPOINT_URL_DEFAULT                      = "http://localhost:8428//api/v1/import/prometheus"
+	HTTP_ENDPOINT_URL_DEFAULT                      = "http://localhost:8428/api/v1/import/prometheus"
 	HTTP_ENDPOINT_MARK_UNHEALTHY_THRESHOLD_DEFAULT = 1
 
 	// Endpoint config pool default values:
 	HTTP_ENDPOINT_POOL_HEALTHY_ROTATE_INTERVAL_DEFAULT = "5m"
 	HTTP_ENDPOINT_POOL_ERROR_RESET_INTERVAL_DEFAULT    = "1m"
 	HTTP_ENDPOINT_POOL_HEALTHY_CHECK_INTERVAL_DEFAULT  = "5s"
+	HTTP_ENDPOINT_POOL_HEALTHY_CHECK_MIN_INTERVAL      = 1 * time.Second
 	// http.Transport config default values:
 	HTTP_ENDPOINT_POOL_MAX_IDLE_CONNS_DEFAULT          = 0 // No limit
 	HTTP_ENDPOINT_POOL_MAX_IDLE_CONNS_PER_HOST_DEFAULT = 1
@@ -40,7 +41,7 @@ const (
 	HTTP_ENDPOINT_POOL_RESPONSE_HEADER_TIMEOUT_DEFAULT = "15s"
 )
 
-var httpEndpointPoolLog = NewCompLogger("http_endpoint_pool")
+var epPoolLog = NewCompLogger("http_endpoint_pool")
 
 type HttpEndpoint struct {
 	// The URL that accepts PUT w/ Prometheus exposition format data:
@@ -153,10 +154,10 @@ type HttpEndpointPool struct {
 }
 
 type HttpEndpointPoolConfig struct {
-	Endpoints             []*HttpEndpointConfig
-	HealthyRotateInterval string `yaml:"healthy_rotate_interval"`
-	ErrorResetInterval    string `yaml:"error_reset_interval"`
-	HealthyCheckInterval  string `yaml:"healthy_check_interval"`
+	Endpoints             []*HttpEndpointConfig `yaml:"endpoints"`
+	HealthyRotateInterval string                `yaml:"healthy_rotate_interval"`
+	ErrorResetInterval    string                `yaml:"error_reset_interval"`
+	HealthyCheckInterval  string                `yaml:"healthy_check_interval"`
 	// Params for http.Transport:
 	MaxIdleConns          int    `yaml:"max_idle_conns"`
 	MaxIdleConnsPerHost   int    `yaml:"max_idle_conns_per_host"`
@@ -227,15 +228,22 @@ func NewHttpEndpointPool(cfg any) (*HttpEndpointPool, error) {
 	if epPool.healthyCheckInterval, err = time.ParseDuration(poolCfg.HealthyCheckInterval); err != nil {
 		return nil, fmt.Errorf("NewHttpEndpointPool: healthy_check_interval: %v", err)
 	}
+	if epPool.healthyCheckInterval < HTTP_ENDPOINT_POOL_HEALTHY_CHECK_MIN_INTERVAL {
+		epPoolLog.Warnf(
+			"healthy_check_interval %s too small, it will be adjusted to %s",
+			epPool.healthyCheckInterval, HTTP_ENDPOINT_POOL_HEALTHY_CHECK_MIN_INTERVAL,
+		)
+		epPool.healthyCheckInterval = HTTP_ENDPOINT_POOL_HEALTHY_CHECK_MIN_INTERVAL
+	}
 
-	httpEndpointPoolLog.Infof("healthy_rotate_interval=%s", epPool.healthyRotateInterval)
-	httpEndpointPoolLog.Infof("error_reset_interval=%s", epPool.errorResetInterval)
-	httpEndpointPoolLog.Infof("healthy_check_interval=%s", epPool.healthyCheckInterval)
-	httpEndpointPoolLog.Infof("max_idle_conns=%d", epPool.transport.MaxIdleConns)
-	httpEndpointPoolLog.Infof("max_idle_conns_per_host=%d", epPool.transport.MaxIdleConnsPerHost)
-	httpEndpointPoolLog.Infof("max_conns_per_host=%d", epPool.transport.MaxConnsPerHost)
-	httpEndpointPoolLog.Infof("idle_conn_timeout=%s", epPool.transport.IdleConnTimeout)
-	httpEndpointPoolLog.Infof("response_header_timeout=%s", epPool.transport.ResponseHeaderTimeout)
+	epPoolLog.Infof("healthy_rotate_interval=%s", epPool.healthyRotateInterval)
+	epPoolLog.Infof("error_reset_interval=%s", epPool.errorResetInterval)
+	epPoolLog.Infof("healthy_check_interval=%s", epPool.healthyCheckInterval)
+	epPoolLog.Infof("max_idle_conns=%d", epPool.transport.MaxIdleConns)
+	epPoolLog.Infof("max_idle_conns_per_host=%d", epPool.transport.MaxIdleConnsPerHost)
+	epPoolLog.Infof("max_conns_per_host=%d", epPool.transport.MaxConnsPerHost)
+	epPoolLog.Infof("idle_conn_timeout=%s", epPool.transport.IdleConnTimeout)
+	epPoolLog.Infof("response_header_timeout=%s", epPool.transport.ResponseHeaderTimeout)
 
 	if len(poolCfg.Endpoints) == 0 {
 		epPool.MoveToHealthy(NewHttpEndpoint(nil))
@@ -244,7 +252,7 @@ func NewHttpEndpointPool(cfg any) (*HttpEndpointPool, error) {
 			epPool.MoveToHealthy(NewHttpEndpoint(epCfg))
 		}
 	}
-	httpEndpointPoolLog.Infof("%s is at the head of the healthy list", epPool.healthy.head.URL)
+	epPoolLog.Infof("%s is at the head of the healthy list", epPool.healthy.head.URL)
 	epPool.healthyHeadChangeTs = time.Now()
 	return epPool, nil
 }
@@ -271,7 +279,10 @@ func (epPool *HttpEndpointPool) MoveToHealthy(ep *HttpEndpoint) {
 	ep.numErrors = 0
 	epPool.healthy.AddToTail(ep)
 	epPool.cond.Broadcast()
-	httpEndpointPoolLog.Infof("%s added to healthy list", ep.URL)
+	epPoolLog.Infof(
+		"url=%s, mark_unhealthy_threshold=%d added to the healthy list",
+		ep.URL, ep.markUnhealthyThreshold,
+	)
 }
 
 func (epPool *HttpEndpointPool) GetCurrentHealthy() *HttpEndpoint {
@@ -288,17 +299,17 @@ func (epPool *HttpEndpointPool) GetCurrentHealthy() *HttpEndpoint {
 		time.Since(epPool.healthyHeadChangeTs) >= epPool.healthyRotateInterval {
 		epPool.healthy.Remove(ep)
 		epPool.healthy.AddToTail(ep)
-		httpEndpointPoolLog.Infof("%s rotated to healthy list tail", ep.URL)
+		epPoolLog.Infof("%s rotated to healthy list tail", ep.URL)
 		ep = epPool.healthy.head
 		epPool.healthyHeadChangeTs = time.Now()
-		httpEndpointPoolLog.Infof("%s rotated to healthy list head", ep.URL)
+		epPoolLog.Infof("%s rotated to healthy list head", ep.URL)
 
 	}
 	// Apply error reset as needed:
 	if epPool.errorResetInterval > 0 &&
 		ep.numErrors > 0 &&
 		time.Since(ep.errorTs) >= epPool.errorResetInterval {
-		httpEndpointPoolLog.Infof("clear %s error count (was: %d)", ep.URL, ep.numErrors)
+		epPoolLog.Infof("clear error count for %s (was: %d)", ep.URL, ep.numErrors)
 		ep.numErrors = 0
 	}
 	return ep

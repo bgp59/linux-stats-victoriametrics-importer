@@ -1,0 +1,51 @@
+# HTTP Endpoint Pool section:
+http_endpoint_pool_config:
+  # The list of endpoint URLs. Each URL may have an associated threshold for
+  # failed accesses count, used for declaring the endpoint unhealthy; this may
+  # be > 1 for cases where the host name part of the URL is some kind of a DNS
+  # pool which is resolved to a list of addresses, in which case it should be
+  # set to the number of pool members. Just because one member is unhealthy, it
+  # doesn't mean that others cannot be used. The net/http Transport connection
+  # cache will remove the failed connection and the name to address resolution
+  # mechanism should no longer resolve to this failed IP.
+  endpoints:
+    - url: http://localhost:8428/api/v1/import/prometheus
+      mark_unhealthy_threshold: 1
+    - url: http://localhost:8429/api/v1/import/prometheus
+      mark_unhealthy_threshold: 2
+
+  # How often to rotate the healthy endpoint list, to load balance the
+  # connections; use 0 to disable. The value must be compatible with
+  # https://pkg.go.dev/time#ParseDuration
+  healthy_rotate_interval: 1m30s
+
+  # After what time to reset the cumulative error count of a failed endpoint.
+  # A failed endpoint is moved to the back of the usable list, as long as the
+  # cumulative error count is less than the threshold. If enough time passes
+  # before it makes it back to the head of the list, then the error count used
+  # to declare it unhealthy is no longer relevant and it should be reset. Use 0
+  # to disable. The value must be compatible with
+  # https://pkg.go.dev/time#ParseDuration
+  error_reset_interval: 1m
+
+  # How often to check if an unhealthy endpoint has become healthy. The value
+  # must be compatible with https://pkg.go.dev/time#ParseDuration and >= 1s
+  healthyCheckInterval: 5s
+
+  # Parameters for https://pkg.go.dev/net/http#Transport:
+  # MaxIdleConns:
+  max_idle_conns: 0
+  # MaxIdleConnsPerHost:
+  max_idle_conns_per_host: 2
+  # MaxConnsPerHost:
+  max_conns_per_host: 0
+  # IdleConnTimeout:
+  idle_conn_timeout: 1m
+  # ResponseHeaderTimeout, effectively used a timeout for a PUT operation, since
+  # no body is expected in the reply.
+  response_header_timeout: 5s
+
+
+log_config:
+  use_json: false
+  level: info
