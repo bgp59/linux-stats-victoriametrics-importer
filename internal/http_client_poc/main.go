@@ -108,39 +108,43 @@ func main() {
 		Transport: transport,
 	}
 
-	metrics, err := generateMetrics(targetSize, gzipCompress)
-	if err != nil {
-		logger.Fatal(err)
-	}
-
-	if rateLimitMbps != "" {
-		replenish, interval := rateLimitMbps, "1s"
-		index := strings.Index(rateLimitMbps, "/")
-		if index >= 0 {
-			replenish = rateLimitMbps[:index]
-			interval = rateLimitMbps[index+1:]
-		}
-
-		replenishFloat, err := strconv.ParseFloat(replenish, 64)
+	if targetSize > 0 {
+		metrics, err := generateMetrics(targetSize, gzipCompress)
 		if err != nil {
 			logger.Fatal(err)
 		}
-		replenishValue := int(replenishFloat * 1_000_000 / 8)
-		replenishInt, err := time.ParseDuration(interval)
-		if err != nil {
-			logger.Fatal(err)
-		}
-		creditCtl = lsvmi.NewCredit(replenishValue, 0, replenishInt)
-		logger.Printf("credit: replenishValue/interval=%d/%s\n", replenishValue, replenishInt)
-		body = lsvmi.NewCreditReader(creditCtl, 256, metrics)
-	} else {
-		body = bytes.NewReader(metrics)
-	}
 
-	logger.Printf("len(metrics)=%d", len(metrics))
+		if rateLimitMbps != "" {
+			replenish, interval := rateLimitMbps, "1s"
+			index := strings.Index(rateLimitMbps, "/")
+			if index >= 0 {
+				replenish = rateLimitMbps[:index]
+				interval = rateLimitMbps[index+1:]
+			}
+
+			replenishFloat, err := strconv.ParseFloat(replenish, 64)
+			if err != nil {
+				logger.Fatal(err)
+			}
+			replenishValue := int(replenishFloat * 1_000_000 / 8)
+			replenishInt, err := time.ParseDuration(interval)
+			if err != nil {
+				logger.Fatal(err)
+			}
+			creditCtl = lsvmi.NewCredit(replenishValue, 0, replenishInt)
+			logger.Printf("credit: replenishValue/interval=%d/%s\n", replenishValue, replenishInt)
+			body = lsvmi.NewCreditReader(creditCtl, 256, metrics)
+		} else {
+			body = bytes.NewReader(metrics)
+		}
+
+		logger.Printf("len(metrics)=%d", len(metrics))
+	}
 
 	for k := 0; numRequests <= 0 || k < numRequests; k++ {
-		body.Seek(0, io.SeekStart)
+		if body != nil {
+			body.Seek(0, io.SeekStart)
+		}
 		req, err := http.NewRequest("PUT", url, body)
 		if err != nil {
 			logger.Fatal(err)
