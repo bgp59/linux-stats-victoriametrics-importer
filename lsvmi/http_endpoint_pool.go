@@ -113,9 +113,9 @@ func NewBytesReadSeekCloser(b []byte) *BytesReadSeekCloser {
 
 type HttpEndpoint struct {
 	// The URL that accepts PUT w/ Prometheus exposition format data:
-	URL string
+	url string
 	// The parsed format for above, to be used for http calls:
-	url *url.URL
+	URL *url.URL
 	// The threshold for failed accesses count, used for declaring the endpoint
 	// unhealthy; this may be > 1 for cases where the host name part of the URL
 	// is some kind of a DNS pool which is resolved to a list of addresses, in
@@ -161,12 +161,12 @@ func NewHttpEndpoint(cfg *HttpEndpointConfig) (*HttpEndpoint, error) {
 		cfg = DefaultHttpEndpointConfig()
 	}
 	ep := &HttpEndpoint{
-		URL:                    cfg.URL,
+		url:                    cfg.URL,
 		markUnhealthyThreshold: cfg.MarkUnhealthyThreshold,
 	}
-	if ep.url, err = url.Parse(ep.URL); err != nil {
+	if ep.URL, err = url.Parse(ep.url); err != nil {
 		ep = nil
-		err = fmt.Errorf("NewHttpEndpoint(%s): %v", ep.URL, err)
+		err = fmt.Errorf("NewHttpEndpoint(%s): %v", ep.url, err)
 	}
 	return ep, err
 }
@@ -304,11 +304,9 @@ func NewHttpEndpointPool(cfg any) (*HttpEndpointPool, error) {
 	case *HttpEndpointPoolConfig:
 		poolCfg = cfg
 	case nil:
+		poolCfg = DefaultHttpEndpointPoolConfig()
 	default:
 		return nil, fmt.Errorf("NewHttpEndpointPool: %T invalid config type", cfg)
-	}
-	if poolCfg == nil {
-		poolCfg = DefaultHttpEndpointPoolConfig()
 	}
 
 	dialer := &net.Dialer{}
@@ -402,9 +400,6 @@ func NewHttpEndpointPool(cfg any) (*HttpEndpointPool, error) {
 
 	endpoints := poolCfg.Endpoints
 	defaultEpCfg := DefaultHttpEndpointConfig()
-	if len(endpoints) == 0 {
-		endpoints = []*HttpEndpointConfig{defaultEpCfg}
-	}
 	for _, epCfg := range endpoints {
 		cfg := *epCfg
 		if cfg.URL == "" {
@@ -419,7 +414,11 @@ func NewHttpEndpointPool(cfg any) (*HttpEndpointPool, error) {
 			epPool.MoveToHealthy(ep)
 		}
 	}
-	epPoolLog.Infof("%s is at the head of the healthy list", epPool.healthy.head.URL)
+	if epPool.healthy.head != nil {
+		epPoolLog.Infof("%s is at the head of the healthy list", epPool.healthy.head.URL)
+	} else {
+		epPoolLog.Info("empty healthy list")
+	}
 
 	return epPool, nil
 }
@@ -437,7 +436,7 @@ func (epPool *HttpEndpointPool) HealthCheck(ep *HttpEndpoint) {
 
 	req := &http.Request{
 		Method: http.MethodPut,
-		URL:    ep.url,
+		URL:    ep.URL,
 		Header: http.Header{},
 	}
 	req.Header.Add("Content-Type", "text/html")
@@ -496,7 +495,7 @@ func (epPool *HttpEndpointPool) ReportError(ep *HttpEndpoint) {
 	ep.numErrors += 1
 	epPoolLog.Warnf(
 		"%s: error#: %d, threshold: %d",
-		ep.URL, ep.numErrors, ep.markUnhealthyThreshold,
+		ep.url, ep.numErrors, ep.markUnhealthyThreshold,
 	)
 	if ep.numErrors >= ep.markUnhealthyThreshold {
 		if !ep.healthy {
@@ -507,7 +506,7 @@ func (epPool *HttpEndpointPool) ReportError(ep *HttpEndpoint) {
 	ep.healthy = false
 	epPool.healthy.Remove(ep)
 	epPool.wg.Add(1)
-	epPoolLog.Warnf("%s moved to health check", ep.URL)
+	epPoolLog.Warnf("%s moved to health check", ep.url)
 	go epPool.HealthCheck(ep)
 }
 
@@ -521,7 +520,7 @@ func (epPool *HttpEndpointPool) MoveToHealthy(ep *HttpEndpoint) {
 	ep.healthy = true
 	ep.numErrors = 0
 	epPool.healthy.AddToTail(ep)
-	epPoolLog.Infof("%s added to the healthy list", ep.URL)
+	epPoolLog.Infof("%s added to the healthy list", ep.url)
 }
 
 // Get the current healthy endpoint or nil if none available after max wait; if
@@ -561,16 +560,16 @@ func (epPool *HttpEndpointPool) GetCurrentHealthy(maxWait time.Duration) *HttpEn
 				time.Since(epPool.healthyHeadChangeTs) >= epPool.healthyRotateInterval) {
 		epPool.healthy.Remove(ep)
 		epPool.healthy.AddToTail(ep)
-		epPoolLog.Infof("%s rotated to healthy list tail", ep.URL)
+		epPoolLog.Infof("%s rotated to healthy list tail", ep.url)
 		ep = epPool.healthy.head
 		epPool.healthyHeadChangeTs = time.Now()
-		epPoolLog.Infof("%s rotated to healthy list head", ep.URL)
+		epPoolLog.Infof("%s rotated to healthy list head", ep.url)
 	}
 	// Apply error reset as needed:
 	if ep.numErrors > 0 &&
 		epPool.errorResetInterval > 0 &&
 		time.Since(ep.errorTs) >= epPool.errorResetInterval {
-		epPoolLog.Infof("%s: error#: %d->0)", ep.URL, ep.numErrors)
+		epPoolLog.Infof("%s: error#: %d->0)", ep.url, ep.numErrors)
 		ep.numErrors = 0
 	}
 	return ep
@@ -615,7 +614,7 @@ func (epPool *HttpEndpointPool) SendBuffer(b []byte, timeout time.Duration, gzip
 		req := &http.Request{
 			Method: http.MethodPut,
 			Header: header.Clone(),
-			URL:    ep.url,
+			URL:    ep.URL,
 			Body:   body,
 		}
 		res, err := epPool.client.Do(req)
@@ -628,16 +627,16 @@ func (epPool *HttpEndpointPool) SendBuffer(b []byte, timeout time.Duration, gzip
 			// data is malformed) since it will yield the same result on a
 			// different endpoint:
 			return fmt.Errorf(
-				"SendBuffer attempt# %d: %s %s: %s", attempt, req.Method, ep.URL, res.Status,
+				"SendBuffer attempt# %d: %s %s: %s", attempt, req.Method, ep.url, res.Status,
 			)
 		}
 		// Report the failure:
 		if err != nil {
 			Log.Warnf("SendBuffer attempt# %d: %v", attempt, err)
 		} else if res != nil {
-			Log.Warnf("SendBuffer attempt# %d: %s %s: %s", attempt, req.Method, ep.URL, res.Status)
+			Log.Warnf("SendBuffer attempt# %d: %s %s: %s", attempt, req.Method, ep.url, res.Status)
 		} else {
-			Log.Warnf("SendBuffer attempt# %d: %s %s: no response", attempt, req.Method, ep.URL)
+			Log.Warnf("SendBuffer attempt# %d: %s %s: no response", attempt, req.Method, ep.url)
 		}
 		// There is something wrong w/ the endpoint:
 		epPool.ReportError(ep)
