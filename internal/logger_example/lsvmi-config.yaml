@@ -1,3 +1,4 @@
 log_config:
   use_json: true
   level: error
+  disable_report_file: false

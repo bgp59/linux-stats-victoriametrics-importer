@@ -3,8 +3,10 @@
 package lsvmi
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -35,9 +37,11 @@ const (
 	HTTP_ENDPOINT_POOL_ERROR_RESET_INTERVAL_DEFAULT    = "1m"
 	HTTP_ENDPOINT_POOL_HEALTH_CHECK_INTERVAL_DEFAULT   = "5s"
 	HTTP_ENDPOINT_POOL_HEALTHY_MAX_WAIT_DEFAULT        = "10s"
+	HTTP_ENDPOINT_POOL_SEND_BUFFER_TIMEOUT_DEFAULT     = "20s"
+	HTTP_ENDPOINT_POOL_RATE_LIMIT_MBPS_DEFAULT         = ""
 	// Endpoint config definitions, later they may be configurable:
 	HTTP_ENDPOINT_POOL_HEALTHY_CHECK_MIN_INTERVAL    = 1 * time.Second
-	HTTP_ENDPOINT_POOL_HEALTHY_POLL_INTERVAL         = 500 * time.Microsecond
+	HTTP_ENDPOINT_POOL_HEALTHY_POLL_INTERVAL         = 500 * time.Millisecond
 	HTTP_ENDPOINT_POOL_HEALTH_CHECK_ERR_LOG_INTERVAL = 10 * time.Second
 
 	// http.Transport config default values:
@@ -57,6 +61,54 @@ var epPoolLog = NewCompLogger("http_endpoint_pool")
 // Define a mockable interface to substitute http.Client.Do() for testing purposes:
 type HttpClientDoer interface {
 	Do(req *http.Request) (*http.Response, error)
+}
+
+// Interface for a http.Request body w/ retries:
+type ReadSeekRewindCloser interface {
+	io.ReadSeekCloser
+	Rewind() error
+}
+
+// Convert bytes.Reader into ReadSeekRewindCloser such that it can be used
+// as body for http.Request w/ retries:
+type BytesReadSeekCloser struct {
+	rs        io.ReadSeeker
+	closed    bool
+	closedPos int64
+}
+
+func (brsc *BytesReadSeekCloser) Read(p []byte) (int, error) {
+	if brsc.closed {
+		return int(brsc.closedPos), nil
+	}
+	return brsc.rs.Read(p)
+}
+
+func (brsc *BytesReadSeekCloser) Seek(offset int64, whence int) (int64, error) {
+	if brsc.closed {
+		return 0, nil
+	}
+	return brsc.rs.Seek(offset, whence)
+}
+
+func (brsc *BytesReadSeekCloser) Close() error {
+	brsc.closed = true
+	return nil
+}
+
+// Reuse, for HTTP retries:
+func (brsc *BytesReadSeekCloser) Rewind() error {
+	brsc.closed = false
+	_, err := brsc.Seek(0, io.SeekStart)
+	return err
+}
+
+func NewBytesReadSeekCloser(b []byte) *BytesReadSeekCloser {
+	return &BytesReadSeekCloser{
+		rs:        bytes.NewReader(b),
+		closed:    len(b) == 0,
+		closedPos: int64(len(b)),
+	}
 }
 
 type HttpEndpoint struct {
@@ -87,6 +139,14 @@ type HttpEndpointConfig struct {
 	URL                    string
 	MarkUnhealthyThreshold int `yaml:"mark_unhealthy_threshold"`
 }
+
+// The list of HTTP codes that denote success:
+var HttpEndpointPoolSuccessCodes = map[int]bool{
+	http.StatusOK: true,
+}
+
+// The list of HTTP codes that should be retried:
+var HttpEndpointPoolRetryCodes = map[int]bool{}
 
 func DefaultHttpEndpointConfig() *HttpEndpointConfig {
 	return &HttpEndpointConfig{
@@ -175,19 +235,23 @@ type HttpEndpointPool struct {
 	errorResetInterval time.Duration
 	// How often to check if an unhealthy endpoint has become healthy:
 	healthCheckInterval time.Duration
-	// How long to wait for a healthy endpoint, in case healthy is empty; normally
-	// this should be > HealthCheckInterval.
+	// How long to wait for a healthy endpoint, in case healthy list is empty;
+	// normally this should be > HealthCheckInterval.
 	healthyMaxWait time.Duration
 	// How often to poll for a healthy endpoint; this is not configurable for now:
 	healthyPollInterval time.Duration
 	// How often to log health check errors, if repeated:
 	healthCheckErrLogInterval time.Duration
+	// How long to wait for a SendBuffer call to succeed; normally this should
+	// be longer than healthyMaxWait or other HTTP timeouts:
+	sendBufferTimeout time.Duration
+	// Rate limiting credit mechanism, if not nil:
+	credit CreditController
 	// The http client, as a mockable interface:
 	client HttpClientDoer
 	// Access lock:
 	mu *sync.Mutex
-	// Context and wait group for health checking goroutines, in case the pool
-	// is shutdown:
+	// Context and wait group for health checking goroutines:
 	ctx         context.Context
 	ctxCancelFn context.CancelFunc
 	wg          *sync.WaitGroup
@@ -199,16 +263,15 @@ type HttpEndpointPoolConfig struct {
 	ErrorResetInterval    string                `yaml:"error_reset_interval"`
 	HealthCheckInterval   string                `yaml:"health_check_interval"`
 	HealthyMaxWait        string                `yaml:"healthy_max_wait"`
-	// Params for http.Transport:
-	//  Params for Dialer:
-	TcpConnTimeout      string `yaml:"tcp_conn_timeout"`
-	TcpKeepAlive        string `yaml:"tcp_keep_alive"`
-	MaxIdleConns        int    `yaml:"max_idle_conns"`
-	MaxIdleConnsPerHost int    `yaml:"max_idle_conns_per_host"`
-	MaxConnsPerHost     int    `yaml:"max_conns_per_host"`
-	IdleConnTimeout     string `yaml:"idle_conn_timeout"`
-	// Params for http.Client:
-	ResponseTimeout string `yaml:"response_timeout"`
+	SendBufferTimeout     string                `yaml:"send_buffer_timeout"`
+	RateLimitMbps         string                `yaml:"rate_limit_mbps"`
+	TcpConnTimeout        string                `yaml:"tcp_conn_timeout"`
+	TcpKeepAlive          string                `yaml:"tcp_keep_alive"`
+	MaxIdleConns          int                   `yaml:"max_idle_conns"`
+	MaxIdleConnsPerHost   int                   `yaml:"max_idle_conns_per_host"`
+	MaxConnsPerHost       int                   `yaml:"max_conns_per_host"`
+	IdleConnTimeout       string                `yaml:"idle_conn_timeout"`
+	ResponseTimeout       string                `yaml:"response_timeout"`
 }
 
 func DefaultHttpEndpointPoolConfig() *HttpEndpointPoolConfig {
@@ -217,6 +280,8 @@ func DefaultHttpEndpointPoolConfig() *HttpEndpointPoolConfig {
 		ErrorResetInterval:    HTTP_ENDPOINT_POOL_ERROR_RESET_INTERVAL_DEFAULT,
 		HealthCheckInterval:   HTTP_ENDPOINT_POOL_HEALTH_CHECK_INTERVAL_DEFAULT,
 		HealthyMaxWait:        HTTP_ENDPOINT_POOL_HEALTHY_MAX_WAIT_DEFAULT,
+		SendBufferTimeout:     HTTP_ENDPOINT_POOL_SEND_BUFFER_TIMEOUT_DEFAULT,
+		RateLimitMbps:         HTTP_ENDPOINT_POOL_RATE_LIMIT_MBPS_DEFAULT,
 		TcpConnTimeout:        HTTP_ENDPOINT_POOL_TCP_CONN_TIMEOUT_DEFAULT,
 		TcpKeepAlive:          HTTP_ENDPOINT_POOL_TCP_KEEP_ALIVE_DEFAULT,
 		MaxIdleConns:          HTTP_ENDPOINT_POOL_MAX_IDLE_CONNS_DEFAULT,
@@ -295,6 +360,9 @@ func NewHttpEndpointPool(cfg any) (*HttpEndpointPool, error) {
 	if epPool.healthCheckInterval, err = time.ParseDuration(poolCfg.HealthCheckInterval); err != nil {
 		return nil, fmt.Errorf("NewHttpEndpointPool: healthy_check_interval: %v", err)
 	}
+	if epPool.sendBufferTimeout, err = time.ParseDuration(poolCfg.SendBufferTimeout); err != nil {
+		return nil, fmt.Errorf("NewHttpEndpointPool: send_buffer_timeout: %v", err)
+	}
 	if epPool.healthyMaxWait, err = time.ParseDuration(poolCfg.HealthyMaxWait); err != nil {
 		return nil, fmt.Errorf("NewHttpEndpointPool: healthy_max_wait: %v", err)
 	}
@@ -308,12 +376,23 @@ func NewHttpEndpointPool(cfg any) (*HttpEndpointPool, error) {
 	if epPool.healthyMaxWait, err = time.ParseDuration(poolCfg.HealthyMaxWait); err != nil {
 		return nil, fmt.Errorf("NewHttpEndpointPool: healthy_max_wait: %v", err)
 	}
+	if epPool.sendBufferTimeout, err = time.ParseDuration(poolCfg.SendBufferTimeout); err != nil {
+		return nil, fmt.Errorf("NewHttpEndpointPool: send_buffer_timeout: %v", err)
+	}
+	if poolCfg.RateLimitMbps != "" {
+		if epPool.credit, err = NewCreditFromSpec(poolCfg.RateLimitMbps); err != nil {
+			return nil, fmt.Errorf("NewHttpEndpointPool: rate_limit_mbps: %v", err)
+		}
+	}
 
 	epPoolLog.Infof("healthy_rotate_interval=%s", epPool.healthyRotateInterval)
 	epPoolLog.Infof("error_reset_interval=%s", epPool.errorResetInterval)
-	epPoolLog.Infof("healthy_check_interval=%s", epPool.healthCheckInterval)
+	epPoolLog.Infof("health_check_interval=%s", epPool.healthCheckInterval)
 	epPoolLog.Infof("healthy_max_wait=%s", epPool.healthyMaxWait)
+	epPoolLog.Infof("healthy_poll_interval=%s", epPool.healthyPollInterval)
 	epPoolLog.Infof("max_idle_conns=%d", transport.MaxIdleConns)
+	epPoolLog.Infof("send_buffer_timeout=%s", epPool.sendBufferTimeout)
+	epPoolLog.Infof("rate_limit_mbps=%v", epPool.credit)
 	epPoolLog.Infof("tcp_conn_timeout=%s", dialer.Timeout)
 	epPoolLog.Infof("tcp_keep_alive=%s", dialer.KeepAlive)
 	epPoolLog.Infof("max_idle_conns_per_host=%d", transport.MaxIdleConnsPerHost)
@@ -322,11 +401,19 @@ func NewHttpEndpointPool(cfg any) (*HttpEndpointPool, error) {
 	epPoolLog.Infof("response_timeout=%s", client.Timeout)
 
 	endpoints := poolCfg.Endpoints
+	defaultEpCfg := DefaultHttpEndpointConfig()
 	if len(endpoints) == 0 {
-		endpoints = []*HttpEndpointConfig{nil}
+		endpoints = []*HttpEndpointConfig{defaultEpCfg}
 	}
 	for _, epCfg := range endpoints {
-		if ep, err := NewHttpEndpoint(epCfg); err != nil {
+		cfg := *epCfg
+		if cfg.URL == "" {
+			cfg.URL = defaultEpCfg.URL
+		}
+		if cfg.MarkUnhealthyThreshold <= 0 {
+			cfg.MarkUnhealthyThreshold = defaultEpCfg.MarkUnhealthyThreshold
+		}
+		if ep, err := NewHttpEndpoint(&cfg); err != nil {
 			return nil, err
 		} else {
 			epPool.MoveToHealthy(ep)
@@ -337,21 +424,13 @@ func NewHttpEndpointPool(cfg any) (*HttpEndpointPool, error) {
 	return epPool, nil
 }
 
-// Needed for testing:
-func (epPool *HttpEndpointPool) StopHealthCheck() {
-	epPoolLog.Info("Stop health check goroutines")
-	epPool.ctxCancelFn()
-	epPool.wg.Wait()
-	epPoolLog.Info("All health check goroutines completed")
-}
-
 func (epPool *HttpEndpointPool) HealthCheck(ep *HttpEndpoint) {
-	isSameErr := func(err1, err2 error) bool {
+	sameErr := func(err1, err2 error) bool {
 		return err1 == nil && err2 == nil ||
 			err1 != nil && err2 != nil && err1.Error() == err2.Error()
 	}
 
-	isSameStatus := func(preStatusCode int, resp *http.Response) bool {
+	sameStatus := func(preStatusCode int, resp *http.Response) bool {
 		return resp == nil && preStatusCode == -1 ||
 			resp != nil && preStatusCode == resp.StatusCode
 	}
@@ -361,6 +440,7 @@ func (epPool *HttpEndpointPool) HealthCheck(ep *HttpEndpoint) {
 		URL:    ep.url,
 		Header: http.Header{},
 	}
+	req.Header.Add("Content-Type", "text/html")
 	checkTime := time.Now().Add(epPool.healthCheckInterval)
 	timer := time.NewTimer(time.Until(checkTime))
 	var (
@@ -381,19 +461,20 @@ func (epPool *HttpEndpointPool) HealthCheck(ep *HttpEndpoint) {
 			if res != nil && res.Body != nil {
 				res.Body.Close()
 			}
-			if err == nil && res != nil && res.StatusCode == http.StatusOK {
+			if err == nil && res != nil && HttpEndpointPoolSuccessCodes[res.StatusCode] {
+				epPoolLog.Infof("%s %q: %s", req.Method, req.URL, res.Status)
 				done = true
 			} else {
 				checkTime = checkTime.Add(epPool.healthCheckInterval)
 				timer.Reset(time.Until(checkTime))
-				if !isSameErr(err, prevErr) ||
-					!isSameStatus(prevStatusCode, res) ||
+				if !sameErr(err, prevErr) ||
+					!sameStatus(prevStatusCode, res) ||
 					time.Since(errorLogTs) >= epPool.healthCheckErrLogInterval {
 					errorLogTs = time.Now()
 					if err != nil {
 						epPoolLog.Warn(err)
 					} else {
-						epPoolLog.Warn("%s %q: %s", req.Method, req.URL, res.Status)
+						epPoolLog.Warnf("%s %q: %s", req.Method, req.URL, res.Status)
 					}
 				}
 				prevErr = err
@@ -409,12 +490,19 @@ func (epPool *HttpEndpointPool) HealthCheck(ep *HttpEndpoint) {
 	epPool.wg.Done()
 }
 
-func (epPool *HttpEndpointPool) DeclareUnhealthy(ep *HttpEndpoint) {
+func (epPool *HttpEndpointPool) ReportError(ep *HttpEndpoint) {
 	epPool.mu.Lock()
 	defer epPool.mu.Unlock()
-	if !ep.healthy {
-		// Already in the unhealthy state:
-		return
+	ep.numErrors += 1
+	epPoolLog.Warnf(
+		"%s: error#: %d, threshold: %d",
+		ep.URL, ep.numErrors, ep.markUnhealthyThreshold,
+	)
+	if ep.numErrors >= ep.markUnhealthyThreshold {
+		if !ep.healthy {
+			// Already in the unhealthy state:
+			return
+		}
 	}
 	ep.healthy = false
 	epPool.healthy.Remove(ep)
@@ -436,21 +524,30 @@ func (epPool *HttpEndpointPool) MoveToHealthy(ep *HttpEndpoint) {
 	epPoolLog.Infof("%s added to the healthy list", ep.URL)
 }
 
-// Get the current healthy endpoint or nil if none available after max wait:
-func (epPool *HttpEndpointPool) GetCurrentHealthy() *HttpEndpoint {
+// Get the current healthy endpoint or nil if none available after max wait; if
+// maxWait < 0 then the pool healthyMaxWait is used:
+func (epPool *HttpEndpointPool) GetCurrentHealthy(maxWait time.Duration) *HttpEndpoint {
 	var ep *HttpEndpoint
 	epPool.mu.Lock()
 	defer epPool.mu.Unlock()
 	// There is no sync.Condition Wait with timeout, so poll until deadline,
 	// waiting for a healthy endpoint. It shouldn't impact the overall
 	// efficiency since this is not the normal operating condition.
-	waitStart := time.Now()
+	if maxWait < 0 {
+		maxWait = epPool.healthyMaxWait
+	}
+	deadline := time.Now().Add(maxWait)
 	for epPool.healthy.head == nil {
-		if time.Since(waitStart) > epPool.healthyMaxWait {
+		timeLeft := time.Until(deadline)
+		if timeLeft <= 0 {
 			return nil
 		}
 		epPool.mu.Unlock()
-		time.Sleep(epPool.healthyPollInterval)
+		pause := epPool.healthyPollInterval
+		if pause > timeLeft {
+			pause = timeLeft
+		}
+		time.Sleep(pause)
 		epPool.mu.Lock()
 	}
 	ep = epPool.healthy.head
@@ -473,8 +570,87 @@ func (epPool *HttpEndpointPool) GetCurrentHealthy() *HttpEndpoint {
 	if ep.numErrors > 0 &&
 		epPool.errorResetInterval > 0 &&
 		time.Since(ep.errorTs) >= epPool.errorResetInterval {
-		epPoolLog.Infof("clear error count for %s (was: %d)", ep.URL, ep.numErrors)
+		epPoolLog.Infof("%s: error#: %d->0)", ep.URL, ep.numErrors)
 		ep.numErrors = 0
 	}
 	return ep
+}
+
+// SendBuffer: the main reason for the pool is to send buffers w/ load balancing
+// and retries. If timeout is < 0 then the pool's sendBufferTimeout is used:
+func (epPool *HttpEndpointPool) SendBuffer(b []byte, timeout time.Duration, gzipped bool) error {
+	var body ReadSeekRewindCloser
+
+	header := http.Header{
+		"Content-Type": {"text/html"},
+	}
+	if gzipped {
+		header.Add("Content-Encoding", "gzip")
+	}
+
+	if epPool.credit != nil {
+		body = NewCreditReader(epPool.credit, 128, b)
+	} else {
+		body = NewBytesReadSeekCloser(b)
+	}
+
+	if timeout < 0 {
+		timeout = epPool.sendBufferTimeout
+	}
+	deadline := time.Now().Add(timeout)
+	for attempt := 1; ; attempt++ {
+		maxWait := time.Until(deadline)
+		if maxWait < 0 {
+			maxWait = 0
+		}
+		ep := epPool.GetCurrentHealthy(maxWait)
+		if ep == nil {
+			return fmt.Errorf(
+				"SendBuffer attempt# %d: no healthy HTTP endpoint available", attempt,
+			)
+		}
+		if attempt > 1 {
+			body.Rewind()
+		}
+		req := &http.Request{
+			Method: http.MethodPut,
+			Header: header.Clone(),
+			URL:    ep.url,
+			Body:   body,
+		}
+		res, err := epPool.client.Do(req)
+		if err == nil && res != nil && HttpEndpointPoolSuccessCodes[res.StatusCode] {
+			// The request succeeded:
+			return nil
+		}
+		if err == nil && res != nil && !HttpEndpointPoolRetryCodes[res.StatusCode] {
+			// The request failed and it shouldn't be retried (for instance the
+			// data is malformed) since it will yield the same result on a
+			// different endpoint:
+			return fmt.Errorf(
+				"SendBuffer attempt# %d: %s %s: %s", attempt, req.Method, ep.URL, res.Status,
+			)
+		}
+		// Report the failure:
+		if err != nil {
+			Log.Warnf("SendBuffer attempt# %d: %v", attempt, err)
+		} else if res != nil {
+			Log.Warnf("SendBuffer attempt# %d: %s %s: %s", attempt, req.Method, ep.URL, res.Status)
+		} else {
+			Log.Warnf("SendBuffer attempt# %d: %s %s: no response", attempt, req.Method, ep.URL)
+		}
+		// There is something wrong w/ the endpoint:
+		epPool.ReportError(ep)
+	}
+}
+
+// Needed for testing or clean exit in general:
+func (epPool *HttpEndpointPool) Stop() {
+	epPoolLog.Info("stop health check goroutines")
+	epPool.ctxCancelFn()
+	epPool.wg.Wait()
+	epPoolLog.Info("all health check goroutines completed")
+	if credit, ok := epPool.credit.(*Credit); ok {
+		credit.StopReplenishWait()
+	}
 }

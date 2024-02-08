@@ -17,7 +17,10 @@ package lsvmi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -56,6 +59,29 @@ type CreditReader struct {
 	r int
 	// Total size of b:
 	n int
+	// Closed flag:
+	closed bool
+}
+
+// Parse rate limit Mbps string. Supported formats: FLOAT or FLOAT:INTERVAL,
+// where INTERVAL should be in the format supported by time.ParseDuration().
+// FLOAT is equivalent w/ FLOAT:1s.
+func ParseCreditRateSpec(spec string) (int, time.Duration, error) {
+	mbps, interval := spec, "1s"
+	i := strings.Index(spec, ":")
+	if i >= 0 {
+		mbps, interval = spec[:i], spec[i+1:]
+	}
+	mbpsf, err := strconv.ParseFloat(mbps, 64)
+	if err != nil {
+		return 0, 0, fmt.Errorf("ParseCreditRateSpec(%q): %v", spec, err)
+	}
+	replenishInt, err := time.ParseDuration(interval)
+	if err != nil {
+		return 0, 0, fmt.Errorf("ParseCreditRateSpec(%q): %v", spec, err)
+	}
+	replenishValue := int(mbpsf * 1_000_000 / 8 * float64(replenishInt) / float64(1*time.Second))
+	return replenishValue, replenishInt, nil
 }
 
 func NewCredit(replenishValue, max int, replenishInt time.Duration) *Credit {
@@ -76,6 +102,14 @@ func NewCredit(replenishValue, max int, replenishInt time.Duration) *Credit {
 	}
 	c.startReplenish()
 	return c
+}
+
+func NewCreditFromSpec(spec string) (*Credit, error) {
+	replenishValue, replenishInt, err := ParseCreditRateSpec(spec)
+	if err != nil {
+		return nil, err
+	}
+	return NewCredit(replenishValue, 0, replenishInt), nil
 }
 
 func (c *Credit) startReplenish() {
@@ -139,6 +173,16 @@ func (c *Credit) GetCredit(desired, minAcceptable int) (got int) {
 	return
 }
 
+func (c *Credit) String() string {
+	if c == nil {
+		return fmt.Sprintf("%v", nil)
+	}
+	return fmt.Sprintf(
+		"%T{replenishValue=%d, replenishInt=%s, max=%d}",
+		c, c.replenishValue, c.replenishInt, c.max,
+	)
+}
+
 func NewCreditReader(cc CreditController, minAcceptable int, b []byte) *CreditReader {
 	if minAcceptable < 0 {
 		minAcceptable = 0
@@ -160,8 +204,17 @@ func (cr *CreditReader) Reuse(minAcceptable int, b []byte) {
 	cr.b, cr.r, cr.n = b, 0, len(b)
 }
 
+// Reuse w/ the same data:
+func (cr *CreditReader) Rewind() error {
+	cr.r, cr.closed = 0, false
+	return nil
+}
+
 // Implement the Read interface:
 func (cr *CreditReader) Read(p []byte) (int, error) {
+	if cr.closed {
+		return 0, nil
+	}
 	available := cr.n - cr.r
 	if available <= 0 {
 		return 0, io.EOF
@@ -204,6 +257,16 @@ func (cr *CreditReader) Seek(offset int64, whence int) (int64, error) {
 	if newR < 0 || newR >= int64(cr.n) {
 		return 0, errCreditReaderOffset
 	}
-	cr.r = int(newR)
+	if cr.closed {
+		newR = int64(cr.r)
+	} else {
+		cr.r = int(newR)
+	}
 	return newR, nil
+}
+
+// Implement Close interface:
+func (cr *CreditReader) Close() error {
+	cr.closed = true
+	return nil
 }

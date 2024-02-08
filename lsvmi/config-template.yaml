@@ -2,66 +2,89 @@
 # optional sections as needed and set the desired values. The settings below are
 # set for the default values.
 
-# # HTTP Endpoint Pool section:
-# http_endpoint_pool_config:
-#   # The list of endpoint URLs. Each URL may have an associated threshold for
-#   # failed accesses count, used for declaring the endpoint unhealthy; this may
-#   # be > 1 for cases where the host name part of the URL is some kind of a DNS
-#   # pool which is resolved to a list of addresses, in which case it should be
-#   # set to the number of pool members. Just because one member is unhealthy, it
-#   # doesn't mean that others cannot be used. The net/http Transport connection
-#   # cache will remove the failed connection and the name to address resolution
-#   # mechanism should no longer resolve to this failed IP.
-#   endpoints:
-#     - url: http://localhost:8428/api/v1/import/prometheus
-#       mark_unhealthy_threshold: 1
-#
-#   # How often to rotate the healthy endpoint list, to load balance the
-#   # connections; use 0 to disable. The value must be compatible with
-#   # https://pkg.go.dev/time#ParseDuration
-#   healthy_rotate_interval: 5m
-#
-#   # After what time to reset the cumulative error count of a failed endpoint.
-#   # A failed endpoint is moved to the back of the usable list, as long as the
-#   # cumulative error count is less than the threshold. If enough time passes
-#   # before it makes it back to the head of the list, then the error count used
-#   # to declare it unhealthy is no longer relevant and it should be reset. Use 0
-#   # to disable. The value must be compatible with
-#   # https://pkg.go.dev/time#ParseDuration
-#   error_reset_interval: 1m
-#
-#   # How often to check if an unhealthy endpoint has become healthy. The value
-#   # must be compatible with https://pkg.go.dev/time#ParseDuration and >= 1s
-#   health_check_interval: 5s
-#
-#   # Parameters for https://pkg.go.dev/net#Dialer:
-#   # Timeout:
-#   tcp_conn_timeout: 2s
-#   # KeepAlive:
-#   tcp_keep_alive: 15s
-#   # Parameters for https://pkg.go.dev/net/http#Transport:
-#   # MaxIdleConns:
-#   max_idle_conns: 0
-#   # MaxIdleConnsPerHost:
-#   max_idle_conns_per_host: 1
-#   # MaxConnsPerHost:
-#   max_conns_per_host: 0
-#   # IdleConnTimeout:
-#   idle_conn_timeout: 1m
-#   # Parameters for https://pkg.go.dev/net/http#Client:
-#   # Timeout:
-#   response_timeout: 5s
+# HTTP Endpoint Pool section:
+http_endpoint_pool_config:
+  # The list of endpoint URLs. Each URL may have an associated threshold for
+  # failed accesses count, used for declaring the endpoint unhealthy; this may
+  # be > 1 for cases where the host name part of the URL is some kind of a DNS
+  # pool which is resolved to a list of addresses, in which case it should be
+  # set to the number of pool members. Just because one member is unhealthy, it
+  # doesn't mean that others cannot be used. The net/http Transport connection
+  # cache will remove the failed connection and the name to address resolution
+  # mechanism should no longer resolve to this failed IP.
+  endpoints:
+    - url: http://localhost:8428/api/v1/import/prometheus
+      mark_unhealthy_threshold: 1
 
-# # Logger section:
-# log_config:
-#   # Whether to log in JSON format. Override
-#   #  --log-json-format=false, to disable
-#   #     or
-#   #   --log-json-format, to enable
-#   use_json: false
-#
-#   # The log level, must one of the following:
-#   #   panic, fatal, error, warning, info, debug, trace
-#   # Override w/ --log-level=LEVEL 
-#   log_level: info
+  # How often to rotate the healthy endpoint list, to load balance the
+  # connections. Set to 0 to rotate after every use or to -1s to disable the
+  # rotation. The value must be compatible with
+  # https://pkg.go.dev/time#ParseDuration
+  healthy_rotate_interval: 5m
+
+  # After what time to reset the cumulative error count of a failed endpoint.
+  # A failed endpoint is moved to the back of the usable list, as long as the
+  # cumulative error count is less than the threshold. If enough time passes
+  # before it makes it back to the head of the list, then the error count used
+  # to declare it unhealthy is no longer relevant and it should be reset. Use 0
+  # to disable. The value must be compatible with
+  # https://pkg.go.dev/time#ParseDuration
+  error_reset_interval: 1m
+
+  # How often to check if an unhealthy endpoint has become healthy. The value
+  # must be compatible with https://pkg.go.dev/time#ParseDuration and >= 1s
+  health_check_interval: 5s
+
+  # How long to wait for a healthy endpoint, in case healthy is empty; normally
+  # this should be > health_check_interval. The value must be compatible with
+  # https://pkg.go.dev/time#ParseDuration
+	healthy_max_wait: 6s
+
+  # How long to wait for a SendBuffer call to succeed; normally this should be
+  # longer than healthy_max_wait or other HTTP timeouts:
+  send_buffer_timeout: 30s
+
+  # Rate limit in Mbps; it may be specified as FLOAT or FLOAT:INTERVAL, where
+  # INTERVAL must be compatible with https://pkg.go.dev/time#ParseDuration.
+  # INTERVAL determines the granularity of traffic control and in general the
+  # smaller the value, the smoother the traffic. The default is "1s" and
+  # shouldn't be smaller than "50ms". Leave empty/undefined for no limit.
+  rate_limit_mbps:
+
+  # Parameters for https://pkg.go.dev/net#Dialer:
+  # Timeout:
+  tcp_conn_timeout: 2s
+  # KeepAlive:
+  tcp_keep_alive: 15s
+  # Parameters for https://pkg.go.dev/net/http#Transport:
+  # MaxIdleConns:
+  max_idle_conns: 0
+  # MaxIdleConnsPerHost:
+  max_idle_conns_per_host: 1
+  # MaxConnsPerHost:
+  max_conns_per_host: 0
+  # IdleConnTimeout:
+  idle_conn_timeout: 1m
+  # Parameters for https://pkg.go.dev/net/http#Client:
+  # Timeout:
+  response_timeout: 5s
+
+# Logger section:
+log_config:
+  # Whether to log in JSON format. Override w/
+  #  --log-json-format=false, to disable
+  #     or
+  #   --log-json-format, to enable
+  use_json: false
+
+  # The log level, must one of the following:
+  #   panic, fatal, error, warning, info, debug, trace
+  # Override w/ --log-level=LEVEL 
+  log_level: info
+
+  # Whether to disable report file:line#. Override w/
+  #  --log-disable-report-file=false, to enable
+  #     or
+  #   --log-disable-report-file, to disable
+  disable_report_file: false
 

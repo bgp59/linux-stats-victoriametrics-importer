@@ -21,8 +21,9 @@ const (
 )
 
 type LoggerConfig struct {
-	UseJson bool   `yaml:"use_json"`
-	Level   string `yaml:"level:`
+	UseJson           bool   `yaml:"use_json"`
+	Level             string `yaml:"level"`
+	DisableReportFile bool   `yaml:"disable_report_file"`
 }
 
 var loggerUseJsonArg = NewBoolFlagCheckUsed(
@@ -38,6 +39,11 @@ var loggerLevelArg = NewStringFlagCheckUsed(
 	`, GetLogLevelNames()),
 )
 
+var loggerDisableReportFileArg = NewBoolFlagCheckUsed(
+	"log-disable-report-file",
+	"Disable file:line# reporting",
+)
+
 var logSourceRoot string
 
 func GetSourceRoot() (string, error) {
@@ -46,20 +52,6 @@ func GetSourceRoot() (string, error) {
 		return "", fmt.Errorf("cannot determine source root: runtime.Caller(0) failed")
 	}
 	return path.Dir(path.Dir(file)), nil
-}
-
-func init() {
-	root, err := GetSourceRoot()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-	} else {
-
-	}
-	if root != "/" {
-		logSourceRoot = root + "/"
-	} else {
-		logSourceRoot = root
-	}
 }
 
 // Maintain a cache for caller PC -> (file:line#, function) to speed up the
@@ -87,9 +79,8 @@ func (c *LogFuncFileCache) LogCallerPrettyfier(f *runtime.Frame) (function strin
 		} else {
 			_, filename = path.Split(f.File)
 		}
-		function := ""
 		funcFile = &LogFuncFilePair{
-			function,
+			"", //f.Function,
 			fmt.Sprintf("%s:%d", filename, f.Line),
 		}
 		c.funcFileCache[f.PC] = funcFile
@@ -158,8 +149,9 @@ var LogJsonFormatter = &logrus.JSONFormatter{
 var Log = &logrus.Logger{
 	Out: os.Stderr,
 	//Hooks:        make(logrus.LevelHooks),
-	Formatter: LogTextFormatter,
-	Level:     LOGGER_DEFAULT_LEVEL,
+	Formatter:    LogTextFormatter,
+	Level:        LOGGER_DEFAULT_LEVEL,
+	ReportCaller: true,
 }
 
 func GetLogLevelNames() []string {
@@ -168,6 +160,20 @@ func GetLogLevelNames() []string {
 		levelNames[i] = level.String()
 	}
 	return levelNames
+}
+
+func init() {
+	root, err := GetSourceRoot()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+	} else {
+
+	}
+	if root != "/" {
+		logSourceRoot = root + "/"
+	} else {
+		logSourceRoot = root
+	}
 }
 
 // Set the logger based on config overridden by command line args, if the latter
@@ -202,13 +208,16 @@ func SetLogger(cfg any) error {
 		Log.SetLevel(level)
 	}
 
-	if loggerUseJsonArg.Used {
-		if loggerUseJsonArg.Value {
-			Log.SetFormatter(LogJsonFormatter)
-		}
-	} else if logCfg != nil && logCfg.UseJson {
+	if loggerUseJsonArg.Used && loggerUseJsonArg.Value ||
+		!loggerUseJsonArg.Used && logCfg != nil && logCfg.UseJson {
 		Log.SetFormatter(LogJsonFormatter)
 	}
+
+	if loggerDisableReportFileArg.Used && loggerDisableReportFileArg.Value ||
+		!loggerDisableReportFileArg.Used && logCfg != nil && logCfg.DisableReportFile {
+		Log.SetReportCaller(false)
+	}
+
 	return nil
 }
 

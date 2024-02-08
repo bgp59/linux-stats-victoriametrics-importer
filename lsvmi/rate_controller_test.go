@@ -59,6 +59,13 @@ type TestCreditContext struct {
 	creditRequestCount  int
 }
 
+type ParseCreditRateSpecTestCase struct {
+	spec               string
+	wantReplenishValue int
+	wantReplenishInt   time.Duration
+	wantError          error
+}
+
 func (tcCtx *TestCreditContext) start() {
 	tcCtx.c = NewCredit(tcCtx.tc.replenishValue, tcCtx.tc.replenishValue, tcCtx.tc.replenishInt)
 	for clientIndex := 0; clientIndex < len(tcCtx.stopFnList); clientIndex++ {
@@ -265,6 +272,47 @@ func TestCredit(t *testing.T) {
 		t.Run(
 			tc.name,
 			func(t *testing.T) { testCredit(tc, t) },
+		)
+	}
+}
+
+func testParseCreditRateSpec(tc *ParseCreditRateSpecTestCase, t *testing.T) {
+	gotReplenishValue, gotReplenishInt, gotErr := ParseCreditRateSpec(tc.spec)
+	if gotErr != nil && tc.wantError == nil ||
+		gotErr == nil && tc.wantError != nil ||
+		gotErr != nil && tc.wantError != nil && gotErr.Error() != tc.wantError.Error() {
+		t.Fatalf("spec: %q: err: want: %v, got: %v", tc.spec, tc.wantError, gotErr)
+	}
+	if gotErr == nil && tc.wantError == nil {
+		if gotReplenishValue != tc.wantReplenishValue {
+			t.Fatalf("spec: %q: replenishValue: want: %d, got: %d",
+				tc.spec, tc.wantReplenishValue, gotReplenishValue,
+			)
+		}
+		if gotReplenishInt != tc.wantReplenishInt {
+			t.Fatalf("spec: %q: replenishInt: want: %d (%s), got: %d (%s)",
+				tc.spec, tc.wantReplenishInt, tc.wantReplenishInt, gotReplenishInt, gotReplenishInt,
+			)
+		}
+	}
+}
+
+func TestParseCreditRateSpec(t *testing.T) {
+	for _, tc := range []*ParseCreditRateSpecTestCase{
+		{"1", 125_000, 1 * time.Second, nil},
+		{"1.", 125_000, 1 * time.Second, nil},
+		{"1.:0.1s", 12_500, 100 * time.Millisecond, nil},
+		{".5:0.1s", 6_250, 100 * time.Millisecond, nil},
+		{".5:0.01s", 625, 10 * time.Millisecond, nil},
+		{".2:0.1s", 2_500, 100 * time.Millisecond, nil},
+		{".2:10ms", 250, 10 * time.Millisecond, nil},
+		{"", 0, 0, fmt.Errorf(`ParseCreditRateSpec(""): strconv.ParseFloat: parsing "": invalid syntax`)},
+		{"2x:1ms", 0, 0, fmt.Errorf(`ParseCreditRateSpec("2x:1ms"): strconv.ParseFloat: parsing "2x": invalid syntax`)},
+		{"1:33", 0, 0, fmt.Errorf(`ParseCreditRateSpec("1:33"): time: missing unit in duration "33"`)},
+	} {
+		t.Run(
+			fmt.Sprintf("spec=%s", tc.spec),
+			func(t *testing.T) { testParseCreditRateSpec(tc, t) },
 		)
 	}
 }
