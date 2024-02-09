@@ -45,6 +45,7 @@ func (tlc *TestingLogCollect) fatal(format string, args ...any) {
 		tlc.t.Fatalf(testFileLineNum+" "+format, args...)
 	} else {
 		newArgs := make([]any, len(args)+1)
+		newArgs[0] = testFileLineNum
 		copy(newArgs[1:], args)
 		tlc.t.Fatal(newArgs...)
 	}

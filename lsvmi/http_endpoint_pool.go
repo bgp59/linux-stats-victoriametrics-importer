@@ -14,19 +14,24 @@ import (
 	"time"
 )
 
-// LSVMI is configured with a list of URL endpoints for import. The usable
-// endpoints are placed into the healthy sub-list and its head is the current
-// one in use for requests. If a transport error occurs, the endpoint is moved
-// to the back of the list. When the number of transport errors exceeds a
+// LSVMI is configured with a list of URL endpoints for import.
+//
+// The usable endpoints are placed into the healthy sub-list and its head is the
+// current one in use for requests. If a transport error occurs, the endpoint is
+// moved to the back of the list. When the number of transport errors exceeds a
 // certain threshold, the endpoint is removed from the healthy list and it will
 // be checked periodically via a test HTTP request. When the latter succeeds,
-// the endpoint is returned to  the tail of the healthy list. To ensure a
-// balanced use of all the endpoints, the healthy list is rotated periodically
-// such that each endpoint will eventually be at the head.
+// the endpoint is returned to  the tail of the healthy list.
+//
+// To ensure a balanced use of all the endpoints, the healthy list is rotated
+// periodically such that each endpoint will eventually be at the head. This
+// also gives a chance for closing idle connections to endpoints not currently
+// at the head. If the list has just one element then the idle connections are
+// closed explicitly.
 
 const (
 	// Notes:
-	//  1. All intervals below are time.ParseInterval() compatible.
+	//  1. All intervals below are time.ParseDuration() compatible.
 
 	// Endpoint default values:
 	HTTP_ENDPOINT_URL_DEFAULT                      = "http://localhost:8428/api/v1/import/prometheus"
@@ -61,6 +66,7 @@ var epPoolLog = NewCompLogger("http_endpoint_pool")
 // Define a mockable interface to substitute http.Client.Do() for testing purposes:
 type HttpClientDoer interface {
 	Do(req *http.Request) (*http.Response, error)
+	CloseIdleConnections()
 }
 
 // Interface for a http.Request body w/ retries:
@@ -214,6 +220,31 @@ func (epDblLnkList *HttpEndpointDoublyLinkedList) AddToTail(ep *HttpEndpoint) {
 	epDblLnkList.Insert(ep, epDblLnkList.tail)
 }
 
+type HttpEndpointPoolStats struct {
+	// Global stats:
+	HealthyRotateCount uint64
+	CloseIdleCount     uint64
+	// The next stats are indexed by URL:
+	SendBufferCount       map[string]uint64
+	SendBufferByteCount   map[string]uint64
+	SendBufferErrorCount  map[string]uint64
+	HealthCheckCount      map[string]uint64
+	HealthCheckErrorCount map[string]uint64
+	// Lock protection:
+	mu *sync.Mutex
+}
+
+func NewHttpEndpointPoolStats() *HttpEndpointPoolStats {
+	return &HttpEndpointPoolStats{
+		SendBufferCount:       make(map[string]uint64),
+		SendBufferByteCount:   make(map[string]uint64),
+		SendBufferErrorCount:  make(map[string]uint64),
+		HealthCheckCount:      make(map[string]uint64),
+		HealthCheckErrorCount: make(map[string]uint64),
+		mu:                    &sync.Mutex{},
+	}
+}
+
 type HttpEndpointPool struct {
 	// The healthy list:
 	healthy *HttpEndpointDoublyLinkedList
@@ -247,7 +278,7 @@ type HttpEndpointPool struct {
 	sendBufferTimeout time.Duration
 	// Rate limiting credit mechanism, if not nil:
 	credit CreditController
-	// The http client, as a mockable interface:
+	// The http client as a mockable interface:
 	client HttpClientDoer
 	// Access lock:
 	mu *sync.Mutex
@@ -255,6 +286,8 @@ type HttpEndpointPool struct {
 	ctx         context.Context
 	ctxCancelFn context.CancelFunc
 	wg          *sync.WaitGroup
+	// Stats:
+	stats *HttpEndpointPoolStats
 }
 
 type HttpEndpointPoolConfig struct {
@@ -344,6 +377,7 @@ func NewHttpEndpointPool(cfg any) (*HttpEndpointPool, error) {
 		client:                    client,
 		mu:                        &sync.Mutex{},
 		wg:                        &sync.WaitGroup{},
+		stats:                     NewHttpEndpointPoolStats(),
 	}
 	epPool.ctx, epPool.ctxCancelFn = context.WithCancel(context.Background())
 	if epPool.healthyRotateInterval, err = time.ParseDuration(poolCfg.HealthyRotateInterval); err != nil {
@@ -434,6 +468,7 @@ func (epPool *HttpEndpointPool) HealthCheck(ep *HttpEndpoint) {
 			resp != nil && preStatusCode == resp.StatusCode
 	}
 
+	stats, url := epPool.stats, ep.url
 	req := &http.Request{
 		Method: http.MethodPut,
 		URL:    ep.URL,
@@ -447,6 +482,7 @@ func (epPool *HttpEndpointPool) HealthCheck(ep *HttpEndpoint) {
 		prevStatusCode int       = -1
 		errorLogTs     time.Time = time.Now()
 	)
+	repeatCount := 0
 	for done := false; !done; {
 		select {
 		case <-epPool.ctx.Done():
@@ -466,14 +502,22 @@ func (epPool *HttpEndpointPool) HealthCheck(ep *HttpEndpoint) {
 			} else {
 				checkTime = checkTime.Add(epPool.healthCheckInterval)
 				timer.Reset(time.Until(checkTime))
-				if !sameErr(err, prevErr) ||
-					!sameStatus(prevStatusCode, res) ||
+				if !sameErr(err, prevErr) || !sameStatus(prevStatusCode, res) {
+					repeatCount = 1
+				} else {
+					repeatCount += 1
+				}
+				if LogDebugLevel || repeatCount == 1 ||
 					time.Since(errorLogTs) >= epPool.healthCheckErrLogInterval {
+					repeatCountMsg := ""
+					if repeatCount > 1 {
+						repeatCountMsg = fmt.Sprintf(" (%d times)", repeatCount)
+					}
 					errorLogTs = time.Now()
 					if err != nil {
-						epPoolLog.Warn(err)
+						epPoolLog.Warnf("%v%s", err, repeatCountMsg)
 					} else {
-						epPoolLog.Warnf("%s %q: %s", req.Method, req.URL, res.Status)
+						epPoolLog.Warnf("%s %q: %s%s", req.Method, req.URL, res.Status, repeatCountMsg)
 					}
 				}
 				prevErr = err
@@ -483,6 +527,12 @@ func (epPool *HttpEndpointPool) HealthCheck(ep *HttpEndpoint) {
 					prevStatusCode = -1
 				}
 			}
+			stats.mu.Lock()
+			stats.HealthCheckCount[url] += 1
+			if !done {
+				stats.HealthCheckErrorCount[url] += 1
+			}
+			stats.mu.Unlock()
 		}
 	}
 	epPool.MoveToHealthy(ep)
@@ -554,16 +604,32 @@ func (epPool *HttpEndpointPool) GetCurrentHealthy(maxWait time.Duration) *HttpEn
 	if epPool.firstUse {
 		epPool.healthyHeadChangeTs = time.Now()
 		epPool.firstUse = false
-	} else if epPool.healthy.head != epPool.healthy.tail &&
-		(epPool.healthyRotateInterval == 0 ||
-			epPool.healthyRotateInterval > 0 &&
-				time.Since(epPool.healthyHeadChangeTs) >= epPool.healthyRotateInterval) {
-		epPool.healthy.Remove(ep)
-		epPool.healthy.AddToTail(ep)
-		epPoolLog.Infof("%s rotated to healthy list tail", ep.url)
-		ep = epPool.healthy.head
-		epPool.healthyHeadChangeTs = time.Now()
-		epPoolLog.Infof("%s rotated to healthy list head", ep.url)
+	} else if epPool.healthyRotateInterval == 0 ||
+		epPool.healthyRotateInterval > 0 &&
+			time.Since(epPool.healthyHeadChangeTs) >= epPool.healthyRotateInterval {
+		if epPool.healthy.head != epPool.healthy.tail {
+			epPool.healthy.Remove(ep)
+			epPool.healthy.AddToTail(ep)
+			if LogDebugLevel {
+				epPoolLog.Debugf("%s rotated to healthy list tail", ep.url)
+			}
+			ep = epPool.healthy.head
+			epPool.healthyHeadChangeTs = time.Now()
+			if LogDebugLevel {
+				epPoolLog.Infof("%s rotated to healthy list head", ep.url)
+			}
+			epPool.stats.mu.Lock()
+			epPool.stats.HealthyRotateCount += 1
+			epPool.stats.mu.Unlock()
+		} else {
+			if LogDebugLevel {
+				epPoolLog.Debug("Close idle connections")
+			}
+			epPool.client.CloseIdleConnections()
+			epPool.stats.mu.Lock()
+			epPool.stats.CloseIdleCount += 1
+			epPool.stats.mu.Unlock()
+		}
 	}
 	// Apply error reset as needed:
 	if ep.numErrors > 0 &&
@@ -579,6 +645,8 @@ func (epPool *HttpEndpointPool) GetCurrentHealthy(maxWait time.Duration) *HttpEn
 // and retries. If timeout is < 0 then the pool's sendBufferTimeout is used:
 func (epPool *HttpEndpointPool) SendBuffer(b []byte, timeout time.Duration, gzipped bool) error {
 	var body ReadSeekRewindCloser
+
+	stats := epPool.stats
 
 	header := http.Header{
 		"Content-Type": {"text/html"},
@@ -604,6 +672,10 @@ func (epPool *HttpEndpointPool) SendBuffer(b []byte, timeout time.Duration, gzip
 		}
 		ep := epPool.GetCurrentHealthy(maxWait)
 		if ep == nil {
+			stats.mu.Lock()
+			stats.SendBufferCount[""] += 1
+			stats.SendBufferErrorCount[""] += 1
+			stats.mu.Unlock()
 			return fmt.Errorf(
 				"SendBuffer attempt# %d: no healthy HTTP endpoint available", attempt,
 			)
@@ -618,14 +690,24 @@ func (epPool *HttpEndpointPool) SendBuffer(b []byte, timeout time.Duration, gzip
 			Body:   body,
 		}
 		res, err := epPool.client.Do(req)
-		if err == nil && res != nil && HttpEndpointPoolSuccessCodes[res.StatusCode] {
-			// The request succeeded:
+		sent := err == nil && res != nil
+		success := sent && HttpEndpointPoolSuccessCodes[res.StatusCode]
+		nonRetryable := sent && !HttpEndpointPoolRetryCodes[res.StatusCode]
+
+		stats.mu.Lock()
+		stats.SendBufferCount[ep.url] += 1
+		if sent {
+			stats.SendBufferByteCount[ep.url] += uint64(len(b))
+		}
+		if !success {
+			stats.SendBufferErrorCount[ep.url] += 1
+		}
+		stats.mu.Unlock()
+
+		if success {
 			return nil
 		}
-		if err == nil && res != nil && !HttpEndpointPoolRetryCodes[res.StatusCode] {
-			// The request failed and it shouldn't be retried (for instance the
-			// data is malformed) since it will yield the same result on a
-			// different endpoint:
+		if nonRetryable {
 			return fmt.Errorf(
 				"SendBuffer attempt# %d: %s %s: %s", attempt, req.Method, ep.url, res.Status,
 			)

@@ -15,7 +15,7 @@ http_endpoint_pool_config:
   # How often to rotate the healthy endpoint list, to load balance the
   # connections; use 0 to disable. The value must be compatible with
   # https://pkg.go.dev/time#ParseDuration
-  healthy_rotate_interval: 1m30s
+  healthy_rotate_interval: 0
 
   # After what time to reset the cumulative error count of a failed endpoint.
   # A failed endpoint is moved to the back of the usable list, as long as the

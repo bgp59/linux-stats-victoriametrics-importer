@@ -176,6 +176,8 @@ func init() {
 	}
 }
 
+var LogDebugLevel = Log.IsLevelEnabled(logrus.DebugLevel)
+
 // Set the logger based on config overridden by command line args, if the latter
 // were used:
 func SetLogger(cfg any) error {
@@ -206,6 +208,7 @@ func SetLogger(cfg any) error {
 			return err
 		}
 		Log.SetLevel(level)
+		LogDebugLevel = Log.IsLevelEnabled(logrus.DebugLevel)
 	}
 
 	if loggerUseJsonArg.Used && loggerUseJsonArg.Value ||
