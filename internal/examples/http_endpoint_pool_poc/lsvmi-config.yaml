@@ -11,6 +11,7 @@ http_endpoint_pool_config:
   endpoints:
     - url: http://localhost:8428/api/v1/import/prometheus
     - url: http://localhost:8429/api/v1/import/prometheus
+      mark_unhealthy_threshold: 2
 
   # How often to rotate the healthy endpoint list, to load balance the
   # connections; use 0 to disable. The value must be compatible with

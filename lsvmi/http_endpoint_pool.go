@@ -255,7 +255,8 @@ type HttpEndpointPool struct {
 	// occurred (most likely due to rotation):
 	healthyHeadChangeTs time.Time
 	// The rotation, which occurs *before* the endpoint is selected, should be
-	// disabled for the 1st use (the pool has just been built after all):
+	// disabled for its 1st use; for instance the endpoint has been just
+	// promoted to the head because the previous one had an error.
 	firstUse bool
 	// A failed endpoint is moved to the back of the usable list, as long as the
 	// cumulative error count is less than the threshold. If enough time passes
@@ -458,6 +459,12 @@ func NewHttpEndpointPool(cfg any) (*HttpEndpointPool, error) {
 }
 
 func (epPool *HttpEndpointPool) HealthCheck(ep *HttpEndpoint) {
+	var (
+		prevErr        error
+		prevStatusCode int       = -1
+		errorLogTs     time.Time = time.Now()
+	)
+
 	sameErr := func(err1, err2 error) bool {
 		return err1 == nil && err2 == nil ||
 			err1 != nil && err2 != nil && err1.Error() == err2.Error()
@@ -468,6 +475,8 @@ func (epPool *HttpEndpointPool) HealthCheck(ep *HttpEndpoint) {
 			resp != nil && preStatusCode == resp.StatusCode
 	}
 
+	epPoolLog.Warnf("start health check for %s", ep.url)
+
 	stats, url := epPool.stats, ep.url
 	req := &http.Request{
 		Method: http.MethodPut,
@@ -477,11 +486,6 @@ func (epPool *HttpEndpointPool) HealthCheck(ep *HttpEndpoint) {
 	req.Header.Add("Content-Type", "text/html")
 	checkTime := time.Now().Add(epPool.healthCheckInterval)
 	timer := time.NewTimer(time.Until(checkTime))
-	var (
-		prevErr        error
-		prevStatusCode int       = -1
-		errorLogTs     time.Time = time.Now()
-	)
 	repeatCount := 0
 	for done := false; !done; {
 		select {
@@ -507,7 +511,7 @@ func (epPool *HttpEndpointPool) HealthCheck(ep *HttpEndpoint) {
 				} else {
 					repeatCount += 1
 				}
-				if LogDebugLevel || repeatCount == 1 ||
+				if LogIsEnabledForDebug || repeatCount == 1 ||
 					time.Since(errorLogTs) >= epPool.healthCheckErrLogInterval {
 					repeatCountMsg := ""
 					if repeatCount > 1 {
@@ -543,21 +547,26 @@ func (epPool *HttpEndpointPool) ReportError(ep *HttpEndpoint) {
 	epPool.mu.Lock()
 	defer epPool.mu.Unlock()
 	ep.numErrors += 1
+	ep.errorTs = time.Now()
 	epPoolLog.Warnf(
 		"%s: error#: %d, threshold: %d",
 		ep.url, ep.numErrors, ep.markUnhealthyThreshold,
 	)
-	if ep.numErrors >= ep.markUnhealthyThreshold {
-		if !ep.healthy {
-			// Already in the unhealthy state:
-			return
-		}
+	if !ep.healthy {
+		// Already in the unhealthy state:
+		return
 	}
-	ep.healthy = false
 	epPool.healthy.Remove(ep)
-	epPool.wg.Add(1)
-	epPoolLog.Warnf("%s moved to health check", ep.url)
-	go epPool.HealthCheck(ep)
+	epPool.firstUse = true
+	if ep.numErrors < ep.markUnhealthyThreshold {
+		// Re-add at tail:
+		epPool.healthy.AddToTail(ep)
+	} else {
+		// Initiate health check:
+		ep.healthy = false
+		epPool.wg.Add(1)
+		go epPool.HealthCheck(ep)
+	}
 }
 
 func (epPool *HttpEndpointPool) MoveToHealthy(ep *HttpEndpoint) {
@@ -610,19 +619,19 @@ func (epPool *HttpEndpointPool) GetCurrentHealthy(maxWait time.Duration) *HttpEn
 		if epPool.healthy.head != epPool.healthy.tail {
 			epPool.healthy.Remove(ep)
 			epPool.healthy.AddToTail(ep)
-			if LogDebugLevel {
+			if LogIsEnabledForDebug {
 				epPoolLog.Debugf("%s rotated to healthy list tail", ep.url)
 			}
 			ep = epPool.healthy.head
 			epPool.healthyHeadChangeTs = time.Now()
-			if LogDebugLevel {
+			if LogIsEnabledForDebug {
 				epPoolLog.Infof("%s rotated to healthy list head", ep.url)
 			}
 			epPool.stats.mu.Lock()
 			epPool.stats.HealthyRotateCount += 1
 			epPool.stats.mu.Unlock()
 		} else {
-			if LogDebugLevel {
+			if LogIsEnabledForDebug {
 				epPoolLog.Debug("Close idle connections")
 			}
 			epPool.client.CloseIdleConnections()
