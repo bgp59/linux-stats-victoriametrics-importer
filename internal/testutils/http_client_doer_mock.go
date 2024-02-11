@@ -67,7 +67,7 @@ func NewHttpClientDoerMock(timeout time.Duration) *HttpClientDoerMock {
 	return mock
 }
 
-func (mock *HttpClientDoerMock) Stop() {
+func (mock *HttpClientDoerMock) Cancel() {
 	mock.cancelFn()
 	mock.wg.Wait()
 }
@@ -105,6 +105,7 @@ func (mock *HttpClientDoerMock) Do(req *http.Request) (*http.Response, error) {
 		return nil, cancelErr
 	case channels.req <- req:
 	}
+
 	select {
 	case <-mock.ctx.Done():
 		return nil, cancelErr

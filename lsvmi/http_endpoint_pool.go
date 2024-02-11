@@ -5,6 +5,7 @@ package lsvmi
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -154,6 +155,9 @@ var HttpEndpointPoolSuccessCodes = map[int]bool{
 // The list of HTTP codes that should be retried:
 var HttpEndpointPoolRetryCodes = map[int]bool{}
 
+// Error codes:
+var ErrHttpEndpointPoolNoHealthyEP = errors.New("no healthy HTTP endpoint available")
+
 func DefaultHttpEndpointConfig() *HttpEndpointConfig {
 	return &HttpEndpointConfig{
 		URL:                    HTTP_ENDPOINT_URL_DEFAULT,
@@ -287,6 +291,8 @@ type HttpEndpointPool struct {
 	ctx         context.Context
 	ctxCancelFn context.CancelFunc
 	wg          *sync.WaitGroup
+	// Whether the pool was shutdown or not:
+	shutdown bool
 	// Stats:
 	stats *HttpEndpointPoolStats
 }
@@ -450,9 +456,9 @@ func NewHttpEndpointPool(cfg any) (*HttpEndpointPool, error) {
 		}
 	}
 	if epPool.healthy.head != nil {
-		epPoolLog.Infof("%s is at the head of the healthy list", epPool.healthy.head.URL)
+		epPoolLog.Infof("%s is at the head of the healthy list", epPool.healthy.head.url)
 	} else {
-		epPoolLog.Info("empty healthy list")
+		epPoolLog.Warn(ErrHttpEndpointPoolNoHealthyEP)
 	}
 
 	return epPool, nil
@@ -490,7 +496,7 @@ func (epPool *HttpEndpointPool) HealthCheck(ep *HttpEndpoint) {
 	for done := false; !done; {
 		select {
 		case <-epPool.ctx.Done():
-			timer.Stop()
+			epPoolLog.Warnf("cancel health check for %s", ep.url)
 			if !timer.Stop() {
 				<-timer.C
 			}
@@ -561,12 +567,29 @@ func (epPool *HttpEndpointPool) ReportError(ep *HttpEndpoint) {
 	if ep.numErrors < ep.markUnhealthyThreshold {
 		// Re-add at tail:
 		epPool.healthy.AddToTail(ep)
+		if LogIsEnabledForDebug {
+			epPoolLog.Debugf(
+				"%s: error#: %d, threshold: %d rotated to healthy list tail",
+				ep.url, ep.numErrors, ep.markUnhealthyThreshold,
+			)
+		}
 	} else {
 		// Initiate health check:
 		ep.healthy = false
 		epPool.wg.Add(1)
 		go epPool.HealthCheck(ep)
 	}
+
+	head := epPool.healthy.head
+	if head == nil {
+		epPoolLog.Warn(ErrHttpEndpointPoolNoHealthyEP)
+	} else if LogIsEnabledForDebug {
+		epPoolLog.Debugf(
+			"%s: error#: %d, threshold: %d is at the head of the healthy list",
+			head.url, head.numErrors, head.markUnhealthyThreshold,
+		)
+	}
+
 }
 
 func (epPool *HttpEndpointPool) MoveToHealthy(ep *HttpEndpoint) {
@@ -588,6 +611,12 @@ func (epPool *HttpEndpointPool) GetCurrentHealthy(maxWait time.Duration) *HttpEn
 	var ep *HttpEndpoint
 	epPool.mu.Lock()
 	defer epPool.mu.Unlock()
+
+	// If the pool was shutdown then no endpoint is usable:
+	if epPool.shutdown {
+		return nil
+	}
+
 	// There is no sync.Condition Wait with timeout, so poll until deadline,
 	// waiting for a healthy endpoint. It shouldn't impact the overall
 	// efficiency since this is not the normal operating condition.
@@ -620,19 +649,25 @@ func (epPool *HttpEndpointPool) GetCurrentHealthy(maxWait time.Duration) *HttpEn
 			epPool.healthy.Remove(ep)
 			epPool.healthy.AddToTail(ep)
 			if LogIsEnabledForDebug {
-				epPoolLog.Debugf("%s rotated to healthy list tail", ep.url)
+				epPoolLog.Debugf(
+					"%s: error#: %d, threshold: %d rotated to healthy list tail",
+					ep.url, ep.numErrors, ep.markUnhealthyThreshold,
+				)
 			}
 			ep = epPool.healthy.head
 			epPool.healthyHeadChangeTs = time.Now()
 			if LogIsEnabledForDebug {
-				epPoolLog.Infof("%s rotated to healthy list head", ep.url)
+				epPoolLog.Debugf(
+					"%s: error#: %d, threshold: %d rotated to healthy list head",
+					ep.url, ep.numErrors, ep.markUnhealthyThreshold,
+				)
 			}
 			epPool.stats.mu.Lock()
 			epPool.stats.HealthyRotateCount += 1
 			epPool.stats.mu.Unlock()
 		} else {
 			if LogIsEnabledForDebug {
-				epPoolLog.Debug("Close idle connections")
+				epPoolLog.Debugf("%s: Close idle connections", ep.url)
 			}
 			epPool.client.CloseIdleConnections()
 			epPool.stats.mu.Lock()
@@ -686,7 +721,7 @@ func (epPool *HttpEndpointPool) SendBuffer(b []byte, timeout time.Duration, gzip
 			stats.SendBufferErrorCount[""] += 1
 			stats.mu.Unlock()
 			return fmt.Errorf(
-				"SendBuffer attempt# %d: no healthy HTTP endpoint available", attempt,
+				"SendBuffer attempt# %d: %w", attempt, ErrHttpEndpointPoolNoHealthyEP,
 			)
 		}
 		if attempt > 1 {
@@ -735,7 +770,10 @@ func (epPool *HttpEndpointPool) SendBuffer(b []byte, timeout time.Duration, gzip
 }
 
 // Needed for testing or clean exit in general:
-func (epPool *HttpEndpointPool) Stop() {
+func (epPool *HttpEndpointPool) Shutdown() {
+	epPool.mu.Lock()
+	epPool.shutdown = true
+	epPool.mu.Unlock()
 	epPoolLog.Info("stop health check goroutines")
 	epPool.ctxCancelFn()
 	epPool.wg.Wait()

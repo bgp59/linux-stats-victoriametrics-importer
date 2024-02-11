@@ -1,6 +1,7 @@
 package lsvmi
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
@@ -24,7 +25,7 @@ func buildTestHttpEndpointPool(tc *HttpEndpointPoolTestCase) (*HttpEndpointPool,
 	return epPool, err
 }
 
-func testHttpEndpointPoolHealthyListCreate(tc *HttpEndpointPoolTestCase, t *testing.T) {
+func testHttpEndpointPoolCreate(tc *HttpEndpointPoolTestCase, t *testing.T) {
 	tlc := testutils.NewTestingLogCollect(t, Log)
 	defer tlc.RestoreLog()
 
@@ -33,7 +34,7 @@ func testHttpEndpointPoolHealthyListCreate(tc *HttpEndpointPoolTestCase, t *test
 		tlc.Fatal(err)
 	}
 	epPool.healthyRotateInterval = -1 // Ensure it is disabled
-	defer epPool.Stop()
+	defer epPool.Shutdown()
 
 	i := 0
 	for ep := epPool.healthy.head; ep != nil && i < len(tc.epCfgs); ep = ep.next {
@@ -48,7 +49,7 @@ func testHttpEndpointPoolHealthyListCreate(tc *HttpEndpointPoolTestCase, t *test
 	}
 }
 
-func testHttpEndpointPoolHealthyListRotate(tc *HttpEndpointPoolTestCase, t *testing.T) {
+func testHttpEndpointPoolRotate(tc *HttpEndpointPoolTestCase, t *testing.T) {
 	tlc := testutils.NewTestingLogCollect(t, Log)
 	savedLogLevel := Log.GetLevel()
 	setLogLevel(logrus.DebugLevel)
@@ -62,7 +63,7 @@ func testHttpEndpointPoolHealthyListRotate(tc *HttpEndpointPoolTestCase, t *test
 		tlc.Fatal(err)
 	}
 	epPool.healthyRotateInterval = 0 // Ensure rotate w/ every call
-	defer epPool.Stop()
+	defer epPool.Shutdown()
 
 	for i := 0; i < len(tc.epCfgs)*4/3; i++ {
 		wantUrl := tc.epCfgs[i%len(tc.epCfgs)].URL
@@ -75,7 +76,63 @@ func testHttpEndpointPoolHealthyListRotate(tc *HttpEndpointPoolTestCase, t *test
 	}
 }
 
-func TestHttpEndpointPoolHealthyListCreate(t *testing.T) {
+func testHttpEndpointPoolReportError(tc *HttpEndpointPoolTestCase, t *testing.T) {
+	testTimeout := 5 * time.Second
+	tlc := testutils.NewTestingLogCollect(t, Log)
+	savedLogLevel := Log.GetLevel()
+	setLogLevel(logrus.DebugLevel)
+	defer func() {
+		tlc.RestoreLog()
+		setLogLevel(savedLogLevel)
+	}()
+
+	epPool, err := buildTestHttpEndpointPool(tc)
+	if err != nil {
+		tlc.Fatal(err)
+
+	}
+	defer epPool.Shutdown()
+	// Ensure rotate w/ every call
+	epPool.healthyRotateInterval = 0
+	// Ensure that the health check will proceed right away, since it is paced
+	// by the ClientDoer mock:
+	epPool.healthCheckInterval = 0
+
+	mock := testutils.NewHttpClientDoerMock(testTimeout)
+	defer mock.Cancel()
+	epPool.client = mock
+
+	var startEp *HttpEndpoint
+	healthCheckResponse := &http.Response{
+		StatusCode: http.StatusOK,
+		Status:     http.StatusText(http.StatusOK),
+	}
+	for {
+		ep := epPool.GetCurrentHealthy(testTimeout)
+		if ep == nil {
+			tlc.Fatal(ErrHttpEndpointPoolNoHealthyEP)
+		}
+		if startEp == nil {
+			startEp = ep
+		} else if startEp == ep && ep.numErrors == 0 {
+			break
+		}
+
+		epPool.ReportError(ep)
+		if !ep.healthy {
+			_, err = mock.GetRequest(ep.url)
+			if err != nil {
+				tlc.Fatal(err)
+			}
+			err = mock.SendResponse(ep.url, healthCheckResponse, nil)
+			if err != nil {
+				tlc.Fatal(err)
+			}
+		}
+	}
+}
+
+func TestHttpEndpointPoolCreate(t *testing.T) {
 	for _, tc := range []*HttpEndpointPoolTestCase{
 		{
 			epCfgs: []*HttpEndpointConfig{
@@ -91,12 +148,12 @@ func TestHttpEndpointPoolHealthyListCreate(t *testing.T) {
 	} {
 		t.Run(
 			"",
-			func(t *testing.T) { testHttpEndpointPoolHealthyListCreate(tc, t) },
+			func(t *testing.T) { testHttpEndpointPoolCreate(tc, t) },
 		)
 	}
 }
 
-func TestHttpEndpointPoolHealthyListRotate(t *testing.T) {
+func TestHttpEndpointPoolRotate(t *testing.T) {
 	for _, tc := range []*HttpEndpointPoolTestCase{
 		{
 			epCfgs: []*HttpEndpointConfig{
@@ -114,7 +171,30 @@ func TestHttpEndpointPoolHealthyListRotate(t *testing.T) {
 	} {
 		t.Run(
 			"",
-			func(t *testing.T) { testHttpEndpointPoolHealthyListRotate(tc, t) },
+			func(t *testing.T) { testHttpEndpointPoolRotate(tc, t) },
+		)
+	}
+}
+
+func TestHttpEndpointPoolReportError(t *testing.T) {
+	for _, tc := range []*HttpEndpointPoolTestCase{
+		{
+			epCfgs: []*HttpEndpointConfig{
+				{"http://host1", 1},
+			},
+		},
+		{
+			epCfgs: []*HttpEndpointConfig{
+				{"http://host1", 1},
+				{"http://host2", 2},
+				{"http://host3", 3},
+				{"http://host4", 4},
+			},
+		},
+	} {
+		t.Run(
+			"",
+			func(t *testing.T) { testHttpEndpointPoolReportError(tc, t) },
 		)
 	}
 }
