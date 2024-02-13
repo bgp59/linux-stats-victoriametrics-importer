@@ -48,7 +48,7 @@ http_endpoint_pool_config:
   # INTERVAL determines the granularity of traffic control and in general the
   # smaller the value, the smoother the traffic. The default is "1s" and
   # shouldn't be smaller than "50ms". Leave empty/undefined for no limit.
-  rate_limit_mbps: 
+  rate_limit_mbps: 10:100ms
 
   # Parameters for https://pkg.go.dev/net#Dialer:
   # Timeout:
@@ -60,7 +60,7 @@ http_endpoint_pool_config:
   # MaxIdleConns:
   max_idle_conns: 0
   # MaxIdleConnsPerHost:
-  max_idle_conns_per_host: 1
+  max_idle_conns_per_host: 2
   # MaxConnsPerHost:
   max_conns_per_host: 0
   # IdleConnTimeout:

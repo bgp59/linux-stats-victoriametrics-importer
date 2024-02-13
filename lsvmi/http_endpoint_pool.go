@@ -396,6 +396,7 @@ func NewHttpEndpointPool(cfg any) (*HttpEndpointPool, error) {
 
 	transport := &http.Transport{
 		DialContext:         dialer.DialContext,
+		DisableKeepAlives:   false,
 		MaxIdleConns:        poolCfg.MaxIdleConns,
 		MaxIdleConnsPerHost: poolCfg.MaxIdleConnsPerHost,
 		MaxConnsPerHost:     poolCfg.MaxConnsPerHost,
@@ -707,14 +708,6 @@ func (epPool *HttpEndpointPool) GetCurrentHealthy(maxWait time.Duration) *HttpEn
 			epPool.stats.mu.Lock()
 			epPool.stats.HealthyRotateCount += 1
 			epPool.stats.mu.Unlock()
-		} else {
-			if Log.IsEnabledForDebug {
-				epPoolLog.Debugf("%s: Close idle connections", ep.url)
-			}
-			epPool.client.CloseIdleConnections()
-			epPool.stats.mu.Lock()
-			epPool.stats.CloseIdleCount += 1
-			epPool.stats.mu.Unlock()
 		}
 	}
 	// Apply error reset as needed:
@@ -773,7 +766,8 @@ func (epPool *HttpEndpointPool) SendBuffer(b []byte, timeout time.Duration, gzip
 			Method: http.MethodPut,
 			Header: header.Clone(),
 			URL:    ep.URL,
-			Body:   body,
+			//ContentLength: int64(len(b)),
+			Body: body,
 		}
 		res, err := epPool.client.Do(req)
 		sent := err == nil && res != nil
