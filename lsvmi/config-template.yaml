@@ -8,13 +8,20 @@ http_endpoint_pool_config:
   # failed accesses count, used for declaring the endpoint unhealthy; this may
   # be > 1 for cases where the host name part of the URL is some kind of a DNS
   # pool which is resolved to a list of addresses, in which case it should be
-  # set to the number of pool members. Just because one member is unhealthy, it
-  # doesn't mean that others cannot be used. The net/http Transport connection
-  # cache will remove the failed connection and the name to address resolution
-  # mechanism should no longer resolve to this failed IP.
+  # set to the number of pool members expected to be unavailable simultaneously.
+  # Just because one member is unhealthy, it doesn't mean that others cannot be
+  # used. The net/http Transport connection cache will remove the failed
+  # connection and the name to address resolution mechanism should no longer
+  # resolve to this failed IP.
   endpoints:
     - url: http://localhost:8428/api/v1/import/prometheus
       mark_unhealthy_threshold: 1
+
+  # Whether the endpoint list should be shuffled or not. Shuffling is
+  # recommended if the config file is shared by all collectors, such they all
+  # start with the *same* configured endpoint list; the shuffle will help
+  # distribute the load across all endpoints:
+  shuffle: false
 
   # How often to rotate the healthy endpoint list, to load balance the
   # connections. Set to 0 to rotate after every use or to -1s to disable the

@@ -12,6 +12,14 @@ http_endpoint_pool_config:
     - url: http://localhost:8428/api/v1/import/prometheus
     - url: http://localhost:8429/api/v1/import/prometheus
       mark_unhealthy_threshold: 2
+    # - url: http://1.2.3.4:8428/api/v1/import/prometheus
+    # - url: http://nosuchhost:8428/api/v1/import/prometheus
+
+  # Whether the endpoint list should be shuffled or not. Shuffling is
+  # recommended if the config file is shared by all collectors, such they all
+  # start with the *same* endpoint list; the shuffle will help distribute the
+  # load across all endpoints:
+  shuffle: true
 
   # How often to rotate the healthy endpoint list, to load balance the
   # connections; use 0 to disable. The value must be compatible with

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -39,6 +40,7 @@ const (
 	HTTP_ENDPOINT_MARK_UNHEALTHY_THRESHOLD_DEFAULT = 1
 
 	// Endpoint config pool default values:
+	HTTP_ENDPOINT_POOL_SHUFFLE                         = false
 	HTTP_ENDPOINT_POOL_HEALTHY_ROTATE_INTERVAL_DEFAULT = "5m"
 	HTTP_ENDPOINT_POOL_ERROR_RESET_INTERVAL_DEFAULT    = "1m"
 	HTTP_ENDPOINT_POOL_HEALTH_CHECK_INTERVAL_DEFAULT   = "5s"
@@ -299,6 +301,7 @@ type HttpEndpointPool struct {
 
 type HttpEndpointPoolConfig struct {
 	Endpoints             []*HttpEndpointConfig `yaml:"endpoints"`
+	Shuffle               bool                  `yaml:"shuffle"`
 	HealthyRotateInterval string                `yaml:"healthy_rotate_interval"`
 	ErrorResetInterval    string                `yaml:"error_reset_interval"`
 	HealthCheckInterval   string                `yaml:"health_check_interval"`
@@ -440,6 +443,10 @@ func NewHttpEndpointPool(cfg any) (*HttpEndpointPool, error) {
 	epPoolLog.Infof("response_timeout=%s", client.Timeout)
 
 	endpoints := poolCfg.Endpoints
+	if poolCfg.Shuffle && len(endpoints) > 1 {
+		epPoolLog.Info("shuffle the endpoint list")
+		rand.Shuffle(len(endpoints), func(i, j int) { endpoints[i], endpoints[j] = endpoints[j], endpoints[i] })
+	}
 	defaultEpCfg := DefaultHttpEndpointConfig()
 	for _, epCfg := range endpoints {
 		cfg := *epCfg
@@ -603,7 +610,7 @@ func (epPool *HttpEndpointPool) MoveToHealthy(ep *HttpEndpoint) {
 	ep.healthy = true
 	ep.numErrors = 0
 	epPool.healthy.AddToTail(ep)
-	epPoolLog.Infof("%s added to the healthy list", ep.url)
+	epPoolLog.Infof("%s appended to the healthy list", ep.url)
 }
 
 // Get the current healthy endpoint or nil if none available after max wait; if
