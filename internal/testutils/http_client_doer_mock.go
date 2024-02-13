@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -13,10 +14,17 @@ import (
 
 var ErrHttpClientDoerMockCancelled = errors.New("HttpClientDoerMock cancelled")
 var ErrHttpClientDoerMockPlayback = errors.New("HttpClientDoerMock playback error")
+var ErrHttpClientDoerMockGeneric = errors.New("HttpClientDoerMock generic error")
 
 // The request <-> response mapping is keyed by URL and it consists of a pair of
 // channels of length 1.
 type HttpClientDoerMockRespErr struct {
+	Response *http.Response
+	Error    error
+}
+
+type HttpClientDoerPlaybackEntry struct {
+	Url      string
 	Response *http.Response
 	Error    error
 }
@@ -34,23 +42,13 @@ type HttpClientDoerMock struct {
 	wg       *sync.WaitGroup
 }
 
-type HttpClientDoerPlaybookRespErr struct {
+type HttpClientDoerPlaybackRequest struct {
 	Url string
-	HttpClientDoerMockRespErr
-}
-
-type HttpClientDoerPlaybookReq struct {
-	Url     string
+	// The received request, with the body set to nil; the body is stored
+	// separately:
 	Request *http.Request
-}
-
-type HttpClientDoerPlaybook struct {
-	// The requests made by the doers, in the order they were received. The
-	// order is always consistent for a given URL, but it may vary across URL's
-	// if the play is executed in parallel.
-	Reqs []*HttpClientDoerPlaybookReq
-	// The responses:
-	RespErrs []*HttpClientDoerPlaybookRespErr
+	// Thee body of the request above:
+	Body []byte
 }
 
 func NewHttpClientDoerMock(timeout time.Duration) *HttpClientDoerMock {
@@ -87,10 +85,17 @@ func (mock *HttpClientDoerMock) getChannels(url string) *HttpClientDoerMockChann
 }
 
 func httpClientDoerMockAddReqToRes(req *http.Request, resp *http.Response) *http.Response {
+	if resp == nil {
+		return nil
+	}
 	newResp := *resp
-	resReq := *req
-	resReq.Body = nil
-	newResp.Request = &resReq
+	if newResp.Status == "" {
+		newResp.Status = fmt.Sprintf(
+			"%d %s", newResp.StatusCode, http.StatusText(newResp.StatusCode),
+		)
+	}
+	newResp.Request = req.Clone(context.Background())
+	newResp.Request.Body = nil
 	return &newResp
 }
 
@@ -140,96 +145,42 @@ func (mock *HttpClientDoerMock) SendResponse(url string, resp *http.Response, er
 
 func (mock *HttpClientDoerMock) CloseIdleConnections() {}
 
-func (mock *HttpClientDoerMock) playOneUrl(
-	playbook *HttpClientDoerPlaybook,
-	url string,
-	respErrs []*HttpClientDoerPlaybookRespErr,
-	retErrs map[string]error,
-) {
+func (mock *HttpClientDoerMock) Play(playbook []*HttpClientDoerPlaybackEntry) ([]*HttpClientDoerPlaybackRequest, error) {
 	var (
-		req *http.Request
-		err error
+		err  error
+		req  *http.Request
+		body []byte
 	)
-	defer func() {
-		mock.mu.Lock()
-		retErrs[url] = err
-		mock.mu.Unlock()
-	}()
 
-	for _, respErr := range respErrs {
+	requests := make([]*HttpClientDoerPlaybackRequest, len(playbook))
+	for i, entry := range playbook {
+		url := entry.Url
 		req, err = mock.GetRequest(url)
 		if err != nil {
-			return
+			break
 		}
-		err = mock.SendResponse(url, respErr.Response, respErr.Error)
+		err = mock.SendResponse(url, entry.Response, entry.Error)
 		if err != nil {
-			return
+			break
 		}
-		mock.mu.Lock()
-		playbook.Reqs = append(playbook.Reqs, &HttpClientDoerPlaybookReq{Url: url, Request: req})
-		mock.mu.Unlock()
-	}
-}
-
-func (mock *HttpClientDoerMock) PlayParallel(playbook *HttpClientDoerPlaybook) error {
-	byUrlRespErrs := make(map[string][]*HttpClientDoerPlaybookRespErr)
-	retErrs := make(map[string]error)
-
-	for _, urlRespErr := range playbook.RespErrs {
-		if byUrlRespErrs[urlRespErr.Url] == nil {
-			byUrlRespErrs[urlRespErr.Url] = make([]*HttpClientDoerPlaybookRespErr, 0)
-		}
-		byUrlRespErrs[urlRespErr.Url] = append(byUrlRespErrs[urlRespErr.Url], urlRespErr)
-	}
-
-	wg := &sync.WaitGroup{}
-	for url, respErrs := range byUrlRespErrs {
-		wg.Add(1)
-		go func() {
-			mock.playOneUrl(playbook, url, respErrs, retErrs)
-			wg.Done()
-		}()
-	}
-	wg.Wait()
-
-	var err error
-	for _, retErr := range retErrs {
-		if retErr == nil {
-			continue
-		}
-		if err == nil {
-			err = retErr
+		if req.Body != nil {
+			body, err = io.ReadAll(req.Body)
+			if err != nil {
+				break
+			}
+			req.Body = nil
 		} else {
-			err = fmt.Errorf("%w, %w", err, retErr)
+			body = nil
+		}
+		requests[i] = &HttpClientDoerPlaybackRequest{
+			Url:     url,
+			Request: req.Clone(context.Background()),
+			Body:    body,
 		}
 	}
 
 	if err != nil {
-		err = fmt.Errorf("%w: %w", ErrHttpClientDoerMockPlayback, err)
+		return nil, fmt.Errorf("%w: %w", ErrHttpClientDoerMockPlayback, err)
 	}
-	return err
-}
-
-func (mock *HttpClientDoerMock) Play(playbook *HttpClientDoerPlaybook) error {
-	var (
-		err error
-		req *http.Request
-	)
-	for _, urlRespErr := range playbook.RespErrs {
-		url := urlRespErr.Url
-		req, err = mock.GetRequest(url)
-		if err != nil {
-			break
-		}
-		err = mock.SendResponse(url, urlRespErr.Response, urlRespErr.Error)
-		if err != nil {
-			break
-		}
-		playbook.Reqs = append(playbook.Reqs, &HttpClientDoerPlaybookReq{Url: url, Request: req})
-	}
-
-	if err != nil {
-		err = fmt.Errorf("%w: %w", ErrHttpClientDoerMockPlayback, err)
-	}
-	return err
+	return requests, nil
 }

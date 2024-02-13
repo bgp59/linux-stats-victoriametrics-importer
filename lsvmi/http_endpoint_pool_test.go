@@ -1,6 +1,8 @@
 package lsvmi
 
 import (
+	"bytes"
+	"errors"
 	"net/http"
 	"testing"
 	"time"
@@ -10,23 +12,36 @@ import (
 	"github.com/eparparita/linux-stats-victoriametrics-importer/internal/testutils"
 )
 
+type HttpEndpointPoolTestSendBuf struct {
+	// The buffer to send:
+	buf []byte
+	// The indexes in the playbook where it is expected to appear, as a result of
+	// the playback; ignored if wantErr is not nil:
+	expectIndexes []int
+	// The expected errorL
+	wantError error
+}
+
+type HttpClientDoerPlaybackResult struct {
+	results []*testutils.HttpClientDoerPlaybackRequest
+	err     error
+}
+
 type HttpEndpointPoolTestCase struct {
-	epCfgs                []*HttpEndpointConfig
-	healthyRotateInterval time.Duration
+	epCfgs   []*HttpEndpointConfig
+	playbook []*testutils.HttpClientDoerPlaybackEntry
+	sendBufs []*HttpEndpointPoolTestSendBuf
 }
 
 func buildTestHttpEndpointPool(tc *HttpEndpointPoolTestCase) (*HttpEndpointPool, error) {
 	epPoolCfg := DefaultHttpEndpointPoolConfig()
 	epPoolCfg.Endpoints = tc.epCfgs
 	epPool, err := NewHttpEndpointPool(epPoolCfg)
-	if err != nil {
-		epPool.healthyRotateInterval = tc.healthyRotateInterval
-	}
 	return epPool, err
 }
 
 func testHttpEndpointPoolCreate(tc *HttpEndpointPoolTestCase, t *testing.T) {
-	tlc := testutils.NewTestingLogCollect(t, Log)
+	tlc := testutils.NewTestingLogCollect(t, Log, nil)
 	defer tlc.RestoreLog()
 
 	epPool, err := buildTestHttpEndpointPool(tc)
@@ -50,13 +65,8 @@ func testHttpEndpointPoolCreate(tc *HttpEndpointPoolTestCase, t *testing.T) {
 }
 
 func testHttpEndpointPoolRotate(tc *HttpEndpointPoolTestCase, t *testing.T) {
-	tlc := testutils.NewTestingLogCollect(t, Log)
-	savedLogLevel := Log.GetLevel()
-	setLogLevel(logrus.DebugLevel)
-	defer func() {
-		tlc.RestoreLog()
-		setLogLevel(savedLogLevel)
-	}()
+	tlc := testutils.NewTestingLogCollect(t, Log, logrus.DebugLevel)
+	defer tlc.RestoreLog()
 
 	epPool, err := buildTestHttpEndpointPool(tc)
 	if err != nil {
@@ -78,13 +88,9 @@ func testHttpEndpointPoolRotate(tc *HttpEndpointPoolTestCase, t *testing.T) {
 
 func testHttpEndpointPoolReportError(tc *HttpEndpointPoolTestCase, t *testing.T) {
 	testTimeout := 5 * time.Second
-	tlc := testutils.NewTestingLogCollect(t, Log)
-	savedLogLevel := Log.GetLevel()
-	setLogLevel(logrus.DebugLevel)
-	defer func() {
-		tlc.RestoreLog()
-		setLogLevel(savedLogLevel)
-	}()
+
+	tlc := testutils.NewTestingLogCollect(t, Log, logrus.DebugLevel)
+	defer tlc.RestoreLog()
 
 	epPool, err := buildTestHttpEndpointPool(tc)
 	if err != nil {
@@ -102,31 +108,104 @@ func testHttpEndpointPoolReportError(tc *HttpEndpointPoolTestCase, t *testing.T)
 	defer mock.Cancel()
 	epPool.client = mock
 
-	var startEp *HttpEndpoint
-	healthCheckResponse := &http.Response{
-		StatusCode: http.StatusOK,
-		Status:     http.StatusText(http.StatusOK),
+	// Run until each endpoint has been found N times error free at healthy
+	// head:
+	rotateN := 2
+	pendingEP := make(map[*HttpEndpoint]int)
+	for ep := epPool.healthy.head; ep != nil; ep = ep.next {
+		pendingEP[ep] = rotateN
 	}
-	for {
+
+	for len(pendingEP) > 0 {
 		ep := epPool.GetCurrentHealthy(testTimeout)
 		if ep == nil {
 			tlc.Fatal(ErrHttpEndpointPoolNoHealthyEP)
 		}
-		if startEp == nil {
-			startEp = ep
-		} else if startEp == ep && ep.numErrors == 0 {
-			break
+		if ep.numErrors == 0 {
+			if _, ok := pendingEP[ep]; ok {
+				pendingEP[ep] -= 1
+				if pendingEP[ep] <= 0 {
+					delete(pendingEP, ep)
+				}
+			}
 		}
-
 		epPool.ReportError(ep)
 		if !ep.healthy {
 			_, err = mock.GetRequest(ep.url)
 			if err != nil {
 				tlc.Fatal(err)
 			}
-			err = mock.SendResponse(ep.url, healthCheckResponse, nil)
+			err = mock.SendResponse(ep.url, &http.Response{StatusCode: http.StatusOK}, nil)
 			if err != nil {
 				tlc.Fatal(err)
+			}
+		}
+	}
+}
+
+func testHttpEndpointPoolSendBuf(tc *HttpEndpointPoolTestCase, t *testing.T) {
+	testTimeout := 5 * time.Second
+
+	tlc := testutils.NewTestingLogCollect(t, Log, logrus.DebugLevel)
+	defer tlc.RestoreLog()
+
+	epPool, err := buildTestHttpEndpointPool(tc)
+	if err != nil {
+		tlc.Fatal(err)
+
+	}
+	defer epPool.Shutdown()
+	// Disable rotate:
+	epPool.healthyRotateInterval = -1
+	// Ensure that the health check will proceed right away, since it is paced
+	// by the ClientDoer mock:
+	epPool.healthCheckInterval = 0
+
+	mock := testutils.NewHttpClientDoerMock(testTimeout)
+	defer mock.Cancel()
+	epPool.client = mock
+
+	// Start the playback in the background and retrieve the exit code from a
+	// channel:
+	pbRetChan := make(chan *HttpClientDoerPlaybackResult, 1)
+	go func() {
+		results, err := mock.Play(tc.playbook)
+		pbRetChan <- &HttpClientDoerPlaybackResult{results, err}
+	}()
+
+	// Send the buffers and collect the error status:
+	gotErrors := make([]error, len(tc.sendBufs))
+	for i, sendBuf := range tc.sendBufs {
+		gotErrors[i] = epPool.SendBuffer(sendBuf.buf, testTimeout, false)
+	}
+
+	// Collect and verify the playback exit status:
+	pbResultsErr := <-pbRetChan
+	if pbResultsErr.err != nil {
+		tlc.Fatal(pbResultsErr.err)
+	}
+
+	// Verify the status of the sent data:
+	results := pbResultsErr.results
+	for i, sendBuf := range tc.sendBufs {
+		wantError, gotError := sendBuf.wantError, gotErrors[i]
+		if !errors.Is(gotError, wantError) {
+			tlc.Fatalf(
+				"sendBuf[%d] error: want: %v, got: %v",
+				i, wantError, gotError,
+			)
+		}
+		if wantError == nil {
+			wantBuf := sendBuf.buf
+			for _, j := range sendBuf.expectIndexes {
+				gotBuf := results[j].Body
+				if !bytes.Equal(wantBuf, gotBuf) {
+					tlc.Fatalf(
+						"sendBuf[%d]:\n\twant:\n\t\t%q\n\t\t%v\n\tgot[pb#%d]:\n\t\t%q\n\t\t%v",
+						i, wantBuf, wantBuf,
+						j, gotBuf, gotBuf,
+					)
+				}
 			}
 		}
 	}
@@ -195,6 +274,132 @@ func TestHttpEndpointPoolReportError(t *testing.T) {
 		t.Run(
 			"",
 			func(t *testing.T) { testHttpEndpointPoolReportError(tc, t) },
+		)
+	}
+}
+
+func TestHttpEndpointPoolSendBuf(t *testing.T) {
+	for _, tc := range []*HttpEndpointPoolTestCase{
+		/////////////////////////////////////////////////////////////////////////////////////////
+		{
+			epCfgs: []*HttpEndpointConfig{
+				{"http://host1", 1},
+			},
+			playbook: []*testutils.HttpClientDoerPlaybackEntry{
+				{
+					Url:      "http://host1",
+					Response: &http.Response{StatusCode: http.StatusOK},
+				},
+			},
+			sendBufs: []*HttpEndpointPoolTestSendBuf{
+				{
+					buf:           []byte("0-000000"),
+					expectIndexes: []int{0},
+				},
+			},
+		},
+		/////////////////////////////////////////////////////////////////////////////////////////
+		{
+			epCfgs: []*HttpEndpointConfig{
+				{"http://host1", 1},
+				{"http://host2", 1},
+			},
+			playbook: []*testutils.HttpClientDoerPlaybackEntry{
+				{
+					Url:   "http://host1",
+					Error: testutils.ErrHttpClientDoerMockGeneric,
+				},
+				{
+					Url:      "http://host2",
+					Response: &http.Response{StatusCode: http.StatusOK},
+				},
+				{
+					Url:      "http://host1",
+					Response: &http.Response{StatusCode: http.StatusOK},
+				},
+			},
+			sendBufs: []*HttpEndpointPoolTestSendBuf{
+				{
+					buf:           []byte("1-000000"),
+					expectIndexes: []int{0, 1},
+				},
+			},
+		},
+		/////////////////////////////////////////////////////////////////////////////////////////
+		{
+			epCfgs: []*HttpEndpointConfig{
+				{"http://host1", 2},
+				{"http://host2", 1},
+			},
+			playbook: []*testutils.HttpClientDoerPlaybackEntry{
+				{
+					Url:   "http://host1",
+					Error: testutils.ErrHttpClientDoerMockGeneric,
+				},
+				{
+					Url:   "http://host2",
+					Error: testutils.ErrHttpClientDoerMockGeneric,
+				},
+				{
+					Url:      "http://host2",
+					Response: &http.Response{StatusCode: http.StatusOK},
+				},
+				{
+					Url:      "http://host1",
+					Response: &http.Response{StatusCode: http.StatusOK},
+				},
+			},
+			sendBufs: []*HttpEndpointPoolTestSendBuf{
+				{
+					buf:           []byte("2-000000"),
+					expectIndexes: []int{0, 1, 3},
+				},
+			},
+		},
+		/////////////////////////////////////////////////////////////////////////////////////////
+		{
+			epCfgs: []*HttpEndpointConfig{
+				{"http://host1", 2},
+				{"http://host2", 1},
+			},
+			playbook: []*testutils.HttpClientDoerPlaybackEntry{
+				{
+					Url:   "http://host1",
+					Error: testutils.ErrHttpClientDoerMockGeneric,
+				},
+				{
+					Url:   "http://host2",
+					Error: testutils.ErrHttpClientDoerMockGeneric,
+				},
+				{
+					Url:      "http://host2",
+					Response: &http.Response{StatusCode: http.StatusOK},
+				},
+				{
+					Url:      "http://host1",
+					Response: &http.Response{StatusCode: http.StatusOK},
+				},
+				{
+					Url:      "http://host1",
+					Response: &http.Response{StatusCode: http.StatusOK},
+				},
+			},
+			sendBufs: []*HttpEndpointPoolTestSendBuf{
+				{
+					buf:           []byte("3-000000"),
+					expectIndexes: []int{0, 1, 3},
+				},
+				{
+					buf:           []byte("3-000001"),
+					expectIndexes: []int{4},
+				},
+			},
+		},
+		/////////////////////////////////////////////////////////////////////////////////////////
+	} {
+		t.Run(
+			"",
+			func(t *testing.T) { testHttpEndpointPoolSendBuf(tc, t) },
 		)
 	}
 }

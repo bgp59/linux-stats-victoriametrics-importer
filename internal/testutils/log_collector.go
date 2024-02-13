@@ -1,5 +1,7 @@
-// Collect output from logurs.Log is not in verbose mode and display it JIT at
-// test Fatal time
+// Collectable log, (*testing.T).Log style.
+
+// If the test is not running in verbose mode, collect the app logger's output
+// and display it JIT at Fatal[f] invocation:
 
 package testutils
 
@@ -10,24 +12,37 @@ import (
 	"path"
 	"runtime"
 	"testing"
-
-	"github.com/sirupsen/logrus"
 )
 
-type TestingLogCollect struct {
-	buf      *bytes.Buffer
-	log      *logrus.Logger
-	savedOut io.Writer
-	t        *testing.T
+// The interface expected from a collectable log:
+type CollectableLog interface {
+	GetLevel() any
+	SetLevel(level any)
+	GetOutput() io.Writer
+	SetOutput(out io.Writer)
 }
 
-func NewTestingLogCollect(t *testing.T, log *logrus.Logger) *TestingLogCollect {
+type TestingLogCollect struct {
+	buf        *bytes.Buffer
+	log        CollectableLog
+	savedOut   io.Writer
+	savedLevel any
+	t          *testing.T
+}
+
+func NewTestingLogCollect(t *testing.T, log CollectableLog, level any) *TestingLogCollect {
 	tlc := &TestingLogCollect{t: t}
-	if !testing.Verbose() && log != nil {
-		tlc.buf = &bytes.Buffer{}
-		tlc.log = log
-		tlc.savedOut = log.Out
-		log.SetOutput(tlc.buf)
+	if log != nil {
+		if !testing.Verbose() {
+			tlc.buf = &bytes.Buffer{}
+			tlc.log = log
+			tlc.savedOut = log.GetOutput()
+			log.SetOutput(tlc.buf)
+		}
+		if level != nil {
+			tlc.savedLevel = log.GetLevel()
+			log.SetLevel(level)
+		}
 	}
 	return tlc
 }
@@ -60,7 +75,12 @@ func (tlc *TestingLogCollect) Fatalf(format string, args ...any) {
 }
 
 func (tlc *TestingLogCollect) RestoreLog() {
-	if tlc.savedOut != nil {
-		tlc.log.SetOutput(tlc.savedOut)
+	if tlc.log != nil {
+		if tlc.savedOut != nil {
+			tlc.log.SetOutput(tlc.savedOut)
+		}
+		if tlc.savedLevel != nil {
+			tlc.log.SetLevel(tlc.savedLevel)
+		}
 	}
 }

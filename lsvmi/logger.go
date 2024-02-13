@@ -2,6 +2,7 @@ package lsvmi
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"runtime"
@@ -19,6 +20,32 @@ const (
 	// Extra field added for component sub loggers:
 	LOGGER_COMPONENT_FIELD_NAME = "comp"
 )
+
+// CollectableLog interface for logurs.Log (see
+// ../internal/testutil/log_collector.go):
+type CollectableLogursLog struct {
+	logrus.Logger
+	// Cache the condition of being enabled for debug or not. Various sections
+	// of  the code may test this condition before doing more expensive actions,
+	// such as formatting debug info, so it pays off to make it as efficient as
+	// possible:
+	IsEnabledForDebug bool
+}
+
+func (log *CollectableLogursLog) GetOutput() io.Writer {
+	return log.Out
+}
+
+func (log *CollectableLogursLog) GetLevel() any {
+	return log.Logger.GetLevel()
+}
+
+func (log *CollectableLogursLog) SetLevel(level any) {
+	if level, ok := level.(logrus.Level); ok {
+		log.Logger.SetLevel(level)
+		log.IsEnabledForDebug = log.IsLevelEnabled(logrus.DebugLevel)
+	}
+}
 
 type LoggerConfig struct {
 	UseJson           bool   `yaml:"use_json"`
@@ -146,12 +173,14 @@ var LogJsonFormatter = &logrus.JSONFormatter{
 	CallerPrettyfier: logFunctionFileCache.LogCallerPrettyfier,
 }
 
-var Log = &logrus.Logger{
-	Out: os.Stderr,
-	//Hooks:        make(logrus.LevelHooks),
-	Formatter:    LogTextFormatter,
-	Level:        LOGGER_DEFAULT_LEVEL,
-	ReportCaller: true,
+var Log = &CollectableLogursLog{
+	Logger: logrus.Logger{
+		Out: os.Stderr,
+		//Hooks:        make(logrus.LevelHooks),
+		Formatter:    LogTextFormatter,
+		Level:        LOGGER_DEFAULT_LEVEL,
+		ReportCaller: true,
+	},
 }
 
 func GetLogLevelNames() []string {
@@ -167,20 +196,12 @@ func init() {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 	} else {
-
+		if root != "/" {
+			logSourceRoot = root + "/"
+		} else {
+			logSourceRoot = root
+		}
 	}
-	if root != "/" {
-		logSourceRoot = root + "/"
-	} else {
-		logSourceRoot = root
-	}
-}
-
-var LogIsEnabledForDebug = Log.IsLevelEnabled(logrus.DebugLevel)
-
-func setLogLevel(level logrus.Level) {
-	Log.SetLevel(level)
-	LogIsEnabledForDebug = Log.IsLevelEnabled(logrus.DebugLevel)
 }
 
 // Set the logger based on config overridden by command line args, if the latter
@@ -212,7 +233,7 @@ func SetLogger(cfg any) error {
 		if err != nil {
 			return err
 		}
-		setLogLevel(level)
+		Log.SetLevel(level)
 	}
 
 	if loggerUseJsonArg.Used && loggerUseJsonArg.Value ||

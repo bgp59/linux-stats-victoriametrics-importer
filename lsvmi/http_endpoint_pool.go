@@ -517,7 +517,7 @@ func (epPool *HttpEndpointPool) HealthCheck(ep *HttpEndpoint) {
 				} else {
 					repeatCount += 1
 				}
-				if LogIsEnabledForDebug || repeatCount == 1 ||
+				if Log.IsEnabledForDebug || repeatCount == 1 ||
 					time.Since(errorLogTs) >= epPool.healthCheckErrLogInterval {
 					repeatCountMsg := ""
 					if repeatCount > 1 {
@@ -567,7 +567,7 @@ func (epPool *HttpEndpointPool) ReportError(ep *HttpEndpoint) {
 	if ep.numErrors < ep.markUnhealthyThreshold {
 		// Re-add at tail:
 		epPool.healthy.AddToTail(ep)
-		if LogIsEnabledForDebug {
+		if Log.IsEnabledForDebug {
 			epPoolLog.Debugf(
 				"%s: error#: %d, threshold: %d rotated to healthy list tail",
 				ep.url, ep.numErrors, ep.markUnhealthyThreshold,
@@ -575,6 +575,7 @@ func (epPool *HttpEndpointPool) ReportError(ep *HttpEndpoint) {
 		}
 	} else {
 		// Initiate health check:
+		epPoolLog.Warnf("%s moved to health check", ep.url)
 		ep.healthy = false
 		epPool.wg.Add(1)
 		go epPool.HealthCheck(ep)
@@ -583,7 +584,7 @@ func (epPool *HttpEndpointPool) ReportError(ep *HttpEndpoint) {
 	head := epPool.healthy.head
 	if head == nil {
 		epPoolLog.Warn(ErrHttpEndpointPoolNoHealthyEP)
-	} else if LogIsEnabledForDebug {
+	} else if Log.IsEnabledForDebug {
 		epPoolLog.Debugf(
 			"%s: error#: %d, threshold: %d is at the head of the healthy list",
 			head.url, head.numErrors, head.markUnhealthyThreshold,
@@ -648,7 +649,7 @@ func (epPool *HttpEndpointPool) GetCurrentHealthy(maxWait time.Duration) *HttpEn
 		if epPool.healthy.head != epPool.healthy.tail {
 			epPool.healthy.Remove(ep)
 			epPool.healthy.AddToTail(ep)
-			if LogIsEnabledForDebug {
+			if Log.IsEnabledForDebug {
 				epPoolLog.Debugf(
 					"%s: error#: %d, threshold: %d rotated to healthy list tail",
 					ep.url, ep.numErrors, ep.markUnhealthyThreshold,
@@ -656,7 +657,7 @@ func (epPool *HttpEndpointPool) GetCurrentHealthy(maxWait time.Duration) *HttpEn
 			}
 			ep = epPool.healthy.head
 			epPool.healthyHeadChangeTs = time.Now()
-			if LogIsEnabledForDebug {
+			if Log.IsEnabledForDebug {
 				epPoolLog.Debugf(
 					"%s: error#: %d, threshold: %d rotated to healthy list head",
 					ep.url, ep.numErrors, ep.markUnhealthyThreshold,
@@ -666,7 +667,7 @@ func (epPool *HttpEndpointPool) GetCurrentHealthy(maxWait time.Duration) *HttpEn
 			epPool.stats.HealthyRotateCount += 1
 			epPool.stats.mu.Unlock()
 		} else {
-			if LogIsEnabledForDebug {
+			if Log.IsEnabledForDebug {
 				epPoolLog.Debugf("%s: Close idle connections", ep.url)
 			}
 			epPool.client.CloseIdleConnections()
