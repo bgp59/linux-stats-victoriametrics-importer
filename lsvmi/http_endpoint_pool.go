@@ -226,65 +226,6 @@ func (epDblLnkList *HttpEndpointDoublyLinkedList) AddToTail(ep *HttpEndpoint) {
 	epDblLnkList.Insert(ep, epDblLnkList.tail)
 }
 
-type HttpEndpointPoolStats struct {
-	// Global stats:
-	HealthyRotateCount uint64
-	CloseIdleCount     uint64
-	// The next stats are indexed by URL:
-	SendBufferCount       map[string]uint64
-	SendBufferByteCount   map[string]uint64
-	SendBufferErrorCount  map[string]uint64
-	HealthCheckCount      map[string]uint64
-	HealthCheckErrorCount map[string]uint64
-	// Lock protection:
-	mu *sync.Mutex
-}
-
-func (stats *HttpEndpointPoolStats) SnapDelta(prev, delta *HttpEndpointPoolStats) {
-	stats.mu.Lock()
-	defer stats.mu.Unlock()
-
-	crt := stats.HealthyRotateCount
-	delta.HealthyRotateCount, prev.HealthyRotateCount = crt-prev.HealthyRotateCount, crt
-
-	crt = stats.CloseIdleCount
-	delta.CloseIdleCount, prev.CloseIdleCount = crt-prev.CloseIdleCount, crt
-
-	for url, crt := range stats.SendBufferCount {
-		delta.SendBufferCount[url], prev.SendBufferCount[url] = crt-prev.SendBufferCount[url], crt
-	}
-
-	for url, crt := range stats.SendBufferByteCount {
-		delta.SendBufferByteCount[url], prev.SendBufferByteCount[url] = crt-prev.SendBufferByteCount[url], crt
-	}
-
-	for url, crt := range stats.SendBufferErrorCount {
-		delta.SendBufferErrorCount[url], prev.SendBufferErrorCount[url] = crt-prev.SendBufferErrorCount[url], crt
-	}
-
-	for url, crt := range stats.HealthCheckCount {
-		delta.HealthCheckCount[url], prev.HealthCheckCount[url] = crt-prev.HealthCheckCount[url], crt
-	}
-
-	for url, crt := range stats.HealthCheckErrorCount {
-		delta.HealthCheckErrorCount[url], prev.HealthCheckErrorCount[url] = crt-prev.HealthCheckErrorCount[url], crt
-	}
-}
-
-func NewHttpEndpointPoolStats(noLock bool) *HttpEndpointPoolStats {
-	stats := &HttpEndpointPoolStats{
-		SendBufferCount:       make(map[string]uint64),
-		SendBufferByteCount:   make(map[string]uint64),
-		SendBufferErrorCount:  make(map[string]uint64),
-		HealthCheckCount:      make(map[string]uint64),
-		HealthCheckErrorCount: make(map[string]uint64),
-	}
-	if !noLock {
-		stats.mu = &sync.Mutex{}
-	}
-	return stats
-}
-
 type HttpEndpointPool struct {
 	// The healthy list:
 	healthy *HttpEndpointDoublyLinkedList
@@ -422,7 +363,7 @@ func NewHttpEndpointPool(cfg any) (*HttpEndpointPool, error) {
 		client:                    client,
 		mu:                        &sync.Mutex{},
 		wg:                        &sync.WaitGroup{},
-		stats:                     NewHttpEndpointPoolStats(false),
+		stats:                     NewHttpEndpointPoolStats(),
 	}
 	epPool.ctx, epPool.ctxCancelFn = context.WithCancel(context.Background())
 	if epPool.healthyRotateInterval, err = time.ParseDuration(poolCfg.HealthyRotateInterval); err != nil {
@@ -580,9 +521,9 @@ func (epPool *HttpEndpointPool) HealthCheck(ep *HttpEndpoint) {
 				}
 			}
 			stats.mu.Lock()
-			stats.HealthCheckCount[url] += 1
+			stats.EndpointStats[url][HTTP_ENDPOINT_STATS_HEALTH_CHECK_COUNT] += 1
 			if !done {
-				stats.HealthCheckErrorCount[url] += 1
+				stats.EndpointStats[url][HTTP_ENDPOINT_STATS_HEALTH_CHECK_ERROR_COUNT] += 1
 			}
 			stats.mu.Unlock()
 		}
@@ -706,7 +647,7 @@ func (epPool *HttpEndpointPool) GetCurrentHealthy(maxWait time.Duration) *HttpEn
 				)
 			}
 			epPool.stats.mu.Lock()
-			epPool.stats.HealthyRotateCount += 1
+			epPool.stats.Stats[HTTP_ENDPOINT_POOL_STATS_HEALTHY_ROTATE_COUNT] += 1
 			epPool.stats.mu.Unlock()
 		}
 	}
@@ -751,9 +692,15 @@ func (epPool *HttpEndpointPool) SendBuffer(b []byte, timeout time.Duration, gzip
 		}
 		ep := epPool.GetCurrentHealthy(maxWait)
 		if ep == nil {
+			url := ""
 			stats.mu.Lock()
-			stats.SendBufferCount[""] += 1
-			stats.SendBufferErrorCount[""] += 1
+			epStats := stats.EndpointStats[url]
+			if epStats == nil {
+				epStats = make(HttpEndpointStats, HTTP_ENDPOINT_STATS_LEN)
+				stats.EndpointStats[url] = epStats
+			}
+			epStats[HTTP_ENDPOINT_STATS_SEND_BUFFER_COUNT] += 1
+			epStats[HTTP_ENDPOINT_STATS_SEND_BUFFER_ERROR_COUNT] += 1
 			stats.mu.Unlock()
 			return fmt.Errorf(
 				"SendBuffer attempt# %d: %w", attempt, ErrHttpEndpointPoolNoHealthyEP,
@@ -774,13 +721,19 @@ func (epPool *HttpEndpointPool) SendBuffer(b []byte, timeout time.Duration, gzip
 		success := sent && HttpEndpointPoolSuccessCodes[res.StatusCode]
 		nonRetryable := sent && !HttpEndpointPoolRetryCodes[res.StatusCode]
 
+		url := ep.url
 		stats.mu.Lock()
-		stats.SendBufferCount[ep.url] += 1
+		epStats := stats.EndpointStats[url]
+		if epStats == nil {
+			epStats = make(HttpEndpointStats, HTTP_ENDPOINT_STATS_LEN)
+			stats.EndpointStats[url] = epStats
+		}
+		epStats[HTTP_ENDPOINT_STATS_SEND_BUFFER_COUNT] += 1
 		if sent {
-			stats.SendBufferByteCount[ep.url] += uint64(len(b))
+			epStats[HTTP_ENDPOINT_STATS_SEND_BUFFER_BYTE_COUNT] += uint64(len(b))
 		}
 		if !success {
-			stats.SendBufferErrorCount[ep.url] += 1
+			epStats[HTTP_ENDPOINT_STATS_SEND_BUFFER_ERROR_COUNT] += 1
 		}
 		stats.mu.Unlock()
 

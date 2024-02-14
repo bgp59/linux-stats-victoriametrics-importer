@@ -32,14 +32,14 @@ cd $this_dir/bin/$(go env GOOS)-$(go env GOARCH) || exit 1
 
 
 cleanup() {
-    (set -x; pkill -P $$ -f "vm_import_endpoint $@")
+    (set -x; pkill -P $$ vm_import_endpoint)
     exit 1
 }
 
 trap cleanup 1 2 3 15
 
 while [[ true ]]; do
-    (set -x; exec ./vm_import_endpoint "$@") &
+    (set -x; exec ./vm_import_endpoint $*) &
     sleep $run
-    (set -x; pkill -P $$ -f "vm_import_endpoint $@"; sleep $pause)
+    (set -x; pkill -P $$ vm_import_endpoint; sleep $pause)
 done
