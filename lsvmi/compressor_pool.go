@@ -276,7 +276,7 @@ func (pool *CompressorPool) Start(sender Sender) {
 
 	if pool.state != COMPRESSOR_POOL_STATE_CREATED {
 		compressorLog.Warnf(
-			"compressor pool cannot only be started from state %d '%s', not from %d '%s'",
+			"compressor pool can only be started from state %d '%s', not from %d '%s'",
 			COMPRESSOR_POOL_STATE_CREATED, compressorStateMap[COMPRESSOR_POOL_STATE_CREATED],
 			pool.state, compressorStateMap[pool.state],
 		)

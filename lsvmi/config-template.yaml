@@ -2,6 +2,33 @@
 # optional sections as needed and set the desired values. The settings below are
 # set for the default values.
 
+# Compressor Pool section:
+compressor_pool_config:
+  # The number of compressors. If set to -1 it will match the number of
+	# available cores but not more than COMPRESSOR_POOL_NUM_COMPRESSORS_MAX:
+  num_compressors: -1
+  # Buffer pool max size; buffers are pulled by metrics generators as needed and
+	# they are returned after they are compressed. The pool max size controls only
+	# how many idle buffers are being kept around, since they are created as many
+	# as requested but they are discarded if they exceed the value below. A value
+	# is too small leads to object churning and a value too large may waste
+	# memory.
+  buffer_pool_max_size: 64
+  # Metrics queue size, it should be deep enough to accommodate metrics up to
+	# send_buffer_timeout:
+  metrics_queue_size: 64
+	# Compression level: 0..9, -1 stands for ggzip.DefaultCompression:
+	compression_level: -1
+  # Batch target size; metrics will be read from the queue until the
+	# compressed size is ~ to the value below. The value can have the usual `k`
+	# or `m` suffixes for KiB or MiB accordingly.
+	batch_target_size: 64k
+	# Flush interval. If batch_target_size is not reached before this interval
+	# expires, the metrics compressed thus far are being sent anyway. Use 0 to
+	# disable time flush. The value should be compatible with
+	# https:#pkg.go.dev/time#ParseDuration
+	flush_interval: 5s
+
 # HTTP Endpoint Pool section:
 http_endpoint_pool_config:
   # The list of endpoint URLs. Each URL may have an associated threshold for
@@ -14,7 +41,7 @@ http_endpoint_pool_config:
   # connection and the name to address resolution mechanism should no longer
   # resolve to this failed IP.
   endpoints:
-    - url: http://localhost:8428/api/v1/import/prometheus
+    - url: http:#localhost:8428/api/v1/import/prometheus
       mark_unhealthy_threshold: 1
 
   # Whether the endpoint list should be shuffled or not. Shuffling is
@@ -26,7 +53,7 @@ http_endpoint_pool_config:
   # How often to rotate the healthy endpoint list, to load balance the
   # connections. Set to 0 to rotate after every use or to -1s to disable the
   # rotation. The value must be compatible with
-  # https://pkg.go.dev/time#ParseDuration
+  # https:#pkg.go.dev/time#ParseDuration
   healthy_rotate_interval: 5m
 
   # After what time to reset the cumulative error count of a failed endpoint.
@@ -35,16 +62,16 @@ http_endpoint_pool_config:
   # before it makes it back to the head of the list, then the error count used
   # to declare it unhealthy is no longer relevant and it should be reset. Use 0
   # to disable. The value must be compatible with
-  # https://pkg.go.dev/time#ParseDuration
+  # https:#pkg.go.dev/time#ParseDuration
   error_reset_interval: 1m
 
   # How often to check if an unhealthy endpoint has become healthy. The value
-  # must be compatible with https://pkg.go.dev/time#ParseDuration and >= 1s
+  # must be compatible with https:#pkg.go.dev/time#ParseDuration and >= 1s
   health_check_interval: 5s
 
   # How long to wait for a healthy endpoint, in case healthy is empty; normally
   # this should be > health_check_interval. The value must be compatible with
-  # https://pkg.go.dev/time#ParseDuration
+  # https:#pkg.go.dev/time#ParseDuration
 	healthy_max_wait: 6s
 
   # How long to wait for a SendBuffer call to succeed; normally this should be
@@ -52,18 +79,18 @@ http_endpoint_pool_config:
   send_buffer_timeout: 30s
 
   # Rate limit in Mbps; it may be specified as FLOAT or FLOAT:INTERVAL, where
-  # INTERVAL must be compatible with https://pkg.go.dev/time#ParseDuration.
+  # INTERVAL must be compatible with https:#pkg.go.dev/time#ParseDuration.
   # INTERVAL determines the granularity of traffic control and in general the
   # smaller the value, the smoother the traffic. The default is "1s" and
   # shouldn't be smaller than "50ms". Leave empty/undefined for no limit.
   rate_limit_mbps:
 
-  # Parameters for https://pkg.go.dev/net#Dialer:
+  # Parameters for https:#pkg.go.dev/net#Dialer:
   # Timeout:
   tcp_conn_timeout: 2s
   # KeepAlive:
   tcp_keep_alive: 15s
-  # Parameters for https://pkg.go.dev/net/http#Transport:
+  # Parameters for https:#pkg.go.dev/net/http#Transport:
   # MaxIdleConns:
   max_idle_conns: 0
   # MaxIdleConnsPerHost:
@@ -72,7 +99,7 @@ http_endpoint_pool_config:
   max_conns_per_host: 0
   # IdleConnTimeout:
   idle_conn_timeout: 1m
-  # Parameters for https://pkg.go.dev/net/http#Client:
+  # Parameters for https:#pkg.go.dev/net/http#Client:
   # Timeout:
   response_timeout: 5s
 
