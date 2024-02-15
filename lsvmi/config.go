@@ -26,6 +26,7 @@ import (
 //    parameters should be public and they should have tag annotations.
 
 type LsvmiConfig struct {
+	CompressorPoolConfig   *CompressorPoolConfig   `yaml:"compressor_pool_config"`
 	HttpEndpointPoolConfig *HttpEndpointPoolConfig `yaml:"http_endpoint_pool_config"`
 	LoggerConfig           *LoggerConfig           `yaml:"log_config"`
 }
@@ -40,6 +41,7 @@ var LsvmiCfg *LsvmiConfig
 
 func NewLsvmiConfig() *LsvmiConfig {
 	return &LsvmiConfig{
+		CompressorPoolConfig:   DefaultCompressorPoolConfig(),
 		HttpEndpointPoolConfig: DefaultHttpEndpointPoolConfig(),
 	}
 }

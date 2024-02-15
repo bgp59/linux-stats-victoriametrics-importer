@@ -31,6 +31,8 @@ import (
 // at the head. If the list has just one element then the idle connections are
 // closed explicitly.
 
+var epPoolLog = NewCompLogger("http_endpoint_pool")
+
 const (
 	// Notes:
 	//  1. All intervals below are time.ParseDuration() compatible.
@@ -64,7 +66,73 @@ const (
 	HTTP_ENDPOINT_POOL_RESPONSE_TIMEOUT_DEFAULT = "5s"
 )
 
-var epPoolLog = NewCompLogger("http_endpoint_pool")
+// The HTTP endpoint pool interface as seen by the compressor:
+type Sender interface {
+	SendBuffer(b []byte, timeout time.Duration, gzipped bool) error
+}
+
+// Endpoint stats:
+const (
+	HTTP_ENDPOINT_STATS_SEND_BUFFER_COUNT = iota
+	HTTP_ENDPOINT_STATS_SEND_BUFFER_BYTE_COUNT
+	HTTP_ENDPOINT_STATS_SEND_BUFFER_ERROR_COUNT
+	HTTP_ENDPOINT_STATS_HEALTH_CHECK_COUNT
+	HTTP_ENDPOINT_STATS_HEALTH_CHECK_ERROR_COUNT
+	// Must be last:
+	HTTP_ENDPOINT_STATS_LEN
+)
+
+// Endpoint pool stats:
+const (
+	HTTP_ENDPOINT_POOL_STATS_HEALTHY_ROTATE_COUNT = iota
+	// Must be last:
+	HTTP_ENDPOINT_POOL_STATS_LEN
+)
+
+type HttpEndpointStats []uint64
+
+type HttpEndpointPoolStats struct {
+	Stats []uint64
+	// Endpoint stats are indexed by URL:
+	EndpointStats map[string]HttpEndpointStats
+	// Lock:
+	mu *sync.Mutex
+}
+
+func NewHttpEndpointPoolStatsNoLock() *HttpEndpointPoolStats {
+	return &HttpEndpointPoolStats{
+		Stats:         make([]uint64, HTTP_ENDPOINT_POOL_STATS_LEN),
+		EndpointStats: make(map[string]HttpEndpointStats),
+	}
+}
+
+func NewHttpEndpointPoolStats() *HttpEndpointPoolStats {
+	stats := NewHttpEndpointPoolStatsNoLock()
+	stats.mu = &sync.Mutex{}
+	return stats
+}
+
+func (stats *HttpEndpointPoolStats) Snap(snapStats *HttpEndpointPoolStats) *HttpEndpointPoolStats {
+	if snapStats == nil {
+		snapStats = NewHttpEndpointPoolStatsNoLock()
+	}
+
+	stats.mu.Lock()
+	defer stats.mu.Unlock()
+
+	copy(snapStats.Stats, stats.Stats)
+
+	for url, epStats := range stats.EndpointStats {
+		snapEpStats := snapStats.EndpointStats[url]
+		if snapEpStats == nil {
+			snapEpStats = make(HttpEndpointStats, HTTP_ENDPOINT_STATS_LEN)
+			snapStats.EndpointStats[url] = snapEpStats
+		}
+		copy(snapEpStats, epStats)
+	}
+
+	return snapStats
+}
 
 // Define a mockable interface to substitute http.Client.Do() for testing purposes:
 type HttpClientDoer interface {
@@ -435,6 +503,7 @@ func NewHttpEndpointPool(cfg any) (*HttpEndpointPool, error) {
 		if ep, err := NewHttpEndpoint(&cfg); err != nil {
 			return nil, err
 		} else {
+			epPool.stats.EndpointStats[ep.url] = make(HttpEndpointStats, HTTP_ENDPOINT_STATS_LEN)
 			epPool.MoveToHealthy(ep)
 		}
 	}
@@ -695,10 +764,6 @@ func (epPool *HttpEndpointPool) SendBuffer(b []byte, timeout time.Duration, gzip
 			url := ""
 			stats.mu.Lock()
 			epStats := stats.EndpointStats[url]
-			if epStats == nil {
-				epStats = make(HttpEndpointStats, HTTP_ENDPOINT_STATS_LEN)
-				stats.EndpointStats[url] = epStats
-			}
 			epStats[HTTP_ENDPOINT_STATS_SEND_BUFFER_COUNT] += 1
 			epStats[HTTP_ENDPOINT_STATS_SEND_BUFFER_ERROR_COUNT] += 1
 			stats.mu.Unlock()
@@ -724,10 +789,6 @@ func (epPool *HttpEndpointPool) SendBuffer(b []byte, timeout time.Duration, gzip
 		url := ep.url
 		stats.mu.Lock()
 		epStats := stats.EndpointStats[url]
-		if epStats == nil {
-			epStats = make(HttpEndpointStats, HTTP_ENDPOINT_STATS_LEN)
-			stats.EndpointStats[url] = epStats
-		}
 		epStats[HTTP_ENDPOINT_STATS_SEND_BUFFER_COUNT] += 1
 		if sent {
 			epStats[HTTP_ENDPOINT_STATS_SEND_BUFFER_BYTE_COUNT] += uint64(len(b))
