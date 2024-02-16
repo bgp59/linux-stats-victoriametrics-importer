@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"path"
 	"strconv"
+
+	"github.com/eparparita/linux-stats-victoriametrics-importer/internal/utils"
 )
 
 // The parsed cmdline will be used as a Prometheus label value, which is a
@@ -61,7 +63,7 @@ func (pidCmdline *PidCmdline) Parse(pid, tid int) error {
 	}
 	fBuf, err := pidCmdlineReadFileBufPool.ReadFile(pidCmdline.path)
 	defer pidCmdlineReadFileBufPool.ReturnBuf(fBuf)
-	truncated := (err == ErrReadFileBufPotentialTruncation)
+	truncated := (err == utils.ErrReadFileBufPotentialTruncation)
 	if err != nil && !truncated {
 		return err
 	}

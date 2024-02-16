@@ -1,4 +1,4 @@
-package procfs
+package utils
 
 import (
 	"bytes"
@@ -10,11 +10,12 @@ import (
 )
 
 const (
+	LSVMI_TESTDATA_PROCFS_ROOT        = "../../testdata/lsvmi/proc"
 	TEST_READ_FILE_BUF_POOL_TEST_FILE = "slabinfo"
 )
 
-func testReadFileBufPoolGetReturn(t *testing.T, maxPoolSize int) {
-	p := NewReadFileBufPool(maxPoolSize, 0)
+func testBufPoolGetReturn(t *testing.T, maxPoolSize int) {
+	p := NewBufPool(maxPoolSize)
 	numGets := maxPoolSize + 1
 	if maxPoolSize <= 0 {
 		numGets = 13
@@ -65,14 +66,14 @@ func testReadFileBufPoolGetReturn(t *testing.T, maxPoolSize int) {
 	}
 }
 
-func TestReadFileBufPoolGetReturn(t *testing.T) {
+func TestBufPoolGetReturn(t *testing.T) {
 	for _, maxPoolSize := range []int{
 		0,
 		7,
 	} {
 		t.Run(
 			fmt.Sprintf("maxPoolSize=%d", maxPoolSize),
-			func(t *testing.T) { testReadFileBufPoolGetReturn(t, maxPoolSize) },
+			func(t *testing.T) { testBufPoolGetReturn(t, maxPoolSize) },
 		)
 	}
 }

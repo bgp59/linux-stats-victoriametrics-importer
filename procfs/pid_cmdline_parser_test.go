@@ -4,6 +4,8 @@ import (
 	"os"
 	"path"
 	"testing"
+
+	"github.com/eparparita/linux-stats-victoriametrics-importer/internal/utils"
 )
 
 type PidCmdlineTestCase struct {
@@ -28,9 +30,12 @@ poolReadSize=%d
 	)
 
 	if tc.poolReadSize > 0 {
-		orgPoolReadSize := pidCmdlineReadFileBufPool.maxReadSize
-		pidCmdlineReadFileBufPool.maxReadSize = tc.poolReadSize
-		defer func() { pidCmdlineReadFileBufPool.maxReadSize = orgPoolReadSize }()
+		orgPidCmdlineReadFileBufPool := pidCmdlineReadFileBufPool
+		pidCmdlineReadFileBufPool = utils.NewReadFileBufPool(
+			orgPidCmdlineReadFileBufPool.MaxPoolSize(),
+			tc.poolReadSize,
+		)
+		defer func() { pidCmdlineReadFileBufPool = orgPidCmdlineReadFileBufPool }()
 	}
 
 	pidCmdline := NewPidCmdline(tc.procfsRoot, tc.pid, tc.tid)

@@ -1,6 +1,6 @@
 // Misc OS related info
 
-package procfs
+package utils
 
 import (
 	"bytes"

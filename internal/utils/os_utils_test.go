@@ -1,4 +1,4 @@
-package procfs
+package utils
 
 import (
 	"testing"

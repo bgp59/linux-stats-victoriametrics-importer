@@ -12,7 +12,6 @@ import (
 	"github.com/docker/go-units"
 
 	"github.com/eparparita/linux-stats-victoriametrics-importer/internal/utils"
-	"github.com/eparparita/linux-stats-victoriametrics-importer/procfs"
 )
 
 // The compressor pool consists of the following:
@@ -139,9 +138,8 @@ func (poolStats *CompressorPoolStats) Snap(snapStats *CompressorPoolStats) *Comp
 type CompressorPool struct {
 	// The number of compressors:
 	numCompressors int
-	// The buffer pool for queued metrics (reuse the procfs buffer pool w/o the
-	// file read methods):
-	bufferPool *procfs.ReadFileBufPool
+	// The buffer pool for queued metrics:
+	bufPool *utils.ReadFileBufPool
 	// The metrics channel (queue):
 	metricsQueue chan *bytes.Buffer
 	// The compression level:
@@ -249,7 +247,7 @@ func NewCompressorPool(cfg any) (*CompressorPool, error) {
 
 	pool := &CompressorPool{
 		numCompressors:   numCompressors,
-		bufferPool:       procfs.NewReadFileBufPool(poolCfg.BufferPoolMaxSize, 0),
+		bufPool:          utils.NewBufPool(poolCfg.BufferPoolMaxSize),
 		metricsQueue:     make(chan *bytes.Buffer, poolCfg.MetricsQueueSize),
 		compressionLevel: poolCfg.CompressionLevel,
 		batchTargetSize:  int(batchTargetSize),
@@ -310,7 +308,7 @@ func (pool *CompressorPool) Shutdown() {
 }
 
 func (pool *CompressorPool) GetBuf() *bytes.Buffer {
-	return pool.bufferPool.GetBuf()
+	return pool.bufPool.GetBuf()
 }
 
 func (pool *CompressorPool) QueueBuf(b *bytes.Buffer) {
@@ -335,7 +333,7 @@ func (pool *CompressorPool) loop(compressorIndx int, sender Sender) {
 	if sender != nil {
 		sendFn = sender.SendBuffer
 	}
-	bufferPool := pool.bufferPool
+	bufPool := pool.bufPool
 	metricsQueue := pool.metricsQueue
 	compressionLevel := pool.compressionLevel
 	batchTargetSize := pool.batchTargetSize
@@ -388,8 +386,8 @@ func (pool *CompressorPool) loop(compressorIndx int, sender Sender) {
 				batchReadCount += 1
 				batchReadByteCount += buf.Len()
 				_, err := gzWriter.Write(buf.Bytes())
-				if bufferPool != nil {
-					bufferPool.ReturnBuf(buf)
+				if bufPool != nil {
+					bufPool.ReturnBuf(buf)
 				}
 				if err != nil {
 					// This should never happen, since the write is to a buffer, but

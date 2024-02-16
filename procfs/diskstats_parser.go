@@ -5,6 +5,8 @@ package procfs
 import (
 	"fmt"
 	"path"
+
+	"github.com/eparparita/linux-stats-victoriametrics-importer/internal/utils"
 )
 
 // Reference:
@@ -103,8 +105,8 @@ func NewDiskstats(procfsRoot string) *Diskstats {
 		fieldsInJiffies: diskstatsFieldsInJiffies,
 	}
 
-	if OSName == "linux" && len(OSReleaseVer) > 0 && OSReleaseVer[0] >= 5 {
-		newDiskstats.jiffiesToMillisec = uint32(LinuxClktckSec * 1000.)
+	if utils.OSName == "linux" && len(utils.OSReleaseVer) > 0 && utils.OSReleaseVer[0] >= 5 {
+		newDiskstats.jiffiesToMillisec = uint32(utils.LinuxClktckSec * 1000.)
 	}
 
 	return newDiskstats
