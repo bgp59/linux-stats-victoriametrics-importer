@@ -14,31 +14,29 @@ package lsvmi
 //
 //  Scheduler Architecture
 //  ======================
-//s
-//             +----------------+
-//             | Next Task Heap |
-//             +----------------+
-//                     ^
-//                     | task
-//                     v
-//             +----------------+
-//             |   Dispatcher   |
-//             +----------------+
-//               ^            | task
-//               | task       v
-//         +----------+  +----------+
-//         | Task Que |  | TODO Que |
-//         +----------+  +----------+
-//            ^  ^            |
-//   new task |  |            |
-//   ---------+  |  +---------+---- ... ----+
-//              /   | task    | task        | task
-//          +--+    v         v             v
-//          |  +--------+ +--------+   +--------+
-//          |  | Worker | | Worker |...| Worker |
-//          |  +--------+ +--------+   +--------+
-//          |       |         |             |
-//          +-------+---------+----- ... ---+
+//
+//             +------------------+
+//             |  Next Task Heap  |
+//             +------------------+
+//                       ^
+//                       | task
+//                       v
+//             +------------------+
+//             |     Dispatcher   |
+//             +------------------+
+//               ^              | task
+//               | task         v
+//        +------------+ +------------+
+//        | Task Queue | | TODO Queue |
+//        +------------+ +------------+
+//              ^               |
+//     new task |               |
+//                    +---------+---- ... ----+
+//                    | task    | task        | task
+//                    v         v             v
+//              +--------+ +--------+   +--------+
+//              | Worker | | Worker |...| Worker |
+//              +--------+ +--------+   +--------+
 //
 //  Principles Of Operation
 //  =======================
@@ -46,31 +44,41 @@ package lsvmi
 // The order of execution is set by the Next Task Heap, which is a min heap
 // sorted by the task's deadline (i.e. the nearest deadline is at the top).
 //
-// The Dispatcher monitors the top of the Next Task Heap, waiting for the
-// deadline. When the latter arrives, it pulls the task from heap and it adds it
-// to the TODO Queue.
+// The Dispatcher maintains a timer for the next deadline based on the top of
+// the heap and it also monitors the Task Queue for new additions. Whichever
+// comes first, it determines the next task to run. The latter's deadlines is
+// updated and, if a new task, it is also added to heap; if not then the heap is
+// updated in place. The task is marked as scheduled and it is placed into the
+// TODO Queue.
 //
 // The TODO Queue feeds the Worker Pool; the number of workers in the pool
 // controls the level of concurrency of task execution and it allows for short
 // tasks to be executed without having to wait for a long one to complete.
 //
 // A Worker will pull the next task from the TODO Queue, it will execute it and
-// it will update the task's deadline for the next execution. The task is then
-// added to the Task Queue.
+// it will then clear the scheduled flag.
 //
-// The Dispatcher pulls from the Task Queue a new/re added task and it inserts
-// it into the heap. If the top of the latter changes (i.e. it added a task with
-// a nearer deadline) then the Dispatcher reevaluates the wait for the next
-// deadline.
+// The flag prevents a task from being scheduled while pending execution;
+// normally, with enough resources, this should never happen.
 
 import (
 	"container/heap"
-	"context"
 	"sync"
 	"time"
 )
 
-type TaskJob interface {
+const (
+	SCHEDULER_TASK_Q_LEN = 1
+	SCHEDULER_TODO_Q_LEN = 64
+)
+
+const (
+	SCHEDULER_STATE_CREATED = iota
+	SCHEDULER_STATE_RUNNING
+	SCHEDULER_STATE_STOPPED
+)
+
+type TaskAction interface {
 	Execute()
 }
 
@@ -79,136 +87,98 @@ type Task struct {
 	deadline time.Time
 	// Interval:
 	interval time.Duration
-	// Job:
-	job TaskJob
-}
-
-type NextTaskHeap struct {
-	tasks []*Task
+	// Action:
+	action TaskAction
+	// Whether it is currently scheduled or not:
+	scheduled bool
 }
 
 type Scheduler struct {
 	// Next Task Heap:
-	heap *NextTaskHeap
+	tasks []*Task
 	// The task and TDOO queues:
 	taskQ, todoQ chan *Task
 	// The number of workers:
 	numWorkers int
 	// The state of the scheduler, whether it is running or not:
-	state   int
-	stateMu *sync.Mutex
-	// The apparatus needed for clean shutdown:
-	ctx      context.Context
-	cancelFn context.CancelFunc
-	wg       *sync.WaitGroup
+	state SchedulerState
+	// General purpose lock for atomic operations: check task `scheduled` flag,
+	// scheduler's `state`, etc. The lock is shared because the contention is
+	// minimal, it doesn't make sense to use individual lock.
+	mu *sync.Mutex
+	// Goroutines exit sync:
+	wg *sync.WaitGroup
 }
 
-var schedulerDummyDeadline = time.Now()
+type SchedulerState int
 
-const (
-	SCHEDULER_STATE_CREATED = iota
-	SCHEDULER_STATE_RUNNING
-	SCHEDULER_STATE_STOPPED
-)
-
-var schedulerStateMap = map[int]string{
+var schedulerStateMap = map[SchedulerState]string{
 	SCHEDULER_STATE_CREATED: "Created",
 	SCHEDULER_STATE_RUNNING: "Running",
 	SCHEDULER_STATE_STOPPED: "Stopped",
 }
 
-// Make time functions mockable for test purposes:
-var schedulerTimeNowFn = time.Now
+func (s SchedulerState) String() string {
+	return schedulerStateMap[s]
+}
 
 var schedulerLog = NewCompLogger("scheduler")
 
-func NewTask(interval time.Duration, job TaskJob) *Task {
+func NewTask(interval time.Duration, action TaskAction) *Task {
 	return &Task{
 		interval: interval,
-		job:      job,
+		action:   action,
 	}
 }
 
-func NewNextTaskHeap() *NextTaskHeap {
-	return &NextTaskHeap{
-		tasks: make([]*Task, 0),
-	}
-}
-
-// sort.Interface:
-func (h *NextTaskHeap) Len() int {
-	return len(h.tasks)
-}
-
-func (h *NextTaskHeap) Less(i, j int) bool {
-	return h.tasks[i].deadline.Before(h.tasks[j].deadline)
-}
-
-func (h *NextTaskHeap) Swap(i, j int) {
-	h.tasks[i], h.tasks[j] = h.tasks[j], h.tasks[i]
-}
-
-// heap.Interface:
-func (h *NextTaskHeap) Push(x any) {
-	if task, ok := x.(*Task); ok {
-		h.tasks = append(h.tasks, task)
-	}
-}
-
-func (h *NextTaskHeap) Pop() any {
-	newLen := len(h.tasks) - 1
-	task := h.tasks[newLen]
-	h.tasks = h.tasks[:newLen]
-	return task
-}
-
-// Add a task to the heap. Return true if heap top was changed.
-func (h *NextTaskHeap) AddTask(task *Task) bool {
-	// The deadline is the nearest future multiple of task interval:
-	task.deadline = schedulerTimeNowFn().Truncate(task.interval).Add(task.interval)
-
-	// The top of heap changes if either the heap was empty or the new deadline
-	// is more recent:
-	hasChanged := len(h.tasks) == 0 ||
-		task.deadline.Before(h.tasks[0].deadline)
-	heap.Push(h, task)
-	return hasChanged
-}
-
-// Return (deadline, valid) pair:
-func (h *NextTaskHeap) PeekNextDeadline() (time.Time, bool) {
-	if len(h.tasks) > 0 {
-		return h.tasks[0].deadline, true
-	}
-	return schedulerDummyDeadline, false
-}
-
-func (h *NextTaskHeap) PopNextTask() *Task {
-	if len(h.tasks) > 0 {
-		return heap.Pop(h).(*Task)
-	}
-	return nil
-}
-
-func NewScheduler(queLen, numWorkers int) *Scheduler {
-	ctx, cancelFn := context.WithCancel(context.Background())
+func NewScheduler(numWorkers int) *Scheduler {
 	return &Scheduler{
-		heap:       NewNextTaskHeap(),
-		taskQ:      make(chan *Task, queLen),
-		todoQ:      make(chan *Task, queLen),
+		tasks:      make([]*Task, 0),
+		taskQ:      make(chan *Task, SCHEDULER_TASK_Q_LEN),
+		todoQ:      make(chan *Task, SCHEDULER_TODO_Q_LEN),
 		numWorkers: numWorkers,
 		state:      SCHEDULER_STATE_CREATED,
-		stateMu:    &sync.Mutex{},
-		ctx:        ctx,
-		cancelFn:   cancelFn,
+		mu:         &sync.Mutex{},
 		wg:         &sync.WaitGroup{},
 	}
 }
 
+// The scheduler should be a heap, so define the expected interfaces:
+
+// sort.Interface:
+func (scheduler *Scheduler) Len() int {
+	return len(scheduler.tasks)
+}
+
+func (scheduler *Scheduler) Less(i, j int) bool {
+	return scheduler.tasks[i].deadline.Before(scheduler.tasks[j].deadline)
+}
+
+func (scheduler *Scheduler) Swap(i, j int) {
+	scheduler.tasks[i], scheduler.tasks[j] = scheduler.tasks[j], scheduler.tasks[i]
+}
+
+// heap.Interface:
+func (scheduler *Scheduler) Push(x any) {
+	if task, ok := x.(*Task); ok {
+		scheduler.tasks = append(scheduler.tasks, task)
+	}
+}
+
+func (scheduler *Scheduler) Pop() any {
+	newLen := len(scheduler.tasks) - 1
+	task := scheduler.tasks[newLen]
+	scheduler.tasks = scheduler.tasks[:newLen]
+	return task
+}
+
+// Add a new task:
+func (scheduler *Scheduler) AddTask(task *Task) {
+	scheduler.taskQ <- task
+}
+
 func (scheduler *Scheduler) dispatcherLoop() {
 	schedulerLog.Info("start dispatcher loop")
-
-	defer scheduler.wg.Done()
 
 	timer := time.NewTimer(1 * time.Hour)
 	if !timer.Stop() {
@@ -221,24 +191,34 @@ func (scheduler *Scheduler) dispatcherLoop() {
 		if activeTimer && !timer.Stop() {
 			<-timer.C
 		}
+		schedulerLog.Info("close TODO Queue")
+		close(scheduler.todoQ)
 		schedulerLog.Info("dispatcher stopped")
+		scheduler.wg.Done()
 	}()
 
+	var (
+		task   *Task
+		isOpen bool
+	)
+
 	for {
-		if !activeTimer {
-			deadline, valid := scheduler.heap.PeekNextDeadline()
-			if valid {
-				timer.Reset(time.Until(deadline))
-				activeTimer = true
-			}
+		if !activeTimer && len(scheduler.tasks) > 0 {
+			timer.Reset(time.Until(scheduler.tasks[0].deadline))
+			activeTimer = true
 		}
 
 		select {
-		case <-scheduler.ctx.Done():
-			return
-		case task := <-scheduler.taskQ:
-			heapChanged := scheduler.heap.AddTask(task)
-			if heapChanged && activeTimer {
+		case task, isOpen = <-scheduler.taskQ:
+			if !isOpen {
+				return
+			}
+			// Add the task to the heap, with the deadline set to the nearest
+			// future multiple of interval:
+			task.deadline = time.Now().Truncate(task.interval).Add(task.interval)
+			heap.Push(scheduler, task)
+			// Any other pending timer is no longer applicable:
+			if activeTimer {
 				if !timer.Stop() {
 					<-timer.C
 				}
@@ -246,7 +226,23 @@ func (scheduler *Scheduler) dispatcherLoop() {
 			}
 		case <-timer.C:
 			activeTimer = false
-			scheduler.todoQ <- scheduler.heap.PopNextTask()
+			task = scheduler.tasks[0]
+			// Update its deadline to be set to the nearest future multiple of
+			// interval:
+			task.deadline = time.Now().Truncate(task.interval).Add(task.interval)
+			heap.Fix(scheduler, 0)
+		}
+
+		if task != nil {
+			scheduler.mu.Lock()
+			queueIt := !task.scheduled
+			if queueIt {
+				task.scheduled = true
+			}
+			scheduler.mu.Unlock()
+			if queueIt {
+				scheduler.todoQ <- task
+			}
 		}
 	}
 }
@@ -255,43 +251,33 @@ func (scheduler *Scheduler) workerLoop(workerId int) {
 	schedulerLog.Infof("start worker# %d", workerId)
 
 	defer func() {
-		schedulerLog.Infof("stop worker# %d", workerId)
+		schedulerLog.Infof("worker# %d stopped", workerId)
 		scheduler.wg.Done()
 	}()
 
-	var (
-		task   *Task
-		isOpen bool
-	)
 	for {
-		select {
-		case <-scheduler.ctx.Done():
+		task, isOpen := <-scheduler.todoQ
+		if !isOpen {
 			return
-		case task, isOpen = <-scheduler.todoQ:
-			if !isOpen {
-				return
-			}
 		}
-		if task.job != nil {
-			task.job.Execute()
+		if task.action != nil {
+			task.action.Execute()
 		}
-		select {
-		case <-scheduler.ctx.Done():
-			return
-		case scheduler.taskQ <- task:
-		}
+		scheduler.mu.Lock()
+		task.scheduled = false
+		scheduler.mu.Unlock()
 	}
 }
 
 func (scheduler *Scheduler) Start() {
-	scheduler.stateMu.Lock()
-	defer scheduler.stateMu.Unlock()
+	scheduler.mu.Lock()
+	defer scheduler.mu.Unlock()
 
 	if scheduler.state != SCHEDULER_STATE_CREATED {
 		schedulerLog.Warnf(
 			"scheduler can only be started from state %d '%s', not from %d '%s'",
-			SCHEDULER_STATE_CREATED, schedulerStateMap[SCHEDULER_STATE_CREATED],
-			scheduler.state, schedulerStateMap[scheduler.state],
+			SCHEDULER_STATE_CREATED, SchedulerState(SCHEDULER_STATE_CREATED),
+			scheduler.state, scheduler.state,
 		)
 		return
 	}
@@ -311,29 +297,21 @@ func (scheduler *Scheduler) Start() {
 }
 
 func (scheduler *Scheduler) Shutdown() {
-	scheduler.stateMu.Lock()
-	defer scheduler.stateMu.Unlock()
+	scheduler.mu.Lock()
+	defer scheduler.mu.Unlock()
 
 	if scheduler.state == SCHEDULER_STATE_STOPPED {
 		schedulerLog.Warnf(
 			"scheduler already in state %d '%s'",
-			SCHEDULER_STATE_STOPPED, schedulerStateMap[SCHEDULER_STATE_STOPPED],
+			scheduler.state, scheduler.state,
 		)
 		return
 	}
 
 	schedulerLog.Info("stop scheduler")
-
-	scheduler.cancelFn()
+	close(scheduler.taskQ)
 	scheduler.wg.Wait()
 
 	scheduler.state = SCHEDULER_STATE_STOPPED
 	schedulerLog.Info("scheduler stopped")
-}
-
-func (scheduler *Scheduler) AddTask(task *Task) {
-	select {
-	case <-scheduler.ctx.Done():
-	case scheduler.taskQ <- task:
-	}
 }
