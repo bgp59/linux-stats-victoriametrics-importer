@@ -3,20 +3,44 @@
 package lsvmi
 
 import (
+	"strconv"
 	"testing"
 	"time"
+
+	"github.com/eparparita/linux-stats-victoriametrics-importer/internal/testutils"
 )
 
 type SchedulerTestTimeNowFunc func() time.Time
 
-type NextTaskHeapTestCase struct {
+type SchedulerNextTaskHeapTestCase struct {
 	timeNowFn       SchedulerTestTimeNowFunc
-	intervals       []string
+	intervals       []time.Duration
 	wantHeapChanged []bool
 	wantOrder       []int
 }
 
-func testNextTaskHeap(tc *NextTaskHeapTestCase, t *testing.T) {
+type SchedulerExecuteTestCase struct {
+	intervals   []time.Duration
+	runDuration time.Duration
+}
+
+type TestSchedulerTaskJob struct {
+	task       *Task
+	id         string
+	deadlines  []time.Time
+	timestamps []time.Time
+}
+
+func (job *TestSchedulerTaskJob) Execute() {
+	job.timestamps = append(job.timestamps, time.Now())
+	job.deadlines = append(job.deadlines, job.task.deadline)
+	schedulerLog.Infof(
+		"Execute task(deadline=%s, interval=%s, id=%s)",
+		job.task.deadline.Format(time.RFC3339Nano), job.task.interval, job.id,
+	)
+}
+
+func testSchedulerNextTaskHeap(tc *SchedulerNextTaskHeapTestCase, t *testing.T) {
 	if tc.timeNowFn != nil {
 		savedSchedulerTimeNowFn := schedulerTimeNowFn
 		schedulerTimeNowFn = tc.timeNowFn
@@ -38,12 +62,8 @@ func testNextTaskHeap(tc *NextTaskHeapTestCase, t *testing.T) {
 
 	tasks := make([]*Task, len(tc.intervals))
 	taskMap := make(map[*Task]int)
-	for i, intervalSpec := range tc.intervals {
-		interval, err := time.ParseDuration(intervalSpec)
-		if err != nil {
-			t.Fatal(err)
-		}
-		tasks[i] = NewTask(interval)
+	for i, interval := range tc.intervals {
+		tasks[i] = NewTask(interval, nil)
 		taskMap[tasks[i]] = i
 	}
 
@@ -96,52 +116,93 @@ func testNextTaskHeap(tc *NextTaskHeapTestCase, t *testing.T) {
 	}
 }
 
-func TestNextTaskHeap(t *testing.T) {
+func testSchedulerExecute(tc *SchedulerExecuteTestCase, t *testing.T) {
+	tlc := testutils.NewTestingLogCollect(t, Log, nil)
+	defer tlc.RestoreLog()
+
+	scheduler := NewScheduler(256, 4)
+	defer scheduler.Shutdown()
+
+	scheduler.Start()
+
+	for i, interval := range tc.intervals {
+		job := &TestSchedulerTaskJob{
+			id: strconv.Itoa(i),
+		}
+		task := NewTask(interval, job)
+		job.task = task
+		scheduler.AddTask(task)
+	}
+
+	time.Sleep(tc.runDuration)
+}
+
+func TestSchedulerNextTaskHeap(t *testing.T) {
 	timeNowRetVal := time.Now().Truncate(
 		2 * 5 * 33 * time.Second,
 	)
 	timeNowFn := func() time.Time { return timeNowRetVal }
 
-	for _, tc := range []*NextTaskHeapTestCase{
+	sec := 1 * time.Second
+
+	for _, tc := range []*SchedulerNextTaskHeapTestCase{
 		{
-			intervals:       []string{"1s"},
+			intervals:       []time.Duration{1 * sec},
 			wantHeapChanged: []bool{true},
 			wantOrder:       []int{0},
 		},
 		{
 			timeNowFn:       timeNowFn,
-			intervals:       []string{"2s", "5s"},
+			intervals:       []time.Duration{2 * sec, 5 * sec},
 			wantHeapChanged: []bool{true, false},
 			wantOrder:       []int{0, 1},
 		},
 		{
 			timeNowFn:       timeNowFn,
-			intervals:       []string{"5s", "2s"},
+			intervals:       []time.Duration{5 * sec, 2 * sec},
 			wantHeapChanged: []bool{true, true},
 			wantOrder:       []int{1, 0},
 		},
 		{
 			timeNowFn:       timeNowFn,
-			intervals:       []string{"2s", "5s", "33s"},
+			intervals:       []time.Duration{2 * sec, 5 * sec, 33 * sec},
 			wantHeapChanged: []bool{true, false, false},
 			wantOrder:       []int{0, 1, 2},
 		},
 		{
 			timeNowFn:       timeNowFn,
-			intervals:       []string{"5s", "2s", "33s"},
+			intervals:       []time.Duration{5 * sec, 2 * sec, 33 * sec},
 			wantHeapChanged: []bool{true, true, false},
 			wantOrder:       []int{1, 0, 2},
 		},
 		{
 			timeNowFn:       timeNowFn,
-			intervals:       []string{"5s", "33s", "2s"},
+			intervals:       []time.Duration{5 * sec, 33 * sec, 2 * sec},
 			wantHeapChanged: []bool{true, true, true},
 			wantOrder:       []int{2, 0, 1},
 		},
 	} {
 		t.Run(
 			"",
-			func(t *testing.T) { testNextTaskHeap(tc, t) },
+			func(t *testing.T) { testSchedulerNextTaskHeap(tc, t) },
+		)
+	}
+}
+
+func TestSchedulerExecute(t *testing.T) {
+	timeUnit := 100 * time.Millisecond
+
+	for _, tc := range []*SchedulerExecuteTestCase{
+		{
+			intervals: []time.Duration{
+				7 * timeUnit, 3 * timeUnit, 5 * timeUnit, 1 * timeUnit,
+			},
+			runDuration: 43 * timeUnit,
+		},
+	} {
+		t.Run(
+			"",
+			func(t *testing.T) { testSchedulerExecute(tc, t) },
 		)
 	}
 }
