@@ -184,7 +184,7 @@ func testCompressorPoolQueue(tc *CompressorPoolTestCase, t *testing.T) {
 		pool.Shutdown()
 	}
 
-	poolStats := pool.poolStats.Snap(nil)
+	poolStats := pool.SnapStats(nil)
 	statsBuf := &bytes.Buffer{}
 	fmt.Fprintf(statsBuf, "Compressor stats:")
 	gotReadCount, gotReadByteCount := 0, 0
@@ -248,7 +248,7 @@ func TestCompressorPoolCreate(t *testing.T) {
 			NumCompressors: 1,
 		},
 		{
-			NumCompressors: COMPRESSOR_POOL_NUM_COMPRESSORS_MAX,
+			NumCompressors: COMPRESSOR_POOL_CONFIG_NUM_COMPRESSORS_MAX,
 		},
 		{
 			NumCompressors: -1,
@@ -289,9 +289,9 @@ func TestCompressorPoolQueue(t *testing.T) {
 			numQueuedBuffers: 15,
 		},
 		{
-			NumCompressors:   COMPRESSOR_POOL_NUM_COMPRESSORS_MAX,
+			NumCompressors:   COMPRESSOR_POOL_CONFIG_NUM_COMPRESSORS_MAX,
 			FlushInterval:    "0",
-			numQueuedBuffers: 15 * COMPRESSOR_POOL_NUM_COMPRESSORS_MAX,
+			numQueuedBuffers: 15 * COMPRESSOR_POOL_CONFIG_NUM_COMPRESSORS_MAX,
 		},
 		{
 			NumCompressors:   1,
@@ -300,10 +300,10 @@ func TestCompressorPoolQueue(t *testing.T) {
 			numQueuedBuffers: 15,
 		},
 		{
-			NumCompressors:   COMPRESSOR_POOL_NUM_COMPRESSORS_MAX,
+			NumCompressors:   COMPRESSOR_POOL_CONFIG_NUM_COMPRESSORS_MAX,
 			FlushInterval:    "0.5s",
 			BatchTargetSize:  "1k",
-			numQueuedBuffers: 15 * COMPRESSOR_POOL_NUM_COMPRESSORS_MAX,
+			numQueuedBuffers: 15 * COMPRESSOR_POOL_CONFIG_NUM_COMPRESSORS_MAX,
 		},
 	} {
 		t.Run(

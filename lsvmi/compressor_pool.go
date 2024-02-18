@@ -31,13 +31,13 @@ import (
 var compressorLog = NewCompLogger("compressor")
 
 const (
-	COMPRESSOR_POOL_COMPRESSION_LEVEL_DEFAULT    = gzip.DefaultCompression
-	COMPRESSOR_POOL_NUM_COMPRESSORS_DEFAULT      = -1
-	COMPRESSOR_POOL_NUM_COMPRESSORS_MAX          = 4
-	COMPRESSOR_POOL_BUFFER_POOL_MAX_SIZE_DEFAULT = 64
-	COMPRESSOR_POOL_METRICS_QUEUE_SIZE_DEFAULT   = 64
-	COMPRESSOR_POOL_BATCH_TARGET_SIZE_DEFAULT    = "64k"
-	COMPRESSOR_POOL_FLUSH_INTERVAL_DEFAULT       = "5s"
+	COMPRESSOR_POOL_CONFIG_COMPRESSION_LEVEL_DEFAULT    = gzip.DefaultCompression
+	COMPRESSOR_POOL_CONFIG_NUM_COMPRESSORS_DEFAULT      = -1
+	COMPRESSOR_POOL_CONFIG_NUM_COMPRESSORS_MAX          = 4
+	COMPRESSOR_POOL_CONFIG_BUFFER_POOL_MAX_SIZE_DEFAULT = 64
+	COMPRESSOR_POOL_CONFIG_METRICS_QUEUE_SIZE_DEFAULT   = 64
+	COMPRESSOR_POOL_CONFIG_BATCH_TARGET_SIZE_DEFAULT    = "64k"
+	COMPRESSOR_POOL_CONFIG_FLUSH_INTERVAL_DEFAULT       = "5s"
 )
 
 const (
@@ -48,16 +48,22 @@ const (
 	COMPRESSED_BATCH_MIN_SIZE_FOR_CF = 128
 )
 
-const (
-	COMPRESSOR_POOL_STATE_CREATED = iota
-	COMPRESSOR_POOL_STATE_RUNNING
-	COMPRESSOR_POOL_STATE_STOPPED
+type CompressorPoolState int
+
+var (
+	CompressorPoolStateCreated CompressorPoolState = 0
+	CompressorPoolStateRunning CompressorPoolState = 1
+	CompressorPoolStateStopped CompressorPoolState = 2
 )
 
-var compressorStateMap = map[int]string{
-	COMPRESSOR_POOL_STATE_CREATED: "Created",
-	COMPRESSOR_POOL_STATE_RUNNING: "Running",
-	COMPRESSOR_POOL_STATE_STOPPED: "Stopped",
+var compressorStateMap = map[CompressorPoolState]string{
+	CompressorPoolStateCreated: "Created",
+	CompressorPoolStateRunning: "Running",
+	CompressorPoolStateStopped: "Stopped",
+}
+
+func (state CompressorPoolState) String() string {
+	return compressorStateMap[state]
 }
 
 // Compressor stats:
@@ -79,12 +85,6 @@ const (
 	COMPRESSOR_STATS_FLOAT64_LEN
 )
 
-// The compressor interface as seen by the metrics generators:
-type Compressor interface {
-	GetBuf() *bytes.Buffer
-	QueueBuf(*bytes.Buffer)
-}
-
 type CompressorStats struct {
 	uint64Stats  []uint64
 	float64Stats []float64
@@ -92,8 +92,6 @@ type CompressorStats struct {
 
 type CompressorPoolStats struct {
 	stats []*CompressorStats
-	// Lock:
-	mu *sync.Mutex
 }
 
 func NewCompressorStats() *CompressorStats {
@@ -103,7 +101,7 @@ func NewCompressorStats() *CompressorStats {
 	}
 }
 
-func NewCompressorPoolStatsNoLock(numCompressors int) *CompressorPoolStats {
+func NewCompressorPoolStats(numCompressors int) *CompressorPoolStats {
 	poolStats := &CompressorPoolStats{
 		stats: make([]*CompressorStats, numCompressors),
 	}
@@ -113,26 +111,22 @@ func NewCompressorPoolStatsNoLock(numCompressors int) *CompressorPoolStats {
 	return poolStats
 }
 
-func NewCompressorPoolStats(numCompressors int) *CompressorPoolStats {
-	poolStats := NewCompressorPoolStatsNoLock(numCompressors)
-	poolStats.mu = &sync.Mutex{}
-	return poolStats
-}
+func (pool *CompressorPool) SnapStats(to *CompressorPoolStats) *CompressorPoolStats {
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
 
-func (poolStats *CompressorPoolStats) Snap(snapStats *CompressorPoolStats) *CompressorPoolStats {
-	if snapStats == nil {
-		snapStats = NewCompressorPoolStatsNoLock(len(poolStats.stats))
+	poolStats := pool.poolStats
+	if poolStats == nil {
+		return nil
 	}
-
-	poolStats.mu.Lock()
-	defer poolStats.mu.Unlock()
-
+	if to == nil {
+		to = NewCompressorPoolStats(pool.numCompressors)
+	}
 	for compressorIndx, stats := range poolStats.stats {
-		copy(snapStats.stats[compressorIndx].uint64Stats, stats.uint64Stats)
-		copy(snapStats.stats[compressorIndx].float64Stats, stats.float64Stats)
+		copy(to.stats[compressorIndx].uint64Stats, stats.uint64Stats)
+		copy(to.stats[compressorIndx].float64Stats, stats.float64Stats)
 	}
-
-	return snapStats
+	return to
 }
 
 type CompressorPool struct {
@@ -152,17 +146,18 @@ type CompressorPool struct {
 	// if it fires before the target size is reached then the batch is sent out.
 	flushInterval time.Duration
 	// State:
-	state   int
-	stateMu *sync.Mutex
+	state CompressorPoolState
 	// Stats:
 	poolStats *CompressorPoolStats
+	// General purpose lock (stats, state, etc):
+	mu *sync.Mutex
 	// Wait group to sync on exit:
 	wg *sync.WaitGroup
 }
 
 type CompressorPoolConfig struct {
 	// The number of compressors. If set to -1 it will match the number of
-	// available cores but not more than COMPRESSOR_POOL_NUM_COMPRESSORS_MAX:
+	// available cores but not more than COMPRESSOR_POOL_CONFIG_NUM_COMPRESSORS_MAX:
 	NumCompressors int `yaml:"num_compressors"`
 	// Buffer pool size; buffers are pulled by metrics generators as needed and
 	// they are returned after they are compressed. The pool max size controls
@@ -189,12 +184,12 @@ type CompressorPoolConfig struct {
 
 func DefaultCompressorPoolConfig() *CompressorPoolConfig {
 	return &CompressorPoolConfig{
-		NumCompressors:    COMPRESSOR_POOL_NUM_COMPRESSORS_DEFAULT,
-		BufferPoolMaxSize: COMPRESSOR_POOL_BUFFER_POOL_MAX_SIZE_DEFAULT,
-		MetricsQueueSize:  COMPRESSOR_POOL_METRICS_QUEUE_SIZE_DEFAULT,
-		CompressionLevel:  COMPRESSOR_POOL_COMPRESSION_LEVEL_DEFAULT,
-		BatchTargetSize:   COMPRESSOR_POOL_BATCH_TARGET_SIZE_DEFAULT,
-		FlushInterval:     COMPRESSOR_POOL_FLUSH_INTERVAL_DEFAULT,
+		NumCompressors:    COMPRESSOR_POOL_CONFIG_NUM_COMPRESSORS_DEFAULT,
+		BufferPoolMaxSize: COMPRESSOR_POOL_CONFIG_BUFFER_POOL_MAX_SIZE_DEFAULT,
+		MetricsQueueSize:  COMPRESSOR_POOL_CONFIG_METRICS_QUEUE_SIZE_DEFAULT,
+		CompressionLevel:  COMPRESSOR_POOL_CONFIG_COMPRESSION_LEVEL_DEFAULT,
+		BatchTargetSize:   COMPRESSOR_POOL_CONFIG_BATCH_TARGET_SIZE_DEFAULT,
+		FlushInterval:     COMPRESSOR_POOL_CONFIG_FLUSH_INTERVAL_DEFAULT,
 	}
 }
 
@@ -241,8 +236,8 @@ func NewCompressorPool(cfg any) (*CompressorPool, error) {
 	if numCompressors <= 0 {
 		numCompressors = utils.AvailableCpusCount
 	}
-	if numCompressors > COMPRESSOR_POOL_NUM_COMPRESSORS_MAX {
-		numCompressors = COMPRESSOR_POOL_NUM_COMPRESSORS_MAX
+	if numCompressors > COMPRESSOR_POOL_CONFIG_NUM_COMPRESSORS_MAX {
+		numCompressors = COMPRESSOR_POOL_CONFIG_NUM_COMPRESSORS_MAX
 	}
 
 	pool := &CompressorPool{
@@ -252,8 +247,8 @@ func NewCompressorPool(cfg any) (*CompressorPool, error) {
 		compressionLevel: poolCfg.CompressionLevel,
 		batchTargetSize:  int(batchTargetSize),
 		flushInterval:    flushInterval,
-		state:            COMPRESSOR_POOL_STATE_CREATED,
-		stateMu:          &sync.Mutex{},
+		state:            CompressorPoolStateCreated,
+		mu:               &sync.Mutex{},
 		poolStats:        NewCompressorPoolStats(numCompressors),
 		wg:               &sync.WaitGroup{},
 	}
@@ -269,14 +264,18 @@ func NewCompressorPool(cfg any) (*CompressorPool, error) {
 }
 
 func (pool *CompressorPool) Start(sender Sender) {
-	pool.stateMu.Lock()
-	defer pool.stateMu.Unlock()
+	pool.mu.Lock()
+	currentState := pool.state
+	canStart := currentState == CompressorPoolStateCreated
+	if canStart {
+		pool.state = CompressorPoolStateRunning
+	}
+	pool.mu.Unlock()
 
-	if pool.state != COMPRESSOR_POOL_STATE_CREATED {
+	if !canStart {
 		compressorLog.Warnf(
-			"compressor pool can only be started from state %d '%s', not from %d '%s'",
-			COMPRESSOR_POOL_STATE_CREATED, compressorStateMap[COMPRESSOR_POOL_STATE_CREATED],
-			pool.state, compressorStateMap[pool.state],
+			"compressor pool can only be started from %s state, not from %s",
+			CompressorPoolStateCreated, currentState,
 		)
 		return
 	}
@@ -285,18 +284,19 @@ func (pool *CompressorPool) Start(sender Sender) {
 		pool.wg.Add(1)
 		go pool.loop(compressorIndx, sender)
 	}
-	pool.state = COMPRESSOR_POOL_STATE_RUNNING
 }
 
 func (pool *CompressorPool) Shutdown() {
-	pool.stateMu.Lock()
-	defer pool.stateMu.Unlock()
+	pool.mu.Lock()
+	currentState := pool.state
+	canStop := currentState != CompressorPoolStateStopped
+	if canStop {
+		pool.state = CompressorPoolStateStopped
+	}
+	pool.mu.Unlock()
 
-	if pool.state == COMPRESSOR_POOL_STATE_STOPPED {
-		compressorLog.Warnf(
-			"compressor pool already in state %d '%s'",
-			COMPRESSOR_POOL_STATE_STOPPED, compressorStateMap[COMPRESSOR_POOL_STATE_STOPPED],
-		)
+	if !canStop {
+		compressorLog.Warn("compressor pool already stopped")
 		return
 	}
 
@@ -304,9 +304,9 @@ func (pool *CompressorPool) Shutdown() {
 	close(pool.metricsQueue)
 	pool.wg.Wait()
 	compressorLog.Info("all compressors stopped")
-	pool.state = COMPRESSOR_POOL_STATE_STOPPED
 }
 
+// Satisfy MetricsQueue interface:
 func (pool *CompressorPool) GetBuf() *bytes.Buffer {
 	return pool.bufPool.GetBuf()
 }
@@ -315,12 +315,15 @@ func (pool *CompressorPool) QueueBuf(b *bytes.Buffer) {
 	pool.metricsQueue <- b
 }
 
+func (pool *CompressorPool) GetTargetSize() int {
+	return pool.batchTargetSize
+}
+
 func (pool *CompressorPool) loop(compressorIndx int, sender Sender) {
 	var (
 		buf      *bytes.Buffer
 		err      error
 		stats    *CompressorStats
-		statsMu  *sync.Mutex
 		gzWriter *gzip.Writer
 		sendFn   func([]byte, time.Duration, bool) error
 	)
@@ -338,9 +341,9 @@ func (pool *CompressorPool) loop(compressorIndx int, sender Sender) {
 	compressionLevel := pool.compressionLevel
 	batchTargetSize := pool.batchTargetSize
 	flushInterval := pool.flushInterval
+	mu := pool.mu
 	if pool.poolStats != nil {
 		stats = pool.poolStats.stats[compressorIndx]
-		statsMu = pool.poolStats.mu
 	}
 	alpha := COMPRESSION_FACTOR_EXP_DECAY_ALPHA
 
@@ -400,9 +403,9 @@ func (pool *CompressorPool) loop(compressorIndx int, sender Sender) {
 					// Force the recreation of the compressor:
 					gzWriter = nil
 					if stats != nil {
-						statsMu.Lock()
+						mu.Lock()
 						stats.uint64Stats[COMPRESSOR_STATS_WRITE_ERROR_COUNT] += 1
-						statsMu.Unlock()
+						mu.Unlock()
 					}
 				}
 			}
@@ -435,7 +438,7 @@ func (pool *CompressorPool) loop(compressorIndx int, sender Sender) {
 			}
 
 			if stats != nil {
-				statsMu.Lock()
+				mu.Lock()
 				stats.uint64Stats[COMPRESSOR_STATS_READ_COUNT] += uint64(batchReadCount)
 				stats.uint64Stats[COMPRESSOR_STATS_READ_BYTE_COUNT] += uint64(batchReadByteCount)
 				stats.uint64Stats[COMPRESSOR_STATS_SEND_COUNT] += uint64(batchSentCount)
@@ -443,7 +446,7 @@ func (pool *CompressorPool) loop(compressorIndx int, sender Sender) {
 				stats.uint64Stats[COMPRESSOR_STATS_TIMEOUT_FLUSH_COUNT] += uint64(batchTimeoutCount)
 				stats.uint64Stats[COMPRESSOR_STATS_SEND_ERROR_COUNT] += uint64(batchSentErrCount)
 				stats.float64Stats[COMPRESSOR_STATS_COMPRESSION_FACTOR] = estimatedCF
-				statsMu.Unlock()
+				mu.Unlock()
 			}
 
 			batchReadCount, batchReadByteCount, batchTimeoutCount, doSend, timerSet = 0, 0, 0, false, false
