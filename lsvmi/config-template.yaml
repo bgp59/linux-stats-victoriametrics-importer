@@ -1,8 +1,19 @@
-# Configuration file template for LSVMI. Copy to an actual file, uncomment the
-# optional sections as needed and set the desired values. The settings below are
-# set for the default values.
+# Configuration file template for LSVMI. Copy to an actual file and set the
+# desired values. The settings below are set for the default values.
 
-# Compressor Pool section:
+###############################################
+# Scheduler
+###############################################
+scheduler_config:
+  # The number of workers in the pool controls the level of concurrency of task
+  # execution and it allows for short tasks to be executed without having to
+  # wait for a long one to complete. If set to -1 it will match the number of
+  # available cores but not more than SCHEDULER_CONFIG_NUM_WORKERS_MAX.
+  num_workers: -1
+
+###############################################
+# Compressor Pool
+###############################################
 compressor_pool_config:
   # The number of compressors. If set to -1 it will match the number of
 	# available cores but not more than COMPRESSOR_POOL_NUM_COMPRESSORS_MAX:
@@ -29,7 +40,9 @@ compressor_pool_config:
 	# https:#pkg.go.dev/time#ParseDuration
 	flush_interval: 5s
 
-# HTTP Endpoint Pool section:
+###############################################
+# HTTP Endpoint Pool
+###############################################
 http_endpoint_pool_config:
   # The list of endpoint URLs. Each URL may have an associated threshold for
   # failed accesses count, used for declaring the endpoint unhealthy; this may
@@ -41,7 +54,7 @@ http_endpoint_pool_config:
   # connection and the name to address resolution mechanism should no longer
   # resolve to this failed IP.
   endpoints:
-    - url: http:#localhost:8428/api/v1/import/prometheus
+    - url: http://localhost:8428/api/v1/import/prometheus
       mark_unhealthy_threshold: 1
 
   # Whether the endpoint list should be shuffled or not. Shuffling is
@@ -103,7 +116,9 @@ http_endpoint_pool_config:
   # Timeout:
   response_timeout: 5s
 
-# Logger section:
+###############################################
+# Logger
+###############################################
 log_config:
   # Whether to log in JSON format. Override w/
   #  --log-json-format=false, to disable

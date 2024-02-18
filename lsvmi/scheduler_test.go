@@ -45,7 +45,10 @@ func testSchedulerExecute(tc *SchedulerExecuteTestCase, t *testing.T) {
 	if numWorkers <= 0 {
 		numWorkers = 1
 	}
-	scheduler := NewScheduler(numWorkers)
+	scheduler, err := NewScheduler(&SchedulerConfig{NumWorkers: tc.numWorkers})
+	if err != nil {
+		tlc.Fatal(err)
+	}
 	scheduler.Start()
 
 	tasks := make([]*Task, len(tc.intervals))

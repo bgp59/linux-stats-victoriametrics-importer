@@ -48,8 +48,11 @@ package lsvmi
 // the heap and it also monitors the Task Queue for new additions, whichever
 // comes first. Based on those, it selects the next task to run. The latter's
 // deadlines is updated and, if a new task, it is also added to heap; if not
-// then the heap is updated in place. The task is marked as scheduled and it is
-// placed into the TODO Queue.
+// then the heap is updated in place. Each task has a flag indicating whether it
+// is currently being scheduled or not. This flag prevents a task from being
+// scheduled while pending execution; normally, with enough resources, this
+// should never happen. If not scheduled then the task is marked as scheduled
+// and it is placed into the TODO Queue.
 //
 // The TODO Queue feeds the Worker Pool; the number of workers in the pool
 // controls the level of concurrency of task execution and it allows for short
@@ -57,14 +60,19 @@ package lsvmi
 //
 // A Worker will pull the next task from the TODO Queue, it will execute it and
 // it will then clear the scheduled flag.
-//
-// The flag prevents a task from being scheduled while pending execution;
-// normally, with enough resources, this should never happen.
 
 import (
 	"container/heap"
+	"fmt"
 	"sync"
 	"time"
+
+	"github.com/eparparita/linux-stats-victoriametrics-importer/internal/utils"
+)
+
+const (
+	SCHEDULER_CONFIG_NUM_WORKERS_DEFAULT = -1
+	SCHEDULER_CONFIG_NUM_WORKERS_MAX     = 4
 )
 
 const (
@@ -139,6 +147,12 @@ type Scheduler struct {
 	wg *sync.WaitGroup
 }
 
+type SchedulerConfig struct {
+	// The number of workers. If set to -1 it will match the number of
+	// available cores but not more than SCHEDULER_CONFIG_NUM_WORKERS_MAX:
+	NumWorkers int `yaml:"num_workers"`
+}
+
 type SchedulerState int
 
 var (
@@ -174,8 +188,31 @@ func NewTaskStats() *TaskStats {
 	}
 }
 
-func NewScheduler(numWorkers int) *Scheduler {
-	return &Scheduler{
+func NewScheduler(cfg any) (*Scheduler, error) {
+	var (
+		schedulerCfg *SchedulerConfig
+	)
+
+	switch cfg := cfg.(type) {
+	case *LsvmiConfig:
+		schedulerCfg = cfg.SchedulerConfig
+	case *SchedulerConfig:
+		schedulerCfg = cfg
+	case nil:
+		schedulerCfg = DefaultSchedulerConfig()
+	default:
+		return nil, fmt.Errorf("NewScheduler: %T invalid config type", cfg)
+	}
+
+	numWorkers := schedulerCfg.NumWorkers
+	if numWorkers <= 0 {
+		numWorkers = utils.AvailableCpusCount
+	}
+	if numWorkers > SCHEDULER_CONFIG_NUM_WORKERS_MAX {
+		numWorkers = SCHEDULER_CONFIG_NUM_WORKERS_MAX
+	}
+
+	scheduler := &Scheduler{
 		tasks:      make([]*Task, 0),
 		taskQ:      make(chan *Task, SCHEDULER_TASK_Q_LEN),
 		todoQ:      make(chan *Task, SCHEDULER_TODO_Q_LEN),
@@ -184,6 +221,16 @@ func NewScheduler(numWorkers int) *Scheduler {
 		state:      SchedulerStateCreated,
 		mu:         &sync.Mutex{},
 		wg:         &sync.WaitGroup{},
+	}
+
+	schedulerLog.Infof("num_workers=%d", scheduler.numWorkers)
+
+	return scheduler, nil
+}
+
+func DefaultSchedulerConfig() *SchedulerConfig {
+	return &SchedulerConfig{
+		NumWorkers: SCHEDULER_CONFIG_NUM_WORKERS_DEFAULT,
 	}
 }
 
