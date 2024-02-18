@@ -42,13 +42,13 @@ const (
 	HTTP_ENDPOINT_MARK_UNHEALTHY_THRESHOLD_DEFAULT = 1
 
 	// Endpoint config pool default values:
-	HTTP_ENDPOINT_POOL_SHUFFLE                         = false
-	HTTP_ENDPOINT_POOL_HEALTHY_ROTATE_INTERVAL_DEFAULT = "5m"
-	HTTP_ENDPOINT_POOL_ERROR_RESET_INTERVAL_DEFAULT    = "1m"
-	HTTP_ENDPOINT_POOL_HEALTH_CHECK_INTERVAL_DEFAULT   = "5s"
-	HTTP_ENDPOINT_POOL_HEALTHY_MAX_WAIT_DEFAULT        = "10s"
-	HTTP_ENDPOINT_POOL_SEND_BUFFER_TIMEOUT_DEFAULT     = "20s"
-	HTTP_ENDPOINT_POOL_RATE_LIMIT_MBPS_DEFAULT         = ""
+	HTTP_ENDPOINT_POOL_CONFIG_SHUFFLE_DEFAULT                 = false
+	HTTP_ENDPOINT_POOL_CONFIG_HEALTHY_ROTATE_INTERVAL_DEFAULT = "5m"
+	HTTP_ENDPOINT_POOL_CONFIG_ERROR_RESET_INTERVAL_DEFAULT    = "1m"
+	HTTP_ENDPOINT_POOL_CONFIG_HEALTH_CHECK_INTERVAL_DEFAULT   = "5s"
+	HTTP_ENDPOINT_POOL_CONFIG_HEALTHY_MAX_WAIT_DEFAULT        = "10s"
+	HTTP_ENDPOINT_POOL_CONFIG_SEND_BUFFER_TIMEOUT_DEFAULT     = "20s"
+	HTTP_ENDPOINT_POOL_CONFIG_RATE_LIMIT_MBPS_DEFAULT         = ""
 	// Endpoint config definitions, later they may be configurable:
 	HTTP_ENDPOINT_POOL_HEALTHY_CHECK_MIN_INTERVAL    = 1 * time.Second
 	HTTP_ENDPOINT_POOL_HEALTHY_POLL_INTERVAL         = 500 * time.Millisecond
@@ -56,14 +56,14 @@ const (
 
 	// http.Transport config default values:
 	//   Dialer config default values:
-	HTTP_ENDPOINT_POOL_TCP_CONN_TIMEOUT_DEFAULT        = "2s"
-	HTTP_ENDPOINT_POOL_TCP_KEEP_ALIVE_DEFAULT          = "15s"
-	HTTP_ENDPOINT_POOL_MAX_IDLE_CONNS_DEFAULT          = 0 // No limit
-	HTTP_ENDPOINT_POOL_MAX_IDLE_CONNS_PER_HOST_DEFAULT = 1
-	HTTP_ENDPOINT_POOL_MAX_CONNS_PER_HOST_DEFAULT      = 0 // No limit
-	HTTP_ENDPOINT_POOL_IDLE_CONN_TIMEOUT_DEFAULT       = "1m"
+	HTTP_ENDPOINT_POOL_CONFIG_TCP_CONN_TIMEOUT_DEFAULT        = "2s"
+	HTTP_ENDPOINT_POOL_CONFIG_TCP_KEEP_ALIVE_DEFAULT          = "15s"
+	HTTP_ENDPOINT_POOL_CONFIG_MAX_IDLE_CONNS_DEFAULT          = 0 // No limit
+	HTTP_ENDPOINT_POOL_CONFIG_MAX_IDLE_CONNS_PER_HOST_DEFAULT = 1
+	HTTP_ENDPOINT_POOL_CONFIG_MAX_CONNS_PER_HOST_DEFAULT      = 0 // No limit
+	HTTP_ENDPOINT_POOL_CONFIG_IDLE_CONN_TIMEOUT_DEFAULT       = "1m"
 	// http.Client config default values:
-	HTTP_ENDPOINT_POOL_RESPONSE_TIMEOUT_DEFAULT = "5s"
+	HTTP_ENDPOINT_POOL_CONFIG_RESPONSE_TIMEOUT_DEFAULT = "5s"
 )
 
 // The HTTP endpoint pool interface as seen by the compressor:
@@ -95,43 +95,39 @@ type HttpEndpointPoolStats struct {
 	Stats []uint64
 	// Endpoint stats are indexed by URL:
 	EndpointStats map[string]HttpEndpointStats
-	// Lock:
-	mu *sync.Mutex
 }
 
-func NewHttpEndpointPoolStatsNoLock() *HttpEndpointPoolStats {
+func NewHttpEndpointPoolStats() *HttpEndpointPoolStats {
 	return &HttpEndpointPoolStats{
 		Stats:         make([]uint64, HTTP_ENDPOINT_POOL_STATS_LEN),
 		EndpointStats: make(map[string]HttpEndpointStats),
 	}
 }
 
-func NewHttpEndpointPoolStats() *HttpEndpointPoolStats {
-	stats := NewHttpEndpointPoolStatsNoLock()
-	stats.mu = &sync.Mutex{}
-	return stats
-}
+func (pool *HttpEndpointPool) SnapStats(to *HttpEndpointPoolStats) *HttpEndpointPoolStats {
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
 
-func (stats *HttpEndpointPoolStats) Snap(snapStats *HttpEndpointPoolStats) *HttpEndpointPoolStats {
-	if snapStats == nil {
-		snapStats = NewHttpEndpointPoolStatsNoLock()
+	stats := pool.stats
+	if stats == nil {
+		return nil
+	}
+	if to == nil {
+		to = NewHttpEndpointPoolStats()
 	}
 
-	stats.mu.Lock()
-	defer stats.mu.Unlock()
-
-	copy(snapStats.Stats, stats.Stats)
+	copy(to.Stats, stats.Stats)
 
 	for url, epStats := range stats.EndpointStats {
-		snapEpStats := snapStats.EndpointStats[url]
-		if snapEpStats == nil {
-			snapEpStats = make(HttpEndpointStats, HTTP_ENDPOINT_STATS_LEN)
-			snapStats.EndpointStats[url] = snapEpStats
+		toEpStats := to.EndpointStats[url]
+		if toEpStats == nil {
+			toEpStats = make(HttpEndpointStats, HTTP_ENDPOINT_STATS_LEN)
+			to.EndpointStats[url] = toEpStats
 		}
-		copy(snapEpStats, epStats)
+		copy(toEpStats, epStats)
 	}
 
-	return snapStats
+	return to
 }
 
 // Define a mockable interface to substitute http.Client.Do() for testing purposes:
@@ -362,19 +358,20 @@ type HttpEndpointPoolConfig struct {
 
 func DefaultHttpEndpointPoolConfig() *HttpEndpointPoolConfig {
 	return &HttpEndpointPoolConfig{
-		HealthyRotateInterval: HTTP_ENDPOINT_POOL_HEALTHY_ROTATE_INTERVAL_DEFAULT,
-		ErrorResetInterval:    HTTP_ENDPOINT_POOL_ERROR_RESET_INTERVAL_DEFAULT,
-		HealthCheckInterval:   HTTP_ENDPOINT_POOL_HEALTH_CHECK_INTERVAL_DEFAULT,
-		HealthyMaxWait:        HTTP_ENDPOINT_POOL_HEALTHY_MAX_WAIT_DEFAULT,
-		SendBufferTimeout:     HTTP_ENDPOINT_POOL_SEND_BUFFER_TIMEOUT_DEFAULT,
-		RateLimitMbps:         HTTP_ENDPOINT_POOL_RATE_LIMIT_MBPS_DEFAULT,
-		TcpConnTimeout:        HTTP_ENDPOINT_POOL_TCP_CONN_TIMEOUT_DEFAULT,
-		TcpKeepAlive:          HTTP_ENDPOINT_POOL_TCP_KEEP_ALIVE_DEFAULT,
-		MaxIdleConns:          HTTP_ENDPOINT_POOL_MAX_IDLE_CONNS_DEFAULT,
-		MaxIdleConnsPerHost:   HTTP_ENDPOINT_POOL_MAX_IDLE_CONNS_PER_HOST_DEFAULT,
-		MaxConnsPerHost:       HTTP_ENDPOINT_POOL_MAX_CONNS_PER_HOST_DEFAULT,
-		IdleConnTimeout:       HTTP_ENDPOINT_POOL_IDLE_CONN_TIMEOUT_DEFAULT,
-		ResponseTimeout:       HTTP_ENDPOINT_POOL_RESPONSE_TIMEOUT_DEFAULT,
+		Shuffle:               HTTP_ENDPOINT_POOL_CONFIG_SHUFFLE_DEFAULT,
+		HealthyRotateInterval: HTTP_ENDPOINT_POOL_CONFIG_HEALTHY_ROTATE_INTERVAL_DEFAULT,
+		ErrorResetInterval:    HTTP_ENDPOINT_POOL_CONFIG_ERROR_RESET_INTERVAL_DEFAULT,
+		HealthCheckInterval:   HTTP_ENDPOINT_POOL_CONFIG_HEALTH_CHECK_INTERVAL_DEFAULT,
+		HealthyMaxWait:        HTTP_ENDPOINT_POOL_CONFIG_HEALTHY_MAX_WAIT_DEFAULT,
+		SendBufferTimeout:     HTTP_ENDPOINT_POOL_CONFIG_SEND_BUFFER_TIMEOUT_DEFAULT,
+		RateLimitMbps:         HTTP_ENDPOINT_POOL_CONFIG_RATE_LIMIT_MBPS_DEFAULT,
+		TcpConnTimeout:        HTTP_ENDPOINT_POOL_CONFIG_TCP_CONN_TIMEOUT_DEFAULT,
+		TcpKeepAlive:          HTTP_ENDPOINT_POOL_CONFIG_TCP_KEEP_ALIVE_DEFAULT,
+		MaxIdleConns:          HTTP_ENDPOINT_POOL_CONFIG_MAX_IDLE_CONNS_DEFAULT,
+		MaxIdleConnsPerHost:   HTTP_ENDPOINT_POOL_CONFIG_MAX_IDLE_CONNS_PER_HOST_DEFAULT,
+		MaxConnsPerHost:       HTTP_ENDPOINT_POOL_CONFIG_MAX_CONNS_PER_HOST_DEFAULT,
+		IdleConnTimeout:       HTTP_ENDPOINT_POOL_CONFIG_IDLE_CONN_TIMEOUT_DEFAULT,
+		ResponseTimeout:       HTTP_ENDPOINT_POOL_CONFIG_RESPONSE_TIMEOUT_DEFAULT,
 	}
 }
 
@@ -535,7 +532,7 @@ func (epPool *HttpEndpointPool) HealthCheck(ep *HttpEndpoint) {
 
 	epPoolLog.Warnf("start health check for %s", ep.url)
 
-	stats, url := epPool.stats, ep.url
+	stats, mu, url := epPool.stats, epPool.mu, ep.url
 	req := &http.Request{
 		Method: http.MethodPut,
 		URL:    ep.URL,
@@ -589,12 +586,12 @@ func (epPool *HttpEndpointPool) HealthCheck(ep *HttpEndpoint) {
 					prevStatusCode = -1
 				}
 			}
-			stats.mu.Lock()
+			mu.Lock()
 			stats.EndpointStats[url][HTTP_ENDPOINT_STATS_HEALTH_CHECK_COUNT] += 1
 			if !done {
 				stats.EndpointStats[url][HTTP_ENDPOINT_STATS_HEALTH_CHECK_ERROR_COUNT] += 1
 			}
-			stats.mu.Unlock()
+			mu.Unlock()
 		}
 	}
 	epPool.MoveToHealthy(ep)
@@ -715,9 +712,7 @@ func (epPool *HttpEndpointPool) GetCurrentHealthy(maxWait time.Duration) *HttpEn
 					ep.url, ep.numErrors, ep.markUnhealthyThreshold,
 				)
 			}
-			epPool.stats.mu.Lock()
 			epPool.stats.Stats[HTTP_ENDPOINT_POOL_STATS_HEALTHY_ROTATE_COUNT] += 1
-			epPool.stats.mu.Unlock()
 		}
 	}
 	// Apply error reset as needed:
@@ -735,7 +730,7 @@ func (epPool *HttpEndpointPool) GetCurrentHealthy(maxWait time.Duration) *HttpEn
 func (epPool *HttpEndpointPool) SendBuffer(b []byte, timeout time.Duration, gzipped bool) error {
 	var body ReadSeekRewindCloser
 
-	stats := epPool.stats
+	stats, mu := epPool.stats, epPool.mu
 
 	header := http.Header{
 		"Content-Type": {"text/html"},
@@ -762,11 +757,11 @@ func (epPool *HttpEndpointPool) SendBuffer(b []byte, timeout time.Duration, gzip
 		ep := epPool.GetCurrentHealthy(maxWait)
 		if ep == nil {
 			url := ""
-			stats.mu.Lock()
+			mu.Lock()
 			epStats := stats.EndpointStats[url]
 			epStats[HTTP_ENDPOINT_STATS_SEND_BUFFER_COUNT] += 1
 			epStats[HTTP_ENDPOINT_STATS_SEND_BUFFER_ERROR_COUNT] += 1
-			stats.mu.Unlock()
+			mu.Unlock()
 			return fmt.Errorf(
 				"SendBuffer attempt# %d: %w", attempt, ErrHttpEndpointPoolNoHealthyEP,
 			)
@@ -787,8 +782,8 @@ func (epPool *HttpEndpointPool) SendBuffer(b []byte, timeout time.Duration, gzip
 		nonRetryable := sent && !HttpEndpointPoolRetryCodes[res.StatusCode]
 
 		url := ep.url
-		stats.mu.Lock()
 		epStats := stats.EndpointStats[url]
+		mu.Lock()
 		epStats[HTTP_ENDPOINT_STATS_SEND_BUFFER_COUNT] += 1
 		if sent {
 			epStats[HTTP_ENDPOINT_STATS_SEND_BUFFER_BYTE_COUNT] += uint64(len(b))
@@ -796,7 +791,7 @@ func (epPool *HttpEndpointPool) SendBuffer(b []byte, timeout time.Duration, gzip
 		if !success {
 			epStats[HTTP_ENDPOINT_STATS_SEND_BUFFER_ERROR_COUNT] += 1
 		}
-		stats.mu.Unlock()
+		mu.Unlock()
 
 		if success {
 			return nil
@@ -822,8 +817,18 @@ func (epPool *HttpEndpointPool) SendBuffer(b []byte, timeout time.Duration, gzip
 // Needed for testing or clean exit in general:
 func (epPool *HttpEndpointPool) Shutdown() {
 	epPool.mu.Lock()
-	epPool.shutdown = true
+	toShutdown := !epPool.shutdown
+	if toShutdown {
+		epPool.shutdown = true
+	}
 	epPool.mu.Unlock()
+
+	if !toShutdown {
+		epPoolLog.Warn("pool already shutdown")
+		return
+	}
+
+	epPoolLog.Info("initiate pool shutdown")
 	epPoolLog.Info("stop health check goroutines")
 	epPool.ctxCancelFn()
 	epPool.wg.Wait()
@@ -831,4 +836,5 @@ func (epPool *HttpEndpointPool) Shutdown() {
 	if credit, ok := epPool.credit.(*Credit); ok {
 		credit.StopReplenishWait()
 	}
+	epPoolLog.Info("pool shutdown complete")
 }
