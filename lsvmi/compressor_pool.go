@@ -274,7 +274,7 @@ func (pool *CompressorPool) Start(sender Sender) {
 
 	if !canStart {
 		compressorLog.Warnf(
-			"compressor pool can only be started from %s state, not from %s",
+			"compressor pool can only be started from %q state, not from %q",
 			CompressorPoolStateCreated, currentState,
 		)
 		return

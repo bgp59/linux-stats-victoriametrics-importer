@@ -73,12 +73,6 @@ const (
 )
 
 const (
-	SCHEDULER_STATE_CREATED = iota
-	SCHEDULER_STATE_RUNNING
-	SCHEDULER_STATE_STOPPED
-)
-
-const (
 	// Indexes into Scheduler.stats.[id].uint64Stats
 
 	// How many times the task was scheduled, indexed by Task.id:
@@ -147,14 +141,20 @@ type Scheduler struct {
 
 type SchedulerState int
 
+var (
+	SchedulerStateCreated SchedulerState = 0
+	SchedulerStateRunning SchedulerState = 1
+	SchedulerStateStopped SchedulerState = 2
+)
+
 var schedulerStateMap = map[SchedulerState]string{
-	SCHEDULER_STATE_CREATED: "Created",
-	SCHEDULER_STATE_RUNNING: "Running",
-	SCHEDULER_STATE_STOPPED: "Stopped",
+	SchedulerStateCreated: "Created",
+	SchedulerStateRunning: "Running",
+	SchedulerStateStopped: "Stopped",
 }
 
-func (s SchedulerState) String() string {
-	return schedulerStateMap[s]
+func (state SchedulerState) String() string {
+	return schedulerStateMap[state]
 }
 
 var schedulerLog = NewCompLogger("scheduler")
@@ -181,7 +181,7 @@ func NewScheduler(numWorkers int) *Scheduler {
 		todoQ:      make(chan *Task, SCHEDULER_TODO_Q_LEN),
 		numWorkers: numWorkers,
 		stats:      make(SchedulerStats),
-		state:      SCHEDULER_STATE_CREATED,
+		state:      SchedulerStateCreated,
 		mu:         &sync.Mutex{},
 		wg:         &sync.WaitGroup{},
 	}
@@ -351,17 +351,16 @@ func (scheduler *Scheduler) SnapStats(to SchedulerStats) SchedulerStats {
 func (scheduler *Scheduler) Start() {
 	scheduler.mu.Lock()
 	entryState := scheduler.state
-	canStart := entryState == SCHEDULER_STATE_CREATED
+	canStart := entryState == SchedulerStateCreated
 	if canStart {
-		scheduler.state = SCHEDULER_STATE_RUNNING
+		scheduler.state = SchedulerStateRunning
 	}
 	scheduler.mu.Unlock()
 
 	if !canStart {
 		schedulerLog.Warnf(
-			"scheduler can only be started from state %d '%s', not from %d '%s'",
-			SCHEDULER_STATE_CREATED, SchedulerState(SCHEDULER_STATE_CREATED),
-			entryState, entryState,
+			"scheduler can only be started from %q state, not from %q",
+			SchedulerStateCreated, entryState,
 		)
 		return
 	}
@@ -381,8 +380,8 @@ func (scheduler *Scheduler) Start() {
 
 func (scheduler *Scheduler) Shutdown() {
 	scheduler.mu.Lock()
-	stopped := scheduler.state == SCHEDULER_STATE_STOPPED
-	scheduler.state = SCHEDULER_STATE_STOPPED
+	stopped := scheduler.state == SchedulerStateStopped
+	scheduler.state = SchedulerStateStopped
 	scheduler.mu.Unlock()
 
 	if stopped {
