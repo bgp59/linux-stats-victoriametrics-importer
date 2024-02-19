@@ -3,6 +3,7 @@
 package lsvmi
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -38,9 +39,9 @@ var lsvmiConfigFile = flag.String(
 	`Config file to load`,
 )
 
-var LsvmiCfg *LsvmiConfig
+var ErrConfigFileArgNotProvided = errors.New("config file arg not provided")
 
-func NewLsvmiConfig() *LsvmiConfig {
+func DefaultLsvmiConfig() *LsvmiConfig {
 	return &LsvmiConfig{
 		SchedulerConfig:        DefaultSchedulerConfig(),
 		CompressorPoolConfig:   DefaultCompressorPoolConfig(),
@@ -56,7 +57,7 @@ func LoadLsvmiConfig(cfgFile string) (*LsvmiConfig, error) {
 	defer f.Close()
 
 	decoder := yaml.NewDecoder(f)
-	cfg := NewLsvmiConfig()
+	cfg := DefaultLsvmiConfig()
 	err = decoder.Decode(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("file: %q: %v", cfgFile, err)
@@ -64,16 +65,10 @@ func LoadLsvmiConfig(cfgFile string) (*LsvmiConfig, error) {
 	return cfg, nil
 }
 
-func LoadLsvmiConfigFromArgs() error {
-	var err error
+func LoadLsvmiConfigFromArgs() (*LsvmiConfig, error) {
 	if *lsvmiConfigFile != "" {
-		var cfg *LsvmiConfig
-		cfg, err = LoadLsvmiConfig(*lsvmiConfigFile)
-		if err == nil {
-			LsvmiCfg = cfg
-		}
+		return LoadLsvmiConfig(*lsvmiConfigFile)
 	} else {
-		err = fmt.Errorf("config file arg not provided")
+		return nil, ErrConfigFileArgNotProvided
 	}
-	return err
 }

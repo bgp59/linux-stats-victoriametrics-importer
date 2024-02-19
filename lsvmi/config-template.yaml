@@ -16,29 +16,29 @@ scheduler_config:
 ###############################################
 compressor_pool_config:
   # The number of compressors. If set to -1 it will match the number of
-	# available cores but not more than COMPRESSOR_POOL_NUM_COMPRESSORS_MAX:
+  # available cores but not more than COMPRESSOR_POOL_NUM_COMPRESSORS_MAX:
   num_compressors: -1
   # Buffer pool max size; buffers are pulled by metrics generators as needed and
-	# they are returned after they are compressed. The pool max size controls only
-	# how many idle buffers are being kept around, since they are created as many
-	# as requested but they are discarded if they exceed the value below. A value
-	# is too small leads to object churning and a value too large may waste
-	# memory.
+  # they are returned after they are compressed. The pool max size controls only
+  # how many idle buffers are being kept around, since they are created as many
+  # as requested but they are discarded if they exceed the value below. A value
+  # is too small leads to object churning and a value too large may waste
+  # memory.
   buffer_pool_max_size: 64
   # Metrics queue size, it should be deep enough to accommodate metrics up to
-	# send_buffer_timeout:
+  # send_buffer_timeout:
   metrics_queue_size: 64
-	# Compression level: 0..9, -1 stands for ggzip.DefaultCompression:
-	compression_level: -1
+  # Compression level: 0..9, -1 stands for ggzip.DefaultCompression:
+  compression_level: -1
   # Batch target size; metrics will be read from the queue until the
-	# compressed size is ~ to the value below. The value can have the usual `k`
-	# or `m` suffixes for KiB or MiB accordingly.
-	batch_target_size: 64k
-	# Flush interval. If batch_target_size is not reached before this interval
-	# expires, the metrics compressed thus far are being sent anyway. Use 0 to
-	# disable time flush. The value should be compatible with
-	# https:#pkg.go.dev/time#ParseDuration
-	flush_interval: 5s
+  # compressed size is ~ to the value below. The value can have the usual `k`
+  # or `m` suffixes for KiB or MiB accordingly.
+  batch_target_size: 64k
+  # Flush interval. If batch_target_size is not reached before this interval
+  # expires, the metrics compressed thus far are being sent anyway. Use 0 to
+  # disable time flush. The value should be compatible with
+  # https:#pkg.go.dev/time#ParseDuration
+  flush_interval: 5s
 
 ###############################################
 # HTTP Endpoint Pool
@@ -85,7 +85,7 @@ http_endpoint_pool_config:
   # How long to wait for a healthy endpoint, in case healthy is empty; normally
   # this should be > health_check_interval. The value must be compatible with
   # https:#pkg.go.dev/time#ParseDuration
-	healthy_max_wait: 6s
+  healthy_max_wait: 6s
 
   # How long to wait for a SendBuffer call to succeed; normally this should be
   # longer than healthy_max_wait or other HTTP timeouts:

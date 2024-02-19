@@ -51,17 +51,17 @@ func main() {
 
 	flag.Parse()
 
-	err := lsvmi.LoadLsvmiConfigFromArgs()
+	lsvmiConfig, err := lsvmi.LoadLsvmiConfigFromArgs()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = lsvmi.SetLogger(lsvmi.LsvmiCfg)
+	err = lsvmi.SetLogger(lsvmiConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	epPool, err := lsvmi.NewHttpEndpointPool(lsvmi.LsvmiCfg)
+	epPool, err := lsvmi.NewHttpEndpointPool(lsvmiConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
