@@ -29,14 +29,17 @@ package lsvmi
 //        +------------+ +------------+
 //        | Task Queue | | TODO Queue |
 //        +------------+ +------------+
-//              ^               |
-//     new task |               |
-//                   +----------+--- ... ----+
-//                   | task     | task       | task
-//                   v          v            v
-//              +--------+ +--------+   +--------+
-//              | Worker | | Worker |...| Worker |
-//              +--------+ +--------+   +--------+
+//            ^  ^              |
+//   new task |  |              |
+//   ---------+  |   +----------+--- ... ----+
+//           +---+   | task     | task       | task
+//           |       v          v            v
+//           |  +--------+ +--------+   +--------+
+//           |  | Worker | | Worker |...| Worker |
+//           |  +--------+ +--------+   +--------+
+//           |       | task     | task       | task
+//           +-------+----------+--- ... ----+
+//
 //
 //  Principles Of Operation
 //  =======================
@@ -47,22 +50,16 @@ package lsvmi
 // The Dispatcher maintains a timer for the next deadline based on the top of
 // the heap and it also monitors the Task Queue for new additions, whichever
 // comes first. Based on those, it selects the next task to run. The latter's
-// deadlines is updated and, if a new task, it is also added to heap; if not
-// then the heap is updated in place. Each task has a flag indicating whether it
-// is currently being scheduled or not. This flag prevents a task from being
-// scheduled while pending execution; normally, with enough resources, this
-// should never happen. If not scheduled then the task is marked as scheduled
-// and it is placed into the TODO Queue.
+// deadlines is updated and it is added to heap and it is placed into the TODO
+// Queue.
 //
 // The TODO Queue feeds the Worker Pool; the number of workers in the pool
 // controls the level of concurrency of task execution and it allows for short
 // tasks to be executed without having to wait for a long one to complete.
-//
-// A Worker will pull the next task from the TODO Queue, it will execute it and
-// it will then clear the scheduled flag.
 
 import (
 	"container/heap"
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -72,23 +69,29 @@ import (
 
 const (
 	SCHEDULER_CONFIG_NUM_WORKERS_DEFAULT = -1
-	SCHEDULER_CONFIG_NUM_WORKERS_MAX     = 4
 )
 
 const (
-	SCHEDULER_TASK_Q_LEN = 1
+	SCHEDULER_TASK_Q_LEN = 64
 	SCHEDULER_TODO_Q_LEN = 64
+	// All intervals will be rounded to be a multiple of scheduler's granularity:
+	SCHEDULER_GRANULARITY = 20 * time.Millisecond
+	// The minimum pause between 2 executions:
+	SCHEDULER_TASK_MIN_EXECUTION_PAUSE = 2 * SCHEDULER_GRANULARITY
 )
 
 const (
 	// Indexes into Scheduler.stats.[id].uint64Stats
 
-	// How many times the task was scheduled, indexed by Task.id:
+	// How many times the task was scheduled:
 	TASK_STATS_SCHEDULED_COUNT = iota
 
-	// How many time the task was not queued for execution because it was
-	// pending a previously scheduled one, indexed by Task.id:
-	TASK_STATS_OVER_SCHEDULED_COUNT
+	// How many times the task was delayed because it was too close to its
+	// previous execution:
+	TASK_STATS_DELAYED_COUNT
+
+	// How many times the task overran, i.e. its runtime >= interval:
+	TASK_STATS_OVERRUN_COUNT
 
 	// Must be last:
 	TASK_STATS_UINT64_LEN
@@ -117,8 +120,13 @@ type Task struct {
 	interval time.Duration
 	// Action:
 	action TaskAction
-	// Whether it is currently scheduled or not:
-	scheduled bool
+	// Whether it was re-added by a worker or not (i.e. the logical complement
+	// of new task). New tasks are scheduled for execution immediately whereas
+	// re-added ones are scheduled according to the interval:
+	addedByWorker bool
+	// When last executed, used to protect long running tasks from being
+	// scheduled back to back:
+	lastExecuted time.Time
 }
 
 type TaskStats struct {
@@ -144,12 +152,14 @@ type Scheduler struct {
 	// minimal, it doesn't make sense to use individual lock.
 	mu *sync.Mutex
 	// Goroutines exit sync:
-	wg *sync.WaitGroup
+	ctx      context.Context
+	cancelFn context.CancelFunc
+	wg       *sync.WaitGroup
 }
 
 type SchedulerConfig struct {
 	// The number of workers. If set to -1 it will match the number of
-	// available cores but not more than SCHEDULER_CONFIG_NUM_WORKERS_MAX:
+	// available cores:
 	NumWorkers int `yaml:"num_workers"`
 }
 
@@ -175,9 +185,10 @@ var schedulerLog = NewCompLogger("scheduler")
 
 func NewTask(id string, interval time.Duration, action TaskAction) *Task {
 	return &Task{
-		id:       id,
-		interval: interval,
-		action:   action,
+		id:            id,
+		interval:      interval,
+		action:        action,
+		addedByWorker: false,
 	}
 }
 
@@ -208,10 +219,8 @@ func NewScheduler(cfg any) (*Scheduler, error) {
 	if numWorkers <= 0 {
 		numWorkers = utils.AvailableCpusCount
 	}
-	if numWorkers > SCHEDULER_CONFIG_NUM_WORKERS_MAX {
-		numWorkers = SCHEDULER_CONFIG_NUM_WORKERS_MAX
-	}
 
+	ctx, cancelFn := context.WithCancel(context.Background())
 	scheduler := &Scheduler{
 		tasks:      make([]*Task, 0),
 		taskQ:      make(chan *Task, SCHEDULER_TASK_Q_LEN),
@@ -220,6 +229,8 @@ func NewScheduler(cfg any) (*Scheduler, error) {
 		stats:      make(SchedulerStats),
 		state:      SchedulerStateCreated,
 		mu:         &sync.Mutex{},
+		ctx:        ctx,
+		cancelFn:   cancelFn,
 		wg:         &sync.WaitGroup{},
 	}
 
@@ -264,7 +275,29 @@ func (scheduler *Scheduler) Pop() any {
 }
 
 // Add a new task:
-func (scheduler *Scheduler) AddTask(task *Task) {
+
+// Ensure that a task interval is scheduler compliant:
+func CompliantTaskInterval(interval time.Duration) time.Duration {
+	compliantInterval := interval.Truncate(SCHEDULER_GRANULARITY)
+	if interval-compliantInterval >= SCHEDULER_GRANULARITY/2 {
+		compliantInterval += SCHEDULER_GRANULARITY
+	}
+	if compliantInterval < SCHEDULER_TASK_MIN_EXECUTION_PAUSE {
+		compliantInterval = SCHEDULER_TASK_MIN_EXECUTION_PAUSE
+	}
+	return compliantInterval
+}
+
+func (scheduler *Scheduler) AddNewTask(task *Task) {
+	task.addedByWorker = false
+	compliantInterval := CompliantTaskInterval(task.interval)
+	if compliantInterval != task.interval {
+		schedulerLog.Warnf(
+			"task %s: interval: %s -> %s", task.id, task.interval, compliantInterval,
+		)
+		task.interval = compliantInterval
+	}
+	schedulerLog.Infof("add task %s: interval=%s", task.id, task.interval)
 	scheduler.taskQ <- task
 }
 
@@ -278,73 +311,84 @@ func (scheduler *Scheduler) dispatcherLoop() {
 	activeTimer := false
 
 	defer func() {
-		schedulerLog.Info("stop dispatcher loop")
 		if activeTimer && !timer.Stop() {
 			<-timer.C
 		}
-		schedulerLog.Info("close TODO Queue")
-		close(scheduler.todoQ)
 		schedulerLog.Info("dispatcher stopped")
 		scheduler.wg.Done()
 	}()
 
 	var (
-		task   *Task
-		isOpen bool
+		task            *Task
+		currentDeadline time.Time
 	)
 
+	taskQ, todoQ := scheduler.taskQ, scheduler.todoQ
+	stats := scheduler.stats
+	ctx := scheduler.ctx
 	for {
 		if !activeTimer && len(scheduler.tasks) > 0 {
-			timer.Reset(time.Until(scheduler.tasks[0].deadline))
+			currentDeadline = scheduler.tasks[0].deadline
+			timer.Reset(time.Until(currentDeadline))
 			activeTimer = true
 		}
 
 		select {
-		case task, isOpen = <-scheduler.taskQ:
-			if !isOpen {
-				return
-			}
-			// Add the task to the heap, with the deadline set to the nearest
-			// future multiple of interval:
-			task.deadline = time.Now().Truncate(task.interval).Add(task.interval)
-			heap.Push(scheduler, task)
-			// Any other pending timer is no longer applicable:
-			if activeTimer {
-				if !timer.Stop() {
-					<-timer.C
+		case <-ctx.Done():
+			return
+		case task = <-taskQ:
+			// The desired next deadline is the nearest future multiple of
+			// interval:
+			timeNow := time.Now()
+			nextDeadline := timeNow.Truncate(task.interval).Add(task.interval)
+
+			// If this task was re-added by a worker or if the next deadline is
+			// very close, then add it for later scheduling:
+			if task.addedByWorker || nextDeadline.Sub(timeNow) < SCHEDULER_TASK_MIN_EXECUTION_PAUSE {
+				if task.addedByWorker {
+					// Check the pause since the last execution:
+					taskNearestDeadline := task.lastExecuted.Add(SCHEDULER_TASK_MIN_EXECUTION_PAUSE)
+					if nextDeadline.Before(taskNearestDeadline) {
+						nextDeadline = taskNearestDeadline
+						stats[task.id].uint64Stats[TASK_STATS_DELAYED_COUNT] += 1
+					}
 				}
-				activeTimer = false
+				task.deadline = nextDeadline
+				heap.Push(scheduler, task)
+
+				// Cancel the timer if this new deadline is more recent than the
+				// one currently pending:
+				if activeTimer && nextDeadline.Before(currentDeadline) {
+					if !timer.Stop() {
+						<-timer.C
+					}
+					activeTimer = false
+				}
+
+				// Do not execute right away, wait for scheduling:
+				task = nil
+			} else {
+				// New task, any other pending timer is no longer applicable:
+				task.deadline = timeNow
+				if activeTimer {
+					if !timer.Stop() {
+						<-timer.C
+					}
+					activeTimer = false
+				}
 			}
+
 		case <-timer.C:
 			activeTimer = false
-			task = scheduler.tasks[0]
-			// Update its deadline to be set to the nearest future multiple of
-			// interval:
-			task.deadline = time.Now().Truncate(task.interval).Add(task.interval)
-			heap.Fix(scheduler, 0)
+			task = heap.Pop(scheduler).(*Task)
 		}
 
 		if task != nil {
-			scheduler.mu.Lock()
-			queueIt := !task.scheduled
-			if queueIt {
-				task.scheduled = true
+			if stats[task.id] == nil {
+				stats[task.id] = NewTaskStats()
 			}
-			if scheduler.stats != nil {
-				taskStats := scheduler.stats[task.id]
-				if taskStats == nil {
-					taskStats = NewTaskStats()
-					scheduler.stats[task.id] = taskStats
-				}
-				taskStats.uint64Stats[TASK_STATS_SCHEDULED_COUNT] += 1
-				if !queueIt {
-					taskStats.uint64Stats[TASK_STATS_OVER_SCHEDULED_COUNT] += 1
-				}
-			}
-			scheduler.mu.Unlock()
-			if queueIt {
-				scheduler.todoQ <- task
-			}
+			stats[task.id].uint64Stats[TASK_STATS_SCHEDULED_COUNT] += 1
+			todoQ <- task
 		}
 	}
 }
@@ -357,20 +401,29 @@ func (scheduler *Scheduler) workerLoop(workerId int) {
 		scheduler.wg.Done()
 	}()
 
+	taskQ, todoQ := scheduler.taskQ, scheduler.todoQ
+	stats := scheduler.stats
+	ctx := scheduler.ctx
 	for {
-		task, isOpen := <-scheduler.todoQ
-		if !isOpen {
+		select {
+		case <-ctx.Done():
 			return
+		case task := <-todoQ:
+			startTs := time.Now()
+			if task.action != nil {
+				task.action.Execute()
+			}
+			endTs := time.Now()
+			task.lastExecuted = endTs
+			runtime := endTs.Sub(startTs)
+			taskStats := stats[task.id]
+			if runtime >= task.interval {
+				taskStats.uint64Stats[TASK_STATS_OVERRUN_COUNT] += 1
+			}
+			taskStats.float64Stats[TASK_STATS_RUNTIME_SEC] += runtime.Seconds()
+			task.addedByWorker = true
+			taskQ <- task
 		}
-		startTs := time.Now()
-		if task.action != nil {
-			task.action.Execute()
-		}
-		taskRuntime := time.Since(startTs).Seconds()
-		scheduler.mu.Lock()
-		scheduler.stats[task.id].float64Stats[TASK_STATS_RUNTIME_SEC] += taskRuntime
-		task.scheduled = false
-		scheduler.mu.Unlock()
 	}
 }
 
@@ -437,9 +490,7 @@ func (scheduler *Scheduler) Shutdown() {
 	}
 
 	schedulerLog.Info("stop scheduler")
-
-	close(scheduler.taskQ)
+	scheduler.cancelFn()
 	scheduler.wg.Wait()
-
 	schedulerLog.Info("scheduler stopped")
 }

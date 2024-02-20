@@ -8,8 +8,13 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/eparparita/linux-stats-victoriametrics-importer/lsvmi"
+)
+
+const (
+	SHUTDOWN_TIMEOUT = 5 * time.Second
 )
 
 var mainLog = lsvmi.NewCompLogger("main")
@@ -79,9 +84,16 @@ func main() {
 		lsvmi.GlobalMetricsQueue.QueueBuf(buf)
 	}
 
-	// Finally block until a signal is received:
+	// Block until a signal is received:
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	sig := <-sigChan
 	mainLog.Warnf("Received %s signal, exiting", sig)
+
+	// Set a timeout watchdog, just in case:
+	go func() {
+		timer := time.NewTimer(SHUTDOWN_TIMEOUT)
+		<-timer.C
+		mainLog.Fatalf("shutdown timed out after %s", SHUTDOWN_TIMEOUT)
+	}()
 }

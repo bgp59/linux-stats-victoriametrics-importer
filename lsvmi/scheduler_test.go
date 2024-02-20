@@ -13,28 +13,72 @@ import (
 )
 
 type SchedulerExecuteTestCase struct {
-	numWorkers  int
-	intervals   []time.Duration
-	runDuration time.Duration
+	numWorkers int
+	// The unit for intervals, execTimes and runTime:
+	timeUnitSec float64
+	// Set one task for each interval:
+	intervals []float64
+	// The execution times for each:
+	execTimes [][]float64
+	// How long to run the scheduler for:
+	runTime float64
 	// The scheduled intervals will be checked against the desired one and they
 	// should be in the range of:
 	//  (1 - scheduleIntervalPct/100)*interval .. (1 + scheduleIntervalPct/100)*interval
-	// Set to 0 to disable:
+	// Use -1 to disable.
 	scheduleIntervalPct float64
+	// The maximum allowed number of irregular scheduling intervals, as
+	// determined by the above:
+	wantIrregularIntervalMaxCount []int
 }
 
 type TestSchedulerTaskAction struct {
-	task       *Task
-	timestamps []time.Time
+	task         *Task
+	execTimes    []time.Duration
+	execTimeIndx int
+	timestamps   []time.Time
 }
 
 func (action *TestSchedulerTaskAction) Execute() {
 	action.timestamps = append(action.timestamps, time.Now())
 	schedulerLog.Infof(
-		"Execute task %s: interval: %s, next deadline: %s",
+		"Execute task %s: interval=%s, deadline=%s",
 		action.task.id, action.task.interval, action.task.deadline.Format(time.RFC3339Nano),
 	)
-	//time.Sleep(2 * action.task.interval) // force over-scheduling
+	n := len(action.execTimes)
+	if n > 0 {
+		time.Sleep(action.execTimes[action.execTimeIndx])
+		action.execTimeIndx++
+		if action.execTimeIndx >= n {
+			action.execTimeIndx = 0
+		}
+	}
+}
+
+func testSchedulerDurationFromSec(sec float64) time.Duration {
+	return time.Duration(
+		sec * float64(time.Second),
+	)
+}
+
+func testSchedulerBuildTaskList(tc *SchedulerExecuteTestCase) []*Task {
+	tasks := make([]*Task, len(tc.intervals))
+	for i, interval := range tc.intervals {
+		action := &TestSchedulerTaskAction{}
+		task := NewTask(strconv.Itoa(i), testSchedulerDurationFromSec(interval*tc.timeUnitSec), action)
+		action.task = task
+		if tc.execTimes != nil {
+			execTimes := tc.execTimes[i]
+			if execTimes != nil {
+				action.execTimes = make([]time.Duration, len(execTimes))
+				for k, execTime := range execTimes {
+					action.execTimes[k] = testSchedulerDurationFromSec(execTime * tc.timeUnitSec)
+				}
+			}
+		}
+		tasks[i] = task
+	}
+	return tasks
 }
 
 func testSchedulerExecute(tc *SchedulerExecuteTestCase, t *testing.T) {
@@ -50,17 +94,11 @@ func testSchedulerExecute(tc *SchedulerExecuteTestCase, t *testing.T) {
 		tlc.Fatal(err)
 	}
 	scheduler.Start()
-
-	tasks := make([]*Task, len(tc.intervals))
-	for i, interval := range tc.intervals {
-		action := &TestSchedulerTaskAction{}
-		task := NewTask(strconv.Itoa(i), interval, action)
-		action.task = task
-		scheduler.AddTask(task)
-		tasks[i] = task
+	tasks := testSchedulerBuildTaskList(tc)
+	for _, task := range tasks {
+		scheduler.AddNewTask(task)
 	}
-
-	time.Sleep(tc.runDuration)
+	time.Sleep(testSchedulerDurationFromSec(tc.runTime * tc.timeUnitSec))
 	scheduler.Shutdown()
 
 	// Verify that each task was scheduled roughly at the expected intervals and
@@ -69,21 +107,15 @@ func testSchedulerExecute(tc *SchedulerExecuteTestCase, t *testing.T) {
 	errBuf := &bytes.Buffer{}
 
 	stats := scheduler.SnapStats(nil)
-	for _, task := range tasks {
+
+	type IrregularInterval struct {
+		k        int
+		interval float64
+	}
+	for i, task := range tasks {
 		taskStats := stats[task.id]
 		if taskStats == nil {
 			fmt.Fprintf(errBuf, "\n task %s: missing stats", task.id)
-			continue
-		} else if taskStats.uint64Stats[TASK_STATS_OVER_SCHEDULED_COUNT] > 0 {
-			fmt.Fprintf(
-				errBuf, "\n task %s: over/scheduled %d/%d time(s)",
-				task.id,
-				taskStats.uint64Stats[TASK_STATS_OVER_SCHEDULED_COUNT],
-				taskStats.uint64Stats[TASK_STATS_SCHEDULED_COUNT],
-			)
-			continue
-		}
-		if tc.scheduleIntervalPct <= 0 || tc.scheduleIntervalPct > 100 {
 			continue
 		}
 		pct := tc.scheduleIntervalPct / 100.
@@ -94,17 +126,41 @@ func testSchedulerExecute(tc *SchedulerExecuteTestCase, t *testing.T) {
 		timestamps := task.action.(*TestSchedulerTaskAction).timestamps
 		// timestamp#0 -> #1 may be irregular, but everything #(k-1) -> #k, k >=
 		// 2, should be checked:
+		irregularIntervals := make([]*IrregularInterval, 0)
 		for k := 2; k < len(timestamps); k++ {
 			gotIntervalSec := timestamps[k].Sub(timestamps[k-1]).Seconds()
 			if gotIntervalSec < minIntervalSec || maxIntervalSec < gotIntervalSec {
-				fmt.Fprintf(
-					errBuf,
-					"\ntask %s interval# %d: want: %.06f..%.06f, got: %.06f sec",
-					task.id, k, minIntervalSec, maxIntervalSec, gotIntervalSec,
+				irregularIntervals = append(
+					irregularIntervals,
+					&IrregularInterval{k, gotIntervalSec},
 				)
 			}
 		}
+		wantIrregularIntervalMaxCount := 0
+		if tc.wantIrregularIntervalMaxCount != nil {
+			wantIrregularIntervalMaxCount = tc.wantIrregularIntervalMaxCount[i]
+		}
+		if len(irregularIntervals) > wantIrregularIntervalMaxCount {
+			for _, irregularInterval := range irregularIntervals {
+				fmt.Fprintf(
+					errBuf,
+					"\ntask %s execute# %d: want: %.06f..%.06f, got: %.06f sec from previous execution",
+					task.id, irregularInterval.k,
+					minIntervalSec, maxIntervalSec, irregularInterval.interval,
+				)
+			}
+		}
+		if taskStats.uint64Stats[TASK_STATS_OVERRUN_COUNT] > uint64(wantIrregularIntervalMaxCount) {
+			fmt.Fprintf(
+				errBuf,
+				"\ntask %s TASK_STATS_OVERRUN_COUNT: want max: %d, got: %d",
+				task.id, wantIrregularIntervalMaxCount,
+				taskStats.uint64Stats[TASK_STATS_OVERRUN_COUNT],
+			)
+		}
+
 	}
+
 	if errBuf.Len() > 0 {
 		tlc.Fatal(errBuf)
 	}
@@ -112,31 +168,82 @@ func testSchedulerExecute(tc *SchedulerExecuteTestCase, t *testing.T) {
 }
 
 func TestSchedulerExecute(t *testing.T) {
-	timeUnit := 100 * time.Millisecond
 	scheduleIntervalPct := 10.
 
 	for _, tc := range []*SchedulerExecuteTestCase{
 		{
-			intervals: []time.Duration{
-				1 * timeUnit,
+			numWorkers:  1,
+			timeUnitSec: .1,
+			intervals: []float64{
+				1,
 			},
-			runDuration:         10 * timeUnit,
+			runTime:             40,
 			scheduleIntervalPct: scheduleIntervalPct,
 		},
 		{
-			intervals: []time.Duration{
-				4 * timeUnit, 7 * timeUnit, 3 * timeUnit, 5 * timeUnit, 1 * timeUnit,
+			numWorkers:  1,
+			timeUnitSec: .1,
+			intervals: []float64{
+				4, 7, 3, 5, 1,
 			},
-			runDuration:         43 * timeUnit,
+			runTime:             43,
 			scheduleIntervalPct: scheduleIntervalPct,
 		},
 		{
-			numWorkers: 4,
-			intervals: []time.Duration{
-				4 * timeUnit, 7 * timeUnit, 3 * timeUnit, 5 * timeUnit, 1 * timeUnit,
+			numWorkers:  5,
+			timeUnitSec: .1,
+			intervals: []float64{
+				4, 7, 3, 5, 1,
 			},
-			runDuration:         43 * timeUnit,
+			runTime:             43,
 			scheduleIntervalPct: scheduleIntervalPct,
+		},
+		{
+			numWorkers:  5,
+			timeUnitSec: .1,
+			intervals: []float64{
+				4,
+				7,
+				3,
+				5,
+				1,
+			},
+			execTimes: [][]float64{
+				{3},
+				{6},
+				{2},
+				{4},
+				nil,
+			},
+			runTime:             43,
+			scheduleIntervalPct: scheduleIntervalPct,
+		},
+		{
+			numWorkers:  5,
+			timeUnitSec: .1,
+			intervals: []float64{
+				4,
+				7,
+				3,
+				5,
+				1,
+			},
+			execTimes: [][]float64{
+				{3, 5, 3, 3, 3, 3},
+				{6},
+				{2},
+				{4},
+				nil,
+			},
+			runTime:             43,
+			scheduleIntervalPct: scheduleIntervalPct,
+			wantIrregularIntervalMaxCount: []int{
+				2,
+				0,
+				0,
+				0,
+				0,
+			},
 		},
 	} {
 		t.Run(
