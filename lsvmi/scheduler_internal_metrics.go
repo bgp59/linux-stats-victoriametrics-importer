@@ -79,16 +79,14 @@ func (sim *SchedulerInternalMetrics) GenerateMetrics(buf *bytes.Buffer, fullCycl
 	tsSuffix := internalMetricsTimestampSuffixFn(sim.tsSuffixBuf)
 
 	crtStats, prevStats := sim.stats[crtStatsIndx], sim.stats[1-crtStatsIndx]
-	if prevStats == nil {
-		fullCycle = true
+	if fullCycle {
+		prevStats = nil
 	}
 
-	var prevTaskStats *TaskStats
+	var prevTaskStats *TaskStats = nil
 	for taskId, crtTaskStats := range crtStats {
-		if !fullCycle {
+		if prevStats != nil {
 			prevTaskStats = prevStats[taskId]
-		} else {
-			prevTaskStats = nil
 		}
 
 		uint64IndexMetricMap := sim.uint64MetricsCache[taskId]
@@ -105,8 +103,7 @@ func (sim *SchedulerInternalMetrics) GenerateMetrics(buf *bytes.Buffer, fullCycl
 			}
 		}
 
-		float64IndexMetricMap := sim.float64MetricsCache[taskId]
-		for index, metric := range float64IndexMetricMap {
+		for index, metric := range sim.float64MetricsCache[taskId] {
 			crtVal := crtTaskStats.float64Stats[index]
 			if prevTaskStats == nil || crtVal != prevTaskStats.float64Stats[index] {
 				buf.Write(metric)
