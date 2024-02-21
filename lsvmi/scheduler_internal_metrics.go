@@ -28,7 +28,7 @@ type SchedulerInternalMetrics struct {
 	// Cache the full metrics for each taskId and index:
 	uint64MetricsCache  map[string]taskStatsIndexMetricMap
 	float64MetricsCache map[string]taskStatsIndexMetricMap
-	// A buffer for the timestamp suffix, common to all metrics:
+	// A buffer for the timestamp suffix:
 	tsSuffixBuf *bytes.Buffer
 }
 
