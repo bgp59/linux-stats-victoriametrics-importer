@@ -15,6 +15,10 @@ import (
 )
 
 const (
+	LOGGER_CONFIG_USE_JSON_DEFAULT            = true
+	LOGGER_CONFIG_LEVEL_DEFAULT               = "info"
+	LOGGER_CONFIG_DISBALE_REPORT_FILE_DEFAULT = false
+
 	LOGGER_DEFAULT_LEVEL    = logrus.InfoLevel
 	LOGGER_TIMESTAMP_FORMAT = time.RFC3339Nano
 	// Extra field added for component sub loggers:
@@ -51,6 +55,14 @@ type LoggerConfig struct {
 	UseJson           bool   `yaml:"use_json"`
 	Level             string `yaml:"level"`
 	DisableReportFile bool   `yaml:"disable_report_file"`
+}
+
+func DefaultLoggerConfig() *LoggerConfig {
+	return &LoggerConfig{
+		UseJson:           LOGGER_CONFIG_USE_JSON_DEFAULT,
+		Level:             LOGGER_CONFIG_LEVEL_DEFAULT,
+		DisableReportFile: LOGGER_CONFIG_DISBALE_REPORT_FILE_DEFAULT,
+	}
 }
 
 var loggerUseJsonArg = NewBoolFlagCheckUsed(
@@ -218,16 +230,14 @@ func SetLogger(cfg any) error {
 			logCfg = cfg
 		case *LsvmiConfig:
 			logCfg = cfg.LoggerConfig
+		case nil:
+			logCfg = DefaultLoggerConfig()
 		default:
 			return fmt.Errorf("cfg: %T invalid type", cfg)
 		}
 	}
 
-	if loggerLevelArg.Used {
-		levelName = loggerLevelArg.Value
-	} else if logCfg != nil {
-		levelName = logCfg.Level
-	}
+	levelName = logCfg.Level
 	if levelName != "" {
 		level, err := logrus.ParseLevel(levelName)
 		if err != nil {
@@ -236,15 +246,13 @@ func SetLogger(cfg any) error {
 		Log.SetLevel(level)
 	}
 
-	if loggerUseJsonArg.Used && loggerUseJsonArg.Value ||
-		!loggerUseJsonArg.Used && logCfg != nil && logCfg.UseJson {
+	if loggerUseJsonArg.Value {
 		Log.SetFormatter(LogJsonFormatter)
+	} else {
+		Log.SetFormatter(LogTextFormatter)
 	}
 
-	if loggerDisableReportFileArg.Used && loggerDisableReportFileArg.Value ||
-		!loggerDisableReportFileArg.Used && logCfg != nil && logCfg.DisableReportFile {
-		Log.SetReportCaller(false)
-	}
+	Log.SetReportCaller(!logCfg.DisableReportFile)
 
 	return nil
 }

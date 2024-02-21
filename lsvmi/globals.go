@@ -3,7 +3,7 @@
 package lsvmi
 
 var (
-	GlobalConfig           *LsvmiConfig
+	GlobalLsvmiConfig      *LsvmiConfig
 	GlobalHttpEndpointPool *HttpEndpointPool
 	GlobalCompressorPool   *CompressorPool
 	GlobalMetricsQueue     MetricsQueue

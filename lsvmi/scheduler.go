@@ -93,6 +93,9 @@ const (
 	// How many times the task overran, i.e. its runtime >= interval:
 	TASK_STATS_OVERRUN_COUNT
 
+	// How many times the task was executed:
+	TASK_STATS_EXECUTED_COUNT
+
 	// Must be last:
 	TASK_STATS_UINT64_LEN
 )
@@ -102,6 +105,9 @@ const (
 
 	// Total run time, in seconds:
 	TASK_STATS_RUNTIME_SEC = iota
+
+	// Average run time, in seconds:
+	TASK_STATS_AVG_RUNTIME_SEC
 
 	// Must be last:
 	TASK_STATS_FLOAT64_LEN
@@ -324,7 +330,7 @@ func (scheduler *Scheduler) dispatcherLoop() {
 	)
 
 	taskQ, todoQ := scheduler.taskQ, scheduler.todoQ
-	stats := scheduler.stats
+	stats, mu := scheduler.stats, scheduler.mu
 	ctx := scheduler.ctx
 	for {
 		if !activeTimer && len(scheduler.tasks) > 0 {
@@ -350,7 +356,9 @@ func (scheduler *Scheduler) dispatcherLoop() {
 					taskNearestDeadline := task.lastExecuted.Add(SCHEDULER_TASK_MIN_EXECUTION_PAUSE)
 					if nextDeadline.Before(taskNearestDeadline) {
 						nextDeadline = taskNearestDeadline
+						mu.Lock()
 						stats[task.id].uint64Stats[TASK_STATS_DELAYED_COUNT] += 1
+						mu.Unlock()
 					}
 				}
 				task.deadline = nextDeadline
@@ -384,10 +392,12 @@ func (scheduler *Scheduler) dispatcherLoop() {
 		}
 
 		if task != nil {
+			mu.Lock()
 			if stats[task.id] == nil {
 				stats[task.id] = NewTaskStats()
 			}
 			stats[task.id].uint64Stats[TASK_STATS_SCHEDULED_COUNT] += 1
+			mu.Unlock()
 			todoQ <- task
 		}
 	}
@@ -402,7 +412,7 @@ func (scheduler *Scheduler) workerLoop(workerId int) {
 	}()
 
 	taskQ, todoQ := scheduler.taskQ, scheduler.todoQ
-	stats := scheduler.stats
+	stats, mu := scheduler.stats, scheduler.mu
 	ctx := scheduler.ctx
 	for {
 		select {
@@ -416,18 +426,22 @@ func (scheduler *Scheduler) workerLoop(workerId int) {
 			endTs := time.Now()
 			task.lastExecuted = endTs
 			runtime := endTs.Sub(startTs)
+			mu.Lock()
 			taskStats := stats[task.id]
 			if runtime >= task.interval {
 				taskStats.uint64Stats[TASK_STATS_OVERRUN_COUNT] += 1
 			}
+			taskStats.uint64Stats[TASK_STATS_EXECUTED_COUNT] += 1
 			taskStats.float64Stats[TASK_STATS_RUNTIME_SEC] += runtime.Seconds()
+			mu.Unlock()
 			task.addedByWorker = true
 			taskQ <- task
 		}
 	}
 }
 
-func (scheduler *Scheduler) SnapStats(to SchedulerStats) SchedulerStats {
+// Snap current stats. Optionally clear them, as a way of snapping deltas.
+func (scheduler *Scheduler) SnapStats(to SchedulerStats, clear bool) SchedulerStats {
 	if scheduler.stats == nil {
 		return nil
 	}
@@ -435,16 +449,29 @@ func (scheduler *Scheduler) SnapStats(to SchedulerStats) SchedulerStats {
 		to = make(SchedulerStats)
 	}
 	scheduler.mu.Lock()
+	defer scheduler.mu.Unlock()
 	for taskId, taskStats := range scheduler.stats {
 		toTaskStats := to[taskId]
 		if toTaskStats == nil {
 			toTaskStats = NewTaskStats()
 			to[taskId] = toTaskStats
 		}
-		copy(toTaskStats.uint64Stats, taskStats.uint64Stats)
-		copy(toTaskStats.float64Stats, taskStats.float64Stats)
+		for i, val := range taskStats.uint64Stats {
+			toTaskStats.uint64Stats[i] = val
+			if clear {
+				taskStats.uint64Stats[i] = 0
+			}
+		}
+		for i, val := range taskStats.float64Stats {
+			if i == TASK_STATS_AVG_RUNTIME_SEC {
+				val /= float64(toTaskStats.uint64Stats[TASK_STATS_EXECUTED_COUNT])
+			}
+			toTaskStats.float64Stats[i] = val
+			if clear {
+				taskStats.float64Stats[i] = 0
+			}
+		}
 	}
-	scheduler.mu.Unlock()
 	return to
 }
 

@@ -26,12 +26,36 @@ import (
 // 2. The object will be loaded from a YAML file, therefore all configuration
 //    parameters should be public and they should have tag annotations.
 
+const (
+	GLOBAL_CONFIG_INSTANCE_DEFAULT           = "lsvmi"
+	GLOBAL_CONFIG_USE_SHORT_HOSTNAME_DEFAULT = true
+)
+
 type LsvmiConfig struct {
+	GlobalConfig           *GlobalConfig           `yaml:"global_config"`
+	InternalMetricsConfig  *InternalMetricsConfig  `yaml:"internal_metrics_config"`
 	SchedulerConfig        *SchedulerConfig        `yaml:"scheduler_config"`
 	CompressorPoolConfig   *CompressorPoolConfig   `yaml:"compressor_pool_config"`
 	HttpEndpointPoolConfig *HttpEndpointPoolConfig `yaml:"http_endpoint_pool_config"`
 	LoggerConfig           *LoggerConfig           `yaml:"log_config"`
 }
+
+type GlobalConfig struct {
+	// All metrics have the instance and hostname labels.
+
+	// The instance name, default "lsvmi". It may be overridden by --instance
+	// command line arg.
+	Instance string `yaml:"instance"`
+
+	// Whether to use short hostname or not as the value for hostname label.
+	// Typically the hostname is determined from the hostname system call and if
+	// the flag below is in effect, it is stripped of domain part. However if
+	// the hostname is overridden by --hostname command line arg, that value is
+	// used as-is.
+	UseShortHostname bool `yaml:"use_short_hostname"`
+}
+
+var ErrConfigFileArgNotProvided = errors.New("config file arg not provided")
 
 var lsvmiConfigFile = flag.String(
 	"config",
@@ -39,10 +63,32 @@ var lsvmiConfigFile = flag.String(
 	`Config file to load`,
 )
 
-var ErrConfigFileArgNotProvided = errors.New("config file arg not provided")
+var hostnameArg = flag.String(
+	"hostname",
+	"",
+	FormatFlagUsage(`
+	Set the hostname to use as value for the metric label hostname. This
+	overrides the value returned by hostname syscall.
+	`),
+)
+
+var instanceArg = flag.String(
+	"instance",
+	"",
+	"Override the config `instance` setting",
+)
+
+func DefaultGlobalConfig() *GlobalConfig {
+	return &GlobalConfig{
+		Instance:         GLOBAL_CONFIG_INSTANCE_DEFAULT,
+		UseShortHostname: GLOBAL_CONFIG_USE_SHORT_HOSTNAME_DEFAULT,
+	}
+}
 
 func DefaultLsvmiConfig() *LsvmiConfig {
 	return &LsvmiConfig{
+		GlobalConfig:           DefaultGlobalConfig(),
+		InternalMetricsConfig:  DefaultInternalMetricsConfig(),
 		SchedulerConfig:        DefaultSchedulerConfig(),
 		CompressorPoolConfig:   DefaultCompressorPoolConfig(),
 		HttpEndpointPoolConfig: DefaultHttpEndpointPoolConfig(),
@@ -66,9 +112,24 @@ func LoadLsvmiConfig(cfgFile string) (*LsvmiConfig, error) {
 }
 
 func LoadLsvmiConfigFromArgs() (*LsvmiConfig, error) {
-	if *lsvmiConfigFile != "" {
-		return LoadLsvmiConfig(*lsvmiConfigFile)
-	} else {
+	if *lsvmiConfigFile == "" {
 		return nil, ErrConfigFileArgNotProvided
 	}
+	cfg, err := LoadLsvmiConfig(*lsvmiConfigFile)
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply command line overrides:
+	if *instanceArg != "" {
+		cfg.GlobalConfig.Instance = *instanceArg
+	}
+	if loggerUseJsonArg.Used {
+		cfg.LoggerConfig.UseJson = loggerUseJsonArg.Value
+	}
+	if loggerLevelArg.Used {
+		cfg.LoggerConfig.Level = loggerLevelArg.Value
+	}
+
+	return cfg, nil
 }

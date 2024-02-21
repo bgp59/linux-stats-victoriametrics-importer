@@ -2,6 +2,36 @@
 # desired values. The settings below are set for the default values.
 
 ###############################################
+# Global Parameters
+###############################################
+global_config:
+  # The instance name, default "lsvmi". It may be overridden by --instance
+  # command line arg.
+  instance: lsvmi
+
+  # Whether to use short hostname or not as the value for hostname label.
+  # Typically the hostname is determined from the hostname system call and if
+  # the flag below is in effect, it is stripped of domain part. However if
+  # the hostname is overridden by --hostname command line arg, that value is
+  # used as-is.
+  use_short_hostname: true
+
+# common to all ..._metrics_config:
+# # How often to generate the metrics in time.ParseDuration() format:
+# interval: 5s
+# # Normally metrics are generated only if there is a change in value from the
+# # previous scan. However every N cycles the full set is generated. Use 0 to
+# # fully generate  every cycle.
+# full_metrics_factor: 12
+
+###############################################
+# Internal Metrics
+###############################################
+internal_metrics_config:
+  interval: 5s
+  full_metrics_factor: 12
+
+###############################################
 # Scheduler
 ###############################################
 scheduler_config:
