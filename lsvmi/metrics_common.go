@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 )
 
 const (
@@ -52,9 +51,17 @@ type MetricsQueue interface {
 	GetTargetSize() int
 }
 
-var commonLabels []byte
-
 var commonMetricsLog = NewCompLogger("common_metrics")
+
+func buildMetricsCommonLabels(instance, hostname string) []byte {
+	return []byte(
+		fmt.Sprintf(
+			`%s="%s",%s="%s"`,
+			INSTANCE_LABEL_NAME, instance,
+			HOSTNAME_LABEL_NAME, hostname,
+		),
+	)
+}
 
 func InitCommonMetrics(cfg any) error {
 	var (
@@ -92,33 +99,8 @@ func InitCommonMetrics(cfg any) error {
 		}
 	}
 
-	commonLabels = []byte(
-		fmt.Sprintf(
-			`%s="%s",%s="%s"`,
-			INSTANCE_LABEL_NAME, globalCfg.Instance,
-			HOSTNAME_LABEL_NAME, hostname,
-		),
-	)
-
-	commonMetricsLog.Infof("common labels='%s'", commonLabels)
+	GlobalMetricsCommonLabels = buildMetricsCommonLabels(globalCfg.Instance, hostname)
+	commonMetricsLog.Infof("common labels='%s'", GlobalMetricsCommonLabels)
 
 	return nil
-}
-
-// Prometheus metrics end with the UTC timestamps in milliseconds + new line.
-// Commonly the timestamp is common to multiple metrics derived from a set of
-// stats collected together, so it can be reused. The following function
-// generates such a suffix ready to be appended as-is after the value.
-
-type BuildMetricsTimestampSuffixFunc func(*bytes.Buffer) []byte
-
-func BuildMetricsTimestampSuffix(buf *bytes.Buffer) []byte {
-	now := time.Now()
-	if buf == nil {
-		buf = &bytes.Buffer{}
-	} else {
-		buf.Reset()
-	}
-	fmt.Fprintf(buf, " %d\n", now.UnixMilli())
-	return buf.Bytes()
 }

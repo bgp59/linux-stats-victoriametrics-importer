@@ -24,7 +24,3 @@ func DefaultInternalMetricsConfig() *InternalMetricsConfig {
 		FullMetricsFactor: INTERNAL_METRICS_CONFIG_FULL_METRICS_FACTOR_DEFAULT,
 	}
 }
-
-// The following variables are needed for mocking during testing:
-var internalMetricsTimestampSuffixFn = BuildMetricsTimestampSuffix
-var internalMetricsScheduler = GlobalScheduler

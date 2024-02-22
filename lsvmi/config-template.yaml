@@ -21,7 +21,7 @@ global_config:
 # interval: 5s
 # # Normally metrics are generated only if there is a change in value from the
 # # previous scan. However every N cycles the full set is generated. Use 0 to
-# # fully generate  every cycle.
+# # fully generate with every cycle.
 # full_metrics_factor: 12
 
 ###############################################

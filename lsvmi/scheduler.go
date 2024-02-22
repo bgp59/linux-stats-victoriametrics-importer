@@ -153,6 +153,8 @@ type Scheduler struct {
 	state SchedulerState
 	// Stats:
 	stats SchedulerStats
+	// Convenience zero filled stats, to be used for clearing prev stats:
+	zeroTaskStats *TaskStats
 	// General purpose lock for atomic operations: check task `scheduled` flag,
 	// scheduler's `state`, etc. The lock is shared because the contention is
 	// minimal, it doesn't make sense to use individual lock.
@@ -228,16 +230,17 @@ func NewScheduler(cfg any) (*Scheduler, error) {
 
 	ctx, cancelFn := context.WithCancel(context.Background())
 	scheduler := &Scheduler{
-		tasks:      make([]*Task, 0),
-		taskQ:      make(chan *Task, SCHEDULER_TASK_Q_LEN),
-		todoQ:      make(chan *Task, SCHEDULER_TODO_Q_LEN),
-		numWorkers: numWorkers,
-		stats:      make(SchedulerStats),
-		state:      SchedulerStateCreated,
-		mu:         &sync.Mutex{},
-		ctx:        ctx,
-		cancelFn:   cancelFn,
-		wg:         &sync.WaitGroup{},
+		tasks:         make([]*Task, 0),
+		taskQ:         make(chan *Task, SCHEDULER_TASK_Q_LEN),
+		todoQ:         make(chan *Task, SCHEDULER_TODO_Q_LEN),
+		numWorkers:    numWorkers,
+		stats:         make(SchedulerStats),
+		zeroTaskStats: NewTaskStats(),
+		state:         SchedulerStateCreated,
+		mu:            &sync.Mutex{},
+		ctx:           ctx,
+		cancelFn:      cancelFn,
+		wg:            &sync.WaitGroup{},
 	}
 
 	schedulerLog.Infof("num_workers=%d", scheduler.numWorkers)
@@ -450,26 +453,24 @@ func (scheduler *Scheduler) SnapStats(to SchedulerStats, clear bool) SchedulerSt
 	}
 	scheduler.mu.Lock()
 	defer scheduler.mu.Unlock()
+	zeroTaskStats := scheduler.zeroTaskStats
 	for taskId, taskStats := range scheduler.stats {
 		toTaskStats := to[taskId]
 		if toTaskStats == nil {
 			toTaskStats = NewTaskStats()
 			to[taskId] = toTaskStats
 		}
-		for i, val := range taskStats.uint64Stats {
-			toTaskStats.uint64Stats[i] = val
-			if clear {
-				taskStats.uint64Stats[i] = 0
-			}
+		copy(toTaskStats.uint64Stats, taskStats.uint64Stats)
+		copy(toTaskStats.float64Stats, taskStats.float64Stats)
+		n := toTaskStats.uint64Stats[TASK_STATS_EXECUTED_COUNT]
+		if n > 0 {
+			toTaskStats.float64Stats[TASK_STATS_AVG_RUNTIME_SEC] = taskStats.float64Stats[TASK_STATS_RUNTIME_SEC] / float64(n)
+		} else {
+			toTaskStats.float64Stats[TASK_STATS_AVG_RUNTIME_SEC] = 0
 		}
-		for i, val := range taskStats.float64Stats {
-			if i == TASK_STATS_AVG_RUNTIME_SEC {
-				val /= float64(toTaskStats.uint64Stats[TASK_STATS_EXECUTED_COUNT])
-			}
-			toTaskStats.float64Stats[i] = val
-			if clear {
-				taskStats.float64Stats[i] = 0
-			}
+		if clear {
+			copy(taskStats.uint64Stats, zeroTaskStats.uint64Stats)
+			copy(taskStats.float64Stats, zeroTaskStats.float64Stats)
 		}
 	}
 	return to
