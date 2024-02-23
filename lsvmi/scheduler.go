@@ -81,7 +81,7 @@ const (
 )
 
 const (
-	// Indexes into Scheduler.stats.[id].uint64Stats
+	// Indexes into Scheduler.stats.[id].Uint64Stats
 
 	// How many times the task was scheduled:
 	TASK_STATS_SCHEDULED_COUNT = iota
@@ -101,7 +101,7 @@ const (
 )
 
 const (
-	// Indexes into Scheduler.stats.[id].float64Stats
+	// Indexes into Scheduler.stats.[id].Float64Stats
 
 	// Total run time, in seconds:
 	TASK_STATS_RUNTIME_SEC = iota
@@ -136,8 +136,8 @@ type Task struct {
 }
 
 type TaskStats struct {
-	uint64Stats  []uint64
-	float64Stats []float64
+	Uint64Stats  []uint64
+	Float64Stats []float64
 }
 
 type SchedulerStats map[string]*TaskStats
@@ -202,8 +202,8 @@ func NewTask(id string, interval time.Duration, action TaskAction) *Task {
 
 func NewTaskStats() *TaskStats {
 	return &TaskStats{
-		uint64Stats:  make([]uint64, TASK_STATS_UINT64_LEN),
-		float64Stats: make([]float64, TASK_STATS_FLOAT64_LEN),
+		Uint64Stats:  make([]uint64, TASK_STATS_UINT64_LEN),
+		Float64Stats: make([]float64, TASK_STATS_FLOAT64_LEN),
 	}
 }
 
@@ -360,7 +360,7 @@ func (scheduler *Scheduler) dispatcherLoop() {
 					if nextDeadline.Before(taskNearestDeadline) {
 						nextDeadline = taskNearestDeadline
 						mu.Lock()
-						stats[task.id].uint64Stats[TASK_STATS_DELAYED_COUNT] += 1
+						stats[task.id].Uint64Stats[TASK_STATS_DELAYED_COUNT] += 1
 						mu.Unlock()
 					}
 				}
@@ -399,7 +399,7 @@ func (scheduler *Scheduler) dispatcherLoop() {
 			if stats[task.id] == nil {
 				stats[task.id] = NewTaskStats()
 			}
-			stats[task.id].uint64Stats[TASK_STATS_SCHEDULED_COUNT] += 1
+			stats[task.id].Uint64Stats[TASK_STATS_SCHEDULED_COUNT] += 1
 			mu.Unlock()
 			todoQ <- task
 		}
@@ -432,10 +432,10 @@ func (scheduler *Scheduler) workerLoop(workerId int) {
 			mu.Lock()
 			taskStats := stats[task.id]
 			if runtime >= task.interval {
-				taskStats.uint64Stats[TASK_STATS_OVERRUN_COUNT] += 1
+				taskStats.Uint64Stats[TASK_STATS_OVERRUN_COUNT] += 1
 			}
-			taskStats.uint64Stats[TASK_STATS_EXECUTED_COUNT] += 1
-			taskStats.float64Stats[TASK_STATS_RUNTIME_SEC] += runtime.Seconds()
+			taskStats.Uint64Stats[TASK_STATS_EXECUTED_COUNT] += 1
+			taskStats.Float64Stats[TASK_STATS_RUNTIME_SEC] += runtime.Seconds()
 			mu.Unlock()
 			task.addedByWorker = true
 			taskQ <- task
@@ -460,17 +460,17 @@ func (scheduler *Scheduler) SnapStats(to SchedulerStats, clear bool) SchedulerSt
 			toTaskStats = NewTaskStats()
 			to[taskId] = toTaskStats
 		}
-		copy(toTaskStats.uint64Stats, taskStats.uint64Stats)
-		copy(toTaskStats.float64Stats, taskStats.float64Stats)
-		n := toTaskStats.uint64Stats[TASK_STATS_EXECUTED_COUNT]
+		copy(toTaskStats.Uint64Stats, taskStats.Uint64Stats)
+		copy(toTaskStats.Float64Stats, taskStats.Float64Stats)
+		n := toTaskStats.Uint64Stats[TASK_STATS_EXECUTED_COUNT]
 		if n > 0 {
-			toTaskStats.float64Stats[TASK_STATS_AVG_RUNTIME_SEC] = taskStats.float64Stats[TASK_STATS_RUNTIME_SEC] / float64(n)
+			toTaskStats.Float64Stats[TASK_STATS_AVG_RUNTIME_SEC] = taskStats.Float64Stats[TASK_STATS_RUNTIME_SEC] / float64(n)
 		} else {
-			toTaskStats.float64Stats[TASK_STATS_AVG_RUNTIME_SEC] = 0
+			toTaskStats.Float64Stats[TASK_STATS_AVG_RUNTIME_SEC] = 0
 		}
 		if clear {
-			copy(taskStats.uint64Stats, zeroTaskStats.uint64Stats)
-			copy(taskStats.float64Stats, zeroTaskStats.float64Stats)
+			copy(taskStats.Uint64Stats, zeroTaskStats.Uint64Stats)
+			copy(taskStats.Float64Stats, zeroTaskStats.Float64Stats)
 		}
 	}
 	return to

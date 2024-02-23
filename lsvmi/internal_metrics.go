@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+var internalMetricsLog = NewCompLogger("internal_metrics")
+
 // Generate internal metrics:
 const (
 	INTERNAL_METRICS_CONFIG_INTERVAL_DEFAULT            = "5s"
@@ -96,6 +98,14 @@ func NewInternalMetrics(cfg any) (*InternalMetrics, error) {
 	return internalMetrics, nil
 }
 
+func (internalMetrics *InternalMetrics) getTsSuffix() []byte {
+	timeNowFn := time.Now
+	if internalMetrics.timeNowFn != nil {
+		timeNowFn = internalMetrics.timeNowFn
+	}
+	return []byte(fmt.Sprintf(" %d\n", timeNowFn().UnixMilli()))
+}
+
 // Satisfy the TaskActivity interface:
 func (internalMetrics *InternalMetrics) Execute() {
 	timeNowFn := time.Now
@@ -113,8 +123,16 @@ func (internalMetrics *InternalMetrics) Execute() {
 	metricsCount := 0
 	buf := metricsQueue.GetBuf()
 
-	// Scheduler metrics:
-	metricsCount += internalMetrics.schedulerMetrics.GenerateMetrics(buf, fullCycle)
+	// Collect stats from various sources:
+	// Scheduler:
+	scheduler, schedulerMetrics := GlobalScheduler, internalMetrics.schedulerMetrics
+	if internalMetrics.scheduler != nil {
+		scheduler = internalMetrics.scheduler
+	}
+	schedulerMetrics.stats[schedulerMetrics.crtStatsIndx] = scheduler.SnapStats(
+		schedulerMetrics.stats[schedulerMetrics.crtStatsIndx],
+		STATS_SNAP_AND_CLEAR,
+	)
 
 	// Common metrics generators metrics:
 	mgsStatsContainer := GlobalMetricsGeneratorStatsContainer
@@ -122,10 +140,16 @@ func (internalMetrics *InternalMetrics) Execute() {
 		mgsStatsContainer = internalMetrics.mgsStatsContainer
 	}
 	mgsStatsContainer.SnapStats(internalMetrics.mgStats, STATS_SNAP_AND_CLEAR)
+
+	// Timestamp when all stats were collected:
 	ts := timeNowFn()
 	internalMetrics.tsSuffixBuf.Reset()
 	fmt.Fprintf(internalMetrics.tsSuffixBuf, " %d\n", ts.UnixMilli())
 	tsSuffix := internalMetrics.tsSuffixBuf.Bytes()
+
+	// Generate metrics from the collected stats:
+	metricsCount += schedulerMetrics.generateMetrics(buf, fullCycle, tsSuffix)
+
 	for id, mgStats := range internalMetrics.mgStats {
 		metrics := internalMetrics.mgStatsMetricsCache[id]
 		if metrics == nil {
@@ -193,6 +217,12 @@ func InternalMetricsTaskBuilder(cfg *LsvmiConfig) ([]*Task, error) {
 	internalMetrics, err := NewInternalMetrics(cfg)
 	if err != nil {
 		return nil, err
+	}
+	if internalMetrics.interval <= 0 {
+		internalMetricsLog.Infof(
+			"interval=%s, metrics disabled", internalMetrics.interval,
+		)
+		return nil, nil
 	}
 	tasks := []*Task{
 		NewTask(internalMetrics.id, internalMetrics.interval, internalMetrics),

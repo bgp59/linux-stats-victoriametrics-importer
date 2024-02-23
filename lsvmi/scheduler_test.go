@@ -150,12 +150,12 @@ func testSchedulerExecute(tc *SchedulerExecuteTestCase, t *testing.T) {
 				)
 			}
 		}
-		if taskStats.uint64Stats[TASK_STATS_OVERRUN_COUNT] > uint64(wantIrregularIntervalMaxCount) {
+		if taskStats.Uint64Stats[TASK_STATS_OVERRUN_COUNT] > uint64(wantIrregularIntervalMaxCount) {
 			fmt.Fprintf(
 				errBuf,
 				"\ntask %s TASK_STATS_OVERRUN_COUNT: want max: %d, got: %d",
 				task.id, wantIrregularIntervalMaxCount,
-				taskStats.uint64Stats[TASK_STATS_OVERRUN_COUNT],
+				taskStats.Uint64Stats[TASK_STATS_OVERRUN_COUNT],
 			)
 		}
 
@@ -248,7 +248,9 @@ func TestSchedulerExecute(t *testing.T) {
 	} {
 		t.Run(
 			"",
-			func(t *testing.T) { testSchedulerExecute(tc, t) },
+			func(t *testing.T) {
+				testSchedulerExecute(tc, t)
+			},
 		)
 	}
 }
