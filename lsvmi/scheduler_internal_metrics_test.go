@@ -11,59 +11,56 @@ import (
 	"github.com/eparparita/linux-stats-victoriametrics-importer/internal/testutils"
 )
 
-type SchedulerInternalMetricsTestWantTaskStatsIndex struct {
+type SchedIMTestWantTaskStatsIndex struct {
 	uint64Index, float64Index []int
 }
 
-type SchedulerInternalMetricsTestCase struct {
+type SchedIMTestCase struct {
 	instance            string
 	hostname            string
 	promTs              int64
 	fullCycle           bool
 	crtStats, prevStats SchedulerStats
-	wantIndex           map[string]*SchedulerInternalMetricsTestWantTaskStatsIndex
+	wantIndex           map[string]*SchedIMTestWantTaskStatsIndex
 	wantMetricsCount    int
 	reportExtra         bool
 }
 
-var schedulerInternalMetricsTestUint64Fmts = map[int]string{
-	TASK_STATS_SCHEDULED_COUNT: fmt.Sprintf(
-		`%s{%s="%%s",%s="%%s",%s="%%s"} %%d %%d`,
-		TASK_STATS_SCHEDULED_COUNT_DELTA_METRIC, INSTANCE_LABEL_NAME, HOSTNAME_LABEL_NAME, TASK_STATS_TASK_ID_LABEL_NAME,
-	),
-	TASK_STATS_DELAYED_COUNT: fmt.Sprintf(
-		`%s{%s="%%s",%s="%%s",%s="%%s"} %%d %%d`,
-		TASK_STATS_DELAYED_COUNT_DELTA_METRIC, INSTANCE_LABEL_NAME, HOSTNAME_LABEL_NAME, TASK_STATS_TASK_ID_LABEL_NAME,
-	),
-	TASK_STATS_OVERRUN_COUNT: fmt.Sprintf(
-		`%s{%s="%%s",%s="%%s",%s="%%s"} %%d %%d`,
-		TASK_STATS_OVERRUN_COUNT_DELTA_METRIC, INSTANCE_LABEL_NAME, HOSTNAME_LABEL_NAME, TASK_STATS_TASK_ID_LABEL_NAME,
-	),
-	TASK_STATS_EXECUTED_COUNT: fmt.Sprintf(
-		`%s{%s="%%s",%s="%%s",%s="%%s"} %%d %%d`,
-		TASK_STATS_EXECUTED_COUNT_DELTA_METRIC, INSTANCE_LABEL_NAME, HOSTNAME_LABEL_NAME, TASK_STATS_TASK_ID_LABEL_NAME,
-	),
-}
+// The following are redefined here to detect unwanted changes in the code:
+var (
+	schedIMTestInstLbl   = "inst"
+	schedIMTestHostLbl   = "node"
+	schedIMTestTaskIdLbl = "task_id"
 
-var schedulerInternalMetricsTestFloat64Fmts = map[int]string{
-	TASK_STATS_AVG_RUNTIME_SEC: fmt.Sprintf(
-		`%s{%s="%%s",%s="%%s",%s="%%s"} %%.6f %%d`,
-		TASK_STATS_AVG_RUNTIME_SEC_METRIC, INSTANCE_LABEL_NAME, HOSTNAME_LABEL_NAME, TASK_STATS_TASK_ID_LABEL_NAME,
-	),
-}
-
-func newTestSchedulerInternalMetrics(
-	instance, hostname string,
-	timeNowFn func() time.Time,
-	scheduler *Scheduler,
-) *SchedulerInternalMetrics {
-	sim := NewSchedulerInternalMetrics()
-	if instance != "" && hostname != "" {
-		sim.metricsCommonLabels = buildMetricsCommonLabels(instance, hostname)
+	schedIMTestUint64MetricName = map[int]string{
+		TASK_STATS_SCHEDULED_COUNT: "lsvmi_task_scheduled_delta",
+		TASK_STATS_DELAYED_COUNT:   "lsvmi_task_delayed_delta",
+		TASK_STATS_OVERRUN_COUNT:   "lsvmi_task_overrun_delta",
+		TASK_STATS_EXECUTED_COUNT:  "lsvmi_task_executed_delta",
 	}
-	sim.timeNowFn = timeNowFn
-	sim.scheduler = scheduler
-	return sim
+
+	schedIMTestFloat4MetricName = map[int]string{
+		TASK_STATS_AVG_RUNTIME_SEC: "lsvmi_task_avg_runtime_sec",
+	}
+)
+
+func newTestSchedulerInternalMetrics(tc *SchedIMTestCase) (*InternalMetrics, error) {
+	internalMetrics, err := NewInternalMetrics(nil)
+	if err != nil {
+		return nil, err
+	}
+	scheduler, err := NewScheduler(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	internalMetrics.instance = tc.instance
+	internalMetrics.hostname = tc.hostname
+	timeNowRetVal := time.UnixMilli(tc.promTs)
+	internalMetrics.timeNowFn = func() time.Time { return timeNowRetVal }
+	internalMetrics.scheduler = scheduler
+
+	return internalMetrics, nil
 }
 
 func duplicateTestSchedulerStats(stats SchedulerStats) SchedulerStats {
@@ -77,23 +74,17 @@ func duplicateTestSchedulerStats(stats SchedulerStats) SchedulerStats {
 	return dupStats
 }
 
-func testSchedulerInternalMetrics(tc *SchedulerInternalMetricsTestCase, t *testing.T) {
+func testSchedulerInternalMetrics(tc *SchedIMTestCase, t *testing.T) {
 	tlc := testutils.NewTestingLogCollect(t, Log, nil)
 	defer tlc.RestoreLog()
 
-	testScheduler, err := NewScheduler(nil)
+	internalMetrics, err := newTestSchedulerInternalMetrics(tc)
 	if err != nil {
 		tlc.Fatal(err)
 	}
-	timeNowRetVal := time.UnixMilli(tc.promTs)
-	schedulerInternalMetrics := newTestSchedulerInternalMetrics(
-		tc.instance, tc.hostname,
-		func() time.Time { return timeNowRetVal },
-		testScheduler,
-	)
+	schedulerInternalMetrics := internalMetrics.schedulerMetrics
 	schedulerInternalMetrics.stats[1-schedulerInternalMetrics.crtStatsIndx] = tc.prevStats
-
-	testScheduler.stats = duplicateTestSchedulerStats(tc.crtStats)
+	internalMetrics.scheduler.stats = duplicateTestSchedulerStats(tc.crtStats)
 	testMetricsQueue := testutils.NewTestMetricsQueue(0)
 
 	buf := testMetricsQueue.GetBuf()
@@ -117,8 +108,12 @@ func testSchedulerInternalMetrics(tc *SchedulerInternalMetricsTestCase, t *testi
 			taskUint64Stats := tc.crtStats[taskId].uint64Stats
 			for _, indx := range wantsTaskStatsIndex.uint64Index {
 				metric := fmt.Sprintf(
-					schedulerInternalMetricsTestUint64Fmts[indx],
-					tc.instance, tc.hostname, taskId, taskUint64Stats[indx], tc.promTs,
+					`%s{%s="%s",%s="%s",%s="%s"} %d %d`,
+					schedIMTestUint64MetricName[indx],
+					schedIMTestInstLbl, tc.instance,
+					schedIMTestHostLbl, tc.hostname,
+					schedIMTestTaskIdLbl, taskId,
+					taskUint64Stats[indx], tc.promTs,
 				)
 				wantMetrics = append(wantMetrics, metric)
 			}
@@ -127,8 +122,12 @@ func testSchedulerInternalMetrics(tc *SchedulerInternalMetricsTestCase, t *testi
 			taskFloat64Stats := tc.crtStats[taskId].float64Stats
 			for _, indx := range wantsTaskStatsIndex.float64Index {
 				metric := fmt.Sprintf(
-					schedulerInternalMetricsTestFloat64Fmts[indx],
-					tc.instance, tc.hostname, taskId, taskFloat64Stats[indx], tc.promTs,
+					`%s{%s="%s",%s="%s",%s="%s"} %.6f %d`,
+					schedIMTestFloat4MetricName[indx],
+					schedIMTestInstLbl, tc.instance,
+					schedIMTestHostLbl, tc.hostname,
+					schedIMTestTaskIdLbl, taskId,
+					taskFloat64Stats[indx], tc.promTs,
 				)
 				wantMetrics = append(wantMetrics, metric)
 			}
@@ -147,7 +146,7 @@ func TestSchedulerInternalMetrics(t *testing.T) {
 	hostname := "lsvmi-test"
 	promTs := int64(123456789000)
 
-	for _, tc := range []*SchedulerInternalMetricsTestCase{
+	for _, tc := range []*SchedIMTestCase{
 		{
 			instance: instance,
 			hostname: hostname,
@@ -159,7 +158,7 @@ func TestSchedulerInternalMetrics(t *testing.T) {
 				},
 			},
 			wantMetricsCount: 5,
-			wantIndex: map[string]*SchedulerInternalMetricsTestWantTaskStatsIndex{
+			wantIndex: map[string]*SchedIMTestWantTaskStatsIndex{
 				"taskA": {
 					uint64Index:  []int{0, 1, 2, 3},
 					float64Index: []int{1},
@@ -185,7 +184,7 @@ func TestSchedulerInternalMetrics(t *testing.T) {
 				},
 			},
 			wantMetricsCount: 5,
-			wantIndex: map[string]*SchedulerInternalMetricsTestWantTaskStatsIndex{
+			wantIndex: map[string]*SchedIMTestWantTaskStatsIndex{
 				"taskA": {
 					uint64Index:  []int{0, 1, 2, 3},
 					float64Index: []int{1},
@@ -231,7 +230,7 @@ func TestSchedulerInternalMetrics(t *testing.T) {
 				},
 			},
 			wantMetricsCount: 1,
-			wantIndex: map[string]*SchedulerInternalMetricsTestWantTaskStatsIndex{
+			wantIndex: map[string]*SchedIMTestWantTaskStatsIndex{
 				"taskA": {
 					uint64Index: []int{0},
 				},
@@ -256,7 +255,7 @@ func TestSchedulerInternalMetrics(t *testing.T) {
 				},
 			},
 			wantMetricsCount: 1,
-			wantIndex: map[string]*SchedulerInternalMetricsTestWantTaskStatsIndex{
+			wantIndex: map[string]*SchedIMTestWantTaskStatsIndex{
 				"taskA": {
 					uint64Index: []int{1},
 				},
@@ -285,7 +284,7 @@ func TestSchedulerInternalMetrics(t *testing.T) {
 				},
 			},
 			wantMetricsCount: 7,
-			wantIndex: map[string]*SchedulerInternalMetricsTestWantTaskStatsIndex{
+			wantIndex: map[string]*SchedIMTestWantTaskStatsIndex{
 				"taskA": {
 					uint64Index:  []int{0, 1, 2, 3},
 					float64Index: []int{1},

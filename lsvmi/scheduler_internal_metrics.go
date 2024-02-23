@@ -22,6 +22,8 @@ const (
 type taskStatsIndexMetricMap map[int][]byte
 
 type SchedulerInternalMetrics struct {
+	// Internal metrics, for common values:
+	internalMetrics *InternalMetrics
 	// Dual buffer holding current, previous delta stats:
 	stats [2]SchedulerStats
 	// Which one is current:
@@ -31,11 +33,6 @@ type SchedulerInternalMetrics struct {
 	float64MetricsCache map[string]taskStatsIndexMetricMap
 	// A buffer for the timestamp suffix:
 	tsSuffixBuf *bytes.Buffer
-	// The following are needed for testing, if nil they default to the usual
-	// common values:
-	metricsCommonLabels []byte
-	timeNowFn           func() time.Time
-	scheduler           *Scheduler
 }
 
 var taskStatsUint64MetricsNameMap = map[int]string{
@@ -49,8 +46,9 @@ var taskStatsFloat64MetricsNameMap = map[int]string{
 	TASK_STATS_AVG_RUNTIME_SEC: TASK_STATS_AVG_RUNTIME_SEC_METRIC,
 }
 
-func NewSchedulerInternalMetrics() *SchedulerInternalMetrics {
+func NewSchedulerInternalMetrics(internalMetrics *InternalMetrics) *SchedulerInternalMetrics {
 	return &SchedulerInternalMetrics{
+		internalMetrics:     internalMetrics,
 		uint64MetricsCache:  make(map[string]taskStatsIndexMetricMap),
 		float64MetricsCache: make(map[string]taskStatsIndexMetricMap),
 		tsSuffixBuf:         &bytes.Buffer{},
@@ -58,15 +56,22 @@ func NewSchedulerInternalMetrics() *SchedulerInternalMetrics {
 }
 
 func (sim *SchedulerInternalMetrics) updateMetricsCache(taskId string) {
-	metricsCommonLabels := GlobalMetricsCommonLabels
-	if sim.metricsCommonLabels != nil {
-		metricsCommonLabels = sim.metricsCommonLabels
+	instance, hostname := GlobalInstance, GlobalHostname
+	if sim.internalMetrics.instance != "" {
+		instance = sim.internalMetrics.instance
 	}
+	if sim.internalMetrics.hostname != "" {
+		hostname = sim.internalMetrics.hostname
+	}
+
 	indexMetricMap := make(taskStatsIndexMetricMap)
 	for index, name := range taskStatsUint64MetricsNameMap {
 		metric := fmt.Sprintf(
-			`%s{%s,%s="%s"} `, // N.B. include the whitespace separating the metric from value
-			name, metricsCommonLabels, TASK_STATS_TASK_ID_LABEL_NAME, taskId,
+			`%s{%s="%s",%s="%s",%s="%s"} `, // N.B. include the whitespace separating the metric from value
+			name,
+			INSTANCE_LABEL_NAME, instance,
+			HOSTNAME_LABEL_NAME, hostname,
+			TASK_STATS_TASK_ID_LABEL_NAME, taskId,
 		)
 		indexMetricMap[index] = []byte(metric)
 	}
@@ -75,8 +80,11 @@ func (sim *SchedulerInternalMetrics) updateMetricsCache(taskId string) {
 	indexMetricMap = make(taskStatsIndexMetricMap)
 	for index, name := range taskStatsFloat64MetricsNameMap {
 		metric := fmt.Sprintf(
-			`%s{%s,%s="%s"} `, // N.B. include the whitespace separating the metric from value
-			name, metricsCommonLabels, TASK_STATS_TASK_ID_LABEL_NAME, taskId,
+			`%s{%s="%s",%s="%s",%s="%s"} `, // N.B. include the whitespace separating the metric from value
+			name,
+			INSTANCE_LABEL_NAME, instance,
+			HOSTNAME_LABEL_NAME, hostname,
+			TASK_STATS_TASK_ID_LABEL_NAME, taskId,
 		)
 		indexMetricMap[index] = []byte(metric)
 	}
@@ -85,11 +93,11 @@ func (sim *SchedulerInternalMetrics) updateMetricsCache(taskId string) {
 
 func (sim *SchedulerInternalMetrics) GenerateMetrics(buf *bytes.Buffer, fullCycle bool) int {
 	scheduler, timeNowFn := GlobalScheduler, time.Now
-	if sim.scheduler != nil {
-		scheduler = sim.scheduler
+	if sim.internalMetrics.scheduler != nil {
+		scheduler = sim.internalMetrics.scheduler
 	}
-	if sim.timeNowFn != nil {
-		timeNowFn = sim.timeNowFn
+	if sim.internalMetrics.timeNowFn != nil {
+		timeNowFn = sim.internalMetrics.timeNowFn
 	}
 
 	crtStatsIndx := sim.crtStatsIndx

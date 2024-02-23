@@ -52,6 +52,7 @@ func main() {
 	if err != nil {
 		mainLog.Fatal(err)
 	}
+	lsvmi.GlobalScheduler.Start()
 	defer lsvmi.GlobalScheduler.Shutdown()
 
 	// Metrics queue:
@@ -67,6 +68,7 @@ func main() {
 		if err != nil {
 			mainLog.Fatal(err)
 		}
+		lsvmi.GlobalCompressorPool.Start(lsvmi.GlobalHttpEndpointPool)
 		defer lsvmi.GlobalCompressorPool.Shutdown()
 
 		lsvmi.GlobalMetricsQueue = lsvmi.GlobalCompressorPool
@@ -88,6 +90,21 @@ func main() {
 	err = lsvmi.InitCommonMetrics(lsvmi.GlobalLsvmiConfig)
 	if err != nil {
 		mainLog.Fatal(err)
+	}
+
+	taskList := make([]*lsvmi.Task, 0)
+	for _, tb := range lsvmi.TaskBuilders.List() {
+		tasks, err := tb(lsvmi.GlobalLsvmiConfig)
+		if err != nil {
+			mainLog.Fatal(err)
+		}
+		if len(tasks) > 0 {
+			taskList = append(taskList, tasks...)
+		}
+	}
+
+	for _, task := range taskList {
+		lsvmi.GlobalScheduler.AddNewTask(task)
 	}
 
 	// Block until a signal is received:

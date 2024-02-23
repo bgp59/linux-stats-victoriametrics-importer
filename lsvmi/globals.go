@@ -3,10 +3,12 @@
 package lsvmi
 
 var (
-	GlobalLsvmiConfig         *LsvmiConfig
-	GlobalHttpEndpointPool    *HttpEndpointPool
-	GlobalCompressorPool      *CompressorPool
-	GlobalMetricsQueue        MetricsQueue
-	GlobalScheduler           *Scheduler
-	GlobalMetricsCommonLabels []byte
+	GlobalLsvmiConfig                    *LsvmiConfig
+	GlobalHttpEndpointPool               *HttpEndpointPool
+	GlobalCompressorPool                 *CompressorPool
+	GlobalMetricsQueue                   MetricsQueue
+	GlobalScheduler                      *Scheduler
+	GlobalInstance                       string
+	GlobalHostname                       string
+	GlobalMetricsGeneratorStatsContainer *MetricsGeneratorStatsContainer
 )
