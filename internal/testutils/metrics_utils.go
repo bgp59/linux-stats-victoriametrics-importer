@@ -51,7 +51,7 @@ func (mq *TestMetricsQueue) GenerateReport(wantMetrics []string, reportExtra boo
 	for _, wantMetric := range wantMetrics {
 		wantMetric = strings.TrimSpace(wantMetric)
 		if mq.metrics[wantMetric] == 0 {
-			fmt.Fprintf(errBuf, "\nmissing metric: %s", wantMetric)
+			fmt.Fprintf(errBuf, "\n   missing metric: %s", wantMetric)
 		} else {
 			foundMetrics[wantMetric] = true
 		}

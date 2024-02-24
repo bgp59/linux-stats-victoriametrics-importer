@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-func LoadJsonFile(fileName string, obj interface{}) error {
+func LoadJsonFile(fileName string, obj any) error {
 	fileIo, err := os.Open(fileName)
 	if err != nil {
 		return err

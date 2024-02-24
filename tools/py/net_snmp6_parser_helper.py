@@ -25,17 +25,14 @@ if __name__ == "__main__":
     proto_vars_list = []
 
     with open(args.net_snmp6_file) as f:
-        variables = [
-            line.split()[0]
-            for line in f
-        ]
+        variables = [line.split()[0] for line in f]
 
     # Index list and map:
     index_list = []
     index_map = {}
     for var in variables:
         # UDPLite -> UDPlite:
-        index = re.sub('Lite', 'lite', var)
+        index = re.sub("Lite", "lite", var)
         # CamelCase -> CAMEL_CASE:
         index = re.sub(r"([a-z6])([A-Z])", r"\1_\2", index).upper()
         # Known exceptions:
@@ -67,11 +64,7 @@ if __name__ == "__main__":
             needs_iota = False
         else:
             print(f"\t{index}")
-    print(
-        "\n"
-        + "\t// Must be last:\n"
-        + f"\t{index_prefix}NUM_VALUES"
-    )
+    print("\n" + "\t// Must be last:\n" + f"\t{index_prefix}NUM_VALUES")
     print(")")
     print()
 

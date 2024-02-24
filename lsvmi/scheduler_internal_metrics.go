@@ -100,6 +100,7 @@ func (sim *SchedulerInternalMetrics) generateMetrics(
 	}
 
 	if tsSuffix == nil {
+		// This should happen only during unit testing:
 		tsSuffix = sim.internalMetrics.getTsSuffix()
 	}
 

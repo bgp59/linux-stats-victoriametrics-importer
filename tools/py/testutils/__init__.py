@@ -3,13 +3,20 @@
 import os
 
 TESTDATA_SUBDIR = "testdata"
-LSVMI_TESTDATA_PROCFS_ROOT_SUBDIR = "testdata/lsvmi/proc"
-PROCFS_TESTDATA_ROOT_SUBDIR = "testdata/procfs"
+LSVMI_TESTDATA_SUBDIR = f"{TESTDATA_SUBDIR}/lsvmi"
+LSVMI_TESTCASES_SUBDIR = f"{LSVMI_TESTDATA_SUBDIR}/testcases"
+LSVMI_PROCFS_ROOT_SUBDIR = f"{LSVMI_TESTDATA_SUBDIR}/proc"
+
+DEFAULT_TEST_INSTANCE = "lsvmi_test"
+DEFAULT_TEST_HOSTNAME = "lsvmi-test"
+
+
+PROCFS_TESTDATA_ROOT_SUBDIR = f"{TESTDATA_SUBDIR}/procfs"
 
 tools_py_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 go_module_root = os.path.dirname(os.path.dirname((tools_py_root)))
 
-lsvmi_testdata_procfs_root = os.path.join(
-    go_module_root, LSVMI_TESTDATA_PROCFS_ROOT_SUBDIR
-)
+lsvmi_procfs_root = os.path.join(go_module_root, LSVMI_PROCFS_ROOT_SUBDIR)
+lsvmi_testcases_root = os.path.join(go_module_root, LSVMI_TESTCASES_SUBDIR)
+
 procfs_testdata_root = os.path.join(go_module_root, PROCFS_TESTDATA_ROOT_SUBDIR)

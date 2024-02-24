@@ -68,11 +68,7 @@ if __name__ == "__main__":
             needs_iota = False
         else:
             print(f"\t{index}")
-    print(
-        "\n"
-        + "\t// Must be last:\n"
-        + f"\t{index_prefix}NUM_VALUES"
-    )
+    print("\n" + "\t// Must be last:\n" + f"\t{index_prefix}NUM_VALUES")
     print(")")
     print()
 

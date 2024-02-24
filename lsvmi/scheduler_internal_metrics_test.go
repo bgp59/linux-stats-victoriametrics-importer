@@ -5,6 +5,7 @@ package lsvmi
 import (
 	"bytes"
 	"fmt"
+	"path"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 )
 
 type InternalMetricsTestCase struct {
+	Name             string
 	Instance         string
 	Hostname         string
 	PromTs           int64
@@ -25,6 +27,11 @@ type SchedulerInternalMetricsTestCase struct {
 	InternalMetricsTestCase
 	CrtStats, PrevStats SchedulerStats
 }
+
+var schedulerInternalMetricsTestcasesFile = path.Join(
+	"..", testutils.LsvmiTestcasesSubdir,
+	"internal_metrics", "scheduler.json",
+)
 
 func newTestSchedulerInternalMetrics(tc *InternalMetricsTestCase) (*InternalMetrics, error) {
 	internalMetrics, err := NewInternalMetrics(nil)
@@ -80,11 +87,15 @@ func testSchedulerInternalMetrics(tc *SchedulerInternalMetricsTestCase, t *testi
 }
 
 func TestSchedulerInternalMetrics(t *testing.T) {
-	for _, tc := range []*SchedulerInternalMetricsTestCase{
-		{},
-	} {
+	t.Logf("Loading testcases from %q ...", schedulerInternalMetricsTestcasesFile)
+	testcases := make([]*SchedulerInternalMetricsTestCase, 0)
+	err := testutils.LoadJsonFile(schedulerInternalMetricsTestcasesFile, &testcases)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range testcases {
 		t.Run(
-			"",
+			tc.Name,
 			func(t *testing.T) { testSchedulerInternalMetrics(tc, t) },
 		)
 	}
