@@ -16,6 +16,10 @@ const (
 	INTERNAL_METRICS_CONFIG_INTERVAL_DEFAULT            = "5s"
 	INTERNAL_METRICS_CONFIG_FULL_METRICS_FACTOR_DEFAULT = 12
 
+	// Heartbeat metric:
+	LSVMI_UP_METRIC_NAME = "lsvmi_up"
+
+	// Metrics generator id:
 	INTERNAL_METRICS_ID = "internal_metrics"
 )
 
@@ -45,6 +49,10 @@ type InternalMetrics struct {
 	fullMetricsFactor int
 	// Current cycle#:
 	cycleNum int
+
+	// Heartbeat metric:
+	upMetric []byte
+
 	// Scheduler specific metrics:
 	schedulerMetrics *SchedulerInternalMetrics
 
@@ -94,7 +102,6 @@ func NewInternalMetrics(cfg any) (*InternalMetrics, error) {
 		tsSuffixBuf:         &bytes.Buffer{},
 	}
 	internalMetrics.schedulerMetrics = NewSchedulerInternalMetrics(internalMetrics)
-	internalMetrics.updateMGStatsMetricsCache(internalMetrics.id)
 	return internalMetrics, nil
 }
 
@@ -118,10 +125,7 @@ func (internalMetrics *InternalMetrics) Execute() {
 		metricsQueue = internalMetrics.metricsQueue
 	}
 
-	fullCycle := internalMetrics.cycleNum == internalMetrics.fullMetricsFactor-1
-
-	metricsCount := 0
-	buf := metricsQueue.GetBuf()
+	fullCycle := internalMetrics.cycleNum == 0
 
 	// Collect stats from various sources:
 	// Scheduler:
@@ -148,12 +152,26 @@ func (internalMetrics *InternalMetrics) Execute() {
 	tsSuffix := internalMetrics.tsSuffixBuf.Bytes()
 
 	// Generate metrics from the collected stats:
+	metricsCount := 0
+	buf := metricsQueue.GetBuf()
+
+	if fullCycle {
+		upMetric := internalMetrics.upMetric
+		if upMetric == nil {
+			upMetric = internalMetrics.updateUpMetric()
+		}
+		buf.Write(upMetric) // value inclusive
+		//buf.WriteByte('1')
+		buf.Write(tsSuffix)
+		metricsCount++
+	}
+
 	metricsCount += schedulerMetrics.generateMetrics(buf, fullCycle, tsSuffix)
 
 	for id, mgStats := range internalMetrics.mgStats {
 		metrics := internalMetrics.mgStatsMetricsCache[id]
 		if metrics == nil {
-			metrics = internalMetrics.updateMGStatsMetricsCache(id)
+			metrics = internalMetrics.updateMetricsCache(id)
 		}
 		for indx, val := range mgStats {
 			buf.Write(metrics[indx])
@@ -168,6 +186,9 @@ func (internalMetrics *InternalMetrics) Execute() {
 	// last step before queueing the buffer.
 	{
 		metrics := internalMetrics.mgStatsMetricsCache[internalMetrics.id]
+		if metrics == nil {
+			metrics = internalMetrics.updateMetricsCache(internalMetrics.id)
+		}
 
 		buf.Write(metrics[METRICS_GENERATOR_INVOCATION_COUNT])
 		buf.WriteByte('1')
@@ -190,7 +211,24 @@ func (internalMetrics *InternalMetrics) Execute() {
 	}
 }
 
-func (internalMetrics *InternalMetrics) updateMGStatsMetricsCache(id string) [][]byte {
+func (internalMetrics *InternalMetrics) updateUpMetric() []byte {
+	instance, hostname := GlobalInstance, GlobalHostname
+	if internalMetrics.instance != "" {
+		instance = internalMetrics.instance
+	}
+	if internalMetrics.hostname != "" {
+		hostname = internalMetrics.hostname
+	}
+	internalMetrics.upMetric = []byte(fmt.Sprintf(
+		`%s{%s="%s",%s="%s"} 1`, // N.B. value inclusive!
+		LSVMI_UP_METRIC_NAME,
+		INSTANCE_LABEL_NAME, instance,
+		HOSTNAME_LABEL_NAME, hostname,
+	))
+	return internalMetrics.upMetric
+}
+
+func (internalMetrics *InternalMetrics) updateMetricsCache(id string) [][]byte {
 	instance, hostname := GlobalInstance, GlobalHostname
 	if internalMetrics.instance != "" {
 		instance = internalMetrics.instance

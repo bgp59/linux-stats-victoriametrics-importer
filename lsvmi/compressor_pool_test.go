@@ -184,18 +184,18 @@ func testCompressorPoolQueue(tc *CompressorPoolTestCase, t *testing.T) {
 		pool.Shutdown()
 	}
 
-	poolStats := pool.SnapStats(nil)
+	poolStats := pool.SnapStats(nil, STATS_SNAP_AND_CLEAR)
 	statsBuf := &bytes.Buffer{}
 	fmt.Fprintf(statsBuf, "Compressor stats:")
 	gotReadCount, gotReadByteCount := 0, 0
 	for compressorIndx, compressorStats := range poolStats.stats {
 		fmt.Fprintf(statsBuf, "\ncompressor# %d:", compressorIndx)
-		for i, val := range compressorStats.uint64Stats {
+		for i, val := range compressorStats.Uint64Stats {
 			fmt.Fprintf(statsBuf, "\n\t%s: %d", compressorUint64StatsNames[i], val)
 		}
-		gotReadCount += int(compressorStats.uint64Stats[COMPRESSOR_STATS_READ_COUNT])
-		gotReadByteCount += int(compressorStats.uint64Stats[COMPRESSOR_STATS_READ_BYTE_COUNT])
-		for i, val := range compressorStats.float64Stats {
+		gotReadCount += int(compressorStats.Uint64Stats[COMPRESSOR_STATS_READ_COUNT])
+		gotReadByteCount += int(compressorStats.Uint64Stats[COMPRESSOR_STATS_READ_BYTE_COUNT])
+		for i, val := range compressorStats.Float64Stats {
 			fmt.Fprintf(statsBuf, "\n\t%s: %f", compressorFloat64StatsNames[i], val)
 		}
 	}

@@ -1,5 +1,7 @@
 #! /usr/bin/env python3
 
+# Generate test cases for lsvmi/scheduler_internal_metrics_test.go
+
 import json
 import os
 import sys

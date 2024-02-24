@@ -86,8 +86,8 @@ const (
 )
 
 type CompressorStats struct {
-	uint64Stats  []uint64
-	float64Stats []float64
+	Uint64Stats  []uint64
+	Float64Stats []float64
 }
 
 type CompressorPoolStats struct {
@@ -96,8 +96,8 @@ type CompressorPoolStats struct {
 
 func NewCompressorStats() *CompressorStats {
 	return &CompressorStats{
-		uint64Stats:  make([]uint64, COMPRESSOR_STATS_UINT64_LEN),
-		float64Stats: make([]float64, COMPRESSOR_STATS_FLOAT64_LEN),
+		Uint64Stats:  make([]uint64, COMPRESSOR_STATS_UINT64_LEN),
+		Float64Stats: make([]float64, COMPRESSOR_STATS_FLOAT64_LEN),
 	}
 }
 
@@ -111,7 +111,7 @@ func NewCompressorPoolStats(numCompressors int) *CompressorPoolStats {
 	return poolStats
 }
 
-func (pool *CompressorPool) SnapStats(to *CompressorPoolStats) *CompressorPoolStats {
+func (pool *CompressorPool) SnapStats(to *CompressorPoolStats, clear bool) *CompressorPoolStats {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
@@ -123,8 +123,12 @@ func (pool *CompressorPool) SnapStats(to *CompressorPoolStats) *CompressorPoolSt
 		to = NewCompressorPoolStats(pool.numCompressors)
 	}
 	for compressorIndx, stats := range poolStats.stats {
-		copy(to.stats[compressorIndx].uint64Stats, stats.uint64Stats)
-		copy(to.stats[compressorIndx].float64Stats, stats.float64Stats)
+		copy(to.stats[compressorIndx].Uint64Stats, stats.Uint64Stats)
+		copy(to.stats[compressorIndx].Float64Stats, stats.Float64Stats)
+		if clear {
+			copy(stats.Uint64Stats, pool.zeroUint64)
+			copy(stats.Float64Stats, pool.zeroFloat64)
+		}
 	}
 	return to
 }
@@ -149,6 +153,9 @@ type CompressorPool struct {
 	state CompressorPoolState
 	// Stats:
 	poolStats *CompressorPoolStats
+	// Convenience buffers for clearing up stats for snap-an-clear operation:
+	zeroUint64  []uint64
+	zeroFloat64 []float64
 	// General purpose lock (stats, state, etc):
 	mu *sync.Mutex
 	// Wait group to sync on exit:
@@ -250,6 +257,8 @@ func NewCompressorPool(cfg any) (*CompressorPool, error) {
 		state:            CompressorPoolStateCreated,
 		mu:               &sync.Mutex{},
 		poolStats:        NewCompressorPoolStats(numCompressors),
+		zeroUint64:       make([]uint64, COMPRESSOR_STATS_UINT64_LEN),
+		zeroFloat64:      make([]float64, COMPRESSOR_STATS_FLOAT64_LEN),
 		wg:               &sync.WaitGroup{},
 	}
 
@@ -404,7 +413,7 @@ func (pool *CompressorPool) loop(compressorIndx int, sender Sender) {
 					gzWriter = nil
 					if stats != nil {
 						mu.Lock()
-						stats.uint64Stats[COMPRESSOR_STATS_WRITE_ERROR_COUNT] += 1
+						stats.Uint64Stats[COMPRESSOR_STATS_WRITE_ERROR_COUNT] += 1
 						mu.Unlock()
 					}
 				}
@@ -439,13 +448,13 @@ func (pool *CompressorPool) loop(compressorIndx int, sender Sender) {
 
 			if stats != nil {
 				mu.Lock()
-				stats.uint64Stats[COMPRESSOR_STATS_READ_COUNT] += uint64(batchReadCount)
-				stats.uint64Stats[COMPRESSOR_STATS_READ_BYTE_COUNT] += uint64(batchReadByteCount)
-				stats.uint64Stats[COMPRESSOR_STATS_SEND_COUNT] += uint64(batchSentCount)
-				stats.uint64Stats[COMPRESSOR_STATS_SEND_BYTE_COUNT] += uint64(batchSentByteCount)
-				stats.uint64Stats[COMPRESSOR_STATS_TIMEOUT_FLUSH_COUNT] += uint64(batchTimeoutCount)
-				stats.uint64Stats[COMPRESSOR_STATS_SEND_ERROR_COUNT] += uint64(batchSentErrCount)
-				stats.float64Stats[COMPRESSOR_STATS_COMPRESSION_FACTOR] = estimatedCF
+				stats.Uint64Stats[COMPRESSOR_STATS_READ_COUNT] += uint64(batchReadCount)
+				stats.Uint64Stats[COMPRESSOR_STATS_READ_BYTE_COUNT] += uint64(batchReadByteCount)
+				stats.Uint64Stats[COMPRESSOR_STATS_SEND_COUNT] += uint64(batchSentCount)
+				stats.Uint64Stats[COMPRESSOR_STATS_SEND_BYTE_COUNT] += uint64(batchSentByteCount)
+				stats.Uint64Stats[COMPRESSOR_STATS_TIMEOUT_FLUSH_COUNT] += uint64(batchTimeoutCount)
+				stats.Uint64Stats[COMPRESSOR_STATS_SEND_ERROR_COUNT] += uint64(batchSentErrCount)
+				stats.Float64Stats[COMPRESSOR_STATS_COMPRESSION_FACTOR] = estimatedCF
 				mu.Unlock()
 			}
 
