@@ -153,8 +153,6 @@ type Scheduler struct {
 	state SchedulerState
 	// Stats:
 	stats SchedulerStats
-	// Convenience zero filled stats, to be used for clearing prev stats:
-	zeroTaskStats *TaskStats
 	// General purpose lock for atomic operations: check task `scheduled` flag,
 	// scheduler's `state`, etc. The lock is shared because the contention is
 	// minimal, it doesn't make sense to use individual lock.
@@ -230,17 +228,16 @@ func NewScheduler(cfg any) (*Scheduler, error) {
 
 	ctx, cancelFn := context.WithCancel(context.Background())
 	scheduler := &Scheduler{
-		tasks:         make([]*Task, 0),
-		taskQ:         make(chan *Task, SCHEDULER_TASK_Q_LEN),
-		todoQ:         make(chan *Task, SCHEDULER_TODO_Q_LEN),
-		numWorkers:    numWorkers,
-		stats:         make(SchedulerStats),
-		zeroTaskStats: NewTaskStats(),
-		state:         SchedulerStateCreated,
-		mu:            &sync.Mutex{},
-		ctx:           ctx,
-		cancelFn:      cancelFn,
-		wg:            &sync.WaitGroup{},
+		tasks:      make([]*Task, 0),
+		taskQ:      make(chan *Task, SCHEDULER_TASK_Q_LEN),
+		todoQ:      make(chan *Task, SCHEDULER_TODO_Q_LEN),
+		numWorkers: numWorkers,
+		stats:      make(SchedulerStats),
+		state:      SchedulerStateCreated,
+		mu:         &sync.Mutex{},
+		ctx:        ctx,
+		cancelFn:   cancelFn,
+		wg:         &sync.WaitGroup{},
 	}
 
 	schedulerLog.Infof("num_workers=%d", scheduler.numWorkers)
@@ -444,7 +441,7 @@ func (scheduler *Scheduler) workerLoop(workerId int) {
 }
 
 // Snap current stats. Optionally clear them, as a way of snapping deltas.
-func (scheduler *Scheduler) SnapStats(to SchedulerStats, clear bool) SchedulerStats {
+func (scheduler *Scheduler) SnapStats(to SchedulerStats, clearStats bool) SchedulerStats {
 	if scheduler.stats == nil {
 		return nil
 	}
@@ -453,7 +450,6 @@ func (scheduler *Scheduler) SnapStats(to SchedulerStats, clear bool) SchedulerSt
 	}
 	scheduler.mu.Lock()
 	defer scheduler.mu.Unlock()
-	zeroTaskStats := scheduler.zeroTaskStats
 	for taskId, taskStats := range scheduler.stats {
 		toTaskStats := to[taskId]
 		if toTaskStats == nil {
@@ -468,9 +464,9 @@ func (scheduler *Scheduler) SnapStats(to SchedulerStats, clear bool) SchedulerSt
 		} else {
 			toTaskStats.Float64Stats[TASK_STATS_AVG_RUNTIME_SEC] = 0
 		}
-		if clear {
-			copy(taskStats.Uint64Stats, zeroTaskStats.Uint64Stats)
-			copy(taskStats.Float64Stats, zeroTaskStats.Float64Stats)
+		if clearStats {
+			clear(taskStats.Uint64Stats)
+			clear(taskStats.Float64Stats)
 		}
 	}
 	return to

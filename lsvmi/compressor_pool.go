@@ -111,7 +111,7 @@ func NewCompressorPoolStats(numCompressors int) *CompressorPoolStats {
 	return poolStats
 }
 
-func (pool *CompressorPool) SnapStats(to *CompressorPoolStats, clear bool) *CompressorPoolStats {
+func (pool *CompressorPool) SnapStats(to *CompressorPoolStats, clearStats bool) *CompressorPoolStats {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
@@ -125,9 +125,9 @@ func (pool *CompressorPool) SnapStats(to *CompressorPoolStats, clear bool) *Comp
 	for compressorIndx, stats := range poolStats.stats {
 		copy(to.stats[compressorIndx].Uint64Stats, stats.Uint64Stats)
 		copy(to.stats[compressorIndx].Float64Stats, stats.Float64Stats)
-		if clear {
-			copy(stats.Uint64Stats, pool.zeroUint64)
-			copy(stats.Float64Stats, pool.zeroFloat64)
+		if clearStats {
+			clear(stats.Uint64Stats)
+			clear(stats.Float64Stats)
 		}
 	}
 	return to
@@ -153,9 +153,6 @@ type CompressorPool struct {
 	state CompressorPoolState
 	// Stats:
 	poolStats *CompressorPoolStats
-	// Convenience buffers for clearing up stats for snap-an-clear operation:
-	zeroUint64  []uint64
-	zeroFloat64 []float64
 	// General purpose lock (stats, state, etc):
 	mu *sync.Mutex
 	// Wait group to sync on exit:
@@ -257,8 +254,6 @@ func NewCompressorPool(cfg any) (*CompressorPool, error) {
 		state:            CompressorPoolStateCreated,
 		mu:               &sync.Mutex{},
 		poolStats:        NewCompressorPoolStats(numCompressors),
-		zeroUint64:       make([]uint64, COMPRESSOR_STATS_UINT64_LEN),
-		zeroFloat64:      make([]float64, COMPRESSOR_STATS_FLOAT64_LEN),
 		wg:               &sync.WaitGroup{},
 	}
 
