@@ -104,7 +104,7 @@ func NewHttpEndpointPoolStats() *HttpEndpointPoolStats {
 	}
 }
 
-func (pool *HttpEndpointPool) SnapStats(to *HttpEndpointPoolStats) *HttpEndpointPoolStats {
+func (pool *HttpEndpointPool) SnapStats(to *HttpEndpointPoolStats, clear bool) *HttpEndpointPoolStats {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
@@ -117,6 +117,9 @@ func (pool *HttpEndpointPool) SnapStats(to *HttpEndpointPoolStats) *HttpEndpoint
 	}
 
 	copy(to.Stats, stats.Stats)
+	if clear {
+		copy(stats.Stats, pool.zeroUint64)
+	}
 
 	for url, epStats := range stats.EndpointStats {
 		toEpStats := to.EndpointStats[url]
@@ -125,6 +128,9 @@ func (pool *HttpEndpointPool) SnapStats(to *HttpEndpointPoolStats) *HttpEndpoint
 			to.EndpointStats[url] = toEpStats
 		}
 		copy(toEpStats, epStats)
+		if clear {
+			copy(epStats, pool.zeroUint64)
+		}
 	}
 
 	return to
@@ -336,6 +342,8 @@ type HttpEndpointPool struct {
 	shutdown bool
 	// Stats:
 	stats *HttpEndpointPoolStats
+	// Convenience buffers for clearing up stats for snap-an-clear operation:
+	zeroUint64 []uint64
 }
 
 type HttpEndpointPoolConfig struct {
@@ -420,6 +428,11 @@ func NewHttpEndpointPool(cfg any) (*HttpEndpointPool, error) {
 		return nil, fmt.Errorf("NewHttpEndpointPool: response_timeout: %v", err)
 	}
 
+	zeroN := HTTP_ENDPOINT_STATS_LEN
+	if zeroN < HTTP_ENDPOINT_POOL_STATS_LEN {
+		zeroN = HTTP_ENDPOINT_POOL_STATS_LEN
+	}
+
 	epPool := &HttpEndpointPool{
 		healthy:                   &HttpEndpointDoublyLinkedList{},
 		healthyPollInterval:       HTTP_ENDPOINT_POOL_HEALTHY_POLL_INTERVAL,
@@ -429,6 +442,7 @@ func NewHttpEndpointPool(cfg any) (*HttpEndpointPool, error) {
 		mu:                        &sync.Mutex{},
 		wg:                        &sync.WaitGroup{},
 		stats:                     NewHttpEndpointPoolStats(),
+		zeroUint64:                make([]uint64, zeroN),
 	}
 	epPool.ctx, epPool.ctxCancelFn = context.WithCancel(context.Background())
 	if epPool.healthyRotateInterval, err = time.ParseDuration(poolCfg.HealthyRotateInterval); err != nil {

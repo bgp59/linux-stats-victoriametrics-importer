@@ -20,10 +20,10 @@ from . import (
 TASK_STATS_TASK_ID_LABEL_NAME = "task_id"
 
 task_stats_uint64_metric_names = [
-    "lsvmi_task_scheduled_delta",
-    "lsvmi_task_delayed_delta",
-    "lsvmi_task_overrun_delta",
-    "lsvmi_task_executed_delta",
+    "lsvmi_task_scheduled_count_delta",
+    "lsvmi_task_delayed_count_delta",
+    "lsvmi_task_overrun_count_delta",
+    "lsvmi_task_executed_count_delta",
 ]
 
 task_stats_float64_metric_names = [

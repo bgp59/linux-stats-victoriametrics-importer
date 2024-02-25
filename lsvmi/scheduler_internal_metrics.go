@@ -9,10 +9,10 @@ import (
 )
 
 const (
-	TASK_STATS_SCHEDULED_COUNT_DELTA_METRIC = "lsvmi_task_scheduled_delta"
-	TASK_STATS_DELAYED_COUNT_DELTA_METRIC   = "lsvmi_task_delayed_delta"
-	TASK_STATS_OVERRUN_COUNT_DELTA_METRIC   = "lsvmi_task_overrun_delta"
-	TASK_STATS_EXECUTED_COUNT_DELTA_METRIC  = "lsvmi_task_executed_delta"
+	TASK_STATS_SCHEDULED_COUNT_DELTA_METRIC = "lsvmi_task_scheduled_count_delta"
+	TASK_STATS_DELAYED_COUNT_DELTA_METRIC   = "lsvmi_task_delayed_count_delta"
+	TASK_STATS_OVERRUN_COUNT_DELTA_METRIC   = "lsvmi_task_overrun_count_delta"
+	TASK_STATS_EXECUTED_COUNT_DELTA_METRIC  = "lsvmi_task_executed_count_delta"
 	TASK_STATS_AVG_RUNTIME_SEC_METRIC       = "lsvmi_task_avg_runtime_sec"
 
 	TASK_STATS_TASK_ID_LABEL_NAME = "task_id"
