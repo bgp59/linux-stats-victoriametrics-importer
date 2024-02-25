@@ -63,9 +63,9 @@ const (
 )
 
 const (
-	METRICS_GENERATOR_INVOCATION_COUNT_DELTA_METRIC = "lsvmi_metrics_generator_invocation_delta"
-	METRICS_GENERATOR_METRICS_COUNT_DELTA_METRIC    = "lsvmi_metrics_generator_metrics_delta"
-	METRICS_GENERATOR_BYTES_COUNT_DELTA_METRIC      = "lsvmi_metrics_generator_bytes_delta"
+	METRICS_GENERATOR_INVOCATION_COUNT_DELTA_METRIC = "lsvmi_metrics_gen_invocation_count_delta"
+	METRICS_GENERATOR_METRICS_COUNT_DELTA_METRIC    = "lsvmi_metrics_gen_metrics_count_delta"
+	METRICS_GENERATOR_BYTES_COUNT_DELTA_METRIC      = "lsvmi_metrics_gen_bytes_count_delta"
 
 	METRICS_GENERATOR_ID_LABEL_NAME = "id"
 )

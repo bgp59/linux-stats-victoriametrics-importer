@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -90,48 +91,7 @@ type CompressorStats struct {
 	Float64Stats []float64
 }
 
-type CompressorPoolStats struct {
-	stats []*CompressorStats
-}
-
-func NewCompressorStats() *CompressorStats {
-	return &CompressorStats{
-		Uint64Stats:  make([]uint64, COMPRESSOR_STATS_UINT64_LEN),
-		Float64Stats: make([]float64, COMPRESSOR_STATS_FLOAT64_LEN),
-	}
-}
-
-func NewCompressorPoolStats(numCompressors int) *CompressorPoolStats {
-	poolStats := &CompressorPoolStats{
-		stats: make([]*CompressorStats, numCompressors),
-	}
-	for i := 0; i < numCompressors; i++ {
-		poolStats.stats[i] = NewCompressorStats()
-	}
-	return poolStats
-}
-
-func (pool *CompressorPool) SnapStats(to *CompressorPoolStats, clearStats bool) *CompressorPoolStats {
-	pool.mu.Lock()
-	defer pool.mu.Unlock()
-
-	poolStats := pool.poolStats
-	if poolStats == nil {
-		return nil
-	}
-	if to == nil {
-		to = NewCompressorPoolStats(pool.numCompressors)
-	}
-	for compressorIndx, stats := range poolStats.stats {
-		copy(to.stats[compressorIndx].Uint64Stats, stats.Uint64Stats)
-		copy(to.stats[compressorIndx].Float64Stats, stats.Float64Stats)
-		if clearStats {
-			clear(stats.Uint64Stats)
-			clear(stats.Float64Stats)
-		}
-	}
-	return to
-}
+type CompressorPoolStats map[string]*CompressorStats
 
 type CompressorPool struct {
 	// The number of compressors:
@@ -152,10 +112,10 @@ type CompressorPool struct {
 	// State:
 	state CompressorPoolState
 	// Stats:
-	poolStats *CompressorPoolStats
+	poolStats CompressorPoolStats
 	// General purpose lock (stats, state, etc):
 	mu *sync.Mutex
-	// Wait group to sync on exit:
+	// Shutdown apparatus:
 	wg *sync.WaitGroup
 }
 
@@ -304,7 +264,6 @@ func (pool *CompressorPool) Shutdown() {
 		return
 	}
 
-	compressorLog.Info("close metrics queue")
 	close(pool.metricsQueue)
 	pool.wg.Wait()
 	compressorLog.Info("all compressors stopped")
@@ -347,7 +306,7 @@ func (pool *CompressorPool) loop(compressorIndx int, sender Sender) {
 	flushInterval := pool.flushInterval
 	mu := pool.mu
 	if pool.poolStats != nil {
-		stats = pool.poolStats.stats[compressorIndx]
+		stats = pool.poolStats[strconv.Itoa(compressorIndx)]
 	}
 	alpha := COMPRESSION_FACTOR_EXP_DECAY_ALPHA
 
@@ -434,7 +393,7 @@ func (pool *CompressorPool) loop(compressorIndx int, sender Sender) {
 			if sendFn != nil {
 				err = sendFn(gzBuf.Bytes(), -1, gzipped)
 				if err != nil {
-					compressorLog.Warnf("compressor %d: %v", compressorIndx, err)
+					compressorLog.Warnf("compressor %d: %v, batch discarded", compressorIndx, err)
 					batchSentByteCount, batchSentErrCount = 0, 1
 				}
 			} else {
@@ -456,4 +415,42 @@ func (pool *CompressorPool) loop(compressorIndx int, sender Sender) {
 			batchReadCount, batchReadByteCount, batchTimeoutCount, doSend, timerSet = 0, 0, 0, false, false
 		}
 	}
+}
+
+func NewCompressorStats() *CompressorStats {
+	return &CompressorStats{
+		Uint64Stats:  make([]uint64, COMPRESSOR_STATS_UINT64_LEN),
+		Float64Stats: make([]float64, COMPRESSOR_STATS_FLOAT64_LEN),
+	}
+}
+
+func NewCompressorPoolStats(numCompressors int) CompressorPoolStats {
+	poolStats := make(CompressorPoolStats)
+	for i := 0; i < numCompressors; i++ {
+		poolStats[strconv.Itoa(i)] = NewCompressorStats()
+	}
+	return poolStats
+}
+
+func (pool *CompressorPool) SnapStats(to CompressorPoolStats, clearStats bool) CompressorPoolStats {
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
+
+	poolStats := pool.poolStats
+	if poolStats == nil {
+		return nil
+	}
+	if to == nil {
+		to = NewCompressorPoolStats(pool.numCompressors)
+	}
+	for compressorId, compressorStats := range poolStats {
+		toCompressorStats := to[compressorId]
+		copy(toCompressorStats.Uint64Stats, compressorStats.Uint64Stats)
+		copy(toCompressorStats.Float64Stats, compressorStats.Float64Stats)
+		if clearStats {
+			clear(compressorStats.Uint64Stats)
+			clear(compressorStats.Float64Stats)
+		}
+	}
+	return to
 }

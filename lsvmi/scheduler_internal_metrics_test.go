@@ -7,21 +7,9 @@ import (
 	"fmt"
 	"path"
 	"testing"
-	"time"
 
 	"github.com/eparparita/linux-stats-victoriametrics-importer/internal/testutils"
 )
-
-type InternalMetricsTestCase struct {
-	Name             string
-	Instance         string
-	Hostname         string
-	PromTs           int64
-	FullCycle        bool
-	WantMetricsCount int
-	WantMetrics      []string
-	ReportExtra      bool
-}
 
 type SchedulerInternalMetricsTestCase struct {
 	InternalMetricsTestCase
@@ -33,8 +21,8 @@ var schedulerInternalMetricsTestcasesFile = path.Join(
 	"internal_metrics", "scheduler.json",
 )
 
-func newTestSchedulerInternalMetrics(tc *InternalMetricsTestCase) (*InternalMetrics, error) {
-	internalMetrics, err := NewInternalMetrics(nil)
+func newTestSchedulerInternalMetrics(tc *SchedulerInternalMetricsTestCase) (*InternalMetrics, error) {
+	internalMetrics, err := newTestInternalMetrics(&tc.InternalMetricsTestCase)
 	if err != nil {
 		return nil, err
 	}
@@ -42,13 +30,7 @@ func newTestSchedulerInternalMetrics(tc *InternalMetricsTestCase) (*InternalMetr
 	if err != nil {
 		return nil, err
 	}
-
-	internalMetrics.instance = tc.Instance
-	internalMetrics.hostname = tc.Hostname
-	timeNowRetVal := time.UnixMilli(tc.PromTs)
-	internalMetrics.timeNowFn = func() time.Time { return timeNowRetVal }
 	internalMetrics.scheduler = scheduler
-
 	return internalMetrics, nil
 }
 
@@ -56,7 +38,7 @@ func testSchedulerInternalMetrics(tc *SchedulerInternalMetricsTestCase, t *testi
 	tlc := testutils.NewTestingLogCollect(t, Log, nil)
 	defer tlc.RestoreLog()
 
-	internalMetrics, err := newTestSchedulerInternalMetrics(&tc.InternalMetricsTestCase)
+	internalMetrics, err := newTestSchedulerInternalMetrics(tc)
 	if err != nil {
 		tlc.Fatal(err)
 	}

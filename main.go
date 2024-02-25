@@ -47,14 +47,6 @@ func main() {
 		mainLog.Fatal(err)
 	}
 
-	// Scheduler:
-	lsvmi.GlobalScheduler, err = lsvmi.NewScheduler(lsvmi.GlobalLsvmiConfig)
-	if err != nil {
-		mainLog.Fatal(err)
-	}
-	lsvmi.GlobalScheduler.Start()
-	defer lsvmi.GlobalScheduler.Shutdown()
-
 	// Metrics queue:
 	if !*useStdoutMetricsQueue {
 		// Real queue w/ compressed metrics sent to import endpoints:
@@ -62,17 +54,18 @@ func main() {
 		if err != nil {
 			mainLog.Fatal(err)
 		}
-		defer lsvmi.GlobalHttpEndpointPool.Shutdown()
 
 		lsvmi.GlobalCompressorPool, err = lsvmi.NewCompressorPool(lsvmi.GlobalLsvmiConfig)
 		if err != nil {
 			mainLog.Fatal(err)
 		}
-		lsvmi.GlobalCompressorPool.Start(lsvmi.GlobalHttpEndpointPool)
-		defer lsvmi.GlobalCompressorPool.Shutdown()
-
 		lsvmi.GlobalMetricsQueue = lsvmi.GlobalCompressorPool
+
 		lsvmi.GlobalCompressorPool.Start(lsvmi.GlobalHttpEndpointPool)
+		// N.B. stop the HTTP pool *before* the compressor pool, otherwise the
+		// latter may be stuck in send:
+		defer lsvmi.GlobalCompressorPool.Shutdown()
+		defer lsvmi.GlobalHttpEndpointPool.Shutdown()
 	} else {
 		// Simulated queue w/ metrics displayed to stdout:
 		lsvmi.GlobalMetricsQueue, err = lsvmi.NewStdoutMetricsQueue(lsvmi.GlobalLsvmiConfig)
@@ -85,6 +78,14 @@ func main() {
 		fmt.Fprintf(buf, "# Metrics will be displayed at stdout\n")
 		lsvmi.GlobalMetricsQueue.QueueBuf(buf)
 	}
+
+	// Scheduler:
+	lsvmi.GlobalScheduler, err = lsvmi.NewScheduler(lsvmi.GlobalLsvmiConfig)
+	if err != nil {
+		mainLog.Fatal(err)
+	}
+	lsvmi.GlobalScheduler.Start()
+	defer lsvmi.GlobalScheduler.Shutdown()
 
 	// Initialize metrics generators:
 	err = lsvmi.InitCommonMetrics(lsvmi.GlobalLsvmiConfig)

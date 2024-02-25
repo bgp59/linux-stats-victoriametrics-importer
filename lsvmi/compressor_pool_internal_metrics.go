@@ -13,7 +13,7 @@ const (
 	COMPRESSOR_STATS_READ_BYTE_COUNT_DELTA_METRIC     = "lsvmi_compressor_read_byte_count_delta"
 	COMPRESSOR_STATS_SEND_COUNT_DELTA_METRIC          = "lsvmi_compressor_send_count_delta"
 	COMPRESSOR_STATS_SEND_BYTE_COUNT_DELTA_METRIC     = "lsvmi_compressor_send_byte_count_delta"
-	COMPRESSOR_STATS_TIMEOUT_FLUSH_COUNT_DELTA_METRIC = "lsvmi_compressor_to_flush_count_delta"
+	COMPRESSOR_STATS_TIMEOUT_FLUSH_COUNT_DELTA_METRIC = "lsvmi_compressor_tout_flush_count_delta"
 	COMPRESSOR_STATS_SEND_ERROR_COUNT_DELTA_METRIC    = "lsvmi_compressor_send_error_count_delta"
 	COMPRESSOR_STATS_WRITE_ERROR_COUNT_DELTA_METRIC   = "lsvmi_compressor_write_error_count_delta"
 	COMPRESSOR_STATS_COMPRESSION_FACTOR_METRIC        = "lsvmi_compressor_compression_factor"
@@ -41,25 +41,26 @@ type CompressorPoolInternalMetrics struct {
 	// Internal metrics, for common values:
 	internalMetrics *InternalMetrics
 	// Dual buffer holding current, previous delta stats:
-	stats [2]*CompressorPoolStats
+	stats [2]CompressorPoolStats
 	// Which one is current:
 	crtStatsIndx int
 	// Cache the full metrics for each compressor# and stats index:
-	uint64MetricsCache  map[int]compressorPoolStatsIndexMetricMap
-	float64MetricsCache map[int]compressorPoolStatsIndexMetricMap
+	uint64MetricsCache  map[string]compressorPoolStatsIndexMetricMap
+	float64MetricsCache map[string]compressorPoolStatsIndexMetricMap
 	// A buffer for the timestamp suffix:
 	tsSuffixBuf *bytes.Buffer
 }
 
 func NewCompressorPoolInternalMetrics(internalMetrics *InternalMetrics) *CompressorPoolInternalMetrics {
 	return &CompressorPoolInternalMetrics{
-		uint64MetricsCache:  make(map[int]compressorPoolStatsIndexMetricMap),
-		float64MetricsCache: make(map[int]compressorPoolStatsIndexMetricMap),
+		internalMetrics:     internalMetrics,
+		uint64MetricsCache:  make(map[string]compressorPoolStatsIndexMetricMap),
+		float64MetricsCache: make(map[string]compressorPoolStatsIndexMetricMap),
 		tsSuffixBuf:         &bytes.Buffer{},
 	}
 }
 
-func (cpim *CompressorPoolInternalMetrics) updateMetricsCache(compressorId int) {
+func (cpim *CompressorPoolInternalMetrics) updateMetricsCache(compressorId string) {
 	instance, hostname := GlobalInstance, GlobalHostname
 	if cpim.internalMetrics.instance != "" {
 		instance = cpim.internalMetrics.instance
@@ -71,7 +72,7 @@ func (cpim *CompressorPoolInternalMetrics) updateMetricsCache(compressorId int) 
 	indexMetricMap := make(compressorPoolStatsIndexMetricMap)
 	for index, name := range compressorStatsUint64MetricsNameMap {
 		metric := fmt.Sprintf(
-			`%s{%s="%s",%s="%s",%s="%d"} `, // N.B. include the whitespace separating the metric from value
+			`%s{%s="%s",%s="%s",%s="%s"} `, // N.B. include the whitespace separating the metric from value
 			name,
 			INSTANCE_LABEL_NAME, instance,
 			HOSTNAME_LABEL_NAME, hostname,
@@ -84,7 +85,7 @@ func (cpim *CompressorPoolInternalMetrics) updateMetricsCache(compressorId int) 
 	indexMetricMap = make(compressorPoolStatsIndexMetricMap)
 	for index, name := range compressorStatsFloat64MetricsNameMap {
 		metric := fmt.Sprintf(
-			`%s{%s="%s",%s="%s",%s="%d"} `, // N.B. include the whitespace separating the metric from value
+			`%s{%s="%s",%s="%s",%s="%s"} `, // N.B. include the whitespace separating the metric from value
 			name,
 			INSTANCE_LABEL_NAME, instance,
 			HOSTNAME_LABEL_NAME, hostname,
@@ -111,9 +112,9 @@ func (cpim *CompressorPoolInternalMetrics) generateMetrics(
 
 	var prevCompressorStats *CompressorStats = nil
 	metricsCount := 0
-	for compressorId, crtCompressorStats := range crtStats.stats {
+	for compressorId, crtCompressorStats := range crtStats {
 		if prevStats != nil {
-			prevCompressorStats = prevStats.stats[compressorId]
+			prevCompressorStats = prevStats[compressorId]
 		}
 
 		uint64IndexMetricMap := cpim.uint64MetricsCache[compressorId]

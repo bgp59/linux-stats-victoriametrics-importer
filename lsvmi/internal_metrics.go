@@ -56,6 +56,9 @@ type InternalMetrics struct {
 	// Scheduler specific metrics:
 	schedulerMetrics *SchedulerInternalMetrics
 
+	// Compressor pool specific metrics:
+	compressorPoolMetrics *CompressorPoolInternalMetrics
+
 	// Common metrics generators stats:
 	mgStats MetricsGeneratorStats
 	// Cache the metrics:
@@ -69,6 +72,7 @@ type InternalMetrics struct {
 	timeNowFn          func() time.Time
 	metricsQueue       MetricsQueue
 	scheduler          *Scheduler
+	compressorPool     *CompressorPool
 	mgsStatsContainer  *MetricsGeneratorStatsContainer
 }
 
@@ -102,6 +106,7 @@ func NewInternalMetrics(cfg any) (*InternalMetrics, error) {
 		tsSuffixBuf:         &bytes.Buffer{},
 	}
 	internalMetrics.schedulerMetrics = NewSchedulerInternalMetrics(internalMetrics)
+	internalMetrics.compressorPoolMetrics = NewCompressorPoolInternalMetrics(internalMetrics)
 	return internalMetrics, nil
 }
 
@@ -138,6 +143,20 @@ func (internalMetrics *InternalMetrics) Execute() {
 		STATS_SNAP_AND_CLEAR,
 	)
 
+	// Compressor pool:
+	compressorPool, compressorPoolMetrics := GlobalCompressorPool, internalMetrics.compressorPoolMetrics
+	if internalMetrics.compressorPool != nil {
+		compressorPool = internalMetrics.compressorPool
+	}
+	if compressorPool != nil {
+		compressorPoolMetrics.stats[compressorPoolMetrics.crtStatsIndx] = compressorPool.SnapStats(
+			compressorPoolMetrics.stats[compressorPoolMetrics.crtStatsIndx],
+			STATS_SNAP_AND_CLEAR,
+		)
+	} else {
+		compressorPoolMetrics = nil
+	}
+
 	// Common metrics generators metrics:
 	mgsStatsContainer := GlobalMetricsGeneratorStatsContainer
 	if internalMetrics.mgsStatsContainer != nil {
@@ -155,18 +174,19 @@ func (internalMetrics *InternalMetrics) Execute() {
 	metricsCount := 0
 	buf := metricsQueue.GetBuf()
 
-	if fullCycle {
-		upMetric := internalMetrics.upMetric
-		if upMetric == nil {
-			upMetric = internalMetrics.updateUpMetric()
-		}
-		buf.Write(upMetric) // value inclusive
-		//buf.WriteByte('1')
-		buf.Write(tsSuffix)
-		metricsCount++
+	upMetric := internalMetrics.upMetric
+	if upMetric == nil {
+		upMetric = internalMetrics.updateUpMetric()
 	}
+	buf.Write(upMetric) // value inclusive
+	//buf.WriteByte('1')
+	buf.Write(tsSuffix)
+	metricsCount++
 
 	metricsCount += schedulerMetrics.generateMetrics(buf, fullCycle, tsSuffix)
+	if compressorPoolMetrics != nil {
+		metricsCount += compressorPoolMetrics.generateMetrics(buf, fullCycle, tsSuffix)
+	}
 
 	for id, mgStats := range internalMetrics.mgStats {
 		metrics := internalMetrics.mgStatsMetricsCache[id]

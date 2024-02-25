@@ -85,6 +85,7 @@ const (
 // Endpoint pool stats:
 const (
 	HTTP_ENDPOINT_POOL_STATS_HEALTHY_ROTATE_COUNT = iota
+	HTTP_ENDPOINT_POOL_STATS_NO_HEALTHY_EP_ERROR_COUNT
 	// Must be last:
 	HTTP_ENDPOINT_POOL_STATS_LEN
 )
@@ -762,11 +763,8 @@ func (epPool *HttpEndpointPool) SendBuffer(b []byte, timeout time.Duration, gzip
 		}
 		ep := epPool.GetCurrentHealthy(maxWait)
 		if ep == nil {
-			url := ""
 			mu.Lock()
-			epStats := stats.EndpointStats[url]
-			epStats[HTTP_ENDPOINT_STATS_SEND_BUFFER_COUNT] += 1
-			epStats[HTTP_ENDPOINT_STATS_SEND_BUFFER_ERROR_COUNT] += 1
+			stats.Stats[HTTP_ENDPOINT_POOL_STATS_NO_HEALTHY_EP_ERROR_COUNT] += 1
 			mu.Unlock()
 			return fmt.Errorf(
 				"SendBuffer attempt# %d: %w", attempt, ErrHttpEndpointPoolNoHealthyEP,
