@@ -15,7 +15,7 @@ from . import (
     INSTANCE_LABEL_NAME,
     lsvmi_testcases_root,
 )
-from .internal_metrics_common import (
+from .internal_metrics import (
     TC_CRT_STATS_FIELD,
     TC_FULL_CYCLE_FIELD,
     TC_HOSTNAME_FIELD,
