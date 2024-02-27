@@ -29,7 +29,7 @@ global_config:
 ###############################################
 internal_metrics_config:
   interval: 5s
-  full_metrics_factor: 12
+  # N.B. full_metrics_factor is not applicable!
 
 ###############################################
 # Scheduler

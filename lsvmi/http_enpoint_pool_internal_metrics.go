@@ -39,10 +39,8 @@ type httpEndpointPoolStatsIndexMetricMap map[int][]byte
 type HttpEndpointPoolInternalMetrics struct {
 	// Internal metrics, for common values:
 	internalMetrics *InternalMetrics
-	// Dual buffer holding current, previous delta stats:
-	stats [2]*HttpEndpointPoolStats
-	// Which one is current:
-	crtStatsIndx int
+	// Storage for snapping stats:
+	stats *HttpEndpointPoolStats
 	// Cache the full metrics for each url# and stats index:
 	httpEndpointMetricsCache map[string]httpEndpointPoolStatsIndexMetricMap
 	// Cache the full metrics for pool stats:
@@ -60,7 +58,7 @@ func NewHttpEndpointPoolInternalMetrics(internalMetrics *InternalMetrics) *HttpE
 	}
 }
 
-func (eppim *HttpEndpointPoolInternalMetrics) updatePoolMetricsCache() {
+func (eppim *HttpEndpointPoolInternalMetrics) updatePoolMetricsCache() httpEndpointPoolStatsIndexMetricMap {
 	instance, hostname := GlobalInstance, GlobalHostname
 	if eppim.internalMetrics.instance != "" {
 		instance = eppim.internalMetrics.instance
@@ -77,9 +75,10 @@ func (eppim *HttpEndpointPoolInternalMetrics) updatePoolMetricsCache() {
 			HOSTNAME_LABEL_NAME, hostname,
 		))
 	}
+	return eppim.httpEndpointPoolMetricsCache
 }
 
-func (eppim *HttpEndpointPoolInternalMetrics) updateEPMetricsCache(url string) {
+func (eppim *HttpEndpointPoolInternalMetrics) updateEPMetricsCache(url string) httpEndpointPoolStatsIndexMetricMap {
 	instance, hostname := GlobalInstance, GlobalHostname
 	if eppim.internalMetrics.instance != "" {
 		instance = eppim.internalMetrics.instance
@@ -100,16 +99,12 @@ func (eppim *HttpEndpointPoolInternalMetrics) updateEPMetricsCache(url string) {
 		indexMetricMap[index] = []byte(metric)
 	}
 	eppim.httpEndpointMetricsCache[url] = indexMetricMap
+	return indexMetricMap
 }
 
 func (eppim *HttpEndpointPoolInternalMetrics) generateMetrics(
-	buf *bytes.Buffer, fullCycle bool, tsSuffix []byte,
+	buf *bytes.Buffer, tsSuffix []byte,
 ) int {
-	crtStatsIndx := eppim.crtStatsIndx
-	crtStats, prevStats := eppim.stats[crtStatsIndx], eppim.stats[1-crtStatsIndx]
-	if fullCycle {
-		prevStats = nil
-	}
 
 	if tsSuffix == nil {
 		// This should happen only during unit testing:
@@ -118,57 +113,30 @@ func (eppim *HttpEndpointPoolInternalMetrics) generateMetrics(
 
 	metricsCount := 0
 
-	var prevPoolStats []uint64
-	crtPoolStats := crtStats.Stats
-	if prevStats != nil {
-		prevPoolStats = prevStats.Stats
-	} else {
-		prevPoolStats = nil
-	}
-
-	// For counter delta metrics, unless this is a full cycle, skip 0 values if
-	// the previous scan value was also 0.
 	indexMetricMap := eppim.httpEndpointPoolMetricsCache
 	if indexMetricMap == nil {
-		eppim.updatePoolMetricsCache()
-		indexMetricMap = eppim.httpEndpointPoolMetricsCache
+		indexMetricMap = eppim.updatePoolMetricsCache()
 	}
+	poolStats := eppim.stats.Stats
 	for index, metric := range indexMetricMap {
-		crtVal := crtPoolStats[index]
-		if crtVal != 0 || prevPoolStats == nil || crtVal != prevPoolStats[index] {
+		buf.Write(metric)
+		buf.WriteString(strconv.FormatUint(poolStats[index], 10))
+		buf.Write(tsSuffix)
+		metricsCount++
+	}
+
+	for url, epStats := range eppim.stats.EndpointStats {
+		indexMetricMap := eppim.httpEndpointMetricsCache[url]
+		if indexMetricMap == nil {
+			indexMetricMap = eppim.updateEPMetricsCache(url)
+		}
+		for index, metric := range indexMetricMap {
 			buf.Write(metric)
-			buf.WriteString(strconv.FormatUint(crtVal, 10))
+			buf.WriteString(strconv.FormatUint(epStats[index], 10))
 			buf.Write(tsSuffix)
 			metricsCount++
 		}
 	}
-
-	for url, crtEpStats := range crtStats.EndpointStats {
-		var prevEpStats HttpEndpointStats
-		if prevStats != nil {
-			prevEpStats = prevStats.EndpointStats[url]
-		} else {
-			prevEpStats = nil
-		}
-
-		indexMetricMap := eppim.httpEndpointMetricsCache[url]
-		if indexMetricMap == nil {
-			eppim.updateEPMetricsCache(url)
-			indexMetricMap = eppim.httpEndpointMetricsCache[url]
-		}
-		for index, metric := range indexMetricMap {
-			crtVal := crtEpStats[index]
-			if crtVal != 0 || prevEpStats == nil || crtVal != prevEpStats[index] {
-				buf.Write(metric)
-				buf.WriteString(strconv.FormatUint(crtVal, 10))
-				buf.Write(tsSuffix)
-				metricsCount++
-			}
-		}
-	}
-
-	// Flip the buffers:
-	eppim.crtStatsIndx = 1 - crtStatsIndx
 
 	return metricsCount
 }

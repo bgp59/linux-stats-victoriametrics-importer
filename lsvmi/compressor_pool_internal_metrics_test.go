@@ -13,7 +13,7 @@ import (
 
 type CompressorPoolInternalMetricsTestCase struct {
 	InternalMetricsTestCase
-	CrtStats, PrevStats CompressorPoolStats
+	Stats CompressorPoolStats
 }
 
 var compressorPoolInternalMetricsTestcasesFile = path.Join(
@@ -43,12 +43,11 @@ func testCompressorPoolInternalMetrics(tc *CompressorPoolInternalMetricsTestCase
 		tlc.Fatal(err)
 	}
 	compressorPoolInternalMetrics := internalMetrics.compressorPoolMetrics
-	compressorPoolInternalMetrics.stats[compressorPoolInternalMetrics.crtStatsIndx] = tc.CrtStats
-	compressorPoolInternalMetrics.stats[1-compressorPoolInternalMetrics.crtStatsIndx] = tc.PrevStats
+	compressorPoolInternalMetrics.stats = tc.Stats
 	testMetricsQueue := testutils.NewTestMetricsQueue(0)
 
 	buf := testMetricsQueue.GetBuf()
-	gotMetricsCount := compressorPoolInternalMetrics.generateMetrics(buf, tc.FullCycle, nil)
+	gotMetricsCount := compressorPoolInternalMetrics.generateMetrics(buf, nil)
 	testMetricsQueue.QueueBuf(buf)
 
 	errBuf := &bytes.Buffer{}

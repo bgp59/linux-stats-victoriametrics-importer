@@ -23,15 +23,11 @@ type taskStatsIndexMetricMap map[int][]byte
 type SchedulerInternalMetrics struct {
 	// Internal metrics, for common values:
 	internalMetrics *InternalMetrics
-	// Dual buffer holding current, previous delta stats:
-	stats [2]SchedulerStats
-	// Which one is current:
-	crtStatsIndx int
+	// Storage for snapping the stats:
+	stats SchedulerStats
 	// Cache the full metrics for each taskId and stats index:
 	uint64MetricsCache  map[string]taskStatsIndexMetricMap
 	float64MetricsCache map[string]taskStatsIndexMetricMap
-	// A buffer for the timestamp suffix:
-	tsSuffixBuf *bytes.Buffer
 }
 
 var taskStatsUint64MetricsNameMap = map[int]string{
@@ -50,7 +46,6 @@ func NewSchedulerInternalMetrics(internalMetrics *InternalMetrics) *SchedulerInt
 		internalMetrics:     internalMetrics,
 		uint64MetricsCache:  make(map[string]taskStatsIndexMetricMap),
 		float64MetricsCache: make(map[string]taskStatsIndexMetricMap),
-		tsSuffixBuf:         &bytes.Buffer{},
 	}
 }
 
@@ -91,54 +86,35 @@ func (sim *SchedulerInternalMetrics) updateMetricsCache(taskId string) {
 }
 
 func (sim *SchedulerInternalMetrics) generateMetrics(
-	buf *bytes.Buffer, fullCycle bool, tsSuffix []byte,
+	buf *bytes.Buffer, tsSuffix []byte,
 ) int {
-	crtStatsIndx := sim.crtStatsIndx
-	crtStats, prevStats := sim.stats[crtStatsIndx], sim.stats[1-crtStatsIndx]
-	if fullCycle {
-		prevStats = nil
-	}
-
 	if tsSuffix == nil {
 		// This should happen only during unit testing:
 		tsSuffix = sim.internalMetrics.getTsSuffix()
 	}
 
-	var prevTaskStats *TaskStats = nil
 	metricsCount := 0
-	for taskId, crtTaskStats := range crtStats {
-		if prevStats != nil {
-			prevTaskStats = prevStats[taskId]
-		}
-
+	for taskId, taskStats := range sim.stats {
 		uint64IndexMetricMap := sim.uint64MetricsCache[taskId]
 		if uint64IndexMetricMap == nil {
+			// N.B. This will also update sim.float64MetricsCache.
 			sim.updateMetricsCache(taskId)
 			uint64IndexMetricMap = sim.uint64MetricsCache[taskId]
 		}
 		for index, metric := range uint64IndexMetricMap {
-			crtVal := crtTaskStats.Uint64Stats[index]
-			if crtVal != 0 || prevTaskStats == nil || crtVal != prevTaskStats.Uint64Stats[index] {
-				buf.Write(metric)
-				buf.WriteString(strconv.FormatUint(crtVal, 10))
-				buf.Write(tsSuffix)
-				metricsCount++
-			}
+			buf.Write(metric)
+			buf.WriteString(strconv.FormatUint(taskStats.Uint64Stats[index], 10))
+			buf.Write(tsSuffix)
+			metricsCount++
 		}
 
 		for index, metric := range sim.float64MetricsCache[taskId] {
-			crtVal := crtTaskStats.Float64Stats[index]
-			if prevTaskStats == nil || crtVal != prevTaskStats.Float64Stats[index] {
-				buf.Write(metric)
-				buf.WriteString(strconv.FormatFloat(crtVal, 'f', 6, 64))
-				buf.Write(tsSuffix)
-				metricsCount++
-			}
+			buf.Write(metric)
+			buf.WriteString(strconv.FormatFloat(taskStats.Float64Stats[index], 'f', 6, 64))
+			buf.Write(tsSuffix)
+			metricsCount++
 		}
 	}
-
-	// Flip the buffers:
-	sim.crtStatsIndx = 1 - crtStatsIndx
 
 	return metricsCount
 }

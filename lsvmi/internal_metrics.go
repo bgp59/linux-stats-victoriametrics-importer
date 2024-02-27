@@ -13,8 +13,7 @@ var internalMetricsLog = NewCompLogger("internal_metrics")
 
 // Generate internal metrics:
 const (
-	INTERNAL_METRICS_CONFIG_INTERVAL_DEFAULT            = "5s"
-	INTERNAL_METRICS_CONFIG_FULL_METRICS_FACTOR_DEFAULT = 12
+	INTERNAL_METRICS_CONFIG_INTERVAL_DEFAULT = "5s"
 
 	// Heartbeat metric:
 	LSVMI_UP_METRIC_NAME = "lsvmi_up"
@@ -31,16 +30,11 @@ const (
 type InternalMetricsConfig struct {
 	// How often to generate the metrics in time.ParseDuration() format:
 	Interval string `yaml:"interval"`
-	// Normally metrics are generated only if there is a change in value from
-	// the previous scan. However every N cycles the full set is generated. Use
-	// 0 to fully generate with every cycle.
-	FullMetricsFactor int `yaml:"full_metrics_factor"`
 }
 
 func DefaultInternalMetricsConfig() *InternalMetricsConfig {
 	return &InternalMetricsConfig{
-		Interval:          INTERNAL_METRICS_CONFIG_INTERVAL_DEFAULT,
-		FullMetricsFactor: INTERNAL_METRICS_CONFIG_FULL_METRICS_FACTOR_DEFAULT,
+		Interval: INTERNAL_METRICS_CONFIG_INTERVAL_DEFAULT,
 	}
 }
 
@@ -49,24 +43,13 @@ type InternalMetrics struct {
 	id string
 	// How often to generate the metrics:
 	interval time.Duration
-	// Every Nth cycle full all metrics are generated, regardless of having
-	// changed since the previous cycle of not:
-	fullMetricsFactor int
-	// Current cycle#:
-	cycleNum int
 	// The timestamp of the previous scan:
 	prevTs time.Time
-	// The timestamp of the previous full metrics generation:
-	prevFullTs time.Time
-	// Safeguard against postponing full metrics generation for too long; if the
-	// regular scheduling is disrupted then the generation based on cycle# may
-	// be delayed for too long:
-	fullMetricsMaxInterval time.Duration
 
-	// Heartbeat metric:
+	// Cache heartbeat metric:
 	upMetric []byte
 
-	// Interval metrics:
+	// Cache interval metric:
 	intervalMetric []byte
 
 	// Scheduler specific metrics:
@@ -79,14 +62,15 @@ type InternalMetrics struct {
 	httpEndpointPoolMetrics *HttpEndpointPoolInternalMetrics
 
 	// Common metrics generators stats:
-	mgStats MetricsGeneratorStats
+	metricsGenStats MetricsGeneratorStats
 	// Cache the metrics:
-	mgStatsMetricsCache map[string][][]byte
+	metricsGenStatsMetricsCache map[string][][]byte
+
 	// A buffer for the timestamp suffix:
 	tsSuffixBuf *bytes.Buffer
 
-	// The following are needed for testing, normally they are set to nil/empty,
-	// their default values, that is:
+	// The following are needed for testing only. Left to their default values,
+	// the usual objects will be used.
 	instance, hostname string
 	timeNowFn          func() time.Time
 	metricsQueue       MetricsQueue
@@ -119,15 +103,12 @@ func NewInternalMetrics(cfg any) (*InternalMetrics, error) {
 	}
 	now := time.Now()
 	internalMetrics := &InternalMetrics{
-		id:                     INTERNAL_METRICS_ID,
-		interval:               interval,
-		fullMetricsFactor:      internalMetricsCfg.FullMetricsFactor,
-		prevTs:                 now,
-		prevFullTs:             now,
-		fullMetricsMaxInterval: interval * time.Duration(internalMetricsCfg.FullMetricsFactor+1),
-		mgStats:                make(MetricsGeneratorStats),
-		mgStatsMetricsCache:    make(map[string][][]byte),
-		tsSuffixBuf:            &bytes.Buffer{},
+		id:                          INTERNAL_METRICS_ID,
+		interval:                    interval,
+		prevTs:                      now,
+		metricsGenStats:             make(MetricsGeneratorStats),
+		metricsGenStatsMetricsCache: make(map[string][][]byte),
+		tsSuffixBuf:                 &bytes.Buffer{},
 	}
 	internalMetrics.schedulerMetrics = NewSchedulerInternalMetrics(internalMetrics)
 	internalMetrics.compressorPoolMetrics = NewCompressorPoolInternalMetrics(internalMetrics)
@@ -161,10 +142,7 @@ func (internalMetrics *InternalMetrics) Execute() {
 	if internalMetrics.scheduler != nil {
 		scheduler = internalMetrics.scheduler
 	}
-	schedulerMetrics.stats[schedulerMetrics.crtStatsIndx] = scheduler.SnapStats(
-		schedulerMetrics.stats[schedulerMetrics.crtStatsIndx],
-		STATS_SNAP_AND_CLEAR,
-	)
+	schedulerMetrics.stats = scheduler.SnapStats(schedulerMetrics.stats, STATS_SNAP_AND_CLEAR)
 
 	// Compressor pool:
 	compressorPool, compressorPoolMetrics := GlobalCompressorPool, internalMetrics.compressorPoolMetrics
@@ -172,10 +150,7 @@ func (internalMetrics *InternalMetrics) Execute() {
 		compressorPool = internalMetrics.compressorPool
 	}
 	if compressorPool != nil {
-		compressorPoolMetrics.stats[compressorPoolMetrics.crtStatsIndx] = compressorPool.SnapStats(
-			compressorPoolMetrics.stats[compressorPoolMetrics.crtStatsIndx],
-			STATS_SNAP_AND_CLEAR,
-		)
+		compressorPoolMetrics.stats = compressorPool.SnapStats(compressorPoolMetrics.stats, STATS_SNAP_AND_CLEAR)
 	} else {
 		compressorPoolMetrics = nil
 	}
@@ -186,10 +161,7 @@ func (internalMetrics *InternalMetrics) Execute() {
 		httpEndpointPool = internalMetrics.httpEndpointPool
 	}
 	if httpEndpointPool != nil {
-		httpEndpointPoolMetrics.stats[httpEndpointPoolMetrics.crtStatsIndx] = httpEndpointPool.SnapStats(
-			httpEndpointPoolMetrics.stats[httpEndpointPoolMetrics.crtStatsIndx],
-			STATS_SNAP_AND_CLEAR,
-		)
+		httpEndpointPoolMetrics.stats = httpEndpointPool.SnapStats(httpEndpointPoolMetrics.stats, STATS_SNAP_AND_CLEAR)
 	} else {
 		httpEndpointPoolMetrics = nil
 	}
@@ -199,7 +171,7 @@ func (internalMetrics *InternalMetrics) Execute() {
 	if internalMetrics.mgsStatsContainer != nil {
 		mgsStatsContainer = internalMetrics.mgsStatsContainer
 	}
-	mgsStatsContainer.SnapStats(internalMetrics.mgStats, STATS_SNAP_AND_CLEAR)
+	mgsStatsContainer.SnapStats(internalMetrics.metricsGenStats, STATS_SNAP_AND_CLEAR)
 
 	// Timestamp when all stats were collected:
 	ts := timeNowFn()
@@ -210,16 +182,6 @@ func (internalMetrics *InternalMetrics) Execute() {
 	// Generate metrics from the collected stats:
 	metricsCount := 0
 	buf := metricsQueue.GetBuf()
-
-	fullCycle := internalMetrics.cycleNum == 0
-	if !fullCycle &&
-		ts.Sub(internalMetrics.prevFullTs) >= internalMetrics.fullMetricsMaxInterval {
-		fullCycle = true
-		internalMetrics.cycleNum = 0
-	}
-	if fullCycle {
-		internalMetrics.prevFullTs = ts
-	}
 
 	upMetric := internalMetrics.upMetric
 	if upMetric == nil {
@@ -240,20 +202,20 @@ func (internalMetrics *InternalMetrics) Execute() {
 	metricsCount++
 	internalMetrics.prevTs = ts
 
-	metricsCount += schedulerMetrics.generateMetrics(buf, fullCycle, tsSuffix)
+	metricsCount += schedulerMetrics.generateMetrics(buf, tsSuffix)
 	if compressorPoolMetrics != nil {
-		metricsCount += compressorPoolMetrics.generateMetrics(buf, fullCycle, tsSuffix)
+		metricsCount += compressorPoolMetrics.generateMetrics(buf, tsSuffix)
 	}
 	if httpEndpointPoolMetrics != nil {
-		metricsCount += httpEndpointPoolMetrics.generateMetrics(buf, fullCycle, tsSuffix)
+		metricsCount += httpEndpointPoolMetrics.generateMetrics(buf, tsSuffix)
 	}
 
-	for id, mgStats := range internalMetrics.mgStats {
-		metrics := internalMetrics.mgStatsMetricsCache[id]
+	for id, metricsGenStats := range internalMetrics.metricsGenStats {
+		metrics := internalMetrics.metricsGenStatsMetricsCache[id]
 		if metrics == nil {
 			metrics = internalMetrics.updateMetricsCache(id)
 		}
-		for indx, val := range mgStats {
+		for indx, val := range metricsGenStats {
 			buf.Write(metrics[indx])
 			buf.WriteString(strconv.FormatUint(val, 10))
 			buf.Write(tsSuffix)
@@ -265,7 +227,7 @@ func (internalMetrics *InternalMetrics) Execute() {
 	// of metrics and bytes were unknown up to this point. This has to be the
 	// last step before queueing the buffer.
 	{
-		metrics := internalMetrics.mgStatsMetricsCache[internalMetrics.id]
+		metrics := internalMetrics.metricsGenStatsMetricsCache[internalMetrics.id]
 		if metrics == nil {
 			metrics = internalMetrics.updateMetricsCache(internalMetrics.id)
 		}
@@ -298,10 +260,6 @@ func (internalMetrics *InternalMetrics) Execute() {
 	}
 	metricsQueue.QueueBuf(buf)
 
-	// Update the cycle number:
-	if internalMetrics.cycleNum++; internalMetrics.cycleNum >= internalMetrics.fullMetricsFactor {
-		internalMetrics.cycleNum = 0
-	}
 }
 
 func (internalMetrics *InternalMetrics) updateUpMetric() []byte {
@@ -346,10 +304,10 @@ func (internalMetrics *InternalMetrics) updateMetricsCache(id string) [][]byte {
 	if internalMetrics.hostname != "" {
 		hostname = internalMetrics.hostname
 	}
-	mgStatsMetrics := make([][]byte, METRICS_GENERATOR_NUM_STATS)
-	internalMetrics.mgStatsMetricsCache[id] = mgStatsMetrics
+	metricsGenStatsMetrics := make([][]byte, METRICS_GENERATOR_NUM_STATS)
+	internalMetrics.metricsGenStatsMetricsCache[id] = metricsGenStatsMetrics
 	for index, name := range MetricsGeneratorStatsMetricsNameMap {
-		mgStatsMetrics[index] = []byte(fmt.Sprintf(
+		metricsGenStatsMetrics[index] = []byte(fmt.Sprintf(
 			`%s{%s="%s",%s="%s",%s="%s"} `, // N.B. whitespace before value!
 			name,
 			INSTANCE_LABEL_NAME, instance,
@@ -357,7 +315,7 @@ func (internalMetrics *InternalMetrics) updateMetricsCache(id string) [][]byte {
 			METRICS_GENERATOR_ID_LABEL_NAME, id,
 		))
 	}
-	return mgStatsMetrics
+	return metricsGenStatsMetrics
 }
 
 // Define and register the task builder:

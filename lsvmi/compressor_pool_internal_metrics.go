@@ -40,15 +40,11 @@ type compressorPoolStatsIndexMetricMap map[int][]byte
 type CompressorPoolInternalMetrics struct {
 	// Internal metrics, for common values:
 	internalMetrics *InternalMetrics
-	// Dual buffer holding current, previous delta stats:
-	stats [2]CompressorPoolStats
-	// Which one is current:
-	crtStatsIndx int
+	// Storage for snapping stats:
+	stats CompressorPoolStats
 	// Cache the full metrics for each compressor# and stats index:
 	uint64MetricsCache  map[string]compressorPoolStatsIndexMetricMap
 	float64MetricsCache map[string]compressorPoolStatsIndexMetricMap
-	// A buffer for the timestamp suffix:
-	tsSuffixBuf *bytes.Buffer
 }
 
 func NewCompressorPoolInternalMetrics(internalMetrics *InternalMetrics) *CompressorPoolInternalMetrics {
@@ -56,7 +52,6 @@ func NewCompressorPoolInternalMetrics(internalMetrics *InternalMetrics) *Compres
 		internalMetrics:     internalMetrics,
 		uint64MetricsCache:  make(map[string]compressorPoolStatsIndexMetricMap),
 		float64MetricsCache: make(map[string]compressorPoolStatsIndexMetricMap),
-		tsSuffixBuf:         &bytes.Buffer{},
 	}
 }
 
@@ -97,57 +92,35 @@ func (cpim *CompressorPoolInternalMetrics) updateMetricsCache(compressorId strin
 }
 
 func (cpim *CompressorPoolInternalMetrics) generateMetrics(
-	buf *bytes.Buffer, fullCycle bool, tsSuffix []byte,
+	buf *bytes.Buffer, tsSuffix []byte,
 ) int {
-	crtStatsIndx := cpim.crtStatsIndx
-	crtStats, prevStats := cpim.stats[crtStatsIndx], cpim.stats[1-crtStatsIndx]
-	if fullCycle {
-		prevStats = nil
-	}
-
 	if tsSuffix == nil {
 		// This should happen only during unit testing:
 		tsSuffix = cpim.internalMetrics.getTsSuffix()
 	}
 
-	// For counter delta metrics, unless this is a full cycle, skip 0 values if
-	// the previous scan value was also 0.
-
-	var prevCompressorStats *CompressorStats = nil
 	metricsCount := 0
-	for compressorId, crtCompressorStats := range crtStats {
-		if prevStats != nil {
-			prevCompressorStats = prevStats[compressorId]
-		}
+	for compressorId, compressorStats := range cpim.stats {
 
 		uint64IndexMetricMap := cpim.uint64MetricsCache[compressorId]
 		if uint64IndexMetricMap == nil {
+			// N.B. the following will also update cpim.float64MetricsCache:
 			cpim.updateMetricsCache(compressorId)
 			uint64IndexMetricMap = cpim.uint64MetricsCache[compressorId]
 		}
 		for index, metric := range uint64IndexMetricMap {
-			crtVal := crtCompressorStats.Uint64Stats[index]
-			if crtVal != 0 || prevCompressorStats == nil || crtVal != prevCompressorStats.Uint64Stats[index] {
-				buf.Write(metric)
-				buf.WriteString(strconv.FormatUint(crtVal, 10))
-				buf.Write(tsSuffix)
-				metricsCount++
-			}
+			buf.Write(metric)
+			buf.WriteString(strconv.FormatUint(compressorStats.Uint64Stats[index], 10))
+			buf.Write(tsSuffix)
+			metricsCount++
 		}
-
 		for index, metric := range cpim.float64MetricsCache[compressorId] {
-			crtVal := crtCompressorStats.Float64Stats[index]
-			if prevCompressorStats == nil || crtVal != prevCompressorStats.Float64Stats[index] {
-				buf.Write(metric)
-				buf.WriteString(strconv.FormatFloat(crtVal, 'f', 3, 64))
-				buf.Write(tsSuffix)
-				metricsCount++
-			}
+			buf.Write(metric)
+			buf.WriteString(strconv.FormatFloat(compressorStats.Float64Stats[index], 'f', 3, 64))
+			buf.Write(tsSuffix)
+			metricsCount++
 		}
 	}
-
-	// Flip the buffers:
-	cpim.crtStatsIndx = 1 - crtStatsIndx
 
 	return metricsCount
 }

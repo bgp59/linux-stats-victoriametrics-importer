@@ -9,7 +9,6 @@ type InternalMetricsTestCase struct {
 	Instance         string
 	Hostname         string
 	PromTs           int64
-	FullCycle        bool
 	WantMetricsCount int
 	WantMetrics      []string
 	ReportExtra      bool
