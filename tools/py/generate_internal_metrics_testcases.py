@@ -2,16 +2,8 @@
 
 import argparse
 
-from testutils import (
-    DEFAULT_TEST_HOSTNAME, 
-    DEFAULT_TEST_INSTANCE, 
-    lsvmi_testcases_root,
-)
-
-from lsvmi.internal_metrics import (
-    testcases_sub_dir,
-    generators,
-)
+from lsvmi.internal_metrics import generators, testcases_sub_dir
+from testutils import DEFAULT_TEST_HOSTNAME, DEFAULT_TEST_INSTANCE, lsvmi_testcases_root
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -50,4 +42,8 @@ if __name__ == "__main__":
     else:
         g_list = [generators[args.testcase]]
     for g in g_list:
-        g(instance=args.instance, hostname=args.hostname, testcases_root_dir=args.testcases_root_dir)
+        g(
+            instance=args.instance,
+            hostname=args.hostname,
+            testcases_root_dir=args.testcases_root_dir,
+        )

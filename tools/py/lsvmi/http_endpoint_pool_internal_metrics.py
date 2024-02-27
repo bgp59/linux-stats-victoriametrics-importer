@@ -15,19 +15,17 @@ from . import (
     INSTANCE_LABEL_NAME,
     lsvmi_testcases_root,
 )
-
 from .internal_metrics_common import (
-    TC_NAME_FIELD,
-    TC_INSTANCE_FIELD,
-    TC_HOSTNAME_FIELD,
-    TC_PROM_TS_FIELD,
+    TC_CRT_STATS_FIELD,
     TC_FULL_CYCLE_FIELD,
+    TC_HOSTNAME_FIELD,
+    TC_INSTANCE_FIELD,
+    TC_NAME_FIELD,
+    TC_PREV_STATS_FIELD,
+    TC_PROM_TS_FIELD,
+    TC_REPORT_EXTRA_FIELD,
     TC_WANT_METRICS_COUNT_FIELD,
     TC_WANT_METRICS_FIELD,
-    TC_REPORT_EXTRA_FIELD,
-    TC_CRT_STATS_FIELD,
-    TC_PREV_STATS_FIELD,
-
     testcases_sub_dir,
 )
 
@@ -52,6 +50,7 @@ http_endpoint_pool_metric_names = [
 ]
 
 testcases_file = "http_endpoint_pool.json"
+
 
 def generate_http_endpoint_metrics(
     url: str,
@@ -102,9 +101,7 @@ def generate_http_endpoint_pool_internal_metrics_test_case(
     metrics = []
 
     crt_pool_stats = crt_stats[POOL_STATS_FIELD]
-    prev_pool_stats = (
-        prev_stats[POOL_STATS_FIELD] if prev_stats is not None else None
-    )
+    prev_pool_stats = prev_stats[POOL_STATS_FIELD] if prev_stats is not None else None
 
     for i, name in enumerate(http_endpoint_pool_metric_names):
         if name is None:
@@ -160,9 +157,7 @@ def generate_http_endpoint_pool_internal_metrics_test_cases(
     ts = time.time()
 
     if testcases_root_dir not in {None, "", "-"}:
-        out_file = os.path.join(
-            testcases_root_dir, testcases_sub_dir, testcases_file
-        )
+        out_file = os.path.join(testcases_root_dir, testcases_sub_dir, testcases_file)
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
         fp = open(out_file, "wt")
     else:

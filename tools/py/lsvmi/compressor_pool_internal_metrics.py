@@ -16,8 +16,27 @@ from . import (
     INSTANCE_LABEL_NAME,
     lsvmi_testcases_root,
 )
+from .internal_metrics_common import (
+    TC_CRT_STATS_FIELD,
+    TC_FULL_CYCLE_FIELD,
+    TC_HOSTNAME_FIELD,
+    TC_INSTANCE_FIELD,
+    TC_NAME_FIELD,
+    TC_PREV_STATS_FIELD,
+    TC_PROM_TS_FIELD,
+    TC_REPORT_EXTRA_FIELD,
+    TC_WANT_METRICS_COUNT_FIELD,
+    TC_WANT_METRICS_FIELD,
+    testcases_sub_dir,
+)
 
 COMPRESSOR_ID_LABEL_NAME = "compressor"
+
+CompressorStats = Dict[str, Union[List[int], List[float]]]
+CompressorPoolStats = List[CompressorStats]
+UINT64_STATS_FIELD = "Uint64Stats"
+FLOAT64_STATS_FIELD = "Float64Stats"
+
 
 compressor_stats_uint64_metric_names = [
     "lsvmi_compressor_read_count_delta",
@@ -33,16 +52,11 @@ compressor_stats_float64_metric_names = [
     "lsvmi_compressor_compression_factor",
 ]
 
-default_out_file = os.path.join(
-    lsvmi_testcases_root, "internal_metrics", "compressor_pool.json"
-)
-
-CompressorStats = Dict[str, Union[List[int], List[float]]]
-CompressorPoolStats = List[CompressorStats]
+testcases_file = "compressor_pool.json"
 
 
 def generate_compressor_metrics(
-    compressor_id: int,
+    compressor_id: str,
     crt_compressor_stats: CompressorStats,
     prev_compressor_stats: Optional[CompressorStats] = None,
     instance: str = DEFAULT_TEST_INSTANCE,
@@ -56,10 +70,10 @@ def generate_compressor_metrics(
     for i, name in enumerate(compressor_stats_uint64_metric_names):
         if name is None:
             continue
-        val = crt_compressor_stats["Uint64Stats"][i]
+        val = crt_compressor_stats[UINT64_STATS_FIELD][i]
         if (
             prev_compressor_stats is None
-            or val != prev_compressor_stats["Uint64Stats"][i]
+            or val != prev_compressor_stats[UINT64_STATS_FIELD][i]
         ):
             metrics.append(
                 f"{name}{{"
@@ -75,10 +89,10 @@ def generate_compressor_metrics(
     for i, name in enumerate(compressor_stats_float64_metric_names):
         if name is None:
             continue
-        val = crt_compressor_stats["Float64Stats"][i]
+        val = crt_compressor_stats[FLOAT64_STATS_FIELD][i]
         if (
             prev_compressor_stats is None
-            or val != prev_compressor_stats["Float64Stats"][i]
+            or val != prev_compressor_stats[FLOAT64_STATS_FIELD][i]
         ):
             metrics.append(
                 f"{name}{{"
@@ -106,6 +120,7 @@ def generate_compressor_pool_internal_metrics_test_case(
 ) -> Dict[str, Any]:
     if ts is None:
         ts = time.time()
+    prom_ts = int(ts * 1000)
     metrics = []
     for compressor_d, crt_compressor_stats in crt_stats.items():
         if not full_cycle and prev_stats is not None:
@@ -123,45 +138,48 @@ def generate_compressor_pool_internal_metrics_test_case(
             )
         )
     return {
-        "Name": name,
-        "Instance": instance,
-        "Hostname": hostname,
-        "PromTs": int(ts * 1000),
-        "FullCycle": full_cycle,
-        "WantMetricsCount": len(metrics),
-        "WantMetrics": metrics,
-        "ReportExtra": report_extra,
-        "CrtStats": crt_stats,
-        "PrevStats": prev_stats,
+        TC_NAME_FIELD: name,
+        TC_INSTANCE_FIELD: instance,
+        TC_HOSTNAME_FIELD: hostname,
+        TC_PROM_TS_FIELD: prom_ts,
+        TC_FULL_CYCLE_FIELD: full_cycle,
+        TC_WANT_METRICS_COUNT_FIELD: len(metrics),
+        TC_WANT_METRICS_FIELD: metrics,
+        TC_REPORT_EXTRA_FIELD: report_extra,
+        TC_CRT_STATS_FIELD: crt_stats,
+        TC_PREV_STATS_FIELD: prev_stats,
     }
 
 
 def generate_compressor_pool_internal_metrics_test_cases(
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
-    out_file: str = default_out_file,
+    testcases_root_dir: Optional[str] = lsvmi_testcases_root,
 ):
     ts = time.time()
-    test_cases = []
 
-    if out_file != "-":
+    if testcases_root_dir not in {None, "", "-"}:
+        out_file = os.path.join(testcases_root_dir, testcases_sub_dir, testcases_file)
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
         fp = open(out_file, "wt")
     else:
+        out_file = None
         fp = sys.stdout
 
     crt_stats = {
         "0": {
-            "Uint64Stats": [0, 1, 2, 3, 4, 5, 6, 7],
-            "Float64Stats": [3.0],
+            UINT64_STATS_FIELD: [0, 1, 2, 3, 4, 5, 6, 7],
+            FLOAT64_STATS_FIELD: [3.0],
         },
         "1": {
-            "Uint64Stats": [10, 11, 12, 13, 14, 15, 16, 17],
-            "Float64Stats": [3.1],
+            UINT64_STATS_FIELD: [10, 11, 12, 13, 14, 15, 16, 17],
+            FLOAT64_STATS_FIELD: [3.1],
         },
     }
 
+    test_cases = []
     tc_num = 0
+
     prev_stats = None
     test_cases.append(
         generate_compressor_pool_internal_metrics_test_case(
@@ -179,7 +197,7 @@ def generate_compressor_pool_internal_metrics_test_cases(
     for compressor_d in crt_stats:
         for i in range(len(compressor_stats_uint64_metric_names)):
             prev_stats = deepcopy(crt_stats)
-            prev_stats[compressor_d]["Uint64Stats"][i] += 1000
+            prev_stats[compressor_d][UINT64_STATS_FIELD][i] += 1000
             for full_cycle in [False, True]:
                 test_cases.append(
                     generate_compressor_pool_internal_metrics_test_case(
@@ -195,7 +213,7 @@ def generate_compressor_pool_internal_metrics_test_cases(
                 tc_num += 1
         for i in range(len(compressor_stats_float64_metric_names)):
             prev_stats = deepcopy(crt_stats)
-            prev_stats[compressor_d]["Float64Stats"][i] += 1000
+            prev_stats[compressor_d][FLOAT64_STATS_FIELD][i] += 1000
             for full_cycle in [False, True]:
                 test_cases.append(
                     generate_compressor_pool_internal_metrics_test_case(
@@ -228,6 +246,6 @@ def generate_compressor_pool_internal_metrics_test_cases(
 
     json.dump(test_cases, fp=fp, indent=2)
     fp.write("\n")
-    if out_file != "-":
+    if out_file is not None:
         fp.close()
         print(f"{out_file} generated", file=sys.stderr)

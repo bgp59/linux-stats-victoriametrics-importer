@@ -2,9 +2,19 @@
 
 # Testcase generators for internal metrics:
 
-generators = dict()
 
-from .internal_metrics_common import testcases_sub_dir
-from .http_endpoint_pool_internal_metrics import generate_http_endpoint_pool_internal_metrics_test_cases
-generators["http_endpoint_pool"] = generate_http_endpoint_pool_internal_metrics_test_cases
+from .compressor_pool_internal_metrics import (
+    generate_compressor_pool_internal_metrics_test_cases,
+)
+from .http_endpoint_pool_internal_metrics import (
+    generate_http_endpoint_pool_internal_metrics_test_cases,
+)
+from .scheduler_internal_metrics import generate_scheduler_internal_metrics_test_cases
 
+testcases_sub_dir = "internal_metrics"
+
+generators = {
+    "compressor_pool": generate_compressor_pool_internal_metrics_test_cases,
+    "http_endpoint_pool": generate_http_endpoint_pool_internal_metrics_test_cases,
+    "scheduler": generate_scheduler_internal_metrics_test_cases,
+}

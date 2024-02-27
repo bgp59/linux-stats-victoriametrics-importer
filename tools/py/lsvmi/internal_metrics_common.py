@@ -17,6 +17,3 @@ TC_CRT_STATS_FIELD = "CrtStats"
 TC_PREV_STATS_FIELD = "PrevStats"
 
 testcases_sub_dir = "internal_metrics"
-
-
-
