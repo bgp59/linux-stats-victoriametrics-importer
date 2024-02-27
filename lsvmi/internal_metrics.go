@@ -19,6 +19,11 @@ const (
 	// Heartbeat metric:
 	LSVMI_UP_METRIC_NAME = "lsvmi_up"
 
+	// Interval since last generation, i.e. the interval underlying the deltas.
+	// Normally this should be close to scan interval, but this the actual
+	// value, rather than the desired one:
+	LSVMI_INTERNAL_METRICS_INTERVAL_METRIC_NAME = "lsvmi_internal_metrics_delta_sec"
+
 	// This generator id:
 	INTERNAL_METRICS_ID = "internal_metrics"
 )
@@ -49,9 +54,20 @@ type InternalMetrics struct {
 	fullMetricsFactor int
 	// Current cycle#:
 	cycleNum int
+	// The timestamp of the previous scan:
+	prevTs time.Time
+	// The timestamp of the previous full metrics generation:
+	prevFullTs time.Time
+	// Safeguard against postponing full metrics generation for too long; if the
+	// regular scheduling is disrupted then the generation based on cycle# may
+	// be delayed for too long:
+	fullMetricsMaxInterval time.Duration
 
 	// Heartbeat metric:
 	upMetric []byte
+
+	// Interval metrics:
+	intervalMetric []byte
 
 	// Scheduler specific metrics:
 	schedulerMetrics *SchedulerInternalMetrics
@@ -101,13 +117,17 @@ func NewInternalMetrics(cfg any) (*InternalMetrics, error) {
 	if err != nil {
 		return nil, err
 	}
+	now := time.Now()
 	internalMetrics := &InternalMetrics{
-		id:                  INTERNAL_METRICS_ID,
-		interval:            interval,
-		fullMetricsFactor:   internalMetricsCfg.FullMetricsFactor,
-		mgStats:             make(MetricsGeneratorStats),
-		mgStatsMetricsCache: make(map[string][][]byte),
-		tsSuffixBuf:         &bytes.Buffer{},
+		id:                     INTERNAL_METRICS_ID,
+		interval:               interval,
+		fullMetricsFactor:      internalMetricsCfg.FullMetricsFactor,
+		prevTs:                 now,
+		prevFullTs:             now,
+		fullMetricsMaxInterval: interval * time.Duration(internalMetricsCfg.FullMetricsFactor+1),
+		mgStats:                make(MetricsGeneratorStats),
+		mgStatsMetricsCache:    make(map[string][][]byte),
+		tsSuffixBuf:            &bytes.Buffer{},
 	}
 	internalMetrics.schedulerMetrics = NewSchedulerInternalMetrics(internalMetrics)
 	internalMetrics.compressorPoolMetrics = NewCompressorPoolInternalMetrics(internalMetrics)
@@ -134,8 +154,6 @@ func (internalMetrics *InternalMetrics) Execute() {
 	if internalMetrics.metricsQueue != nil {
 		metricsQueue = internalMetrics.metricsQueue
 	}
-
-	fullCycle := internalMetrics.cycleNum == 0
 
 	// Collect stats from various sources:
 	// Scheduler:
@@ -193,14 +211,34 @@ func (internalMetrics *InternalMetrics) Execute() {
 	metricsCount := 0
 	buf := metricsQueue.GetBuf()
 
+	fullCycle := internalMetrics.cycleNum == 0
+	if !fullCycle &&
+		ts.Sub(internalMetrics.prevFullTs) >= internalMetrics.fullMetricsMaxInterval {
+		fullCycle = true
+		internalMetrics.cycleNum = 0
+	}
+	if fullCycle {
+		internalMetrics.prevFullTs = ts
+	}
+
 	upMetric := internalMetrics.upMetric
 	if upMetric == nil {
 		upMetric = internalMetrics.updateUpMetric()
 	}
 	buf.Write(upMetric) // value inclusive
-	//buf.WriteByte('1')
 	buf.Write(tsSuffix)
 	metricsCount++
+
+	intervalMetric := internalMetrics.intervalMetric
+	if intervalMetric == nil {
+		intervalMetric = internalMetrics.updateIntervalMetric()
+	}
+	buf.Write(intervalMetric)
+	intervalDelta := ts.Sub(internalMetrics.prevTs).Seconds()
+	buf.WriteString(strconv.FormatFloat(intervalDelta, 'f', 6, 64))
+	buf.Write(tsSuffix)
+	metricsCount++
+	internalMetrics.prevTs = ts
 
 	metricsCount += schedulerMetrics.generateMetrics(buf, fullCycle, tsSuffix)
 	if compressorPoolMetrics != nil {
@@ -283,6 +321,23 @@ func (internalMetrics *InternalMetrics) updateUpMetric() []byte {
 	return internalMetrics.upMetric
 }
 
+func (internalMetrics *InternalMetrics) updateIntervalMetric() []byte {
+	instance, hostname := GlobalInstance, GlobalHostname
+	if internalMetrics.instance != "" {
+		instance = internalMetrics.instance
+	}
+	if internalMetrics.hostname != "" {
+		hostname = internalMetrics.hostname
+	}
+	internalMetrics.intervalMetric = []byte(fmt.Sprintf(
+		`%s{%s="%s",%s="%s"} `, //N.B. whitespace before value!
+		LSVMI_INTERNAL_METRICS_INTERVAL_METRIC_NAME,
+		INSTANCE_LABEL_NAME, instance,
+		HOSTNAME_LABEL_NAME, hostname,
+	))
+	return internalMetrics.intervalMetric
+}
+
 func (internalMetrics *InternalMetrics) updateMetricsCache(id string) [][]byte {
 	instance, hostname := GlobalInstance, GlobalHostname
 	if internalMetrics.instance != "" {
@@ -295,7 +350,7 @@ func (internalMetrics *InternalMetrics) updateMetricsCache(id string) [][]byte {
 	internalMetrics.mgStatsMetricsCache[id] = mgStatsMetrics
 	for index, name := range MetricsGeneratorStatsMetricsNameMap {
 		mgStatsMetrics[index] = []byte(fmt.Sprintf(
-			`%s{%s="%s",%s="%s",%s="%s"} `, // N.B. whitespace before value
+			`%s{%s="%s",%s="%s",%s="%s"} `, // N.B. whitespace before value!
 			name,
 			INSTANCE_LABEL_NAME, instance,
 			HOSTNAME_LABEL_NAME, hostname,
