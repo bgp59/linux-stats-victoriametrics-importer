@@ -126,6 +126,8 @@ func (eppim *HttpEndpointPoolInternalMetrics) generateMetrics(
 		prevPoolStats = nil
 	}
 
+	// For counter delta metrics, unless this is a full cycle, skip 0 values if
+	// the previous scan value was also 0.
 	indexMetricMap := eppim.httpEndpointPoolMetricsCache
 	if indexMetricMap == nil {
 		eppim.updatePoolMetricsCache()
@@ -133,7 +135,7 @@ func (eppim *HttpEndpointPoolInternalMetrics) generateMetrics(
 	}
 	for index, metric := range indexMetricMap {
 		crtVal := crtPoolStats[index]
-		if prevPoolStats == nil || crtVal != prevPoolStats[index] {
+		if crtVal != 0 || prevPoolStats == nil || crtVal != prevPoolStats[index] {
 			buf.Write(metric)
 			buf.WriteString(strconv.FormatUint(crtVal, 10))
 			buf.Write(tsSuffix)
@@ -156,7 +158,7 @@ func (eppim *HttpEndpointPoolInternalMetrics) generateMetrics(
 		}
 		for index, metric := range indexMetricMap {
 			crtVal := crtEpStats[index]
-			if prevEpStats == nil || crtVal != prevEpStats[index] {
+			if crtVal != 0 || prevEpStats == nil || crtVal != prevEpStats[index] {
 				buf.Write(metric)
 				buf.WriteString(strconv.FormatUint(crtVal, 10))
 				buf.Write(tsSuffix)

@@ -118,7 +118,7 @@ func (sim *SchedulerInternalMetrics) generateMetrics(
 		}
 		for index, metric := range uint64IndexMetricMap {
 			crtVal := crtTaskStats.Uint64Stats[index]
-			if prevTaskStats == nil || crtVal != prevTaskStats.Uint64Stats[index] {
+			if crtVal != 0 || prevTaskStats == nil || crtVal != prevTaskStats.Uint64Stats[index] {
 				buf.Write(metric)
 				buf.WriteString(strconv.FormatUint(crtVal, 10))
 				buf.Write(tsSuffix)

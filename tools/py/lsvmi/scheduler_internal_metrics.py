@@ -69,7 +69,11 @@ def generate_task_stats_metrics(
         if name is None:
             continue
         val = crt_task_stats[UINT64_STATS_FIELD][i]
-        if prev_task_stats is None or val != prev_task_stats[UINT64_STATS_FIELD][i]:
+        if (
+            val != 0
+            or prev_task_stats is None
+            or val != prev_task_stats[UINT64_STATS_FIELD][i]
+        ):
             metrics.append(
                 f"{name}{{"
                 + ",".join(
@@ -158,7 +162,7 @@ def generate_scheduler_internal_metrics_test_cases(
         out_file = None
         fp = sys.stdout
 
-    crt_stats = {
+    stats_ref = {
         "taskA": {
             UINT64_STATS_FIELD: [0, 1, 2, 3],
             FLOAT64_STATS_FIELD: [0.1, 0.2],
@@ -172,45 +176,50 @@ def generate_scheduler_internal_metrics_test_cases(
     test_cases = []
     tc_num = 0
 
-    prev_stats = None
-    test_cases.append(
-        generate_scheduler_internal_metrics_test_case(
-            f"{tc_num:04d}",
-            crt_stats,
-            prev_stats=prev_stats,
-            full_cycle=False,
-            instance=instance,
-            hostname=hostname,
-            ts=ts,
+    for prev_stats in [None, stats_ref]:
+        test_cases.append(
+            generate_scheduler_internal_metrics_test_case(
+                f"{tc_num:04d}",
+                stats_ref,
+                prev_stats=prev_stats,
+                full_cycle=False,
+                instance=instance,
+                hostname=hostname,
+                ts=ts,
+            )
         )
-    )
-    tc_num += 1
+        tc_num += 1
 
-    for task_id in crt_stats:
+    for task_id in stats_ref:
+        # Test skip-0-after-0 rule for uint64 field metrics:
         for i in range(len(task_stats_uint64_metric_names)):
-            prev_stats = deepcopy(crt_stats)
-            prev_stats[task_id][UINT64_STATS_FIELD][i] += 1000
-            for full_cycle in [False, True]:
-                test_cases.append(
-                    generate_scheduler_internal_metrics_test_case(
-                        f"{tc_num:04d}",
-                        crt_stats,
-                        prev_stats=prev_stats,
-                        full_cycle=full_cycle,
-                        instance=instance,
-                        hostname=hostname,
-                        ts=ts,
+            crt_stats = deepcopy(stats_ref)
+            crt_stats[task_id][UINT64_STATS_FIELD][i] = 0
+            for v in [0, 1]:
+                prev_stats = deepcopy(crt_stats)
+                prev_stats[task_id][UINT64_STATS_FIELD][i] = v
+                for full_cycle in [False, True]:
+                    test_cases.append(
+                        generate_scheduler_internal_metrics_test_case(
+                            f"{tc_num:04d}",
+                            crt_stats,
+                            prev_stats=prev_stats,
+                            full_cycle=full_cycle,
+                            instance=instance,
+                            hostname=hostname,
+                            ts=ts,
+                        )
                     )
-                )
-                tc_num += 1
+                    tc_num += 1
+        # Test generate-if-changed rule for float64 field metrics:
         for i in range(len(task_stats_float64_metric_names)):
-            prev_stats = deepcopy(crt_stats)
+            prev_stats = deepcopy(stats_ref)
             prev_stats[task_id][FLOAT64_STATS_FIELD][i] += 1000
             for full_cycle in [False, True]:
                 test_cases.append(
                     generate_scheduler_internal_metrics_test_case(
                         f"{tc_num:04d}",
-                        crt_stats,
+                        stats_ref,
                         prev_stats=prev_stats,
                         full_cycle=full_cycle,
                         instance=instance,
@@ -220,6 +229,7 @@ def generate_scheduler_internal_metrics_test_cases(
                 )
                 tc_num += 1
 
+    # Test new task:
     for task_id in crt_stats:
         prev_stats = deepcopy(crt_stats)
         del prev_stats[task_id]

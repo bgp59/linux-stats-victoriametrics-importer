@@ -67,16 +67,17 @@ def generate_compressor_metrics(
         ts = time.time()
     prom_ts = int(ts * 1000)
     metrics = []
-    for i, name in enumerate(compressor_stats_uint64_metric_names):
-        if name is None:
+    for i, metric_name in enumerate(compressor_stats_uint64_metric_names):
+        if metric_name is None:
             continue
         val = crt_compressor_stats[UINT64_STATS_FIELD][i]
         if (
-            prev_compressor_stats is None
+            val != 0
+            or prev_compressor_stats is None
             or val != prev_compressor_stats[UINT64_STATS_FIELD][i]
         ):
             metrics.append(
-                f"{name}{{"
+                f"{metric_name}{{"
                 + ",".join(
                     [
                         f'{INSTANCE_LABEL_NAME}="{instance}"',
@@ -86,8 +87,8 @@ def generate_compressor_metrics(
                 )
                 + f"}} {val} {prom_ts}"
             )
-    for i, name in enumerate(compressor_stats_float64_metric_names):
-        if name is None:
+    for i, metric_name in enumerate(compressor_stats_float64_metric_names):
+        if metric_name is None:
             continue
         val = crt_compressor_stats[FLOAT64_STATS_FIELD][i]
         if (
@@ -95,7 +96,7 @@ def generate_compressor_metrics(
             or val != prev_compressor_stats[FLOAT64_STATS_FIELD][i]
         ):
             metrics.append(
-                f"{name}{{"
+                f"{metric_name}{{"
                 + ",".join(
                     [
                         f'{INSTANCE_LABEL_NAME}="{instance}"',
@@ -122,14 +123,14 @@ def generate_compressor_pool_internal_metrics_test_case(
         ts = time.time()
     prom_ts = int(ts * 1000)
     metrics = []
-    for compressor_d, crt_compressor_stats in crt_stats.items():
+    for compressor_id, crt_compressor_stats in crt_stats.items():
         if not full_cycle and prev_stats is not None:
-            prev_compressor_stats = prev_stats.get(compressor_d)
+            prev_compressor_stats = prev_stats.get(compressor_id)
         else:
             prev_compressor_stats = None
         metrics.extend(
             generate_compressor_metrics(
-                compressor_d,
+                compressor_id,
                 crt_compressor_stats,
                 prev_compressor_stats=prev_compressor_stats,
                 instance=instance,
@@ -166,13 +167,13 @@ def generate_compressor_pool_internal_metrics_test_cases(
         out_file = None
         fp = sys.stdout
 
-    crt_stats = {
+    stats_ref = {
         "0": {
-            UINT64_STATS_FIELD: [0, 1, 2, 3, 4, 5, 6, 7],
+            UINT64_STATS_FIELD: [1, 2, 3, 4, 5, 6, 7, 8],
             FLOAT64_STATS_FIELD: [3.0],
         },
         "1": {
-            UINT64_STATS_FIELD: [10, 11, 12, 13, 14, 15, 16, 17],
+            UINT64_STATS_FIELD: [11, 12, 13, 14, 15, 16, 17, 18],
             FLOAT64_STATS_FIELD: [3.1],
         },
     }
@@ -180,45 +181,50 @@ def generate_compressor_pool_internal_metrics_test_cases(
     test_cases = []
     tc_num = 0
 
-    prev_stats = None
-    test_cases.append(
-        generate_compressor_pool_internal_metrics_test_case(
-            f"{tc_num:04d}",
-            crt_stats,
-            prev_stats=prev_stats,
-            full_cycle=False,
-            instance=instance,
-            hostname=hostname,
-            ts=ts,
+    for prev_stats in [None, stats_ref]:
+        test_cases.append(
+            generate_compressor_pool_internal_metrics_test_case(
+                f"{tc_num:04d}",
+                stats_ref,
+                prev_stats=prev_stats,
+                full_cycle=False,
+                instance=instance,
+                hostname=hostname,
+                ts=ts,
+            )
         )
-    )
-    tc_num += 1
+        tc_num += 1
 
-    for compressor_d in crt_stats:
+    for compressor_id in stats_ref:
+        # Test skip-0-after-0 rule for uint64 field metrics:
         for i in range(len(compressor_stats_uint64_metric_names)):
-            prev_stats = deepcopy(crt_stats)
-            prev_stats[compressor_d][UINT64_STATS_FIELD][i] += 1000
-            for full_cycle in [False, True]:
-                test_cases.append(
-                    generate_compressor_pool_internal_metrics_test_case(
-                        f"{tc_num:04d}",
-                        crt_stats,
-                        prev_stats=prev_stats,
-                        full_cycle=full_cycle,
-                        instance=instance,
-                        hostname=hostname,
-                        ts=ts,
+            crt_stats = deepcopy(stats_ref)
+            crt_stats[compressor_id][UINT64_STATS_FIELD][i] = 0
+            for v in [0, 1]:
+                prev_stats = deepcopy(crt_stats)
+                prev_stats[compressor_id][UINT64_STATS_FIELD][i] = v
+                for full_cycle in [False, True]:
+                    test_cases.append(
+                        generate_compressor_pool_internal_metrics_test_case(
+                            f"{tc_num:04d}",
+                            crt_stats,
+                            prev_stats=prev_stats,
+                            full_cycle=full_cycle,
+                            instance=instance,
+                            hostname=hostname,
+                            ts=ts,
+                        )
                     )
-                )
-                tc_num += 1
+                    tc_num += 1
+        # Test generate-if-changed rule for float64 field metrics:
         for i in range(len(compressor_stats_float64_metric_names)):
-            prev_stats = deepcopy(crt_stats)
-            prev_stats[compressor_d][FLOAT64_STATS_FIELD][i] += 1000
+            prev_stats = deepcopy(stats_ref)
+            prev_stats[compressor_id][FLOAT64_STATS_FIELD][i] += 1000
             for full_cycle in [False, True]:
                 test_cases.append(
                     generate_compressor_pool_internal_metrics_test_case(
                         f"{tc_num:04d}",
-                        crt_stats,
+                        stats_ref,
                         prev_stats=prev_stats,
                         full_cycle=full_cycle,
                         instance=instance,
@@ -228,6 +234,7 @@ def generate_compressor_pool_internal_metrics_test_cases(
                 )
                 tc_num += 1
 
+    # New compressor id:
     for compressor_id in crt_stats:
         prev_stats = deepcopy(crt_stats)
         del prev_stats[compressor_id]

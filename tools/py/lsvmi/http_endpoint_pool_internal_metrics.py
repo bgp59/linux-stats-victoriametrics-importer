@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import time
+from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
 
 from . import (
@@ -65,13 +66,13 @@ def generate_http_endpoint_metrics(
     prom_ts = int(ts * 1000)
     metrics = []
 
-    for i, name in enumerate(http_endpoint_metric_names):
-        if name is None:
+    for i, metric_name in enumerate(http_endpoint_metric_names):
+        if metric_name is None:
             continue
         val = crt_ep_stats[i]
-        if prev_ep_stats is None or val != prev_ep_stats[i]:
+        if val != 0 or prev_ep_stats is None or val != prev_ep_stats[i]:
             metrics.append(
-                f"{name}{{"
+                f"{metric_name}{{"
                 + ",".join(
                     [
                         f'{INSTANCE_LABEL_NAME}="{instance}"',
@@ -98,18 +99,21 @@ def generate_http_endpoint_pool_internal_metrics_test_case(
         ts = time.time()
     prom_ts = int(ts * 1000)
 
+    if full_cycle:
+        prev_stats = None
+
     metrics = []
 
     crt_pool_stats = crt_stats[POOL_STATS_FIELD]
     prev_pool_stats = prev_stats[POOL_STATS_FIELD] if prev_stats is not None else None
 
-    for i, name in enumerate(http_endpoint_pool_metric_names):
-        if name is None:
+    for i, metric_name in enumerate(http_endpoint_pool_metric_names):
+        if metric_name is None:
             continue
         val = crt_pool_stats[i]
-        if prev_pool_stats is None or val != prev_pool_stats[i]:
+        if val != 0 or prev_pool_stats is None or val != prev_pool_stats[i]:
             metrics.append(
-                f"{name}{{"
+                f"{metric_name}{{"
                 + ",".join(
                     [
                         f'{INSTANCE_LABEL_NAME}="{instance}"',
@@ -164,7 +168,7 @@ def generate_http_endpoint_pool_internal_metrics_test_cases(
         out_file = None
         fp = sys.stdout
 
-    crt_stats = {
+    stats_ref = {
         POOL_STATS_FIELD: [1000, 1001],
         ENDPOINT_STATS_FIELD: {
             "http://test1": [10, 11, 12, 13, 14],
@@ -175,19 +179,77 @@ def generate_http_endpoint_pool_internal_metrics_test_cases(
     test_cases = []
     tc_num = 0
 
-    prev_stats = None
-    test_cases.append(
-        generate_http_endpoint_pool_internal_metrics_test_case(
-            f"{tc_num:04d}",
-            crt_stats,
-            prev_stats=prev_stats,
-            full_cycle=False,
-            instance=instance,
-            hostname=hostname,
-            ts=ts,
+    for prev_stats in [None, stats_ref]:
+        test_cases.append(
+            generate_http_endpoint_pool_internal_metrics_test_case(
+                f"{tc_num:04d}",
+                stats_ref,
+                prev_stats=prev_stats,
+                full_cycle=False,
+                instance=instance,
+                hostname=hostname,
+                ts=ts,
+            )
         )
-    )
-    tc_num += 1
+        tc_num += 1
+
+    # Test skip 0 after 0 metrics generation rule:
+    for i in range(len(http_endpoint_pool_metric_names)):
+        crt_stats = deepcopy(stats_ref)
+        crt_stats[POOL_STATS_FIELD][i] = 0
+        for v in [0, 1]:
+            prev_stats = deepcopy(crt_stats)
+            prev_stats[POOL_STATS_FIELD][i] = v
+            for full_cycle in [False, True]:
+                test_cases.append(
+                    generate_http_endpoint_pool_internal_metrics_test_case(
+                        f"{tc_num:04d}",
+                        crt_stats,
+                        prev_stats=prev_stats,
+                        full_cycle=full_cycle,
+                        instance=instance,
+                        hostname=hostname,
+                        ts=ts,
+                    )
+                )
+                tc_num += 1
+    for url in stats_ref[ENDPOINT_STATS_FIELD]:
+        for i in range(len(http_endpoint_metric_names)):
+            crt_stats = deepcopy(stats_ref)
+            crt_stats[ENDPOINT_STATS_FIELD][url][i] = 0
+            for v in [0, 1]:
+                prev_stats = deepcopy(crt_stats)
+                prev_stats[ENDPOINT_STATS_FIELD][url][i] = v
+                for full_cycle in [False, True]:
+                    test_cases.append(
+                        generate_http_endpoint_pool_internal_metrics_test_case(
+                            f"{tc_num:04d}",
+                            crt_stats,
+                            prev_stats=prev_stats,
+                            full_cycle=full_cycle,
+                            instance=instance,
+                            hostname=hostname,
+                            ts=ts,
+                        )
+                    )
+                    tc_num += 1
+
+    # New URL:
+    for url in stats_ref[ENDPOINT_STATS_FIELD]:
+        prev_stats = deepcopy(stats_ref)
+        del prev_stats[ENDPOINT_STATS_FIELD][url]
+        test_cases.append(
+            generate_http_endpoint_pool_internal_metrics_test_case(
+                f"{tc_num:04d}",
+                stats_ref,
+                prev_stats=prev_stats,
+                full_cycle=False,
+                instance=instance,
+                hostname=hostname,
+                ts=ts,
+            )
+        )
+        tc_num += 1
 
     json.dump(test_cases, fp=fp, indent=2)
     fp.write("\n")

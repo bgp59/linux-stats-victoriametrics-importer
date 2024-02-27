@@ -77,8 +77,6 @@ type MetricsGeneratorStatsContainer struct {
 	stats MetricsGeneratorStats
 	// Lock:
 	mu *sync.Mutex
-	// Convenience zeroed stats for snap & clear:
-	zero []uint64
 }
 
 var MetricsGeneratorStatsMetricsNameMap = map[int]string{
@@ -91,7 +89,6 @@ func NewMetricsGeneratorStatsContainer() *MetricsGeneratorStatsContainer {
 	return &MetricsGeneratorStatsContainer{
 		stats: make(MetricsGeneratorStats),
 		mu:    &sync.Mutex{},
-		zero:  make([]uint64, METRICS_GENERATOR_NUM_STATS),
 	}
 }
 
@@ -109,7 +106,7 @@ func (mgs *MetricsGeneratorStatsContainer) Update(id string, metricsCount, byteC
 	gStats[METRICS_GENERATOR_BYTES_COUNT] += byteCount
 }
 
-func (mgs *MetricsGeneratorStatsContainer) SnapStats(to MetricsGeneratorStats, clear bool) MetricsGeneratorStats {
+func (mgs *MetricsGeneratorStatsContainer) SnapStats(to MetricsGeneratorStats, clearStats bool) MetricsGeneratorStats {
 	mgs.mu.Lock()
 	defer mgs.mu.Unlock()
 	if to == nil {
@@ -123,8 +120,8 @@ func (mgs *MetricsGeneratorStatsContainer) SnapStats(to MetricsGeneratorStats, c
 			to[taskId] = toGStats
 		}
 		copy(toGStats, gStats)
-		if clear {
-			copy(gStats, mgs.zero)
+		if clearStats {
+			clear(gStats)
 		}
 	}
 	return to
@@ -176,7 +173,7 @@ func InitCommonMetrics(cfg any) error {
 }
 
 // All metrics generators have to register with the scheduler as a task or
-// tasks. Each generator will have task builder function:
+// tasks. Each generator will have a task builder function:
 type TaskBuilderFunc func(config *LsvmiConfig) ([]*Task, error)
 
 // The  metrics generators will register their specific builder into a list:

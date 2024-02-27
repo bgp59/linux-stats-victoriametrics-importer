@@ -110,6 +110,9 @@ func (cpim *CompressorPoolInternalMetrics) generateMetrics(
 		tsSuffix = cpim.internalMetrics.getTsSuffix()
 	}
 
+	// For counter delta metrics, unless this is a full cycle, skip 0 values if
+	// the previous scan value was also 0.
+
 	var prevCompressorStats *CompressorStats = nil
 	metricsCount := 0
 	for compressorId, crtCompressorStats := range crtStats {
@@ -124,7 +127,7 @@ func (cpim *CompressorPoolInternalMetrics) generateMetrics(
 		}
 		for index, metric := range uint64IndexMetricMap {
 			crtVal := crtCompressorStats.Uint64Stats[index]
-			if prevCompressorStats == nil || crtVal != prevCompressorStats.Uint64Stats[index] {
+			if crtVal != 0 || prevCompressorStats == nil || crtVal != prevCompressorStats.Uint64Stats[index] {
 				buf.Write(metric)
 				buf.WriteString(strconv.FormatUint(crtVal, 10))
 				buf.Write(tsSuffix)
