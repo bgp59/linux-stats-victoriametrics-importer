@@ -17,21 +17,6 @@ from . import (
     lsvmi_testcases_root,
 )
 
-import json
-import os
-import sys
-import time
-from copy import deepcopy
-from typing import Any, Dict, List, Optional, Union
-
-from . import (
-    DEFAULT_TEST_HOSTNAME,
-    DEFAULT_TEST_INSTANCE,
-    HOSTNAME_LABEL_NAME,
-    INSTANCE_LABEL_NAME,
-    lsvmi_testcases_root,
-)
-
 COMPRESSOR_ID_LABEL_NAME = "compressor"
 
 compressor_stats_uint64_metric_names = [
@@ -55,7 +40,8 @@ default_out_file = os.path.join(
 CompressorStats = Dict[str, Union[List[int], List[float]]]
 CompressorPoolStats = List[CompressorStats]
 
-def generate_compressor_stats_metrics(
+
+def generate_compressor_metrics(
     compressor_id: int,
     crt_compressor_stats: CompressorStats,
     prev_compressor_stats: Optional[CompressorStats] = None,
@@ -65,13 +51,16 @@ def generate_compressor_stats_metrics(
 ) -> List[str]:
     if ts is None:
         ts = time.time()
-    promTs = str(int(ts * 1000))
+    prom_ts = int(ts * 1000)
     metrics = []
     for i, name in enumerate(compressor_stats_uint64_metric_names):
         if name is None:
             continue
         val = crt_compressor_stats["Uint64Stats"][i]
-        if prev_compressor_stats is None or val != prev_compressor_stats["Uint64Stats"][i]:
+        if (
+            prev_compressor_stats is None
+            or val != prev_compressor_stats["Uint64Stats"][i]
+        ):
             metrics.append(
                 f"{name}{{"
                 + ",".join(
@@ -81,13 +70,16 @@ def generate_compressor_stats_metrics(
                         f'{COMPRESSOR_ID_LABEL_NAME}="{compressor_id}"',
                     ]
                 )
-                + f"}} {val} {promTs}"
+                + f"}} {val} {prom_ts}"
             )
     for i, name in enumerate(compressor_stats_float64_metric_names):
         if name is None:
             continue
         val = crt_compressor_stats["Float64Stats"][i]
-        if prev_compressor_stats is None or val != prev_compressor_stats["Float64Stats"][i]:
+        if (
+            prev_compressor_stats is None
+            or val != prev_compressor_stats["Float64Stats"][i]
+        ):
             metrics.append(
                 f"{name}{{"
                 + ",".join(
@@ -97,9 +89,10 @@ def generate_compressor_stats_metrics(
                         f'{COMPRESSOR_ID_LABEL_NAME}="{compressor_id}"',
                     ]
                 )
-                + f"}} {val:.3f} {promTs}"
+                + f"}} {val:.3f} {prom_ts}"
             )
     return metrics
+
 
 def generate_compressor_pool_internal_metrics_test_case(
     name: str,
@@ -120,7 +113,7 @@ def generate_compressor_pool_internal_metrics_test_case(
         else:
             prev_compressor_stats = None
         metrics.extend(
-            generate_compressor_stats_metrics(
+            generate_compressor_metrics(
                 compressor_d,
                 crt_compressor_stats,
                 prev_compressor_stats=prev_compressor_stats,
@@ -142,6 +135,7 @@ def generate_compressor_pool_internal_metrics_test_case(
         "PrevStats": prev_stats,
     }
 
+
 def generate_compressor_pool_internal_metrics_test_cases(
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
@@ -149,7 +143,7 @@ def generate_compressor_pool_internal_metrics_test_cases(
 ):
     ts = time.time()
     test_cases = []
- 
+
     if out_file != "-":
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
         fp = open(out_file, "wt")
@@ -166,7 +160,6 @@ def generate_compressor_pool_internal_metrics_test_cases(
             "Float64Stats": [3.1],
         },
     }
-
 
     tc_num = 0
     prev_stats = None

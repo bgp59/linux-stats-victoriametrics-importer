@@ -19,7 +19,7 @@ const (
 	// Heartbeat metric:
 	LSVMI_UP_METRIC_NAME = "lsvmi_up"
 
-	// Metrics generator id:
+	// This generator id:
 	INTERNAL_METRICS_ID = "internal_metrics"
 )
 
@@ -59,6 +59,9 @@ type InternalMetrics struct {
 	// Compressor pool specific metrics:
 	compressorPoolMetrics *CompressorPoolInternalMetrics
 
+	// HTTP Endpoint Pool specific metrics:
+	httpEndpointPoolMetrics *HttpEndpointPoolInternalMetrics
+
 	// Common metrics generators stats:
 	mgStats MetricsGeneratorStats
 	// Cache the metrics:
@@ -73,6 +76,7 @@ type InternalMetrics struct {
 	metricsQueue       MetricsQueue
 	scheduler          *Scheduler
 	compressorPool     *CompressorPool
+	httpEndpointPool   *HttpEndpointPool
 	mgsStatsContainer  *MetricsGeneratorStatsContainer
 }
 
@@ -107,6 +111,7 @@ func NewInternalMetrics(cfg any) (*InternalMetrics, error) {
 	}
 	internalMetrics.schedulerMetrics = NewSchedulerInternalMetrics(internalMetrics)
 	internalMetrics.compressorPoolMetrics = NewCompressorPoolInternalMetrics(internalMetrics)
+	internalMetrics.httpEndpointPoolMetrics = NewHttpEndpointPoolInternalMetrics(internalMetrics)
 	return internalMetrics, nil
 }
 
@@ -157,6 +162,20 @@ func (internalMetrics *InternalMetrics) Execute() {
 		compressorPoolMetrics = nil
 	}
 
+	// HTTP Endpoint Pool metrics:
+	httpEndpointPool, httpEndpointPoolMetrics := GlobalHttpEndpointPool, internalMetrics.httpEndpointPoolMetrics
+	if internalMetrics.httpEndpointPool != nil {
+		httpEndpointPool = internalMetrics.httpEndpointPool
+	}
+	if httpEndpointPool != nil {
+		httpEndpointPoolMetrics.stats[httpEndpointPoolMetrics.crtStatsIndx] = httpEndpointPool.SnapStats(
+			httpEndpointPoolMetrics.stats[httpEndpointPoolMetrics.crtStatsIndx],
+			STATS_SNAP_AND_CLEAR,
+		)
+	} else {
+		httpEndpointPoolMetrics = nil
+	}
+
 	// Common metrics generators metrics:
 	mgsStatsContainer := GlobalMetricsGeneratorStatsContainer
 	if internalMetrics.mgsStatsContainer != nil {
@@ -186,6 +205,9 @@ func (internalMetrics *InternalMetrics) Execute() {
 	metricsCount += schedulerMetrics.generateMetrics(buf, fullCycle, tsSuffix)
 	if compressorPoolMetrics != nil {
 		metricsCount += compressorPoolMetrics.generateMetrics(buf, fullCycle, tsSuffix)
+	}
+	if httpEndpointPoolMetrics != nil {
+		metricsCount += httpEndpointPoolMetrics.generateMetrics(buf, fullCycle, tsSuffix)
 	}
 
 	for id, mgStats := range internalMetrics.mgStats {
@@ -219,9 +241,22 @@ func (internalMetrics *InternalMetrics) Execute() {
 		buf.Write(tsSuffix)
 
 		buf.Write(metrics[METRICS_GENERATOR_BYTES_COUNT])
-		// Assuming that buf size is < 100k, estimate 5 digits for bytes count value:
-		buf.WriteString(strconv.Itoa(buf.Len() + 5 + len(tsSuffix)))
+		// Let l denote the number of bytes in buf without k bytes needed to
+		// encode l+k. Then k is the smallest number such that:
+		//  l + k < 10**k
+		// This is equivalent to k being the largest number such that
+		//  l + (k - 1) >= 10**(k-1)
+		// which is equivalent w/ k being the value that stops the loop
+		//  10*k <= l+k
+		l := (buf.Len() + len(tsSuffix) + 1)
+		pow10, n := 10, l+1
+		for pow10 <= n {
+			n++
+			pow10 *= 10
+		}
+		buf.WriteString(strconv.Itoa(n))
 		buf.Write(tsSuffix)
+		buf.WriteByte('\n')
 	}
 	metricsQueue.QueueBuf(buf)
 
