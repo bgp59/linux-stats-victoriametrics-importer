@@ -13,7 +13,7 @@ import (
 
 type CompressorPoolInternalMetricsTestCase struct {
 	InternalMetricsTestCase
-	Stats CompressorPoolStats
+	CrtStats, PrevStats CompressorPoolStats
 }
 
 var compressorPoolInternalMetricsTestcasesFile = path.Join(
@@ -43,14 +43,26 @@ func testCompressorPoolInternalMetrics(tc *CompressorPoolInternalMetricsTestCase
 		tlc.Fatal(err)
 	}
 	compressorPoolInternalMetrics := internalMetrics.compressorPoolMetrics
-	compressorPoolInternalMetrics.stats = tc.Stats
+	compressorPoolInternalMetrics.stats[compressorPoolInternalMetrics.crtIndex] = tc.CrtStats
+	compressorPoolInternalMetrics.stats[1-compressorPoolInternalMetrics.crtIndex] = tc.PrevStats
 	testMetricsQueue := testutils.NewTestMetricsQueue(0)
+
+	wantCrtIndex := 1 - compressorPoolInternalMetrics.crtIndex
 
 	buf := testMetricsQueue.GetBuf()
 	gotMetricsCount := compressorPoolInternalMetrics.generateMetrics(buf, nil)
 	testMetricsQueue.QueueBuf(buf)
 
 	errBuf := &bytes.Buffer{}
+
+	gotCrtIndex := compressorPoolInternalMetrics.crtIndex
+	if wantCrtIndex != gotCrtIndex {
+		fmt.Fprintf(
+			errBuf,
+			"\ncrtIndex: want: %d, got: %d",
+			wantCrtIndex, gotCrtIndex,
+		)
+	}
 
 	if tc.WantMetricsCount != gotMetricsCount {
 		fmt.Fprintf(

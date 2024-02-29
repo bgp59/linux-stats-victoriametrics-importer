@@ -21,7 +21,7 @@ const (
 	COMPRESSOR_ID_LABEL_NAME = "compressor"
 )
 
-var compressorStatsUint64MetricsNameMap = map[int]string{
+var compressorStatsUint64DeltaMetricsNameMap = map[int]string{
 	COMPRESSOR_STATS_READ_COUNT:          COMPRESSOR_STATS_READ_COUNT_DELTA_METRIC,
 	COMPRESSOR_STATS_READ_BYTE_COUNT:     COMPRESSOR_STATS_READ_BYTE_COUNT_DELTA_METRIC,
 	COMPRESSOR_STATS_SEND_COUNT:          COMPRESSOR_STATS_SEND_COUNT_DELTA_METRIC,
@@ -40,18 +40,21 @@ type compressorPoolStatsIndexMetricMap map[int][]byte
 type CompressorPoolInternalMetrics struct {
 	// Internal metrics, for common values:
 	internalMetrics *InternalMetrics
-	// Storage for snapping stats:
-	stats CompressorPoolStats
+	// Dual storage for snapping the stats, used as current, previous, toggled
+	// after every metrics generation:
+	stats [2]CompressorPoolStats
+	// The current index:
+	crtIndex int
 	// Cache the full metrics for each compressor# and stats index:
-	uint64MetricsCache  map[string]compressorPoolStatsIndexMetricMap
-	float64MetricsCache map[string]compressorPoolStatsIndexMetricMap
+	uint64DeltaMetricsCache map[string]compressorPoolStatsIndexMetricMap
+	float64MetricsCache     map[string]compressorPoolStatsIndexMetricMap
 }
 
 func NewCompressorPoolInternalMetrics(internalMetrics *InternalMetrics) *CompressorPoolInternalMetrics {
 	return &CompressorPoolInternalMetrics{
-		internalMetrics:     internalMetrics,
-		uint64MetricsCache:  make(map[string]compressorPoolStatsIndexMetricMap),
-		float64MetricsCache: make(map[string]compressorPoolStatsIndexMetricMap),
+		internalMetrics:         internalMetrics,
+		uint64DeltaMetricsCache: make(map[string]compressorPoolStatsIndexMetricMap),
+		float64MetricsCache:     make(map[string]compressorPoolStatsIndexMetricMap),
 	}
 }
 
@@ -65,7 +68,7 @@ func (cpim *CompressorPoolInternalMetrics) updateMetricsCache(compressorId strin
 	}
 
 	indexMetricMap := make(compressorPoolStatsIndexMetricMap)
-	for index, name := range compressorStatsUint64MetricsNameMap {
+	for index, name := range compressorStatsUint64DeltaMetricsNameMap {
 		metric := fmt.Sprintf(
 			`%s{%s="%s",%s="%s",%s="%s"} `, // N.B. include the whitespace separating the metric from value
 			name,
@@ -75,7 +78,7 @@ func (cpim *CompressorPoolInternalMetrics) updateMetricsCache(compressorId strin
 		)
 		indexMetricMap[index] = []byte(metric)
 	}
-	cpim.uint64MetricsCache[compressorId] = indexMetricMap
+	cpim.uint64DeltaMetricsCache[compressorId] = indexMetricMap
 
 	indexMetricMap = make(compressorPoolStatsIndexMetricMap)
 	for index, name := range compressorStatsFloat64MetricsNameMap {
@@ -100,27 +103,45 @@ func (cpim *CompressorPoolInternalMetrics) generateMetrics(
 	}
 
 	metricsCount := 0
-	for compressorId, compressorStats := range cpim.stats {
+	crtStats, prevStats := cpim.stats[cpim.crtIndex], cpim.stats[1-cpim.crtIndex]
 
-		uint64IndexMetricMap := cpim.uint64MetricsCache[compressorId]
+	var prevCompressorStats *CompressorStats
+	for compressorId, crtCompressorStats := range crtStats {
+		if prevStats != nil {
+			prevCompressorStats = prevStats[compressorId]
+		} else {
+			prevCompressorStats = nil
+		}
+		uint64IndexMetricMap := cpim.uint64DeltaMetricsCache[compressorId]
 		if uint64IndexMetricMap == nil {
 			// N.B. the following will also update cpim.float64MetricsCache:
 			cpim.updateMetricsCache(compressorId)
-			uint64IndexMetricMap = cpim.uint64MetricsCache[compressorId]
+			uint64IndexMetricMap = cpim.uint64DeltaMetricsCache[compressorId]
 		}
 		for index, metric := range uint64IndexMetricMap {
+			val := crtCompressorStats.Uint64Stats[index]
+			if prevCompressorStats != nil {
+				val -= prevCompressorStats.Uint64Stats[index]
+			}
 			buf.Write(metric)
-			buf.WriteString(strconv.FormatUint(compressorStats.Uint64Stats[index], 10))
+			buf.WriteString(strconv.FormatUint(val, 10))
 			buf.Write(tsSuffix)
 			metricsCount++
 		}
 		for index, metric := range cpim.float64MetricsCache[compressorId] {
+			val := crtCompressorStats.Float64Stats[index]
+			if prevCompressorStats != nil {
+				val -= prevCompressorStats.Float64Stats[index]
+			}
 			buf.Write(metric)
-			buf.WriteString(strconv.FormatFloat(compressorStats.Float64Stats[index], 'f', 3, 64))
+			buf.WriteString(strconv.FormatFloat(val, 'f', 3, 64))
 			buf.Write(tsSuffix)
 			metricsCount++
 		}
 	}
+
+	// Flip the stats storage:
+	cpim.crtIndex = 1 - cpim.crtIndex
 
 	return metricsCount
 }

@@ -106,7 +106,7 @@ func testSchedulerExecute(tc *SchedulerExecuteTestCase, t *testing.T) {
 
 	errBuf := &bytes.Buffer{}
 
-	stats := scheduler.SnapStats(nil, STATS_SNAP_ONLY)
+	stats := scheduler.SnapStats(nil)
 
 	type IrregularInterval struct {
 		k        int

@@ -93,19 +93,19 @@ const (
 type HttpEndpointStats []uint64
 
 type HttpEndpointPoolStats struct {
-	Stats []uint64
+	PoolStats []uint64
 	// Endpoint stats are indexed by URL:
 	EndpointStats map[string]HttpEndpointStats
 }
 
 func NewHttpEndpointPoolStats() *HttpEndpointPoolStats {
 	return &HttpEndpointPoolStats{
-		Stats:         make([]uint64, HTTP_ENDPOINT_POOL_STATS_LEN),
+		PoolStats:     make([]uint64, HTTP_ENDPOINT_POOL_STATS_LEN),
 		EndpointStats: make(map[string]HttpEndpointStats),
 	}
 }
 
-func (pool *HttpEndpointPool) SnapStats(to *HttpEndpointPoolStats, clearStats bool) *HttpEndpointPoolStats {
+func (pool *HttpEndpointPool) SnapStats(to *HttpEndpointPoolStats) *HttpEndpointPoolStats {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
@@ -117,10 +117,7 @@ func (pool *HttpEndpointPool) SnapStats(to *HttpEndpointPoolStats, clearStats bo
 		to = NewHttpEndpointPoolStats()
 	}
 
-	copy(to.Stats, stats.Stats)
-	if clearStats {
-		clear(stats.Stats)
-	}
+	copy(to.PoolStats, stats.PoolStats)
 
 	for url, epStats := range stats.EndpointStats {
 		toEpStats := to.EndpointStats[url]
@@ -129,9 +126,6 @@ func (pool *HttpEndpointPool) SnapStats(to *HttpEndpointPoolStats, clearStats bo
 			to.EndpointStats[url] = toEpStats
 		}
 		copy(toEpStats, epStats)
-		if clearStats {
-			clear(epStats)
-		}
 	}
 
 	return to
@@ -341,7 +335,7 @@ type HttpEndpointPool struct {
 	wg          *sync.WaitGroup
 	// Whether the pool was shutdown or not:
 	shutdown bool
-	// Stats:
+	// PoolStats:
 	stats *HttpEndpointPoolStats
 }
 
@@ -719,7 +713,7 @@ func (epPool *HttpEndpointPool) GetCurrentHealthy(maxWait time.Duration) *HttpEn
 					ep.url, ep.numErrors, ep.markUnhealthyThreshold,
 				)
 			}
-			epPool.stats.Stats[HTTP_ENDPOINT_POOL_STATS_HEALTHY_ROTATE_COUNT] += 1
+			epPool.stats.PoolStats[HTTP_ENDPOINT_POOL_STATS_HEALTHY_ROTATE_COUNT] += 1
 		}
 	}
 	// Apply error reset as needed:
@@ -764,7 +758,7 @@ func (epPool *HttpEndpointPool) SendBuffer(b []byte, timeout time.Duration, gzip
 		ep := epPool.GetCurrentHealthy(maxWait)
 		if ep == nil {
 			mu.Lock()
-			stats.Stats[HTTP_ENDPOINT_POOL_STATS_NO_HEALTHY_EP_ERROR_COUNT] += 1
+			stats.PoolStats[HTTP_ENDPOINT_POOL_STATS_NO_HEALTHY_EP_ERROR_COUNT] += 1
 			mu.Unlock()
 			return fmt.Errorf(
 				"SendBuffer attempt# %d: %w", attempt, ErrHttpEndpointPoolNoHealthyEP,

@@ -100,18 +100,10 @@ const (
 	TASK_STATS_UINT64_LEN
 )
 
-const (
-	// Indexes into Scheduler.stats.[id].Float64Stats
-
-	// Total run time, in seconds:
-	TASK_STATS_RUNTIME_SEC = iota
-
-	// Average run time, in seconds:
-	TASK_STATS_AVG_RUNTIME_SEC
-
-	// Must be last:
-	TASK_STATS_FLOAT64_LEN
-)
+type TaskStats struct {
+	Uint64Stats  []uint64
+	RuntimeTotal time.Duration
+}
 
 type TaskAction interface {
 	Execute()
@@ -133,11 +125,6 @@ type Task struct {
 	// When last executed, used to protect long running tasks from being
 	// scheduled back to back:
 	lastExecuted time.Time
-}
-
-type TaskStats struct {
-	Uint64Stats  []uint64
-	Float64Stats []float64
 }
 
 type SchedulerStats map[string]*TaskStats
@@ -200,8 +187,7 @@ func NewTask(id string, interval time.Duration, action TaskAction) *Task {
 
 func NewTaskStats() *TaskStats {
 	return &TaskStats{
-		Uint64Stats:  make([]uint64, TASK_STATS_UINT64_LEN),
-		Float64Stats: make([]float64, TASK_STATS_FLOAT64_LEN),
+		Uint64Stats: make([]uint64, TASK_STATS_UINT64_LEN),
 	}
 }
 
@@ -432,7 +418,7 @@ func (scheduler *Scheduler) workerLoop(workerId int) {
 				taskStats.Uint64Stats[TASK_STATS_OVERRUN_COUNT] += 1
 			}
 			taskStats.Uint64Stats[TASK_STATS_EXECUTED_COUNT] += 1
-			taskStats.Float64Stats[TASK_STATS_RUNTIME_SEC] += runtime.Seconds()
+			taskStats.RuntimeTotal += runtime
 			mu.Unlock()
 			task.addedByWorker = true
 			taskQ <- task
@@ -440,8 +426,8 @@ func (scheduler *Scheduler) workerLoop(workerId int) {
 	}
 }
 
-// Snap current stats. Optionally clear them, as a way of snapping deltas.
-func (scheduler *Scheduler) SnapStats(to SchedulerStats, clearStats bool) SchedulerStats {
+// Snap current stats.
+func (scheduler *Scheduler) SnapStats(to SchedulerStats) SchedulerStats {
 	if scheduler.stats == nil {
 		return nil
 	}
@@ -457,17 +443,7 @@ func (scheduler *Scheduler) SnapStats(to SchedulerStats, clearStats bool) Schedu
 			to[taskId] = toTaskStats
 		}
 		copy(toTaskStats.Uint64Stats, taskStats.Uint64Stats)
-		copy(toTaskStats.Float64Stats, taskStats.Float64Stats)
-		n := toTaskStats.Uint64Stats[TASK_STATS_EXECUTED_COUNT]
-		if n > 0 {
-			toTaskStats.Float64Stats[TASK_STATS_AVG_RUNTIME_SEC] = taskStats.Float64Stats[TASK_STATS_RUNTIME_SEC] / float64(n)
-		} else {
-			toTaskStats.Float64Stats[TASK_STATS_AVG_RUNTIME_SEC] = 0
-		}
-		if clearStats {
-			clear(taskStats.Uint64Stats)
-			clear(taskStats.Float64Stats)
-		}
+		toTaskStats.RuntimeTotal = taskStats.RuntimeTotal
 	}
 	return to
 }

@@ -16,12 +16,13 @@ from . import (
     lsvmi_testcases_root,
 )
 from .internal_metrics import (
+    TC_CRT_STATS_FIELD,
     TC_HOSTNAME_FIELD,
     TC_INSTANCE_FIELD,
     TC_NAME_FIELD,
+    TC_PREV_STATS_FIELD,
     TC_PROM_TS_FIELD,
     TC_REPORT_EXTRA_FIELD,
-    TC_STATS_FIELD,
     TC_WANT_METRICS_COUNT_FIELD,
     TC_WANT_METRICS_FIELD,
     testcases_sub_dir,
@@ -33,26 +34,30 @@ TaskStats = Dict[str, Union[List[int], List[float]]]
 SchedulerStats = Dict[str, TaskStats]
 
 UINT64_STATS_FIELD = "Uint64Stats"
-FLOAT64_STATS_FIELD = "Float64Stats"
+TASK_STATS_EXECUTED_COUNT_INDEX = 3
 
-task_stats_uint64_metric_names = [
-    "lsvmi_task_scheduled_count_delta",
-    "lsvmi_task_delayed_count_delta",
-    "lsvmi_task_overrun_count_delta",
-    "lsvmi_task_executed_count_delta",
-]
+RUNTIME_TOTAL_FIELD = "RuntimeTotal"
+# time.Duration unit is the nano-second
+GO_TIME_MICROSECOND = 1_000
+GO_TIME_MILLISECOND = 1_000_000
+GO_TIME_SECOND = 1_000_000_000
 
-task_stats_float64_metric_names = [
-    None,
-    "lsvmi_task_avg_runtime_sec",
-]
+task_stats_uint64_delta_metric_names = {
+    0: "lsvmi_task_scheduled_count_delta",
+    1: "lsvmi_task_delayed_count_delta",
+    2: "lsvmi_task_overrun_count_delta",
+    3: "lsvmi_task_executed_count_delta",
+}
+
+task_stats_interval_avg_runtime_metric = "lsvmi_task_interval_avg_runtime_sec"
 
 testcases_file = "scheduler.json"
 
 
 def generate_task_stats_metrics(
     task_id: str,
-    task_stats: TaskStats,
+    crt_task_stats: TaskStats,
+    prev_task_stats: Optional[TaskStats] = None,
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
     ts: Optional[float] = None,
@@ -61,9 +66,15 @@ def generate_task_stats_metrics(
         ts = time.time()
     promTs = str(int(ts * 1000))
     metrics = []
-    for i, name in enumerate(task_stats_uint64_metric_names):
+    executed_count_delta = None
+    for i, name in task_stats_uint64_delta_metric_names.items():
         if name is None:
             continue
+        val = crt_task_stats[UINT64_STATS_FIELD][i]
+        if prev_task_stats is not None:
+            val -= prev_task_stats[UINT64_STATS_FIELD][i]
+        if i == TASK_STATS_EXECUTED_COUNT_INDEX:
+            executed_count_delta = val
         metrics.append(
             f"{name}{{"
             + ",".join(
@@ -73,28 +84,36 @@ def generate_task_stats_metrics(
                     f'{TASK_STATS_TASK_ID_LABEL_NAME}="{task_id}"',
                 ]
             )
-            + f"}} {task_stats[UINT64_STATS_FIELD][i]} {promTs}"
+            + f"}} {val} {promTs}"
         )
-    for i, name in enumerate(task_stats_float64_metric_names):
-        if name is None:
-            continue
-        metrics.append(
-            f"{name}{{"
-            + ",".join(
-                [
-                    f'{INSTANCE_LABEL_NAME}="{instance}"',
-                    f'{HOSTNAME_LABEL_NAME}="{hostname}"',
-                    f'{TASK_STATS_TASK_ID_LABEL_NAME}="{task_id}"',
-                ]
-            )
-            + f"}} {task_stats[FLOAT64_STATS_FIELD][i]:.6f} {promTs}"
+    if executed_count_delta is None:
+        val = crt_task_stats[UINT64_STATS_FIELD][TASK_STATS_EXECUTED_COUNT_INDEX]
+        if prev_task_stats is not None:
+            val -= prev_task_stats[UINT64_STATS_FIELD][TASK_STATS_EXECUTED_COUNT_INDEX]
+    interval_runtime_average = 0
+    if executed_count_delta > 0:
+        runtime_delta = crt_task_stats[RUNTIME_TOTAL_FIELD]
+        if prev_task_stats is not None:
+            runtime_delta -= prev_task_stats[RUNTIME_TOTAL_FIELD]
+        interval_runtime_average = runtime_delta / GO_TIME_SECOND / executed_count_delta
+    metrics.append(
+        f"{task_stats_interval_avg_runtime_metric}{{"
+        + ",".join(
+            [
+                f'{INSTANCE_LABEL_NAME}="{instance}"',
+                f'{HOSTNAME_LABEL_NAME}="{hostname}"',
+                f'{TASK_STATS_TASK_ID_LABEL_NAME}="{task_id}"',
+            ]
         )
+        + f"}} {interval_runtime_average:.6f} {promTs}"
+    )
     return metrics
 
 
 def generate_scheduler_internal_metrics_test_case(
     name: str,
-    stats: SchedulerStats,
+    crt_stats: SchedulerStats,
+    prev_stats: Optional[SchedulerStats] = None,
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
     report_extra: bool = True,
@@ -104,11 +123,13 @@ def generate_scheduler_internal_metrics_test_case(
         ts = time.time()
     prom_ts = int(ts * 1000)
     metrics = []
-    for task_id, task_stats in stats.items():
+    for task_id, crt_task_stats in crt_stats.items():
+        prev_task_stats = prev_stats.get(task_id) if prev_stats is not None else None
         metrics.extend(
             generate_task_stats_metrics(
                 task_id,
-                task_stats,
+                crt_task_stats,
+                prev_task_stats=prev_task_stats,
                 instance=instance,
                 hostname=hostname,
                 ts=ts,
@@ -122,7 +143,8 @@ def generate_scheduler_internal_metrics_test_case(
         TC_WANT_METRICS_COUNT_FIELD: len(metrics),
         TC_WANT_METRICS_FIELD: metrics,
         TC_REPORT_EXTRA_FIELD: report_extra,
-        TC_STATS_FIELD: stats,
+        TC_CRT_STATS_FIELD: crt_stats,
+        TC_PREV_STATS_FIELD: prev_stats,
     }
 
 
@@ -144,11 +166,11 @@ def generate_scheduler_internal_metrics_test_cases(
     stats_ref = {
         "taskA": {
             UINT64_STATS_FIELD: [0, 1, 2, 3],
-            FLOAT64_STATS_FIELD: [0.1, 0.2],
+            RUNTIME_TOTAL_FIELD: 100 * GO_TIME_MILLISECOND,
         },
         "taskB": {
             UINT64_STATS_FIELD: [10, 11, 12, 13],
-            FLOAT64_STATS_FIELD: [0.11, 0.21],
+            RUNTIME_TOTAL_FIELD: 200 * GO_TIME_MILLISECOND,
         },
     }
 

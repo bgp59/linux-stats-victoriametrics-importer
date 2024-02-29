@@ -13,7 +13,7 @@ import (
 
 type SchedulerInternalMetricsTestCase struct {
 	InternalMetricsTestCase
-	Stats SchedulerStats
+	CrtStats, PrevStats SchedulerStats
 }
 
 var schedulerInternalMetricsTestcasesFile = path.Join(
@@ -43,14 +43,26 @@ func testSchedulerInternalMetrics(tc *SchedulerInternalMetricsTestCase, t *testi
 		tlc.Fatal(err)
 	}
 	schedulerInternalMetrics := internalMetrics.schedulerMetrics
-	schedulerInternalMetrics.stats = tc.Stats
+	schedulerInternalMetrics.stats[schedulerInternalMetrics.crtIndex] = tc.CrtStats
+	schedulerInternalMetrics.stats[1-schedulerInternalMetrics.crtIndex] = tc.PrevStats
 	testMetricsQueue := testutils.NewTestMetricsQueue(0)
+
+	wantCrtIndex := 1 - schedulerInternalMetrics.crtIndex
 
 	buf := testMetricsQueue.GetBuf()
 	gotMetricsCount := schedulerInternalMetrics.generateMetrics(buf, nil)
 	testMetricsQueue.QueueBuf(buf)
 
 	errBuf := &bytes.Buffer{}
+
+	gotCrtIndex := schedulerInternalMetrics.crtIndex
+	if wantCrtIndex != gotCrtIndex {
+		fmt.Fprintf(
+			errBuf,
+			"\ncrtIndex: want: %d, got: %d",
+			wantCrtIndex, gotCrtIndex,
+		)
+	}
 
 	if tc.WantMetricsCount != gotMetricsCount {
 		fmt.Fprintf(

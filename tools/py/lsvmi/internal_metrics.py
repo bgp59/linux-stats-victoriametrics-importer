@@ -12,7 +12,8 @@ TC_WANT_METRICS_COUNT_FIELD = "WantMetricsCount"
 TC_WANT_METRICS_FIELD = "WantMetrics"
 TC_REPORT_EXTRA_FIELD = "ReportExtra"
 # ... InternaMetricsTestCase fields:
-TC_STATS_FIELD = "Stats"
+TC_CRT_STATS_FIELD = "CrtStats"
+TC_PREV_STATS_FIELD = "PrevStats"
 
 testcases_sub_dir = "internal_metrics"
 

@@ -184,7 +184,7 @@ func testCompressorPoolQueue(tc *CompressorPoolTestCase, t *testing.T) {
 		pool.Shutdown()
 	}
 
-	poolStats := pool.SnapStats(nil, STATS_SNAP_AND_CLEAR)
+	poolStats := pool.SnapStats(nil)
 	statsBuf := &bytes.Buffer{}
 	fmt.Fprintf(statsBuf, "Compressor stats:")
 	gotReadCount, gotReadByteCount := 0, 0

@@ -16,12 +16,13 @@ from . import (
     lsvmi_testcases_root,
 )
 from .internal_metrics import (
+    TC_CRT_STATS_FIELD,
     TC_HOSTNAME_FIELD,
     TC_INSTANCE_FIELD,
     TC_NAME_FIELD,
+    TC_PREV_STATS_FIELD,
     TC_PROM_TS_FIELD,
     TC_REPORT_EXTRA_FIELD,
-    TC_STATS_FIELD,
     TC_WANT_METRICS_COUNT_FIELD,
     TC_WANT_METRICS_FIELD,
     testcases_sub_dir,
@@ -35,26 +36,27 @@ UINT64_STATS_FIELD = "Uint64Stats"
 FLOAT64_STATS_FIELD = "Float64Stats"
 
 
-compressor_stats_uint64_metric_names = [
-    "lsvmi_compressor_read_count_delta",
-    "lsvmi_compressor_read_byte_count_delta",
-    "lsvmi_compressor_send_count_delta",
-    "lsvmi_compressor_send_byte_count_delta",
-    "lsvmi_compressor_tout_flush_count_delta",
-    "lsvmi_compressor_send_error_count_delta",
-    "lsvmi_compressor_write_error_count_delta",
-]
+compressor_stats_uint64_delta_metric_names = {
+    0: "lsvmi_compressor_read_count_delta",
+    1: "lsvmi_compressor_read_byte_count_delta",
+    2: "lsvmi_compressor_send_count_delta",
+    3: "lsvmi_compressor_send_byte_count_delta",
+    4: "lsvmi_compressor_tout_flush_count_delta",
+    5: "lsvmi_compressor_send_error_count_delta",
+    6: "lsvmi_compressor_write_error_count_delta",
+}
 
-compressor_stats_float64_metric_names = [
-    "lsvmi_compressor_compression_factor",
-]
+compressor_stats_float64_metric_names = {
+    0: "lsvmi_compressor_compression_factor",
+}
 
 testcases_file = "compressor_pool.json"
 
 
 def generate_compressor_metrics(
     compressor_id: str,
-    compressor_stats: CompressorStats,
+    crt_compressor_stats: CompressorStats,
+    prev_compressor_stats: Optional[CompressorStats] = None,
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
     ts: Optional[float] = None,
@@ -63,9 +65,10 @@ def generate_compressor_metrics(
         ts = time.time()
     prom_ts = int(ts * 1000)
     metrics = []
-    for i, metric_name in enumerate(compressor_stats_uint64_metric_names):
-        if metric_name is None:
-            continue
+    for i, metric_name in compressor_stats_uint64_delta_metric_names.items():
+        val = crt_compressor_stats[UINT64_STATS_FIELD][i]
+        if prev_compressor_stats is not None:
+            val -= prev_compressor_stats[UINT64_STATS_FIELD][i]
         metrics.append(
             f"{metric_name}{{"
             + ",".join(
@@ -75,11 +78,10 @@ def generate_compressor_metrics(
                     f'{COMPRESSOR_ID_LABEL_NAME}="{compressor_id}"',
                 ]
             )
-            + f"}} {compressor_stats[UINT64_STATS_FIELD][i]} {prom_ts}"
+            + f"}} {val} {prom_ts}"
         )
-    for i, metric_name in enumerate(compressor_stats_float64_metric_names):
-        if metric_name is None:
-            continue
+    for i, metric_name in compressor_stats_float64_metric_names.items():
+        val = crt_compressor_stats[FLOAT64_STATS_FIELD][i]
         metrics.append(
             f"{metric_name}{{"
             + ",".join(
@@ -89,14 +91,15 @@ def generate_compressor_metrics(
                     f'{COMPRESSOR_ID_LABEL_NAME}="{compressor_id}"',
                 ]
             )
-            + f"}} {compressor_stats[FLOAT64_STATS_FIELD][i]:.3f} {prom_ts}"
+            + f"}} {val:.3f} {prom_ts}"
         )
     return metrics
 
 
 def generate_compressor_pool_internal_metrics_test_case(
     name: str,
-    stats: CompressorPoolStats,
+    crt_stats: CompressorPoolStats,
+    prev_stats: Optional[CompressorPoolStats] = None,
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
     report_extra: bool = True,
@@ -106,11 +109,15 @@ def generate_compressor_pool_internal_metrics_test_case(
         ts = time.time()
     prom_ts = int(ts * 1000)
     metrics = []
-    for compressor_id, compressor_stats in stats.items():
+    for compressor_id, crt_compressor_stats in crt_stats.items():
+        prev_compressor_stats = (
+            prev_stats.get(compressor_id) if prev_stats is not None else None
+        )
         metrics.extend(
             generate_compressor_metrics(
                 compressor_id,
-                compressor_stats,
+                crt_compressor_stats,
+                prev_compressor_stats=prev_compressor_stats,
                 instance=instance,
                 hostname=hostname,
                 ts=ts,
@@ -124,7 +131,8 @@ def generate_compressor_pool_internal_metrics_test_case(
         TC_WANT_METRICS_COUNT_FIELD: len(metrics),
         TC_WANT_METRICS_FIELD: metrics,
         TC_REPORT_EXTRA_FIELD: report_extra,
-        TC_STATS_FIELD: stats,
+        TC_CRT_STATS_FIELD: crt_stats,
+        TC_PREV_STATS_FIELD: prev_stats,
     }
 
 

@@ -432,7 +432,7 @@ func NewCompressorPoolStats(numCompressors int) CompressorPoolStats {
 	return poolStats
 }
 
-func (pool *CompressorPool) SnapStats(to CompressorPoolStats, clearStats bool) CompressorPoolStats {
+func (pool *CompressorPool) SnapStats(to CompressorPoolStats) CompressorPoolStats {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
@@ -447,10 +447,6 @@ func (pool *CompressorPool) SnapStats(to CompressorPoolStats, clearStats bool) C
 		toCompressorStats := to[compressorId]
 		copy(toCompressorStats.Uint64Stats, compressorStats.Uint64Stats)
 		copy(toCompressorStats.Float64Stats, compressorStats.Float64Stats)
-		if clearStats {
-			clear(compressorStats.Uint64Stats)
-			clear(compressorStats.Float64Stats)
-		}
 	}
 	return to
 }

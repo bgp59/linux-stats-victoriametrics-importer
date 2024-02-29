@@ -12,7 +12,7 @@ import (
 
 type HttpEndpointPoolInternalMetricsTestCase struct {
 	InternalMetricsTestCase
-	Stats *HttpEndpointPoolStats
+	CrtStats, PrevStats *HttpEndpointPoolStats
 }
 
 var httpEndpointPoolInternalMetricsTestcasesFile = path.Join(
@@ -42,14 +42,26 @@ func testHttpEndpointPoolInternalMetrics(tc *HttpEndpointPoolInternalMetricsTest
 		tlc.Fatal(err)
 	}
 	httpEndpointPoolInternalMetrics := internalMetrics.httpEndpointPoolMetrics
-	httpEndpointPoolInternalMetrics.stats = tc.Stats
+	httpEndpointPoolInternalMetrics.stats[httpEndpointPoolInternalMetrics.crtIndex] = tc.CrtStats
+	httpEndpointPoolInternalMetrics.stats[1-httpEndpointPoolInternalMetrics.crtIndex] = tc.PrevStats
 	testMetricsQueue := testutils.NewTestMetricsQueue(0)
+
+	wantCrtIndex := 1 - httpEndpointPoolInternalMetrics.crtIndex
 
 	buf := testMetricsQueue.GetBuf()
 	gotMetricsCount := httpEndpointPoolInternalMetrics.generateMetrics(buf, nil)
 	testMetricsQueue.QueueBuf(buf)
 
 	errBuf := &bytes.Buffer{}
+
+	gotCrtIndex := httpEndpointPoolInternalMetrics.crtIndex
+	if wantCrtIndex != gotCrtIndex {
+		fmt.Fprintf(
+			errBuf,
+			"\ncrtIndex: want: %d, got: %d",
+			wantCrtIndex, gotCrtIndex,
+		)
+	}
 
 	if tc.WantMetricsCount != gotMetricsCount {
 		fmt.Fprintf(
