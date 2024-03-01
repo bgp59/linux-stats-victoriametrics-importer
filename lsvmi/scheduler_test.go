@@ -82,7 +82,7 @@ func testSchedulerBuildTaskList(tc *SchedulerExecuteTestCase) []*Task {
 }
 
 func testSchedulerExecute(tc *SchedulerExecuteTestCase, t *testing.T) {
-	tlc := testutils.NewTestingLogCollect(t, Log, nil)
+	tlc := testutils.NewTestLogCollect(t, Log, nil)
 	defer tlc.RestoreLog()
 
 	numWorkers := tc.numWorkers
@@ -91,7 +91,7 @@ func testSchedulerExecute(tc *SchedulerExecuteTestCase, t *testing.T) {
 	}
 	scheduler, err := NewScheduler(&SchedulerConfig{NumWorkers: tc.numWorkers})
 	if err != nil {
-		tlc.Fatal(err)
+		t.Fatal(err)
 	}
 	scheduler.Start()
 	tasks := testSchedulerBuildTaskList(tc)
@@ -162,7 +162,7 @@ func testSchedulerExecute(tc *SchedulerExecuteTestCase, t *testing.T) {
 	}
 
 	if errBuf.Len() > 0 {
-		tlc.Fatal(errBuf)
+		t.Fatal(errBuf)
 	}
 
 }

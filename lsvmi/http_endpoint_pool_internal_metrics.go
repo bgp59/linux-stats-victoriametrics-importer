@@ -14,6 +14,7 @@ const (
 	HTTP_ENDPOINT_STATS_SEND_BUFFER_ERROR_COUNT_DELTA_METRIC  = "lsvmi_http_ep_send_buffer_error_count_delta"
 	HTTP_ENDPOINT_STATS_HEALTH_CHECK_COUNT_DELTA_METRIC       = "lsvmi_http_ep_healthcheck_count_delta"
 	HTTP_ENDPOINT_STATS_HEALTH_CHECK_ERROR_COUNT_DELTA_METRIC = "lsvmi_http_ep_healthcheck_error_count_delta"
+	HTTP_ENDPOINT_STATS_STATE_METRIC                          = "lsvmi_http_ep_state"
 
 	HTTP_ENDPOINT_POOL_STATS_HEALTHY_ROTATE_COUNT_METRIC            = "lsvmi_http_ep_pool_healthy_rotate_count"
 	HTTP_ENDPOINT_POOL_STATS_NO_HEALTHY_EP_ERROR_COUNT_DELTA_METRIC = "lsvmi_http_ep_pool_no_healthy_ep_error_count_delta"
@@ -27,6 +28,10 @@ var httpEndpointStatsDeltaMetricsNameMap = map[int]string{
 	HTTP_ENDPOINT_STATS_SEND_BUFFER_ERROR_COUNT:  HTTP_ENDPOINT_STATS_SEND_BUFFER_ERROR_COUNT_DELTA_METRIC,
 	HTTP_ENDPOINT_STATS_HEALTH_CHECK_COUNT:       HTTP_ENDPOINT_STATS_HEALTH_CHECK_COUNT_DELTA_METRIC,
 	HTTP_ENDPOINT_STATS_HEALTH_CHECK_ERROR_COUNT: HTTP_ENDPOINT_STATS_HEALTH_CHECK_ERROR_COUNT_DELTA_METRIC,
+}
+
+var httpEndpointStatsMetricsNameMap = map[int]string{
+	HTTP_ENDPOINT_STATS_STATE: HTTP_ENDPOINT_STATS_STATE_METRIC,
 }
 
 var httpEndpointPoolStatsDeltaMetricsNameMap = map[int]string{
@@ -49,6 +54,7 @@ type HttpEndpointPoolInternalMetrics struct {
 	crtIndex int
 	// Cache the full metrics for each url# and stats index:
 	httpEndpointDeltaMetricsCache map[string]httpEndpointPoolStatsIndexMetricMap
+	httpEndpointMetricsCache      map[string]httpEndpointPoolStatsIndexMetricMap
 	// Cache the full metrics for pool stats:
 	httpEndpointPoolDeltaMetricsCache httpEndpointPoolStatsIndexMetricMap
 	httpEndpointPoolMetricsCache      httpEndpointPoolStatsIndexMetricMap
@@ -60,6 +66,7 @@ func NewHttpEndpointPoolInternalMetrics(internalMetrics *InternalMetrics) *HttpE
 	return &HttpEndpointPoolInternalMetrics{
 		internalMetrics:               internalMetrics,
 		httpEndpointDeltaMetricsCache: make(map[string]httpEndpointPoolStatsIndexMetricMap),
+		httpEndpointMetricsCache:      make(map[string]httpEndpointPoolStatsIndexMetricMap),
 		tsSuffixBuf:                   &bytes.Buffer{},
 	}
 }
@@ -92,7 +99,7 @@ func (eppim *HttpEndpointPoolInternalMetrics) updatePoolMetricsCache() {
 	}
 }
 
-func (eppim *HttpEndpointPoolInternalMetrics) updateEPMetricsCache(url string) httpEndpointPoolStatsIndexMetricMap {
+func (eppim *HttpEndpointPoolInternalMetrics) updateEPMetricsCache(url string) {
 	instance, hostname := GlobalInstance, GlobalHostname
 	if eppim.internalMetrics.instance != "" {
 		instance = eppim.internalMetrics.instance
@@ -113,7 +120,18 @@ func (eppim *HttpEndpointPoolInternalMetrics) updateEPMetricsCache(url string) h
 		indexMetricMap[index] = []byte(metric)
 	}
 	eppim.httpEndpointDeltaMetricsCache[url] = indexMetricMap
-	return indexMetricMap
+	indexMetricMap = make(httpEndpointPoolStatsIndexMetricMap)
+	for index, name := range httpEndpointStatsMetricsNameMap {
+		metric := fmt.Sprintf(
+			`%s{%s="%s",%s="%s",%s="%s"} `, // N.B. include the whitespace separating the metric from value
+			name,
+			INSTANCE_LABEL_NAME, instance,
+			HOSTNAME_LABEL_NAME, hostname,
+			HTTP_ENDPOINT_URL_LABEL_NAME, url,
+		)
+		indexMetricMap[index] = []byte(metric)
+	}
+	eppim.httpEndpointMetricsCache[url] = indexMetricMap
 }
 
 func (eppim *HttpEndpointPoolInternalMetrics) generateMetrics(
@@ -137,7 +155,7 @@ func (eppim *HttpEndpointPoolInternalMetrics) generateMetrics(
 
 	indexMetricMap := eppim.httpEndpointPoolDeltaMetricsCache
 	if indexMetricMap == nil {
-		// N.B. This will update httpEndpointPoolMetricsCache too!
+		// N.B. This will update all the other metrics caches!
 		eppim.updatePoolMetricsCache()
 		indexMetricMap = eppim.httpEndpointPoolDeltaMetricsCache
 	}
@@ -170,13 +188,23 @@ func (eppim *HttpEndpointPoolInternalMetrics) generateMetrics(
 		}
 		indexMetricMap := eppim.httpEndpointDeltaMetricsCache[url]
 		if indexMetricMap == nil {
-			indexMetricMap = eppim.updateEPMetricsCache(url)
+			// N.B. This will update all the other metrics cache for this URL!
+			eppim.updateEPMetricsCache(url)
+			indexMetricMap = eppim.httpEndpointDeltaMetricsCache[url]
 		}
 		for index, metric := range indexMetricMap {
 			val := crtEPStats[index]
 			if prevEPStats != nil {
 				val -= prevEPStats[index]
 			}
+			buf.Write(metric)
+			buf.WriteString(strconv.FormatUint(val, 10))
+			buf.Write(tsSuffix)
+			metricsCount++
+		}
+		indexMetricMap = eppim.httpEndpointMetricsCache[url]
+		for index, metric := range indexMetricMap {
+			val := crtEPStats[index]
 			buf.Write(metric)
 			buf.WriteString(strconv.FormatUint(val, 10))
 			buf.Write(tsSuffix)

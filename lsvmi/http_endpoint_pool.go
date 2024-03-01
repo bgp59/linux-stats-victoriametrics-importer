@@ -71,6 +71,19 @@ type Sender interface {
 	SendBuffer(b []byte, timeout time.Duration, gzipped bool) error
 }
 
+// Endpoint state:
+const (
+	HTTP_ENDPOINT_STATE_IN_HEALTH_CHECK = iota
+	HTTP_ENDPOINT_STATE_HEALTHY
+	HTTP_ENDPOINT_STATE_AT_HEAD
+)
+
+var EndpointStateNameMap = map[uint64]string{
+	HTTP_ENDPOINT_STATE_IN_HEALTH_CHECK: "HealthCheck",
+	HTTP_ENDPOINT_STATE_HEALTHY:         "Healthy",
+	HTTP_ENDPOINT_STATE_AT_HEAD:         "AtHead",
+}
+
 // Endpoint stats:
 const (
 	HTTP_ENDPOINT_STATS_SEND_BUFFER_COUNT = iota
@@ -78,6 +91,7 @@ const (
 	HTTP_ENDPOINT_STATS_SEND_BUFFER_ERROR_COUNT
 	HTTP_ENDPOINT_STATS_HEALTH_CHECK_COUNT
 	HTTP_ENDPOINT_STATS_HEALTH_CHECK_ERROR_COUNT
+	HTTP_ENDPOINT_STATS_STATE
 	// Must be last:
 	HTTP_ENDPOINT_STATS_LEN
 )
@@ -505,9 +519,7 @@ func NewHttpEndpointPool(cfg any) (*HttpEndpointPool, error) {
 			epPool.MoveToHealthy(ep)
 		}
 	}
-	if epPool.healthy.head != nil {
-		epPoolLog.Infof("%s is at the head of the healthy list", epPool.healthy.head.url)
-	} else {
+	if epPool.healthy.head == nil {
 		epPoolLog.Warn(ErrHttpEndpointPoolNoHealthyEP)
 	}
 
@@ -617,6 +629,7 @@ func (epPool *HttpEndpointPool) ReportError(ep *HttpEndpoint) {
 	if ep.numErrors < ep.markUnhealthyThreshold {
 		// Re-add at tail:
 		epPool.healthy.AddToTail(ep)
+		epPool.stats.EndpointStats[ep.url][HTTP_ENDPOINT_STATS_STATE] = HTTP_ENDPOINT_STATE_HEALTHY
 		if Log.IsEnabledForDebug {
 			epPoolLog.Debugf(
 				"%s: error#: %d, threshold: %d rotated to healthy list tail",
@@ -625,6 +638,7 @@ func (epPool *HttpEndpointPool) ReportError(ep *HttpEndpoint) {
 		}
 	} else {
 		// Initiate health check:
+		epPool.stats.EndpointStats[ep.url][HTTP_ENDPOINT_STATS_STATE] = HTTP_ENDPOINT_STATE_IN_HEALTH_CHECK
 		epPoolLog.Warnf("%s moved to health check", ep.url)
 		ep.healthy = false
 		epPool.wg.Add(1)
@@ -634,11 +648,14 @@ func (epPool *HttpEndpointPool) ReportError(ep *HttpEndpoint) {
 	head := epPool.healthy.head
 	if head == nil {
 		epPoolLog.Warn(ErrHttpEndpointPoolNoHealthyEP)
-	} else if Log.IsEnabledForDebug {
-		epPoolLog.Debugf(
-			"%s: error#: %d, threshold: %d is at the head of the healthy list",
-			head.url, head.numErrors, head.markUnhealthyThreshold,
-		)
+	} else {
+		epPool.stats.EndpointStats[head.url][HTTP_ENDPOINT_STATS_STATE] = HTTP_ENDPOINT_STATE_AT_HEAD
+		if Log.IsEnabledForDebug {
+			epPoolLog.Debugf(
+				"%s: error#: %d, threshold: %d is at the head of the healthy list",
+				head.url, head.numErrors, head.markUnhealthyThreshold,
+			)
+		}
 	}
 
 }
@@ -653,7 +670,13 @@ func (epPool *HttpEndpointPool) MoveToHealthy(ep *HttpEndpoint) {
 	ep.healthy = true
 	ep.numErrors = 0
 	epPool.healthy.AddToTail(ep)
-	epPoolLog.Infof("%s appended to the healthy list", ep.url)
+	if epPool.healthy.head == ep {
+		epPool.stats.EndpointStats[ep.url][HTTP_ENDPOINT_STATS_STATE] = HTTP_ENDPOINT_STATE_AT_HEAD
+		epPoolLog.Infof("%s is at the head of the healthy list", ep.url)
+	} else {
+		epPool.stats.EndpointStats[ep.url][HTTP_ENDPOINT_STATS_STATE] = HTTP_ENDPOINT_STATE_HEALTHY
+		epPoolLog.Infof("%s appended to the healthy list", ep.url)
+	}
 }
 
 // Get the current healthy endpoint or nil if none available after max wait; if
@@ -699,6 +722,7 @@ func (epPool *HttpEndpointPool) GetCurrentHealthy(maxWait time.Duration) *HttpEn
 		if epPool.healthy.head != epPool.healthy.tail {
 			epPool.healthy.Remove(ep)
 			epPool.healthy.AddToTail(ep)
+			epPool.stats.EndpointStats[ep.url][HTTP_ENDPOINT_STATS_STATE] = HTTP_ENDPOINT_STATE_HEALTHY
 			if Log.IsEnabledForDebug {
 				epPoolLog.Debugf(
 					"%s: error#: %d, threshold: %d rotated to healthy list tail",
@@ -706,6 +730,7 @@ func (epPool *HttpEndpointPool) GetCurrentHealthy(maxWait time.Duration) *HttpEn
 				)
 			}
 			ep = epPool.healthy.head
+			epPool.stats.EndpointStats[ep.url][HTTP_ENDPOINT_STATS_STATE] = HTTP_ENDPOINT_STATE_AT_HEAD
 			epPool.healthyHeadChangeTs = time.Now()
 			if Log.IsEnabledForDebug {
 				epPoolLog.Debugf(

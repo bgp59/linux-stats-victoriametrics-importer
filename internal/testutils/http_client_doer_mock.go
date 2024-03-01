@@ -47,7 +47,7 @@ type HttpClientDoerPlaybackRequest struct {
 	// The received request, with the body set to nil; the body is stored
 	// separately:
 	Request *http.Request
-	// Thee body of the request above:
+	// The body of the request above:
 	Body []byte
 }
 

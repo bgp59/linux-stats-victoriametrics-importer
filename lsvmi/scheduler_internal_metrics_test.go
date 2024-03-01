@@ -35,12 +35,12 @@ func newTestSchedulerInternalMetrics(tc *SchedulerInternalMetricsTestCase) (*Int
 }
 
 func testSchedulerInternalMetrics(tc *SchedulerInternalMetricsTestCase, t *testing.T) {
-	tlc := testutils.NewTestingLogCollect(t, Log, nil)
+	tlc := testutils.NewTestLogCollect(t, Log, nil)
 	defer tlc.RestoreLog()
 
 	internalMetrics, err := newTestSchedulerInternalMetrics(tc)
 	if err != nil {
-		tlc.Fatal(err)
+		t.Fatal(err)
 	}
 	schedulerInternalMetrics := internalMetrics.schedulerMetrics
 	schedulerInternalMetrics.stats[schedulerInternalMetrics.crtIndex] = tc.CrtStats
@@ -75,7 +75,7 @@ func testSchedulerInternalMetrics(tc *SchedulerInternalMetricsTestCase, t *testi
 	testMetricsQueue.GenerateReport(tc.WantMetrics, tc.ReportExtra, errBuf)
 
 	if errBuf.Len() > 0 {
-		tlc.Fatal(errBuf)
+		t.Fatal(errBuf)
 	}
 }
 

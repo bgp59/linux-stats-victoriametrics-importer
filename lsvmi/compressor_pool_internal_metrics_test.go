@@ -35,12 +35,12 @@ func newTestCompressorPoolInternalMetrics(tc *CompressorPoolInternalMetricsTestC
 }
 
 func testCompressorPoolInternalMetrics(tc *CompressorPoolInternalMetricsTestCase, t *testing.T) {
-	tlc := testutils.NewTestingLogCollect(t, Log, nil)
+	tlc := testutils.NewTestLogCollect(t, Log, nil)
 	defer tlc.RestoreLog()
 
 	internalMetrics, err := newTestCompressorPoolInternalMetrics(tc)
 	if err != nil {
-		tlc.Fatal(err)
+		t.Fatal(err)
 	}
 	compressorPoolInternalMetrics := internalMetrics.compressorPoolMetrics
 	compressorPoolInternalMetrics.stats[compressorPoolInternalMetrics.crtIndex] = tc.CrtStats
@@ -75,7 +75,7 @@ func testCompressorPoolInternalMetrics(tc *CompressorPoolInternalMetricsTestCase
 	testMetricsQueue.GenerateReport(tc.WantMetrics, tc.ReportExtra, errBuf)
 
 	if errBuf.Len() > 0 {
-		tlc.Fatal(errBuf)
+		t.Fatal(errBuf)
 	}
 }
 

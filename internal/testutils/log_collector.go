@@ -6,11 +6,7 @@
 package testutils
 
 import (
-	"bytes"
-	"fmt"
 	"io"
-	"path"
-	"runtime"
 	"testing"
 )
 
@@ -22,22 +18,22 @@ type CollectableLog interface {
 	SetOutput(out io.Writer)
 }
 
-type TestingLogCollect struct {
-	buf        *bytes.Buffer
+type TestLogCollect struct {
 	log        CollectableLog
 	savedOut   io.Writer
 	savedLevel any
 	t          *testing.T
 }
 
-func NewTestingLogCollect(t *testing.T, log CollectableLog, level any) *TestingLogCollect {
-	tlc := &TestingLogCollect{t: t}
+func NewTestLogCollect(t *testing.T, log CollectableLog, level any) *TestLogCollect {
+	tlc := &TestLogCollect{
+		t: t,
+	}
 	if log != nil {
 		if !testing.Verbose() {
-			tlc.buf = &bytes.Buffer{}
 			tlc.log = log
 			tlc.savedOut = log.GetOutput()
-			log.SetOutput(tlc.buf)
+			log.SetOutput(tlc)
 		}
 		if level != nil {
 			tlc.savedLevel = log.GetLevel()
@@ -47,34 +43,16 @@ func NewTestingLogCollect(t *testing.T, log CollectableLog, level any) *TestingL
 	return tlc
 }
 
-func (tlc *TestingLogCollect) fatal(format string, args ...any) {
-	if tlc.buf != nil && tlc.buf.Len() > 0 {
-		tlc.t.Log("Collected log:\n\n" + tlc.buf.String())
+func (tlc *TestLogCollect) Write(buf []byte) (int, error) {
+	n := len(buf)
+	if n > 0 && buf[n-1] == '\n' {
+		buf = buf[:n-1]
 	}
-	callers := make([]uintptr, 1)
-	runtime.Callers(3, callers)
-	frames := runtime.CallersFrames(callers)
-	frame, _ := frames.Next()
-	testFileLineNum := fmt.Sprintf("from %s:%d:", path.Base(frame.File), frame.Line)
-	if format != "" {
-		tlc.t.Fatalf(testFileLineNum+" "+format, args...)
-	} else {
-		newArgs := make([]any, len(args)+1)
-		newArgs[0] = testFileLineNum
-		copy(newArgs[1:], args)
-		tlc.t.Fatal(newArgs...)
-	}
+	tlc.t.Log(string(buf))
+	return n, nil
 }
 
-func (tlc *TestingLogCollect) Fatal(args ...any) {
-	tlc.fatal("", args...)
-}
-
-func (tlc *TestingLogCollect) Fatalf(format string, args ...any) {
-	tlc.fatal(format, args...)
-}
-
-func (tlc *TestingLogCollect) RestoreLog() {
+func (tlc *TestLogCollect) RestoreLog() {
 	if tlc.log != nil {
 		if tlc.savedOut != nil {
 			tlc.log.SetOutput(tlc.savedOut)

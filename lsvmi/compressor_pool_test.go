@@ -116,14 +116,14 @@ func makeTestCompressorPool(tc *CompressorPoolTestCase) (*CompressorPool, error)
 }
 
 func testCompressorPoolCreate(tc *CompressorPoolTestCase, t *testing.T) {
-	tlc := testutils.NewTestingLogCollect(t, Log, logrus.DebugLevel)
+	tlc := testutils.NewTestLogCollect(t, Log, logrus.DebugLevel)
 	defer tlc.RestoreLog()
 
 	pool, err := makeTestCompressorPool(tc)
 	if err != nil && tc.wantError == nil ||
 		err == nil && tc.wantError != nil ||
 		err != nil && tc.wantError != nil && err.Error() != tc.wantError.Error() {
-		tlc.Fatalf("error:\n\twant: %v\n\t got: %v", tc.wantError, err)
+		t.Fatalf("error:\n\twant: %v\n\t got: %v", tc.wantError, err)
 	} else if err != nil {
 		return
 	}
@@ -132,12 +132,12 @@ func testCompressorPoolCreate(tc *CompressorPoolTestCase, t *testing.T) {
 }
 
 func testCompressorPoolQueue(tc *CompressorPoolTestCase, t *testing.T) {
-	tlc := testutils.NewTestingLogCollect(t, Log, logrus.DebugLevel)
+	tlc := testutils.NewTestLogCollect(t, Log, logrus.DebugLevel)
 	defer tlc.RestoreLog()
 
 	pool, err := makeTestCompressorPool(tc)
 	if err != nil {
-		tlc.Fatal(err)
+		t.Fatal(err)
 	}
 	sender := NewSenderMock()
 	pool.Start(sender)
@@ -210,7 +210,7 @@ func testCompressorPoolQueue(tc *CompressorPoolTestCase, t *testing.T) {
 		fmt.Fprintf(errBuf, "\nstats read byte count total: want :%d, got: %d", wantReadByteCount, gotReadCount)
 	}
 	if errBuf.Len() > 0 {
-		tlc.Fatal(errBuf)
+		t.Fatal(errBuf)
 	}
 
 	missingCount := 0
@@ -238,7 +238,7 @@ func testCompressorPoolQueue(tc *CompressorPoolTestCase, t *testing.T) {
 	}
 
 	if errBuf.Len() > 0 {
-		tlc.Fatal(errBuf)
+		t.Fatal(errBuf)
 	}
 }
 

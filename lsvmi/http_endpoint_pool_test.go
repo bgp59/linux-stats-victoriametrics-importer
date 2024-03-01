@@ -3,6 +3,7 @@ package lsvmi
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -41,12 +42,12 @@ func buildTestHttpEndpointPool(tc *HttpEndpointPoolTestCase) (*HttpEndpointPool,
 }
 
 func testHttpEndpointPoolCreate(tc *HttpEndpointPoolTestCase, t *testing.T) {
-	tlc := testutils.NewTestingLogCollect(t, Log, nil)
+	tlc := testutils.NewTestLogCollect(t, Log, nil)
 	defer tlc.RestoreLog()
 
 	epPool, err := buildTestHttpEndpointPool(tc)
 	if err != nil {
-		tlc.Fatal(err)
+		t.Fatal(err)
 	}
 	epPool.healthyRotateInterval = -1 // Ensure it is disabled
 	defer epPool.Shutdown()
@@ -55,22 +56,22 @@ func testHttpEndpointPoolCreate(tc *HttpEndpointPoolTestCase, t *testing.T) {
 	for ep := epPool.healthy.head; ep != nil && i < len(tc.epCfgs); ep = ep.next {
 		wantUrl := tc.epCfgs[i].URL
 		if wantUrl != ep.url {
-			tlc.Fatalf("ep#%d url: want: %q, got: %q", i, wantUrl, ep.url)
+			t.Fatalf("ep#%d url: want: %q, got: %q", i, wantUrl, ep.url)
 		}
 		i++
 	}
 	if len(tc.epCfgs) != i {
-		tlc.Fatalf("len(healthy): want: %d, got: %d", len(tc.epCfgs), i)
+		t.Fatalf("len(healthy): want: %d, got: %d", len(tc.epCfgs), i)
 	}
 }
 
 func testHttpEndpointPoolRotate(tc *HttpEndpointPoolTestCase, t *testing.T) {
-	tlc := testutils.NewTestingLogCollect(t, Log, logrus.DebugLevel)
+	tlc := testutils.NewTestLogCollect(t, Log, logrus.DebugLevel)
 	defer tlc.RestoreLog()
 
 	epPool, err := buildTestHttpEndpointPool(tc)
 	if err != nil {
-		tlc.Fatal(err)
+		t.Fatal(err)
 	}
 	epPool.healthyRotateInterval = 0 // Ensure rotate w/ every call
 	defer epPool.Shutdown()
@@ -79,9 +80,9 @@ func testHttpEndpointPoolRotate(tc *HttpEndpointPoolTestCase, t *testing.T) {
 		wantUrl := tc.epCfgs[i%len(tc.epCfgs)].URL
 		ep := epPool.GetCurrentHealthy(0)
 		if ep == nil {
-			tlc.Fatalf("GetCurrentHealthy: want: %s, got: %v", wantUrl, nil)
+			t.Fatalf("GetCurrentHealthy: want: %s, got: %v", wantUrl, nil)
 		} else if wantUrl != ep.url {
-			tlc.Fatalf("GetCurrentHealthy: want: %s, got: %s", wantUrl, ep.url)
+			t.Fatalf("GetCurrentHealthy: want: %s, got: %s", wantUrl, ep.url)
 		}
 	}
 }
@@ -89,12 +90,12 @@ func testHttpEndpointPoolRotate(tc *HttpEndpointPoolTestCase, t *testing.T) {
 func testHttpEndpointPoolReportError(tc *HttpEndpointPoolTestCase, t *testing.T) {
 	testTimeout := 5 * time.Second
 
-	tlc := testutils.NewTestingLogCollect(t, Log, logrus.DebugLevel)
+	tlc := testutils.NewTestLogCollect(t, Log, logrus.DebugLevel)
 	defer tlc.RestoreLog()
 
 	epPool, err := buildTestHttpEndpointPool(tc)
 	if err != nil {
-		tlc.Fatal(err)
+		t.Fatal(err)
 
 	}
 	defer epPool.Shutdown()
@@ -119,7 +120,7 @@ func testHttpEndpointPoolReportError(tc *HttpEndpointPoolTestCase, t *testing.T)
 	for len(pendingEP) > 0 {
 		ep := epPool.GetCurrentHealthy(testTimeout)
 		if ep == nil {
-			tlc.Fatal(ErrHttpEndpointPoolNoHealthyEP)
+			t.Fatal(ErrHttpEndpointPoolNoHealthyEP)
 		}
 		if ep.numErrors == 0 {
 			if _, ok := pendingEP[ep]; ok {
@@ -133,11 +134,11 @@ func testHttpEndpointPoolReportError(tc *HttpEndpointPoolTestCase, t *testing.T)
 		if !ep.healthy {
 			_, err = mock.GetRequest(ep.url)
 			if err != nil {
-				tlc.Fatal(err)
+				t.Fatal(err)
 			}
 			err = mock.SendResponse(ep.url, &http.Response{StatusCode: http.StatusOK}, nil)
 			if err != nil {
-				tlc.Fatal(err)
+				t.Fatal(err)
 			}
 		}
 	}
@@ -146,12 +147,12 @@ func testHttpEndpointPoolReportError(tc *HttpEndpointPoolTestCase, t *testing.T)
 func testHttpEndpointPoolSendBuf(tc *HttpEndpointPoolTestCase, t *testing.T) {
 	testTimeout := 5 * time.Second
 
-	tlc := testutils.NewTestingLogCollect(t, Log, logrus.DebugLevel)
+	tlc := testutils.NewTestLogCollect(t, Log, logrus.DebugLevel)
 	defer tlc.RestoreLog()
 
 	epPool, err := buildTestHttpEndpointPool(tc)
 	if err != nil {
-		tlc.Fatal(err)
+		t.Fatal(err)
 
 	}
 	defer epPool.Shutdown()
@@ -182,7 +183,7 @@ func testHttpEndpointPoolSendBuf(tc *HttpEndpointPoolTestCase, t *testing.T) {
 	// Collect and verify the playback exit status:
 	pbResultsErr := <-pbRetChan
 	if pbResultsErr.err != nil {
-		tlc.Fatal(pbResultsErr.err)
+		t.Fatal(pbResultsErr.err)
 	}
 
 	// Verify the status of the sent data:
@@ -190,7 +191,7 @@ func testHttpEndpointPoolSendBuf(tc *HttpEndpointPoolTestCase, t *testing.T) {
 	for i, sendBuf := range tc.sendBufs {
 		wantError, gotError := sendBuf.wantError, gotErrors[i]
 		if !errors.Is(gotError, wantError) {
-			tlc.Fatalf(
+			t.Fatalf(
 				"sendBuf[%d] error: want: %v, got: %v",
 				i, wantError, gotError,
 			)
@@ -200,7 +201,7 @@ func testHttpEndpointPoolSendBuf(tc *HttpEndpointPoolTestCase, t *testing.T) {
 			for _, j := range sendBuf.expectIndexes {
 				gotBuf := results[j].Body
 				if !bytes.Equal(wantBuf, gotBuf) {
-					tlc.Fatalf(
+					t.Fatalf(
 						"sendBuf[%d]:\n\twant:\n\t\t%q\n\t\t%v\n\tgot[pb#%d]:\n\t\t%q\n\t\t%v",
 						i, wantBuf, wantBuf,
 						j, gotBuf, gotBuf,
@@ -208,6 +209,111 @@ func testHttpEndpointPoolSendBuf(tc *HttpEndpointPoolTestCase, t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func testHttpEndpointState(tc *HttpEndpointPoolTestCase, t *testing.T) {
+	testTimeout := 5 * time.Second
+
+	tlc := testutils.NewTestLogCollect(t, Log, logrus.DebugLevel)
+	defer tlc.RestoreLog()
+
+	epPool, err := buildTestHttpEndpointPool(tc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer epPool.Shutdown()
+
+	// Extract all EP's after creation when the are all in the healthy list:
+	expectedEPState := make(map[*HttpEndpoint]uint64)
+	for ep := epPool.healthy.head; ep != nil; ep = ep.next {
+		expectedEPState[ep] = HTTP_ENDPOINT_STATE_IN_HEALTH_CHECK
+	}
+
+	// Ensure that the health check will proceed right away, since it is paced
+	// by the ClientDoer mock:
+	epPool.healthCheckInterval = 0
+
+	mock := testutils.NewHttpClientDoerMock(testTimeout)
+	defer mock.Cancel()
+	epPool.client = mock
+
+	// Function to check the EP state:
+	errBuf := &bytes.Buffer{}
+	checkEPState := func() {
+		for ep := range expectedEPState {
+			expectedEPState[ep] = HTTP_ENDPOINT_STATE_IN_HEALTH_CHECK
+		}
+		for ep := epPool.healthy.head; ep != nil; ep = ep.next {
+			if ep == epPool.healthy.head {
+				expectedEPState[ep] = HTTP_ENDPOINT_STATE_AT_HEAD
+			} else {
+				expectedEPState[ep] = HTTP_ENDPOINT_STATE_HEALTHY
+			}
+		}
+		for ep, wantState := range expectedEPState {
+			gotState := epPool.stats.EndpointStats[ep.url][HTTP_ENDPOINT_STATS_STATE]
+			if wantState != gotState {
+				fmt.Fprintf(
+					errBuf,
+					"\n%q state: want: %d (%s), got: %d (%s)",
+					ep.url,
+					wantState, EndpointStateNameMap[wantState],
+					gotState, EndpointStateNameMap[gotState],
+				)
+			}
+		}
+	}
+
+	t.Log("Verify state after pool creation")
+	checkEPState()
+	if errBuf.Len() > 0 {
+		t.Fatal(errBuf)
+	}
+
+	t.Log("Verify state after head rotation")
+	epPool.healthyRotateInterval = 0 // Rotate after every call.
+	numRotations := len(tc.epCfgs)
+	if numRotations > 1 {
+		numRotations++ // Because the 1st GetCurrentHealthy does not rotate:
+	}
+	for i := 0; i < numRotations; i++ {
+		ep := epPool.GetCurrentHealthy(0)
+		t.Logf("GetCurrentHealthy() = %q", ep.url)
+		checkEPState()
+	}
+	if errBuf.Len() > 0 {
+		t.Fatal(errBuf)
+	}
+
+	t.Log("Verify state after error reporting")
+	epPool.healthyRotateInterval = -1 // Disable rotation.
+	// Loop until all endpoints are in health check:
+	for ep := epPool.GetCurrentHealthy(0); ep != nil; ep = epPool.GetCurrentHealthy(0) {
+		t.Logf("GetCurrentHealthy() = %q", ep.url)
+		epPool.ReportError(ep)
+		checkEPState()
+	}
+	if errBuf.Len() > 0 {
+		t.Fatal(errBuf)
+	}
+
+	t.Log("Verify state after health check passed")
+	for ep := range expectedEPState {
+		if !ep.healthy {
+			_, err = mock.GetRequest(ep.url)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = mock.SendResponse(ep.url, &http.Response{StatusCode: http.StatusOK}, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		checkEPState()
+	}
+	if errBuf.Len() > 0 {
+		t.Fatal(errBuf)
 	}
 }
 
@@ -400,6 +506,34 @@ func TestHttpEndpointPoolSendBuf(t *testing.T) {
 		t.Run(
 			"",
 			func(t *testing.T) { testHttpEndpointPoolSendBuf(tc, t) },
+		)
+	}
+}
+
+func TestHttpEndpointState(t *testing.T) {
+	for _, tc := range []*HttpEndpointPoolTestCase{
+		{
+			epCfgs: []*HttpEndpointConfig{
+				{"http://host1", 1},
+			},
+		},
+		{
+			epCfgs: []*HttpEndpointConfig{
+				{"http://host1", 1},
+				{"http://host2", 1},
+			},
+		},
+		{
+			epCfgs: []*HttpEndpointConfig{
+				{"http://host1", 1},
+				{"http://host2", 2},
+				{"http://host3", 3},
+			},
+		},
+	} {
+		t.Run(
+			"",
+			func(t *testing.T) { testHttpEndpointState(tc, t) },
 		)
 	}
 }

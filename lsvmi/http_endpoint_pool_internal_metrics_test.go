@@ -34,12 +34,12 @@ func newTestHttpEndpointPoolInternalMetrics(tc *HttpEndpointPoolInternalMetricsT
 }
 
 func testHttpEndpointPoolInternalMetrics(tc *HttpEndpointPoolInternalMetricsTestCase, t *testing.T) {
-	tlc := testutils.NewTestingLogCollect(t, Log, nil)
+	tlc := testutils.NewTestLogCollect(t, Log, nil)
 	defer tlc.RestoreLog()
 
 	internalMetrics, err := newTestHttpEndpointPoolInternalMetrics(tc)
 	if err != nil {
-		tlc.Fatal(err)
+		t.Fatal(err)
 	}
 	httpEndpointPoolInternalMetrics := internalMetrics.httpEndpointPoolMetrics
 	httpEndpointPoolInternalMetrics.stats[httpEndpointPoolInternalMetrics.crtIndex] = tc.CrtStats
@@ -74,7 +74,7 @@ func testHttpEndpointPoolInternalMetrics(tc *HttpEndpointPoolInternalMetricsTest
 	testMetricsQueue.GenerateReport(tc.WantMetrics, tc.ReportExtra, errBuf)
 
 	if errBuf.Len() > 0 {
-		tlc.Fatal(errBuf)
+		t.Fatal(errBuf)
 	}
 }
 

@@ -43,6 +43,10 @@ http_endpoint_delta_metric_names = {
     4: "lsvmi_http_ep_healthcheck_error_count_delta",
 }
 
+http_endpoint_metric_names = {
+    5: "lsvmi_http_ep_state",
+}
+
 http_endpoint_pool_metric_names = {
     0: "lsvmi_http_ep_pool_healthy_rotate_count",
 }
@@ -72,6 +76,19 @@ def generate_http_endpoint_metrics(
         val = crt_ep_stats[i]
         if prev_ep_stats is not None:
             val -= prev_ep_stats[i]
+        metrics.append(
+            f"{metric_name}{{"
+            + ",".join(
+                [
+                    f'{INSTANCE_LABEL_NAME}="{instance}"',
+                    f'{HOSTNAME_LABEL_NAME}="{hostname}"',
+                    f'{HTTP_ENDPOINT_URL_LABEL_NAME}="{url}"',
+                ]
+            )
+            + f"}} {val} {prom_ts}"
+        )
+    for i, metric_name in http_endpoint_metric_names.items():
+        val = crt_ep_stats[i]
         metrics.append(
             f"{metric_name}{{"
             + ",".join(
@@ -180,8 +197,8 @@ def generate_http_endpoint_pool_internal_metrics_test_cases(
     stats_ref = {
         POOL_STATS_FIELD: [1000, 1001],
         ENDPOINT_STATS_FIELD: {
-            "http://test1": [10, 11, 12, 13, 14],
-            "http://test2": [20, 21, 22, 23, 24],
+            "http://test1": [10, 11, 12, 13, 14, 0],
+            "http://test2": [20, 21, 22, 23, 24, 1],
         },
     }
 
