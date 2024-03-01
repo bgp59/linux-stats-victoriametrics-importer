@@ -130,9 +130,6 @@ func (cpim *CompressorPoolInternalMetrics) generateMetrics(
 		}
 		for index, metric := range cpim.float64MetricsCache[compressorId] {
 			val := crtCompressorStats.Float64Stats[index]
-			if prevCompressorStats != nil {
-				val -= prevCompressorStats.Float64Stats[index]
-			}
 			buf.Write(metric)
 			buf.WriteString(strconv.FormatFloat(val, 'f', 3, 64))
 			buf.Write(tsSuffix)

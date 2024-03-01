@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import time
+from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
 
 from . import (
@@ -47,14 +48,13 @@ http_endpoint_metric_names = {
     5: "lsvmi_http_ep_state",
 }
 
-http_endpoint_pool_metric_names = {
-    0: "lsvmi_http_ep_pool_healthy_rotate_count",
-}
-
 http_endpoint_pool_delta_metric_names = {
     1: "lsvmi_http_ep_pool_no_healthy_ep_error_count_delta",
 }
 
+http_endpoint_pool_metric_names = {
+    0: "lsvmi_http_ep_pool_healthy_rotate_count",
+}
 
 testcases_file = "http_endpoint_pool.json"
 
@@ -105,8 +105,8 @@ def generate_http_endpoint_metrics(
 
 def generate_http_endpoint_pool_internal_metrics_test_case(
     name: str,
-    crt_ep_pool_stats: HttpEndpointPoolStats,
-    prev_ep_pool_stats: Optional[HttpEndpointPoolStats] = None,
+    crt_stats: HttpEndpointPoolStats,
+    prev_stats: Optional[HttpEndpointPoolStats] = None,
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
     report_extra: bool = True,
@@ -118,10 +118,8 @@ def generate_http_endpoint_pool_internal_metrics_test_case(
 
     metrics = []
 
-    crt_pool_stats = crt_ep_pool_stats[POOL_STATS_FIELD]
-    prev_pool_stats = (
-        prev_ep_pool_stats[POOL_STATS_FIELD] if prev_ep_pool_stats is not None else None
-    )
+    crt_pool_stats = crt_stats[POOL_STATS_FIELD]
+    prev_pool_stats = prev_stats[POOL_STATS_FIELD] if prev_stats is not None else None
 
     for i, metric_name in http_endpoint_pool_metric_names.items():
         val = crt_pool_stats[i]
@@ -150,10 +148,10 @@ def generate_http_endpoint_pool_internal_metrics_test_case(
             + f"}} {val} {prom_ts}"
         )
 
-    for url, crt_ep_stats in crt_ep_pool_stats[ENDPOINT_STATS_FIELD].items():
+    for url, crt_ep_stats in crt_stats[ENDPOINT_STATS_FIELD].items():
         prev_ep_stats = (
-            prev_ep_pool_stats[ENDPOINT_STATS_FIELD].get(url)
-            if prev_ep_pool_stats is not None
+            prev_stats[ENDPOINT_STATS_FIELD].get(url)
+            if prev_stats is not None
             else None
         )
         metrics.extend(
@@ -174,8 +172,8 @@ def generate_http_endpoint_pool_internal_metrics_test_case(
         TC_WANT_METRICS_COUNT_FIELD: len(metrics),
         TC_WANT_METRICS_FIELD: metrics,
         TC_REPORT_EXTRA_FIELD: report_extra,
-        TC_CRT_STATS_FIELD: crt_ep_pool_stats,
-        TC_PREV_STATS_FIELD: prev_ep_pool_stats,
+        TC_CRT_STATS_FIELD: crt_stats,
+        TC_PREV_STATS_FIELD: prev_stats,
     }
 
 
@@ -209,6 +207,47 @@ def generate_http_endpoint_pool_internal_metrics_test_cases(
         generate_http_endpoint_pool_internal_metrics_test_case(
             f"{tc_num:04d}",
             stats_ref,
+            instance=instance,
+            hostname=hostname,
+            ts=ts,
+        )
+    )
+    tc_num += 1
+
+    crt_stats = deepcopy(stats_ref)
+    for i in range(len(crt_stats[POOL_STATS_FIELD])):
+        crt_stats[POOL_STATS_FIELD][i] += 1000 * (i + 1)
+    k = 0
+    for url in crt_stats[ENDPOINT_STATS_FIELD]:
+        k += 1
+        for i in range(len(crt_stats[ENDPOINT_STATS_FIELD][url])):
+            crt_stats[ENDPOINT_STATS_FIELD][url][i] += 100 * k + i
+    test_cases.append(
+        generate_http_endpoint_pool_internal_metrics_test_case(
+            f"{tc_num:04d}",
+            crt_stats,
+            prev_stats=stats_ref,
+            instance=instance,
+            hostname=hostname,
+            ts=ts,
+        )
+    )
+    tc_num += 1
+
+    prev_stats = {
+        POOL_STATS_FIELD: [0] * len(stats_ref[POOL_STATS_FIELD]),
+        ENDPOINT_STATS_FIELD: {},
+    }
+    for url in crt_stats[ENDPOINT_STATS_FIELD]:
+        prev_stats[ENDPOINT_STATS_FIELD][url] = [0] * len(
+            stats_ref[ENDPOINT_STATS_FIELD][url]
+        )
+        break
+    test_cases.append(
+        generate_http_endpoint_pool_internal_metrics_test_case(
+            f"{tc_num:04d}",
+            stats_ref,
+            prev_stats=prev_stats,
             instance=instance,
             hostname=hostname,
             ts=ts,

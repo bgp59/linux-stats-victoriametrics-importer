@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import time
+from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
 
 from . import (
@@ -181,6 +182,41 @@ def generate_scheduler_internal_metrics_test_cases(
         generate_scheduler_internal_metrics_test_case(
             f"{tc_num:04d}",
             stats_ref,
+            instance=instance,
+            hostname=hostname,
+            ts=ts,
+        )
+    )
+    tc_num += 1
+
+    crt_stats = deepcopy(stats_ref)
+    k = 0
+    for task_id in crt_stats:
+        k += 1
+        for i in range(len(crt_stats[task_id][UINT64_STATS_FIELD])):
+            crt_stats[task_id][UINT64_STATS_FIELD][i] += 100 * k + i
+        crt_stats[task_id][RUNTIME_TOTAL_FIELD] += 1 * GO_TIME_SECOND
+    test_cases.append(
+        generate_scheduler_internal_metrics_test_case(
+            f"{tc_num:04d}",
+            crt_stats,
+            prev_stats=stats_ref,
+            instance=instance,
+            hostname=hostname,
+            ts=ts,
+        )
+    )
+    tc_num += 1
+
+    prev_stats = deepcopy(stats_ref)
+    for task_id in list(prev_stats):
+        del prev_stats[task_id]
+        break
+    test_cases.append(
+        generate_scheduler_internal_metrics_test_case(
+            f"{tc_num:04d}",
+            stats_ref,
+            prev_stats=prev_stats,
             instance=instance,
             hostname=hostname,
             ts=ts,

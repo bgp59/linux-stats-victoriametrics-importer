@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import time
+from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
 
 from . import (
@@ -169,6 +170,42 @@ def generate_compressor_pool_internal_metrics_test_cases(
         generate_compressor_pool_internal_metrics_test_case(
             f"{tc_num:04d}",
             stats_ref,
+            instance=instance,
+            hostname=hostname,
+            ts=ts,
+        )
+    )
+    tc_num += 1
+
+    crt_stats = deepcopy(stats_ref)
+    k = 0
+    for compressor_id in crt_stats:
+        k += 1
+        for i in range(len(crt_stats[compressor_id][UINT64_STATS_FIELD])):
+            crt_stats[compressor_id][UINT64_STATS_FIELD][i] += 100 * k + i
+        for i in range(len(crt_stats[compressor_id][FLOAT64_STATS_FIELD])):
+            crt_stats[compressor_id][FLOAT64_STATS_FIELD][i] += 1000 * k + i
+    test_cases.append(
+        generate_compressor_pool_internal_metrics_test_case(
+            f"{tc_num:04d}",
+            crt_stats,
+            prev_stats=stats_ref,
+            instance=instance,
+            hostname=hostname,
+            ts=ts,
+        )
+    )
+    tc_num += 1
+
+    prev_stats = deepcopy(stats_ref)
+    for compressor_id in list(prev_stats):
+        del prev_stats[compressor_id]
+        break
+    test_cases.append(
+        generate_compressor_pool_internal_metrics_test_case(
+            f"{tc_num:04d}",
+            stats_ref,
+            prev_stats=prev_stats,
             instance=instance,
             hostname=hostname,
             ts=ts,
