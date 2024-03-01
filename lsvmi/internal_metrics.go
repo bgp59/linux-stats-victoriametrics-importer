@@ -61,6 +61,9 @@ type InternalMetrics struct {
 	// HTTP Endpoint Pool specific metrics:
 	httpEndpointPoolMetrics *HttpEndpointPoolInternalMetrics
 
+	// Go specific metrics:
+	goMetrics *GoInternalMetrics
+
 	// Common metrics generators stats:
 	metricsGenStats MetricsGeneratorStats
 	// Cache the metrics:
@@ -113,6 +116,7 @@ func NewInternalMetrics(cfg any) (*InternalMetrics, error) {
 	internalMetrics.schedulerMetrics = NewSchedulerInternalMetrics(internalMetrics)
 	internalMetrics.compressorPoolMetrics = NewCompressorPoolInternalMetrics(internalMetrics)
 	internalMetrics.httpEndpointPoolMetrics = NewHttpEndpointPoolInternalMetrics(internalMetrics)
+	internalMetrics.goMetrics = NewGoInternalMetrics(internalMetrics)
 	return internalMetrics, nil
 }
 
@@ -172,6 +176,10 @@ func (internalMetrics *InternalMetrics) Execute() {
 		httpEndpointPoolMetrics = nil
 	}
 
+	// Go metrics:
+	goMetrics := internalMetrics.goMetrics
+	goMetrics.SnapStats()
+
 	// Common metrics generators metrics:
 	mgsStatsContainer := GlobalMetricsGeneratorStatsContainer
 	if internalMetrics.mgsStatsContainer != nil {
@@ -215,6 +223,7 @@ func (internalMetrics *InternalMetrics) Execute() {
 	if httpEndpointPoolMetrics != nil {
 		metricsCount += httpEndpointPoolMetrics.generateMetrics(buf, tsSuffix)
 	}
+	metricsCount += goMetrics.generateMetrics(buf, tsSuffix)
 
 	for id, metricsGenStats := range internalMetrics.metricsGenStats {
 		metrics := internalMetrics.metricsGenStatsMetricsCache[id]
