@@ -18,8 +18,8 @@ const (
 
 // The following labels are common to all metrics:
 const (
-	INSTANCE_LABEL_NAME = "inst"
-	HOSTNAME_LABEL_NAME = "node"
+	INSTANCE_LABEL_NAME = "instance"
+	HOSTNAME_LABEL_NAME = "hostname"
 )
 
 // A metrics generator satisfies the TaskActivity interface to be able to
@@ -167,6 +167,7 @@ func InitCommonMetrics(cfg any) error {
 
 	GlobalInstance = globalCfg.Instance
 	GlobalHostname = hostname
+	GlobalProcfsRoot = globalCfg.ProcfsRoot
 	GlobalMetricsGeneratorStatsContainer = NewMetricsGeneratorStatsContainer()
 
 	return nil

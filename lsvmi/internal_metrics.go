@@ -64,6 +64,9 @@ type InternalMetrics struct {
 	// Go specific metrics:
 	goMetrics *GoInternalMetrics
 
+	// OS metrics related to this process:
+	osMetrics *OsInternalMetrics
+
 	// Common metrics generators stats:
 	metricsGenStats MetricsGeneratorStats
 	// Cache the metrics:
@@ -81,6 +84,7 @@ type InternalMetrics struct {
 	compressorPool     *CompressorPool
 	httpEndpointPool   *HttpEndpointPool
 	mgsStatsContainer  *MetricsGeneratorStatsContainer
+	procfsRoot         string
 }
 
 func NewInternalMetrics(cfg any) (*InternalMetrics, error) {
@@ -117,6 +121,7 @@ func NewInternalMetrics(cfg any) (*InternalMetrics, error) {
 	internalMetrics.compressorPoolMetrics = NewCompressorPoolInternalMetrics(internalMetrics)
 	internalMetrics.httpEndpointPoolMetrics = NewHttpEndpointPoolInternalMetrics(internalMetrics)
 	internalMetrics.goMetrics = NewGoInternalMetrics(internalMetrics)
+	internalMetrics.osMetrics = NewOsInternalMetrics(internalMetrics)
 	return internalMetrics, nil
 }
 
@@ -180,6 +185,12 @@ func (internalMetrics *InternalMetrics) Execute() {
 	goMetrics := internalMetrics.goMetrics
 	goMetrics.SnapStats()
 
+	// OS metrics:
+	osMetrics := internalMetrics.osMetrics
+	if osMetrics != nil {
+		osMetrics.SnapStats()
+	}
+
 	// Common metrics generators metrics:
 	mgsStatsContainer := GlobalMetricsGeneratorStatsContainer
 	if internalMetrics.mgsStatsContainer != nil {
@@ -224,6 +235,9 @@ func (internalMetrics *InternalMetrics) Execute() {
 		metricsCount += httpEndpointPoolMetrics.generateMetrics(buf, tsSuffix)
 	}
 	metricsCount += goMetrics.generateMetrics(buf, tsSuffix)
+	if osMetrics != nil {
+		osMetrics.generateMetrics(buf, tsSuffix)
+	}
 
 	for id, metricsGenStats := range internalMetrics.metricsGenStats {
 		metrics := internalMetrics.metricsGenStatsMetricsCache[id]

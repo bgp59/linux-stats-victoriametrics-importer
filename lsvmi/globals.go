@@ -10,5 +10,6 @@ var (
 	GlobalScheduler                      *Scheduler
 	GlobalInstance                       string
 	GlobalHostname                       string
+	GlobalProcfsRoot                     string
 	GlobalMetricsGeneratorStatsContainer *MetricsGeneratorStatsContainer
 )

@@ -29,6 +29,7 @@ import (
 const (
 	GLOBAL_CONFIG_INSTANCE_DEFAULT           = "lsvmi"
 	GLOBAL_CONFIG_USE_SHORT_HOSTNAME_DEFAULT = true
+	GLOBAL_CONFIG_PROCFS_ROOT_DEFAULT        = "/proc"
 )
 
 type LsvmiConfig struct {
@@ -53,6 +54,9 @@ type GlobalConfig struct {
 	// the hostname is overridden by --hostname command line arg, that value is
 	// used as-is.
 	UseShortHostname bool `yaml:"use_short_hostname"`
+
+	// procfs root. It may be overridden by --procfs-root command line arg.
+	ProcfsRoot string `yaml:"procfs_root"`
 }
 
 var ErrConfigFileArgNotProvided = errors.New("config file arg not provided")
@@ -78,10 +82,17 @@ var instanceArg = flag.String(
 	"Override the config `instance` setting",
 )
 
+var procfsRootArg = flag.String(
+	"procfs-root",
+	"",
+	"Override the config `procfs_root` setting",
+)
+
 func DefaultGlobalConfig() *GlobalConfig {
 	return &GlobalConfig{
 		Instance:         GLOBAL_CONFIG_INSTANCE_DEFAULT,
 		UseShortHostname: GLOBAL_CONFIG_USE_SHORT_HOSTNAME_DEFAULT,
+		ProcfsRoot:       GLOBAL_CONFIG_PROCFS_ROOT_DEFAULT,
 	}
 }
 
@@ -123,6 +134,9 @@ func LoadLsvmiConfigFromArgs() (*LsvmiConfig, error) {
 	// Apply command line overrides:
 	if *instanceArg != "" {
 		cfg.GlobalConfig.Instance = *instanceArg
+	}
+	if *procfsRootArg != "" {
+		cfg.GlobalConfig.ProcfsRoot = *procfsRootArg
 	}
 	if loggerUseJsonArg.Used {
 		cfg.LoggerConfig.UseJson = loggerUseJsonArg.Value

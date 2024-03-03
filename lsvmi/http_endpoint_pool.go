@@ -230,7 +230,8 @@ type HttpEndpointConfig struct {
 
 // The list of HTTP codes that denote success:
 var HttpEndpointPoolSuccessCodes = map[int]bool{
-	http.StatusOK: true,
+	http.StatusOK:        true,
+	http.StatusNoContent: true,
 }
 
 // The list of HTTP codes that should be retried:
