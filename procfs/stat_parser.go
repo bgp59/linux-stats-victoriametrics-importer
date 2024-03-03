@@ -24,7 +24,7 @@ const (
 	STAT_CPU_GUEST_TICKS
 	STAT_CPU_GUEST_NICE_TICKS
 
-	// Must be last! See Sta struct for explanation about the scan#:
+	// Must be last! See Stat struct for explanation about the scan#:
 	STAT_CPU_SCAN_NUMBER
 )
 
@@ -74,7 +74,7 @@ type Stat struct {
 // Given a line prefix, map the associated data fields into indexes where the
 // parsed value will be stored.
 var statPrefixToDstIndexList = map[string][]int{
-	"cpu": []int{
+	"cpu": {
 		STAT_CPU_USER_TICKS,
 		STAT_CPU_NICE_TICKS,
 		STAT_CPU_SYSTEM_TICKS,
@@ -86,27 +86,27 @@ var statPrefixToDstIndexList = map[string][]int{
 		STAT_CPU_GUEST_TICKS,
 		STAT_CPU_GUEST_NICE_TICKS,
 	},
-	"page": []int{
+	"page": {
 		STAT_PAGE_IN,
 		STAT_PAGE_OUT,
 	},
-	"swap": []int{
+	"swap": {
 		STAT_SWAP_IN,
 		STAT_SWAP_OUT,
 	},
-	"ctxt": []int{
+	"ctxt": {
 		STAT_CTXT,
 	},
-	"btime": []int{
+	"btime": {
 		STAT_BTIME,
 	},
-	"processes": []int{
+	"processes": {
 		STAT_PROCESSES,
 	},
-	"procs_running": []int{
+	"procs_running": {
 		STAT_PROCS_RUNNING,
 	},
-	"procs_blocked": []int{
+	"procs_blocked": {
 		STAT_PROCS_BLOCKED,
 	},
 }
