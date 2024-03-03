@@ -20,7 +20,7 @@ const (
 	LSVMI_OS_VSIZE_METRIC       = "lsvmi_os_vsize"
 	LSVMI_OS_RSS_METRIC         = "lsvmi_os_rss"
 	LSVMI_OS_PCPU_METRIC        = "lsvmi_os_pcpu"
-	LSVMI_OS_NUM_THREADS_METRIC = "lsvmi_num_threads"
+	LSVMI_OS_NUM_THREADS_METRIC = "lsvmi_os_num_threads"
 )
 
 type OsInternalMetrics struct {
