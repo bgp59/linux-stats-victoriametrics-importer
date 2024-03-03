@@ -16,7 +16,8 @@ const (
 	INTERNAL_METRICS_CONFIG_INTERVAL_DEFAULT = "5s"
 
 	// Heartbeat metric:
-	LSVMI_UP_METRIC_NAME = "lsvmi_up"
+	LSVMI_UP_METRIC_NAME     = "lsvmi_up"
+	LSVMI_VERSION_LABEL_NAME = "version"
 
 	// Interval since last generation, i.e. the interval underlying the deltas.
 	// Normally this should be close to scan interval, but this the actual
@@ -300,10 +301,11 @@ func (internalMetrics *InternalMetrics) updateUpMetric() []byte {
 		hostname = internalMetrics.hostname
 	}
 	internalMetrics.upMetric = []byte(fmt.Sprintf(
-		`%s{%s="%s",%s="%s"} 1`, // N.B. value inclusive!
+		`%s{%s="%s",%s="%s",%s="%s"} 1`, // N.B. value inclusive!
 		LSVMI_UP_METRIC_NAME,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
+		LSVMI_VERSION_LABEL_NAME, LsvmiVersion,
 	))
 	return internalMetrics.upMetric
 }

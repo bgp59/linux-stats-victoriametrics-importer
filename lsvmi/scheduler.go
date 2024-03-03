@@ -96,6 +96,9 @@ const (
 	// How many times the task was executed:
 	TASK_STATS_EXECUTED_COUNT
 
+	// How many times the deadline hack (see AddNewTask) was applied:
+	TASK_STATS_DEADLINE_HACK_COUNT
+
 	// Must be last:
 	TASK_STATS_UINT64_LEN
 )
@@ -334,19 +337,51 @@ func (scheduler *Scheduler) dispatcherLoop() {
 			timeNow := time.Now()
 			nextDeadline := timeNow.Truncate(task.interval).Add(task.interval)
 
-			// If this task was re-added by a worker or if the next deadline is
-			// very close, then add it for later scheduling:
-			if task.addedByWorker || nextDeadline.Sub(timeNow) < SCHEDULER_TASK_MIN_EXECUTION_PAUSE {
-				if task.addedByWorker {
-					// Check the pause since the last execution:
-					taskNearestDeadline := task.lastExecuted.Add(SCHEDULER_TASK_MIN_EXECUTION_PAUSE)
-					if nextDeadline.Before(taskNearestDeadline) {
-						nextDeadline = taskNearestDeadline
-						mu.Lock()
-						stats[task.id].Uint64Stats[TASK_STATS_DELAYED_COUNT] += 1
-						mu.Unlock()
-					}
+			if task.addedByWorker {
+				// Hack needed when running on MacOS Docker (at the very least).
+				// The clock sometimes goes backwards, so nextDeadline may be in
+				// fact the same as the previous deadline. If that is the case
+				// then artificially increase it by interval until it falls into
+				// the future:
+				deadlineHack, taskDelayed := false, false
+				for !task.deadline.Before(nextDeadline) {
+					nextDeadline = nextDeadline.Add(task.interval)
+					deadlineHack = true
 				}
+				// Additionally check the pause since last execution and delay
+				// the task as needed:
+				taskNearestDeadline := task.lastExecuted.Add(SCHEDULER_TASK_MIN_EXECUTION_PAUSE)
+				if nextDeadline.Before(taskNearestDeadline) {
+					nextDeadline = taskNearestDeadline
+					taskDelayed = true
+				}
+
+				mu.Lock()
+				if deadlineHack {
+					stats[task.id].Uint64Stats[TASK_STATS_DEADLINE_HACK_COUNT] += 1
+				}
+				if taskDelayed {
+					stats[task.id].Uint64Stats[TASK_STATS_DELAYED_COUNT] += 1
+				}
+				mu.Unlock()
+
+				task.deadline = nextDeadline
+				heap.Push(scheduler, task)
+
+				// Cancel the timer if this new deadline is more recent than the
+				// one currently pending:
+				if activeTimer && nextDeadline.Before(currentDeadline) {
+					if !timer.Stop() {
+						<-timer.C
+					}
+					activeTimer = false
+				}
+
+				// Do not execute right away, wait for scheduling:
+				task = nil
+			} else if nextDeadline.Sub(timeNow) < SCHEDULER_TASK_MIN_EXECUTION_PAUSE {
+				// New task with a deadline that falls in the near future. Do
+				// not schedule right way, rather wait for the deadline:
 				task.deadline = nextDeadline
 				heap.Push(scheduler, task)
 

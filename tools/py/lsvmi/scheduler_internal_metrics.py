@@ -48,6 +48,7 @@ task_stats_uint64_delta_metric_names = {
     1: "lsvmi_task_delayed_count_delta",
     2: "lsvmi_task_overrun_count_delta",
     3: "lsvmi_task_executed_count_delta",
+    4: "lsvmi_task_deadline_hack_count_delta",
 }
 
 task_stats_interval_avg_runtime_metric = "lsvmi_task_interval_avg_runtime_sec"
@@ -166,11 +167,11 @@ def generate_scheduler_internal_metrics_test_cases(
 
     stats_ref = {
         "taskA": {
-            UINT64_STATS_FIELD: [0, 1, 2, 3],
+            UINT64_STATS_FIELD: [0, 1, 2, 3, 4],
             RUNTIME_TOTAL_FIELD: 100 * GO_TIME_MILLISECOND,
         },
         "taskB": {
-            UINT64_STATS_FIELD: [10, 11, 12, 13],
+            UINT64_STATS_FIELD: [10, 11, 12, 13, 14],
             RUNTIME_TOTAL_FIELD: 200 * GO_TIME_MILLISECOND,
         },
     }

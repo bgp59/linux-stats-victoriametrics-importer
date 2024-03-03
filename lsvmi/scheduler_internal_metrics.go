@@ -9,11 +9,12 @@ import (
 )
 
 const (
-	TASK_STATS_SCHEDULED_COUNT_DELTA_METRIC = "lsvmi_task_scheduled_count_delta"
-	TASK_STATS_DELAYED_COUNT_DELTA_METRIC   = "lsvmi_task_delayed_count_delta"
-	TASK_STATS_OVERRUN_COUNT_DELTA_METRIC   = "lsvmi_task_overrun_count_delta"
-	TASK_STATS_EXECUTED_COUNT_DELTA_METRIC  = "lsvmi_task_executed_count_delta"
-	TASK_STATS_INTERVAL_AVG_RUNTIME_METRIC  = "lsvmi_task_interval_avg_runtime_sec"
+	TASK_STATS_SCHEDULED_COUNT_DELTA_METRIC     = "lsvmi_task_scheduled_count_delta"
+	TASK_STATS_DELAYED_COUNT_DELTA_METRIC       = "lsvmi_task_delayed_count_delta"
+	TASK_STATS_OVERRUN_COUNT_DELTA_METRIC       = "lsvmi_task_overrun_count_delta"
+	TASK_STATS_EXECUTED_COUNT_DELTA_METRIC      = "lsvmi_task_executed_count_delta"
+	TASK_STATS_DEADLINE_HACK_COUNT_DELTA_METRIC = "lsvmi_task_deadline_hack_count_delta"
+	TASK_STATS_INTERVAL_AVG_RUNTIME_METRIC      = "lsvmi_task_interval_avg_runtime_sec"
 
 	TASK_STATS_TASK_ID_LABEL_NAME = "task_id"
 )
@@ -36,10 +37,11 @@ type SchedulerInternalMetrics struct {
 
 // The following stats will be used to generate deltas:
 var taskStatsUint64DeltaMetricsNameMap = map[int]string{
-	TASK_STATS_SCHEDULED_COUNT: TASK_STATS_SCHEDULED_COUNT_DELTA_METRIC,
-	TASK_STATS_DELAYED_COUNT:   TASK_STATS_DELAYED_COUNT_DELTA_METRIC,
-	TASK_STATS_OVERRUN_COUNT:   TASK_STATS_OVERRUN_COUNT_DELTA_METRIC,
-	TASK_STATS_EXECUTED_COUNT:  TASK_STATS_EXECUTED_COUNT_DELTA_METRIC,
+	TASK_STATS_SCHEDULED_COUNT:     TASK_STATS_SCHEDULED_COUNT_DELTA_METRIC,
+	TASK_STATS_DELAYED_COUNT:       TASK_STATS_DELAYED_COUNT_DELTA_METRIC,
+	TASK_STATS_OVERRUN_COUNT:       TASK_STATS_OVERRUN_COUNT_DELTA_METRIC,
+	TASK_STATS_EXECUTED_COUNT:      TASK_STATS_EXECUTED_COUNT_DELTA_METRIC,
+	TASK_STATS_DEADLINE_HACK_COUNT: TASK_STATS_DEADLINE_HACK_COUNT_DELTA_METRIC,
 }
 
 func NewSchedulerInternalMetrics(internalMetrics *InternalMetrics) *SchedulerInternalMetrics {
