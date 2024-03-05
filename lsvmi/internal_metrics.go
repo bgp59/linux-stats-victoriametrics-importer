@@ -16,7 +16,7 @@ const (
 	INTERNAL_METRICS_CONFIG_INTERVAL_DEFAULT = "5s"
 
 	// Heartbeat metric:
-	LSVMI_UP_METRIC_NAME     = "lsvmi_up"
+	LSVMI_UPTIME_METRIC_NAME = "lsvmi_uptime_sec"
 	LSVMI_VERSION_LABEL_NAME = "version"
 
 	// Interval since last generation, i.e. the interval underlying the deltas.
@@ -48,7 +48,7 @@ type InternalMetrics struct {
 	prevTs time.Time
 
 	// Cache heartbeat metric:
-	upMetric []byte
+	uptimeMetric []byte
 
 	// Cache interval metric:
 	intervalMetric []byte
@@ -72,6 +72,9 @@ type InternalMetrics struct {
 	metricsGenStats MetricsGeneratorStats
 	// Cache the metrics:
 	metricsGenStatsMetricsCache map[string][][]byte
+
+	// When this metrics was created, used as the base for uptime:
+	startTs time.Time
 
 	// A buffer for the timestamp suffix:
 	tsSuffixBuf *bytes.Buffer
@@ -116,6 +119,7 @@ func NewInternalMetrics(cfg any) (*InternalMetrics, error) {
 		prevTs:                      now,
 		metricsGenStats:             make(MetricsGeneratorStats),
 		metricsGenStatsMetricsCache: make(map[string][][]byte),
+		startTs:                     time.Now(),
 		tsSuffixBuf:                 &bytes.Buffer{},
 	}
 	internalMetrics.schedulerMetrics = NewSchedulerInternalMetrics(internalMetrics)
@@ -209,11 +213,12 @@ func (internalMetrics *InternalMetrics) Execute() {
 	metricsCount := 0
 	buf := metricsQueue.GetBuf()
 
-	upMetric := internalMetrics.upMetric
-	if upMetric == nil {
-		upMetric = internalMetrics.updateUpMetric()
+	uptimeMetric := internalMetrics.uptimeMetric
+	if uptimeMetric == nil {
+		uptimeMetric = internalMetrics.updateUptimeMetric()
 	}
-	buf.Write(upMetric) // value inclusive
+	buf.Write(uptimeMetric)
+	buf.WriteString(strconv.FormatFloat(ts.Sub(internalMetrics.startTs).Seconds(), 'f', 6, 64))
 	buf.Write(tsSuffix)
 	metricsCount++
 
@@ -292,7 +297,7 @@ func (internalMetrics *InternalMetrics) Execute() {
 
 }
 
-func (internalMetrics *InternalMetrics) updateUpMetric() []byte {
+func (internalMetrics *InternalMetrics) updateUptimeMetric() []byte {
 	instance, hostname := GlobalInstance, GlobalHostname
 	if internalMetrics.instance != "" {
 		instance = internalMetrics.instance
@@ -300,14 +305,14 @@ func (internalMetrics *InternalMetrics) updateUpMetric() []byte {
 	if internalMetrics.hostname != "" {
 		hostname = internalMetrics.hostname
 	}
-	internalMetrics.upMetric = []byte(fmt.Sprintf(
-		`%s{%s="%s",%s="%s",%s="%s"} 1`, // N.B. value inclusive!
-		LSVMI_UP_METRIC_NAME,
+	internalMetrics.uptimeMetric = []byte(fmt.Sprintf(
+		`%s{%s="%s",%s="%s",%s="%s"} `, // N.B. whitespace before value!
+		LSVMI_UPTIME_METRIC_NAME,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 		LSVMI_VERSION_LABEL_NAME, LsvmiVersion,
 	))
-	return internalMetrics.upMetric
+	return internalMetrics.uptimeMetric
 }
 
 func (internalMetrics *InternalMetrics) updateIntervalMetric() []byte {
@@ -319,7 +324,7 @@ func (internalMetrics *InternalMetrics) updateIntervalMetric() []byte {
 		hostname = internalMetrics.hostname
 	}
 	internalMetrics.intervalMetric = []byte(fmt.Sprintf(
-		`%s{%s="%s",%s="%s"} `, //N.B. whitespace before value!
+		`%s{%s="%s",%s="%s"} `, // N.B. whitespace before value!
 		LSVMI_INTERNAL_METRICS_INTERVAL_METRIC_NAME,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,

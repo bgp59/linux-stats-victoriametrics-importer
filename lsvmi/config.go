@@ -34,6 +34,7 @@ const (
 
 type LsvmiConfig struct {
 	GlobalConfig           *GlobalConfig           `yaml:"global_config"`
+	ProcStatMetricsConfig  *ProcStatMetricsConfig  `yaml:"proc_stat_metrics_config"`
 	InternalMetricsConfig  *InternalMetricsConfig  `yaml:"internal_metrics_config"`
 	SchedulerConfig        *SchedulerConfig        `yaml:"scheduler_config"`
 	CompressorPoolConfig   *CompressorPoolConfig   `yaml:"compressor_pool_config"`
@@ -99,6 +100,7 @@ func DefaultGlobalConfig() *GlobalConfig {
 func DefaultLsvmiConfig() *LsvmiConfig {
 	return &LsvmiConfig{
 		GlobalConfig:           DefaultGlobalConfig(),
+		ProcStatMetricsConfig:  DefaultProcStatMetricsConfig(),
 		InternalMetricsConfig:  DefaultInternalMetricsConfig(),
 		SchedulerConfig:        DefaultSchedulerConfig(),
 		CompressorPoolConfig:   DefaultCompressorPoolConfig(),
