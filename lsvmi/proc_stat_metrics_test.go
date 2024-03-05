@@ -23,6 +23,7 @@ type ProcStatMetricsTestCase struct {
 	WantMetrics                 []string
 	ReportExtra                 bool
 	WantZeroPcpu                map[int][]bool
+	LinuxClktckSec              float64
 }
 
 var procStatMetricsTestcasesFile = path.Join(
@@ -45,6 +46,9 @@ func testProcStatMetrics(tc *ProcStatMetricsTestCase, t *testing.T) {
 	for cpu, zeroPcpu := range tc.ZeroPcpu {
 		procStatMetrics.zeroPcpu[cpu] = make([]bool, procfs.STAT_CPU_NUM_STATS)
 		copy(procStatMetrics.zeroPcpu[cpu], zeroPcpu)
+	}
+	if tc.LinuxClktckSec > 0 {
+		procStatMetrics.linuxClktckSec = tc.LinuxClktckSec
 	}
 
 	wantCrtIndex := 1 - crtIndex

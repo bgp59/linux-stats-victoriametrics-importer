@@ -101,6 +101,7 @@ type ProcStatMetrics struct {
 	timeNowFn          func() time.Time
 	metricsQueue       MetricsQueue
 	procfsRoot         string
+	linuxClktckSec     float64
 }
 
 func NewProcStatMetrics(cfg any) (*ProcStatMetrics, error) {
@@ -174,7 +175,12 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) int {
 
 	// %CPU require prev stats:
 	if prevProcStat != nil {
+		linuxClktckSec := utils.LinuxClktckSec
+		if psm.linuxClktckSec > 0 {
+			linuxClktckSec = psm.linuxClktckSec
+		}
 		deltaSec := crtTs.Sub(prevTs).Seconds()
+		pCpuFactor := linuxClktckSec * 100. / deltaSec // %CPU = delta(ticks) * pCpuFactor
 
 		for cpu, crtCpuStats := range crtProcStat.Cpu {
 			prevCpuStats := prevProcStat.Cpu[cpu]
@@ -196,9 +202,7 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) int {
 						if dCpuTicks == 0 {
 							buf.WriteByte('0')
 						} else {
-							buf.WriteString(strconv.FormatFloat(
-								float64(dCpuTicks)*utils.LinuxClktckSec/deltaSec, 'f', 1, 64,
-							))
+							buf.WriteString(strconv.FormatFloat(float64(dCpuTicks)*pCpuFactor, 'f', 1, 64))
 						}
 						buf.Write(promTs)
 						metricsCount++

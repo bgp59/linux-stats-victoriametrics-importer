@@ -20,3 +20,5 @@ lsvmi_procfs_root = os.path.join(go_module_root, LSVMI_PROCFS_ROOT_SUBDIR)
 lsvmi_testcases_root = os.path.join(go_module_root, LSVMI_TESTCASES_SUBDIR)
 
 procfs_testdata_root = os.path.join(go_module_root, PROCFS_TESTDATA_ROOT_SUBDIR)
+
+TEST_LINUX_CLKTCK_SEC = 0.01
