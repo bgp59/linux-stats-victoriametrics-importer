@@ -39,8 +39,26 @@ PROC_STAT_CPU_GUEST_METRIC = "proc_stat_cpu_guest_pct"
 PROC_STAT_CPU_GUEST_NICE_METRIC = "proc_stat_cpu_guest_nice_pct"
 
 PROC_STAT_CPU_LABEL_NAME = "cpu"
+PROC_STAT_CPU_ALL_LABEL_VALUE = "all"
 
-# Map procfs.Stat PROC_STAT_CPU_ index into metrics name, must match lsvmi/proc_stat_metrics.go:
+# Boot/up-time metrics:
+PROC_STAT_BTIME_METRIC = "proc_stat_btime_sec"
+PROC_STAT_UPTIME_METRIC = "proc_stat_uptime_sec"
+
+# Other metrics:
+STAT_PAGE_IN_COUNT_DELTA_METRIC = "proc_stat_page_in_count_delta"
+STAT_PAGE_OUT_COUNT_DELTA_METRIC = "proc_stat_page_out_count_delta"
+STAT_SWAP_IN_COUNT_DELTA_METRIC = "proc_stat_swap_in_count_delta"
+STAT_SWAP_OUT_COUNT_DELTA_METRIC = "proc_stat_swap_out_count_delta"
+STAT_CTXT_COUNT_DELTA_METRIC = "proc_stat_swap_ctxt_count_delta"
+STAT_PROCESSES_COUNT_METRIC = "proc_stat_processes_count"
+STAT_PROCS_RUNNING_COUNT_METRIC = "proc_stat_procs_running_count"
+STAT_PROCS_BLOCKED_COUNT_METRIC = "proc_stat_procs_blocked_count"
+
+
+TEST_UPTIME_VALUE = 123.456789
+
+# Map procfs.Stat PROC_STAT_CPU_ indexes into metrics name, must match lsvmi/proc_stat_metrics.go:
 proc_stat_cpu_index_metric_name_map = {
     procfs.STAT_CPU_USER_TICKS: PROC_STAT_CPU_USER_METRIC,
     procfs.STAT_CPU_NICE_TICKS: PROC_STAT_CPU_NICE_METRIC,
@@ -54,10 +72,22 @@ proc_stat_cpu_index_metric_name_map = {
     procfs.STAT_CPU_GUEST_NICE_TICKS: PROC_STAT_CPU_GUEST_NICE_METRIC,
 }
 
-# Map cpu into label value, must match lsvmi/proc_stat_metrics.go:
-proc_stat_cpu_to_label_val = {
-    procfs.STAT_CPU_ALL: "all",
+# Map procfs.NumericFields indexes into delta metrics name:
+proc_stat_index_delta_metric_name_map = {
+    procfs.STAT_PAGE_IN: STAT_PAGE_IN_COUNT_DELTA_METRIC,
+    procfs.STAT_PAGE_OUT: STAT_PAGE_OUT_COUNT_DELTA_METRIC,
+    procfs.STAT_SWAP_IN: STAT_SWAP_IN_COUNT_DELTA_METRIC,
+    procfs.STAT_SWAP_OUT: STAT_SWAP_OUT_COUNT_DELTA_METRIC,
+    procfs.STAT_CTXT: STAT_CTXT_COUNT_DELTA_METRIC,
 }
+
+# Map procfs.NumericFields indexes into metrics name:
+proc_stat_index_metric_name_map = {
+    procfs.STAT_PROCESSES: STAT_PROCESSES_COUNT_METRIC,
+    procfs.STAT_PROCS_RUNNING: STAT_PROCS_RUNNING_COUNT_METRIC,
+    procfs.STAT_PROCS_BLOCKED: STAT_PROCS_BLOCKED_COUNT_METRIC,
+}
+
 
 testcases_file = "proc_stat.json"
 
@@ -75,7 +105,14 @@ def generate_proc_stat_metrics(
     metrics = []
     pcpu_factor = TEST_LINUX_CLKTCK_SEC / interval * 100
     new_zero_pcpu_map = None
+
+    crt_numeric_fields = crt_proc_stat["NumericFields"]
+    prev_numeric_fields = (
+        prev_proc_stat["NumericFields"] if prev_proc_stat is not None else None
+    )
     if prev_proc_stat is not None:
+        # CPU stats:
+        num_cpus = len(crt_proc_stat["Cpu"]) - 1
         new_zero_pcpu_map = {}
         for cpu, crt_cpu_stats in crt_proc_stat["Cpu"].items():
             new_zero_pcpu_map[cpu] = [False] * procfs.STAT_CPU_NUM_STATS
@@ -85,11 +122,15 @@ def generate_proc_stat_metrics(
             zero_pcpu = zero_pcpu_map.get(cpu) if zero_pcpu_map is not None else None
             if zero_pcpu is None:
                 zero_pcpu = [False] * procfs.STAT_CPU_NUM_STATS
-            cpu_label_val = proc_stat_cpu_to_label_val.get(cpu, cpu)
+            cpu_label_val = (
+                cpu if cpu != procfs.STAT_CPU_ALL else PROC_STAT_CPU_ALL_LABEL_VALUE
+            )
             for index, name in proc_stat_cpu_index_metric_name_map.items():
                 delta_cpu_ticks = crt_cpu_stats[index] - prev_cpu_stats[index]
                 if delta_cpu_ticks > 0 or full_metrics or not zero_pcpu[index]:
                     pcpu = delta_cpu_ticks * pcpu_factor
+                    if cpu == procfs.STAT_CPU_ALL and num_cpus > 0:
+                        pcpu /= num_cpus
                     metrics.append(
                         f"{name}{{"
                         + ",".join(
@@ -102,6 +143,62 @@ def generate_proc_stat_metrics(
                         + f"}} {pcpu:.1f} {crt_prom_ts}"
                     )
                 new_zero_pcpu_map[cpu][index] = delta_cpu_ticks == 0
+        # Delta metrics stats:
+        for index, name in proc_stat_index_delta_metric_name_map.items():
+            val = crt_numeric_fields[index] - prev_numeric_fields[index]
+            metrics.append(
+                f"{name}{{"
+                + ",".join(
+                    [
+                        f'{INSTANCE_LABEL_NAME}="{instance}"',
+                        f'{HOSTNAME_LABEL_NAME}="{hostname}"',
+                    ]
+                )
+                + f"}} {val} {crt_prom_ts}"
+            )
+
+    # Boot/up-time metrics:
+    if full_metrics:
+        btime = crt_proc_stat["NumericFields"][procfs.STAT_BTIME]
+        metrics.append(
+            f"{PROC_STAT_BTIME_METRIC}{{"
+            + ",".join(
+                [
+                    f'{INSTANCE_LABEL_NAME}="{instance}"',
+                    f'{HOSTNAME_LABEL_NAME}="{hostname}"',
+                ]
+            )
+            + f"}} {int(btime)} {crt_prom_ts}"
+        )
+    metrics.append(
+        f"{PROC_STAT_UPTIME_METRIC}{{"
+        + ",".join(
+            [
+                f'{INSTANCE_LABEL_NAME}="{instance}"',
+                f'{HOSTNAME_LABEL_NAME}="{hostname}"',
+            ]
+        )
+        + f"}} {TEST_UPTIME_VALUE:.03f} {crt_prom_ts}"
+    )
+
+    # Other metrics:
+    for index, name in proc_stat_index_metric_name_map.items():
+        val = crt_numeric_fields[index]
+        if (
+            full_metrics
+            or prev_numeric_fields is None
+            or val != prev_numeric_fields[index]
+        ):
+            metrics.append(
+                f"{name}{{"
+                + ",".join(
+                    [
+                        f'{INSTANCE_LABEL_NAME}="{instance}"',
+                        f'{HOSTNAME_LABEL_NAME}="{hostname}"',
+                    ]
+                )
+                + f"}} {val} {crt_prom_ts}"
+            )
     return metrics, new_zero_pcpu_map
 
 
@@ -147,6 +244,7 @@ def generate_proc_stat_metrics_test_case(
         "ReportExtra": True,
         "WantZeroPcpuMap": want_zero_pcpu_map,
         "LinuxClktckSec": TEST_LINUX_CLKTCK_SEC,
+        "TimeSinceBtime": TEST_UPTIME_VALUE,
     }
 
 
@@ -166,33 +264,158 @@ def generate_proc_stat_metrics_test_cases(
         fp = sys.stdout
 
     proc_stat_ref = {
-        "Cpu": {
-            procfs.STAT_CPU_ALL: [20, 21, 22, 23, 24, 25, 26, 27, 28, 29],
-        }
+        "Cpu": {},
+        "NumericFields": [0] * procfs.STAT_NUMERIC_NUM_STATS,
     }
+    cpu_ticks_all = [0] * procfs.STAT_CPU_NUM_STATS
+    num_cpus = 2
+    for cpu in range(num_cpus):
+        cpu_ticks = [0] * procfs.STAT_CPU_NUM_STATS
+        for i in range(procfs.STAT_CPU_NUM_STATS):
+            cpu_ticks[i] = 2 * procfs.STAT_CPU_NUM_STATS * cpu + i
+            cpu_ticks_all[i] += cpu_ticks[i]
+        proc_stat_ref["Cpu"][cpu] = cpu_ticks
+    proc_stat_ref["Cpu"][procfs.STAT_CPU_ALL] = cpu_ticks_all
+    proc_stat_ref["NumericFields"][procfs.STAT_BTIME] = int(ts)
+    for i in proc_stat_index_delta_metric_name_map:
+        proc_stat_ref["NumericFields"][i] = 2 * procfs.STAT_CPU_NUM_STATS * i
+    for i in proc_stat_index_metric_name_map:
+        proc_stat_ref["NumericFields"][i] = 2 * procfs.STAT_CPU_NUM_STATS * i
 
     test_cases = []
     tc_num = 0
 
-    crt_proc_stat = {
-        "Cpu": {},
-    }
-    i = 0
-    for cpu, cpu_stats in proc_stat_ref["Cpu"].items():
-        i += 1
-        crt_proc_stat["Cpu"][cpu] = [tck + 20 * i for tck in cpu_stats]
+    # No previous stats:
+    for cycle_num in [0, 1]:
+        for zero in [False, True]:
+            zero_pcpu_map = {}
+            for cpu in proc_stat_ref["Cpu"]:
+                zero_pcpu_map[cpu] = [zero] * procfs.STAT_CPU_NUM_STATS
+            test_cases.append(
+                generate_proc_stat_metrics_test_case(
+                    f"{tc_num:04d}",
+                    proc_stat_ref,
+                    None,
+                    ts=ts,
+                    cycle_num=cycle_num,
+                    zero_pcpu_map=zero_pcpu_map,
+                    instance=instance,
+                    hostname=hostname,
+                )
+            )
+            tc_num += 1
 
-    test_cases.append(
-        generate_proc_stat_metrics_test_case(
-            f"{tc_num:04d}",
-            crt_proc_stat,
-            proc_stat_ref,
-            ts=ts,
-            instance=instance,
-            hostname=hostname,
-        )
-    )
-    tc_num += 1
+    # No stats change:
+    for cycle_num in [0, 1]:
+        for zero in [False, True]:
+            zero_pcpu_map = {}
+            for cpu in proc_stat_ref["Cpu"]:
+                zero_pcpu_map[cpu] = [zero] * procfs.STAT_CPU_NUM_STATS
+            test_cases.append(
+                generate_proc_stat_metrics_test_case(
+                    f"{tc_num:04d}",
+                    proc_stat_ref,
+                    proc_stat_ref,
+                    ts=ts,
+                    cycle_num=cycle_num,
+                    zero_pcpu_map=zero_pcpu_map,
+                    instance=instance,
+                    hostname=hostname,
+                )
+            )
+            tc_num += 1
+
+    # Single CPU stat change:
+    for cycle_num in [0, 1]:
+        for zero in [False, True]:
+            zero_pcpu_map = {}
+            for cpu in proc_stat_ref["Cpu"]:
+                zero_pcpu_map[cpu] = [zero] * procfs.STAT_CPU_NUM_STATS
+            for cpu in proc_stat_ref["Cpu"]:
+                for i in range(procfs.STAT_CPU_NUM_STATS):
+                    crt_proc_stat = deepcopy(proc_stat_ref)
+                    crt_proc_stat["Cpu"][cpu][i] += i + 13
+                    test_cases.append(
+                        generate_proc_stat_metrics_test_case(
+                            f"{tc_num:04d}",
+                            crt_proc_stat,
+                            proc_stat_ref,
+                            ts=ts,
+                            cycle_num=cycle_num,
+                            zero_pcpu_map=zero_pcpu_map,
+                            instance=instance,
+                            hostname=hostname,
+                        )
+                    )
+                    tc_num += 1
+
+    # New CPU:
+    crt_proc_stat = deepcopy(proc_stat_ref)
+    crt_proc_stat["Cpu"][num_cpus] = [i * 10 for i in range(procfs.STAT_CPU_NUM_STATS)]
+    for cycle_num in [0, 1]:
+        for zero in [False, True]:
+            zero_pcpu_map = {}
+            for cpu in proc_stat_ref["Cpu"]:
+                zero_pcpu_map[cpu] = [zero] * procfs.STAT_CPU_NUM_STATS
+            test_cases.append(
+                generate_proc_stat_metrics_test_case(
+                    f"{tc_num:04d}",
+                    crt_proc_stat,
+                    proc_stat_ref,
+                    ts=ts,
+                    cycle_num=cycle_num,
+                    zero_pcpu_map=zero_pcpu_map,
+                    instance=instance,
+                    hostname=hostname,
+                )
+            )
+            tc_num += 1
+
+    # Vanishing CPU:
+    for cycle_num in [0, 1]:
+        for zero in [False, True]:
+            zero_pcpu_map = {}
+            for cpu in proc_stat_ref["Cpu"]:
+                zero_pcpu_map[cpu] = [zero] * procfs.STAT_CPU_NUM_STATS
+            for cpu in proc_stat_ref["Cpu"]:
+                if cpu == procfs.STAT_CPU_ALL:
+                    continue
+                crt_proc_stat = deepcopy(proc_stat_ref)
+                del crt_proc_stat["Cpu"][cpu]
+                test_cases.append(
+                    generate_proc_stat_metrics_test_case(
+                        f"{tc_num:04d}",
+                        crt_proc_stat,
+                        proc_stat_ref,
+                        ts=ts,
+                        cycle_num=cycle_num,
+                        zero_pcpu_map=zero_pcpu_map,
+                        instance=instance,
+                        hostname=hostname,
+                    )
+                )
+                tc_num += 1
+
+    # Other stats change:
+    for cycle_num in [0, 1]:
+        for i in list(proc_stat_index_delta_metric_name_map) + list(
+            proc_stat_index_metric_name_map
+        ):
+            crt_proc_stat = deepcopy(proc_stat_ref)
+            crt_proc_stat["NumericFields"][i] += 1000 * (i + 1)
+            test_cases.append(
+                generate_proc_stat_metrics_test_case(
+                    f"{tc_num:04d}",
+                    crt_proc_stat,
+                    proc_stat_ref,
+                    ts=ts,
+                    cycle_num=cycle_num,
+                    zero_pcpu_map=zero_pcpu_map,
+                    instance=instance,
+                    hostname=hostname,
+                )
+            )
+            tc_num += 1
 
     json.dump(test_cases, fp=fp, indent=2)
     fp.write("\n")

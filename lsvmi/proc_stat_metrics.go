@@ -32,10 +32,25 @@ const (
 	PROC_STAT_CPU_GUEST_METRIC      = "proc_stat_cpu_guest_pct"
 	PROC_STAT_CPU_GUEST_NICE_METRIC = "proc_stat_cpu_guest_nice_pct"
 
-	PROC_STAT_CPU_LABEL_NAME = "cpu"
+	PROC_STAT_CPU_LABEL_NAME      = "cpu"
+	PROC_STAT_CPU_ALL_LABEL_VALUE = "all"
+
+	// System uptime will be based on btime:
+	PROC_STAT_BTIME_METRIC  = "proc_stat_btime_sec"
+	PROC_STAT_UPTIME_METRIC = "proc_stat_uptime_sec"
+
+	// Other metrics:
+	STAT_PAGE_IN_COUNT_DELTA_METRIC  = "proc_stat_page_in_count_delta"
+	STAT_PAGE_OUT_COUNT_DELTA_METRIC = "proc_stat_page_out_count_delta"
+	STAT_SWAP_IN_COUNT_DELTA_METRIC  = "proc_stat_swap_in_count_delta"
+	STAT_SWAP_OUT_COUNT_DELTA_METRIC = "proc_stat_swap_out_count_delta"
+	STAT_CTXT_COUNT_DELTA_METRIC     = "proc_stat_swap_ctxt_count_delta"
+	STAT_PROCESSES_COUNT_METRIC      = "proc_stat_processes_count"
+	STAT_PROCS_RUNNING_COUNT_METRIC  = "proc_stat_procs_running_count"
+	STAT_PROCS_BLOCKED_COUNT_METRIC  = "proc_stat_procs_blocked_count"
 )
 
-// Map procfs.Stat PROC_STAT_CPU_ index into metrics name:
+// Map procfs.Stat PROC_STAT_CPU_ indexes into metrics name:
 var procStatCpuIndexMetricNameMap = map[int]string{
 	procfs.STAT_CPU_USER_TICKS:       PROC_STAT_CPU_USER_METRIC,
 	procfs.STAT_CPU_NICE_TICKS:       PROC_STAT_CPU_NICE_METRIC,
@@ -49,9 +64,20 @@ var procStatCpuIndexMetricNameMap = map[int]string{
 	procfs.STAT_CPU_GUEST_NICE_TICKS: PROC_STAT_CPU_GUEST_NICE_METRIC,
 }
 
-// Special mapping to CPU# -> label value, the default is to use it as-is:
-var procStatCpuToLabelVal = map[int]string{
-	procfs.STAT_CPU_ALL: "all",
+// Map procfs.NumericFields indexes into delta metrics name:
+var procStatIndexDeltaMetricNameMap = map[int]string{
+	procfs.STAT_PAGE_IN:  STAT_PAGE_IN_COUNT_DELTA_METRIC,
+	procfs.STAT_PAGE_OUT: STAT_PAGE_OUT_COUNT_DELTA_METRIC,
+	procfs.STAT_SWAP_IN:  STAT_SWAP_IN_COUNT_DELTA_METRIC,
+	procfs.STAT_SWAP_OUT: STAT_SWAP_OUT_COUNT_DELTA_METRIC,
+	procfs.STAT_CTXT:     STAT_CTXT_COUNT_DELTA_METRIC,
+}
+
+// Map procfs.NumericFields indexes into metrics name:
+var procStatIndexMetricNameMap = map[int]string{
+	procfs.STAT_PROCESSES:     STAT_PROCESSES_COUNT_METRIC,
+	procfs.STAT_PROCS_RUNNING: STAT_PROCS_RUNNING_COUNT_METRIC,
+	procfs.STAT_PROCS_BLOCKED: STAT_PROCS_BLOCKED_COUNT_METRIC,
 }
 
 type ProcStatMetricsConfig struct {
@@ -92,6 +118,14 @@ type ProcStatMetrics struct {
 	// CPU metrics cache, indexed by CPU#, STAT_CPU_...:
 	cpuMetricsCache map[int][][]byte
 
+	// Bootime/uptime metrics cache:
+	btimeMetricCache, uptimeMetricCache []byte
+	// Cache the btime at the 1st reading to be used as a reference for uptime:
+	btime time.Time
+
+	// Other metrics caches, indexed by stat#:
+	deltaMetricsCache, metricsCache map[int][]byte
+
 	// A buffer for the timestamp suffix:
 	tsSuffixBuf *bytes.Buffer
 
@@ -99,6 +133,7 @@ type ProcStatMetrics struct {
 	// the usual objects will be used.
 	instance, hostname string
 	timeNowFn          func() time.Time
+	timeSinceFn        func(t time.Time) time.Duration
 	metricsQueue       MetricsQueue
 	procfsRoot         string
 	linuxClktckSec     float64
@@ -145,8 +180,10 @@ func (psm *ProcStatMetrics) updateCpuMetricsCache(cpu int) {
 	}
 
 	cpuMetrics := make([][]byte, procfs.STAT_CPU_NUM_STATS)
-	cpuLabelVal := procStatCpuToLabelVal[cpu]
-	if cpuLabelVal == "" {
+	var cpuLabelVal string
+	if cpu == procfs.STAT_CPU_ALL {
+		cpuLabelVal = PROC_STAT_CPU_ALL_LABEL_VALUE
+	} else {
 		cpuLabelVal = strconv.Itoa(cpu)
 	}
 	for index, name := range procStatCpuIndexMetricNameMap {
@@ -159,6 +196,61 @@ func (psm *ProcStatMetrics) updateCpuMetricsCache(cpu int) {
 		))
 	}
 	psm.cpuMetricsCache[cpu] = cpuMetrics
+}
+
+func (psm *ProcStatMetrics) updateBtimeUptimeMetricsCache() {
+	instance, hostname := GlobalInstance, GlobalHostname
+	if psm.instance != "" {
+		instance = psm.instance
+	}
+	if psm.hostname != "" {
+		hostname = psm.hostname
+	}
+	btime := int64(psm.procStat[psm.crtIndex].NumericFields[procfs.STAT_BTIME])
+	psm.btime = time.Unix(btime, 0)
+	psm.btimeMetricCache = []byte(fmt.Sprintf(
+		`%s{%s="%s",%s="%s"} %d`, // N.B. include the value!
+		PROC_STAT_BTIME_METRIC,
+		INSTANCE_LABEL_NAME, instance,
+		HOSTNAME_LABEL_NAME, hostname,
+		btime,
+	))
+	psm.uptimeMetricCache = []byte(fmt.Sprintf(
+		`%s{%s="%s",%s="%s"} `, // N.B. include space before val
+		PROC_STAT_UPTIME_METRIC,
+		INSTANCE_LABEL_NAME, instance,
+		HOSTNAME_LABEL_NAME, hostname,
+	))
+}
+
+func (psm *ProcStatMetrics) updateMetricsCache() {
+	instance, hostname := GlobalInstance, GlobalHostname
+	if psm.instance != "" {
+		instance = psm.instance
+	}
+	if psm.hostname != "" {
+		hostname = psm.hostname
+	}
+
+	psm.deltaMetricsCache = make(map[int][]byte)
+	for index, name := range procStatIndexDeltaMetricNameMap {
+		psm.deltaMetricsCache[index] = []byte(fmt.Sprintf(
+			`%s{%s="%s",%s="%s"} `, // N.B. include space before val
+			name,
+			INSTANCE_LABEL_NAME, instance,
+			HOSTNAME_LABEL_NAME, hostname,
+		))
+	}
+
+	psm.metricsCache = make(map[int][]byte)
+	for index, name := range procStatIndexMetricNameMap {
+		psm.metricsCache[index] = []byte(fmt.Sprintf(
+			`%s{%s="%s",%s="%s"} `, // N.B. include space before val
+			name,
+			INSTANCE_LABEL_NAME, instance,
+			HOSTNAME_LABEL_NAME, hostname,
+		))
+	}
 }
 
 func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) int {
@@ -174,8 +266,12 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) int {
 	metricsCount := 0
 	fullMetrics := psm.cycleNum == 0
 
-	// %CPU require prev stats:
+	crtNumericFields := crtProcStat.NumericFields
+
+	var prevNumericFields []uint64 = nil
+
 	if prevProcStat != nil {
+		// %CPU require prev stats:
 		linuxClktckSec := utils.LinuxClktckSec
 		if psm.linuxClktckSec > 0 {
 			linuxClktckSec = psm.linuxClktckSec
@@ -191,6 +287,7 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) int {
 				psm.zeroPcpuMap[cpu] = zeroPcpu
 			}
 			if prevCpuStats != nil {
+				numCpus := len(crtProcStat.Cpu) - 1
 				cpuMetrics := psm.cpuMetricsCache[cpu]
 				if cpuMetrics == nil {
 					psm.updateCpuMetricsCache(cpu)
@@ -199,12 +296,12 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) int {
 				for index, metric := range cpuMetrics {
 					dCpuTicks := crtCpuStats[index] - prevCpuStats[index]
 					if dCpuTicks != 0 || fullMetrics || !zeroPcpu[index] {
-						buf.Write(metric)
-						if dCpuTicks == 0 {
-							buf.WriteByte('0')
-						} else {
-							buf.WriteString(strconv.FormatFloat(float64(dCpuTicks)*pCpuFactor, 'f', 1, 64))
+						val := float64(dCpuTicks)
+						if cpu == procfs.STAT_CPU_ALL && numCpus > 0 {
+							val /= float64(numCpus)
 						}
+						buf.Write(metric)
+						buf.WriteString(strconv.FormatFloat(val*pCpuFactor, 'f', 1, 64))
 						buf.Write(promTs)
 						metricsCount++
 					}
@@ -219,6 +316,55 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) int {
 					delete(psm.zeroPcpuMap, cpu)
 				}
 			}
+		}
+
+		// Delta metrics require prev stats.
+		prevNumericFields = prevProcStat.NumericFields
+		deltaMetricsCache := psm.deltaMetricsCache
+		if deltaMetricsCache == nil {
+			psm.updateMetricsCache()
+			deltaMetricsCache = psm.deltaMetricsCache
+		}
+		for index, metric := range deltaMetricsCache {
+			val := crtNumericFields[index] - prevNumericFields[index]
+			buf.Write(metric)
+			buf.WriteString(strconv.FormatUint(val, 10))
+			buf.Write(promTs)
+			metricsCount++
+		}
+	}
+
+	// Boot/up-time metrics:
+	if psm.btimeMetricCache == nil {
+		psm.updateBtimeUptimeMetricsCache()
+	}
+	if fullMetrics {
+		buf.Write(psm.btimeMetricCache)
+		buf.Write(promTs)
+		metricsCount++
+	}
+	buf.Write(psm.uptimeMetricCache)
+	timeSinceFn := time.Since
+	if psm.timeSinceFn != nil {
+		timeSinceFn = psm.timeSinceFn
+	}
+	buf.WriteString(strconv.FormatFloat(timeSinceFn(psm.btime).Seconds(), 'f', 3, 64))
+	buf.Write(promTs)
+	metricsCount++
+
+	// Other metrics:
+	metricsCache := psm.metricsCache
+	if metricsCache == nil {
+		psm.updateMetricsCache()
+		metricsCache = psm.metricsCache
+	}
+	for index, metric := range metricsCache {
+		val := crtNumericFields[index]
+		if fullMetrics || prevNumericFields == nil || val != prevNumericFields[index] {
+			buf.Write(metric)
+			buf.WriteString(strconv.FormatUint(val, 10))
+			buf.Write(promTs)
+			metricsCount++
 		}
 	}
 

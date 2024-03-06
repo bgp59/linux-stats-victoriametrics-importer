@@ -22,6 +22,7 @@ from .stat_parser import (
     STAT_CPU_SYSTEM_TICKS,
     STAT_CPU_USER_TICKS,
     STAT_CTXT,
+    STAT_NUMERIC_NUM_STATS,
     STAT_PAGE_IN,
     STAT_PAGE_OUT,
     STAT_PROCESSES,

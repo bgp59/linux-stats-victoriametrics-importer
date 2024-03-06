@@ -26,6 +26,7 @@ type ProcStatMetricsTestCase struct {
 	ReportExtra                 bool
 	WantZeroPcpuMap             map[int][]bool
 	LinuxClktckSec              float64
+	TimeSinceBtime              float64
 }
 
 var procStatMetricsTestcasesFile = path.Join(
@@ -53,6 +54,9 @@ func testProcStatMetrics(tc *ProcStatMetricsTestCase, t *testing.T) {
 	}
 	if tc.LinuxClktckSec > 0 {
 		procStatMetrics.linuxClktckSec = tc.LinuxClktckSec
+	}
+	procStatMetrics.timeSinceFn = func(t time.Time) time.Duration {
+		return time.Duration(tc.TimeSinceBtime * float64(time.Second))
 	}
 
 	wantCrtIndex := 1 - crtIndex
