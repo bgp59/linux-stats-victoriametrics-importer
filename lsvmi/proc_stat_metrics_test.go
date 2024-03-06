@@ -15,14 +15,16 @@ import (
 
 type ProcStatMetricsTestCase struct {
 	Name                        string
+	Instance                    string
+	Hostname                    string
 	CrtProcStat, PrevProcStat   *procfs.Stat
 	CrtPromTs, PrevPromTs       int64
 	CycleNum, FullMetricsFactor int
-	ZeroPcpu                    map[int][]bool
+	ZeroPcpuMap                 map[int][]bool
 	WantMetricsCount            int
 	WantMetrics                 []string
 	ReportExtra                 bool
-	WantZeroPcpu                map[int][]bool
+	WantZeroPcpuMap             map[int][]bool
 	LinuxClktckSec              float64
 }
 
@@ -36,6 +38,8 @@ func testProcStatMetrics(tc *ProcStatMetricsTestCase, t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	procStatMetrics.instance = tc.Instance
+	procStatMetrics.hostname = tc.Hostname
 	crtIndex := procStatMetrics.crtIndex
 	procStatMetrics.procStat[crtIndex] = tc.CrtProcStat
 	procStatMetrics.procStatTs[crtIndex] = time.UnixMilli(tc.CrtPromTs)
@@ -43,9 +47,9 @@ func testProcStatMetrics(tc *ProcStatMetricsTestCase, t *testing.T) {
 	procStatMetrics.procStatTs[1-crtIndex] = time.UnixMilli(tc.PrevPromTs)
 	procStatMetrics.cycleNum = tc.CycleNum
 	procStatMetrics.fullMetricsFactor = tc.FullMetricsFactor
-	for cpu, zeroPcpu := range tc.ZeroPcpu {
-		procStatMetrics.zeroPcpu[cpu] = make([]bool, procfs.STAT_CPU_NUM_STATS)
-		copy(procStatMetrics.zeroPcpu[cpu], zeroPcpu)
+	for cpu, ZeroPcpuMap := range tc.ZeroPcpuMap {
+		procStatMetrics.zeroPcpuMap[cpu] = make([]bool, procfs.STAT_CPU_NUM_STATS)
+		copy(procStatMetrics.zeroPcpuMap[cpu], ZeroPcpuMap)
 	}
 	if tc.LinuxClktckSec > 0 {
 		procStatMetrics.linuxClktckSec = tc.LinuxClktckSec
@@ -68,27 +72,27 @@ func testProcStatMetrics(tc *ProcStatMetricsTestCase, t *testing.T) {
 		)
 	}
 
-	if tc.WantZeroPcpu != nil {
-		for cpu, wantZeroPcpu := range tc.WantZeroPcpu {
-			gotZeroPcpu := procStatMetrics.zeroPcpu[cpu]
-			if gotZeroPcpu == nil {
-				fmt.Fprintf(errBuf, "\nzeroPcpu: missing cpu %d", cpu)
+	if tc.WantZeroPcpuMap != nil {
+		for cpu, wantZeroPcpuMap := range tc.WantZeroPcpuMap {
+			gotZeroPcpuMap := procStatMetrics.zeroPcpuMap[cpu]
+			if gotZeroPcpuMap == nil {
+				fmt.Fprintf(errBuf, "\nZeroPcpuMap: missing cpu %d", cpu)
 				continue
 			}
-			for index, wantVal := range wantZeroPcpu {
-				gotVal := gotZeroPcpu[index]
+			for index, wantVal := range wantZeroPcpuMap {
+				gotVal := gotZeroPcpuMap[index]
 				if wantVal != gotVal {
 					fmt.Fprintf(
 						errBuf,
-						"\nzeroPcpu[%d][%d]: want: %v, got: %v",
+						"\nZeroPcpuMap[%d][%d]: want: %v, got: %v",
 						cpu, index, wantVal, gotVal,
 					)
 				}
 			}
 		}
-		for cpu := range procStatMetrics.zeroPcpu {
-			if tc.WantZeroPcpu[cpu] == nil {
-				fmt.Fprintf(errBuf, "\nzeroPcpu: unexpected cpu %d", cpu)
+		for cpu := range procStatMetrics.zeroPcpuMap {
+			if tc.WantZeroPcpuMap[cpu] == nil {
+				fmt.Fprintf(errBuf, "\nZeroPcpuMap: unexpected cpu %d", cpu)
 			}
 		}
 	}

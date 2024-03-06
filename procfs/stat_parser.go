@@ -24,8 +24,8 @@ const (
 	STAT_CPU_GUEST_TICKS
 	STAT_CPU_GUEST_NICE_TICKS
 
-	// Must be last! See Stat struct for explanation about the scan#:
-	STAT_CPU_SCAN_NUMBER
+	// Must be last!
+	STAT_CPU_NUM_STATS
 )
 
 const (
@@ -36,8 +36,12 @@ const (
 
 	// The minimum number of columns expected for cpu stats:
 	STAT_CPU_MIN_NUM_FIELDS = STAT_CPU_SOFTIRQ_TICKS + 1
+
+	// Piggy back scan# (see Stat struct for explanation) into the regular stats array:
+	STAT_CPU_SCAN_NUMBER = STAT_CPU_NUM_STATS
+
 	// The size of the per cpu []int list:
-	STAT_CPU_NUM_STATS = STAT_CPU_SCAN_NUMBER + 1
+	STAT_CPU_STATS_SZ = STAT_CPU_SCAN_NUMBER + 1
 )
 
 // Indexes for Values:
@@ -136,7 +140,7 @@ func (stat *Stat) Clone(full bool) *Stat {
 		path:          stat.path,
 	}
 	for cpu, cpuStats := range stat.Cpu {
-		newStat.Cpu[cpu] = make([]uint64, STAT_CPU_NUM_STATS)
+		newStat.Cpu[cpu] = make([]uint64, STAT_CPU_STATS_SZ)
 		if full {
 			copy(newStat.Cpu[cpu], cpuStats)
 		} else {
@@ -229,7 +233,7 @@ func (stat *Stat) Parse() error {
 			indexList = statPrefixToDstIndexList["cpu"]
 			Values = stat.Cpu[cpuNum]
 			if Values == nil {
-				Values = make([]uint64, STAT_CPU_NUM_STATS)
+				Values = make([]uint64, STAT_CPU_STATS_SZ)
 				stat.Cpu[cpuNum] = Values
 			}
 			minNumValues = STAT_CPU_MIN_NUM_FIELDS

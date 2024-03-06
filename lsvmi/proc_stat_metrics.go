@@ -87,7 +87,7 @@ type ProcStatMetrics struct {
 	// For %CPU no metrics will be generated for 0 after 0, except for full
 	// cycles. Keep whether the previous value was 0 or not, indexed by CPU#,
 	// STAT_CPU_...:
-	zeroPcpu map[int][]bool
+	zeroPcpuMap map[int][]bool
 
 	// CPU metrics cache, indexed by CPU#, STAT_CPU_...:
 	cpuMetricsCache map[int][][]byte
@@ -127,9 +127,10 @@ func NewProcStatMetrics(cfg any) (*ProcStatMetrics, error) {
 	}
 	proStatMetrics := &ProcStatMetrics{
 		interval:          interval,
-		zeroPcpu:          make(map[int][]bool),
+		zeroPcpuMap:       make(map[int][]bool),
 		cpuMetricsCache:   make(map[int][][]byte),
 		fullMetricsFactor: procStatMetricsCfg.FullMetricsFactor,
+		tsSuffixBuf:       &bytes.Buffer{},
 	}
 	return proStatMetrics, nil
 }
@@ -184,16 +185,16 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) int {
 
 		for cpu, crtCpuStats := range crtProcStat.Cpu {
 			prevCpuStats := prevProcStat.Cpu[cpu]
+			zeroPcpu := psm.zeroPcpuMap[cpu]
+			if zeroPcpu == nil {
+				zeroPcpu = make([]bool, procfs.STAT_CPU_NUM_STATS)
+				psm.zeroPcpuMap[cpu] = zeroPcpu
+			}
 			if prevCpuStats != nil {
 				cpuMetrics := psm.cpuMetricsCache[cpu]
 				if cpuMetrics == nil {
 					psm.updateCpuMetricsCache(cpu)
 					cpuMetrics = psm.cpuMetricsCache[cpu]
-				}
-				zeroPcpu := psm.zeroPcpu[cpu]
-				if zeroPcpu == nil {
-					zeroPcpu = make([]bool, procfs.STAT_CPU_NUM_STATS)
-					psm.zeroPcpu[cpu] = zeroPcpu
 				}
 				for index, metric := range cpuMetrics {
 					dCpuTicks := crtCpuStats[index] - prevCpuStats[index]
@@ -208,6 +209,14 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) int {
 						metricsCount++
 					}
 					zeroPcpu[index] = dCpuTicks == 0
+				}
+			}
+		}
+		// CPU's may be unplugged dynamically. Check an clear zero %CPU flags as needed.
+		if len(psm.zeroPcpuMap) > len(crtProcStat.Cpu) {
+			for cpu := range psm.zeroPcpuMap {
+				if _, ok := crtProcStat.Cpu[cpu]; !ok {
+					delete(psm.zeroPcpuMap, cpu)
 				}
 			}
 		}
