@@ -17,23 +17,27 @@ import (
 const (
 	PROC_STAT_METRICS_CONFIG_INTERVAL_DEFAULT            = "200ms"
 	PROC_STAT_METRICS_CONFIG_FULL_METRICS_FACTOR_DEFAULT = 25
+	PROC_STAT_METRICS_CONFIG_SCALE_CPU_ALL_DEFAULT       = true
 
 	// This generator id:
 	PROC_STAT_METRICS_ID = "proc_stat_metrics"
 )
 
 const (
-	// CPU metrics:
-	PROC_STAT_CPU_USER_METRIC       = "proc_stat_cpu_user_pct"
-	PROC_STAT_CPU_NICE_METRIC       = "proc_stat_cpu_nice_pct"
-	PROC_STAT_CPU_SYSTEM_METRIC     = "proc_stat_cpu_system_pct"
-	PROC_STAT_CPU_IDLE_METRIC       = "proc_stat_cpu_idle_pct"
-	PROC_STAT_CPU_IOWAIT_METRIC     = "proc_stat_cpu_iowait_pct"
-	PROC_STAT_CPU_IRQ_METRIC        = "proc_stat_cpu_irq_pct"
-	PROC_STAT_CPU_SOFTIRQ_METRIC    = "proc_stat_cpu_softirq_pct"
-	PROC_STAT_CPU_STEAL_METRIC      = "proc_stat_cpu_steal_pct"
-	PROC_STAT_CPU_GUEST_METRIC      = "proc_stat_cpu_guest_pct"
-	PROC_STAT_CPU_GUEST_NICE_METRIC = "proc_stat_cpu_guest_nice_pct"
+	// %CPU metrics:
+	PROC_STAT_CPU_PCT_METRIC = "proc_stat_cpu_pct"
+
+	PROC_STAT_CPU_PCT_TYPE_LABEL_NAME = "type"
+	PROC_STAT_CPU_PCT_TYPE_USER       = "user"
+	PROC_STAT_CPU_PCT_TYPE_NICE       = "nice"
+	PROC_STAT_CPU_PCT_TYPE_SYSTEM     = "system"
+	PROC_STAT_CPU_PCT_TYPE_IDLE       = "idle"
+	PROC_STAT_CPU_PCT_TYPE_IOWAIT     = "iowait"
+	PROC_STAT_CPU_PCT_TYPE_IRQ        = "irq"
+	PROC_STAT_CPU_PCT_TYPE_SOFTIRQ    = "softirq"
+	PROC_STAT_CPU_PCT_TYPE_STEAL      = "steal"
+	PROC_STAT_CPU_PCT_TYPE_GUEST      = "guest"
+	PROC_STAT_CPU_PCT_TYPE_GUEST_NICE = "guest_nice"
 
 	PROC_STAT_CPU_LABEL_NAME      = "cpu"
 	PROC_STAT_CPU_ALL_LABEL_VALUE = "all"
@@ -43,44 +47,49 @@ const (
 	PROC_STAT_UPTIME_METRIC = "proc_stat_uptime_sec"
 
 	// Other metrics:
-	STAT_PAGE_IN_COUNT_DELTA_METRIC  = "proc_stat_page_in_count_delta"
-	STAT_PAGE_OUT_COUNT_DELTA_METRIC = "proc_stat_page_out_count_delta"
-	STAT_SWAP_IN_COUNT_DELTA_METRIC  = "proc_stat_swap_in_count_delta"
-	STAT_SWAP_OUT_COUNT_DELTA_METRIC = "proc_stat_swap_out_count_delta"
-	STAT_CTXT_COUNT_DELTA_METRIC     = "proc_stat_swap_ctxt_count_delta"
-	STAT_PROCESSES_COUNT_METRIC      = "proc_stat_processes_count"
-	STAT_PROCS_RUNNING_COUNT_METRIC  = "proc_stat_procs_running_count"
-	STAT_PROCS_BLOCKED_COUNT_METRIC  = "proc_stat_procs_blocked_count"
+	PROC_STAT_PAGE_IN_COUNT_DELTA_METRIC  = "proc_stat_page_in_count_delta"
+	PROC_STAT_PAGE_OUT_COUNT_DELTA_METRIC = "proc_stat_page_out_count_delta"
+	PROC_STAT_SWAP_IN_COUNT_DELTA_METRIC  = "proc_stat_swap_in_count_delta"
+	PROC_STAT_SWAP_OUT_COUNT_DELTA_METRIC = "proc_stat_swap_out_count_delta"
+	PROC_STAT_CTXT_COUNT_DELTA_METRIC     = "proc_stat_swap_ctxt_count_delta"
+	PROC_STAT_PROCESSES_COUNT_METRIC      = "proc_stat_processes_count"
+	PROC_STAT_PROCS_RUNNING_COUNT_METRIC  = "proc_stat_procs_running_count"
+	PROC_STAT_PROCS_BLOCKED_COUNT_METRIC  = "proc_stat_procs_blocked_count"
+
+	// Interval since last generation, i.e. the interval underlying the deltas.
+	// Normally this should be close to scan interval, but this the actual
+	// value, rather than the desired one:
+	PROC_STAT_INTERVAL_METRIC_NAME = "proc_stat_metrics_delta_sec"
 )
 
-// Map procfs.Stat PROC_STAT_CPU_ indexes into metrics name:
-var procStatCpuIndexMetricNameMap = map[int]string{
-	procfs.STAT_CPU_USER_TICKS:       PROC_STAT_CPU_USER_METRIC,
-	procfs.STAT_CPU_NICE_TICKS:       PROC_STAT_CPU_NICE_METRIC,
-	procfs.STAT_CPU_SYSTEM_TICKS:     PROC_STAT_CPU_SYSTEM_METRIC,
-	procfs.STAT_CPU_IDLE_TICKS:       PROC_STAT_CPU_IDLE_METRIC,
-	procfs.STAT_CPU_IOWAIT_TICKS:     PROC_STAT_CPU_IOWAIT_METRIC,
-	procfs.STAT_CPU_IRQ_TICKS:        PROC_STAT_CPU_IRQ_METRIC,
-	procfs.STAT_CPU_SOFTIRQ_TICKS:    PROC_STAT_CPU_SOFTIRQ_METRIC,
-	procfs.STAT_CPU_STEAL_TICKS:      PROC_STAT_CPU_STEAL_METRIC,
-	procfs.STAT_CPU_GUEST_TICKS:      PROC_STAT_CPU_GUEST_METRIC,
-	procfs.STAT_CPU_GUEST_NICE_TICKS: PROC_STAT_CPU_GUEST_NICE_METRIC,
+// Map procfs.Stat PROC_STAT_CPU_ indexes into type label value:
+var procStatCpuIndexTypeLabelValMap = map[int]string{
+	procfs.STAT_CPU_USER_TICKS:       PROC_STAT_CPU_PCT_TYPE_USER,
+	procfs.STAT_CPU_NICE_TICKS:       PROC_STAT_CPU_PCT_TYPE_NICE,
+	procfs.STAT_CPU_SYSTEM_TICKS:     PROC_STAT_CPU_PCT_TYPE_SYSTEM,
+	procfs.STAT_CPU_IDLE_TICKS:       PROC_STAT_CPU_PCT_TYPE_IDLE,
+	procfs.STAT_CPU_IOWAIT_TICKS:     PROC_STAT_CPU_PCT_TYPE_IOWAIT,
+	procfs.STAT_CPU_IRQ_TICKS:        PROC_STAT_CPU_PCT_TYPE_IRQ,
+	procfs.STAT_CPU_SOFTIRQ_TICKS:    PROC_STAT_CPU_PCT_TYPE_SOFTIRQ,
+	procfs.STAT_CPU_STEAL_TICKS:      PROC_STAT_CPU_PCT_TYPE_STEAL,
+	procfs.STAT_CPU_GUEST_TICKS:      PROC_STAT_CPU_PCT_TYPE_GUEST,
+	procfs.STAT_CPU_GUEST_NICE_TICKS: PROC_STAT_CPU_PCT_TYPE_GUEST_NICE,
 }
 
 // Map procfs.NumericFields indexes into delta metrics name:
 var procStatIndexDeltaMetricNameMap = map[int]string{
-	procfs.STAT_PAGE_IN:  STAT_PAGE_IN_COUNT_DELTA_METRIC,
-	procfs.STAT_PAGE_OUT: STAT_PAGE_OUT_COUNT_DELTA_METRIC,
-	procfs.STAT_SWAP_IN:  STAT_SWAP_IN_COUNT_DELTA_METRIC,
-	procfs.STAT_SWAP_OUT: STAT_SWAP_OUT_COUNT_DELTA_METRIC,
-	procfs.STAT_CTXT:     STAT_CTXT_COUNT_DELTA_METRIC,
+	procfs.STAT_PAGE_IN:  PROC_STAT_PAGE_IN_COUNT_DELTA_METRIC,
+	procfs.STAT_PAGE_OUT: PROC_STAT_PAGE_OUT_COUNT_DELTA_METRIC,
+	procfs.STAT_SWAP_IN:  PROC_STAT_SWAP_IN_COUNT_DELTA_METRIC,
+	procfs.STAT_SWAP_OUT: PROC_STAT_SWAP_OUT_COUNT_DELTA_METRIC,
+	procfs.STAT_CTXT:     PROC_STAT_CTXT_COUNT_DELTA_METRIC,
 }
 
 // Map procfs.NumericFields indexes into metrics name:
 var procStatIndexMetricNameMap = map[int]string{
-	procfs.STAT_PROCESSES:     STAT_PROCESSES_COUNT_METRIC,
-	procfs.STAT_PROCS_RUNNING: STAT_PROCS_RUNNING_COUNT_METRIC,
-	procfs.STAT_PROCS_BLOCKED: STAT_PROCS_BLOCKED_COUNT_METRIC,
+	procfs.STAT_PROCESSES:     PROC_STAT_PROCESSES_COUNT_METRIC,
+	procfs.STAT_PROCS_RUNNING: PROC_STAT_PROCS_RUNNING_COUNT_METRIC,
+	procfs.STAT_PROCS_BLOCKED: PROC_STAT_PROCS_BLOCKED_COUNT_METRIC,
 }
 
 var procStatMetricsLog = NewCompLogger("proc_stat_metrics")
@@ -92,12 +101,17 @@ type ProcStatMetricsConfig struct {
 	// the previous scan. However every N cycles the full set is generated. Use
 	// 0 to generate full metrics every cycle.
 	FullMetricsFactor int `yaml:"full_metrics_factor"`
+	// Whether to scale %CPU for all with the total number os CPUs or not; i.e.
+	// should a 8 CPU totally idle host report 800% (scale=false) or 100% idle
+	// (scale=true):
+	ScaleCpuAll bool `yaml:"scale_cpu_all"`
 }
 
 func DefaultProcStatMetricsConfig() *ProcStatMetricsConfig {
 	return &ProcStatMetricsConfig{
 		Interval:          PROC_STAT_METRICS_CONFIG_INTERVAL_DEFAULT,
 		FullMetricsFactor: PROC_STAT_METRICS_CONFIG_FULL_METRICS_FACTOR_DEFAULT,
+		ScaleCpuAll:       PROC_STAT_METRICS_CONFIG_SCALE_CPU_ALL_DEFAULT,
 	}
 }
 
@@ -106,6 +120,8 @@ type ProcStatMetrics struct {
 	id string
 	// Scan interval:
 	interval time.Duration
+	// Whether to scale the aggregate %CPU by the number of CPUs or not:
+	scaleCpuAll bool
 	// Dual storage for parsed stats used as previous, current:
 	procStat [2]*procfs.Stat
 	// Timestamp when the stats were collected:
@@ -132,6 +148,8 @@ type ProcStatMetrics struct {
 
 	// Other metrics caches, indexed by stat#:
 	deltaMetricsCache, metricsCache map[int][]byte
+	// Interval metric:
+	intervalMetric []byte
 
 	// A buffer for the timestamp suffix:
 	tsSuffixBuf *bytes.Buffer
@@ -170,6 +188,7 @@ func NewProcStatMetrics(cfg any) (*ProcStatMetrics, error) {
 	proStatMetrics := &ProcStatMetrics{
 		id:                PROC_STAT_METRICS_ID,
 		interval:          interval,
+		scaleCpuAll:       procStatMetricsCfg.ScaleCpuAll,
 		zeroPcpuMap:       make(map[int][]bool),
 		cpuMetricsCache:   make(map[int][][]byte),
 		fullMetricsFactor: procStatMetricsCfg.FullMetricsFactor,
@@ -194,12 +213,13 @@ func (psm *ProcStatMetrics) updateCpuMetricsCache(cpu int) {
 	} else {
 		cpuLabelVal = strconv.Itoa(cpu)
 	}
-	for index, name := range procStatCpuIndexMetricNameMap {
+	for index, typeLabelVal := range procStatCpuIndexTypeLabelValMap {
 		cpuMetrics[index] = []byte(fmt.Sprintf(
-			`%s{%s="%s",%s="%s",%s="%s"} `, // N.B. include space before val
-			name,
+			`%s{%s="%s",%s="%s",%s="%s",%s="%s"} `, // N.B. include space before val
+			PROC_STAT_CPU_PCT_METRIC,
 			INSTANCE_LABEL_NAME, instance,
 			HOSTNAME_LABEL_NAME, hostname,
+			PROC_STAT_CPU_PCT_TYPE_LABEL_NAME, typeLabelVal,
 			PROC_STAT_CPU_LABEL_NAME, cpuLabelVal,
 		))
 	}
@@ -259,6 +279,13 @@ func (psm *ProcStatMetrics) updateMetricsCache() {
 			HOSTNAME_LABEL_NAME, hostname,
 		))
 	}
+
+	psm.intervalMetric = []byte(fmt.Sprintf(
+		`%s{%s="%s",%s="%s"} `, // N.B. include space before val
+		PROC_STAT_INTERVAL_METRIC_NAME,
+		INSTANCE_LABEL_NAME, instance,
+		HOSTNAME_LABEL_NAME, hostname,
+	))
 }
 
 func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) int {
@@ -305,7 +332,7 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) int {
 					dCpuTicks := crtCpuStats[index] - prevCpuStats[index]
 					if dCpuTicks != 0 || fullMetrics || !zeroPcpu[index] {
 						val := float64(dCpuTicks)
-						if cpu == procfs.STAT_CPU_ALL && numCpus > 0 {
+						if cpu == procfs.STAT_CPU_ALL && numCpus > 0 && psm.scaleCpuAll {
 							val /= float64(numCpus)
 						}
 						buf.Write(metric)
@@ -340,6 +367,12 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) int {
 			buf.Write(promTs)
 			metricsCount++
 		}
+
+		// Interval requires prev stats.
+		buf.Write(psm.intervalMetric)
+		buf.WriteString(strconv.FormatFloat(deltaSec, 'f', 6, 64))
+		buf.Write(promTs)
+		metricsCount++
 	}
 
 	// Boot/up-time metrics:
@@ -441,6 +474,11 @@ func ProcStatMetricsTaskBuilder(cfg *LsvmiConfig) ([]*Task, error) {
 			"interval=%s, metrics disabled", psm.interval,
 		)
 		return nil, nil
+	} else {
+		procStatMetricsLog.Infof(
+			"interval=%s, fullMetricsFactor=%d, scaleCpuAll=%v",
+			psm.interval, psm.fullMetricsFactor, psm.scaleCpuAll,
+		)
 	}
 	tasks := []*Task{
 		NewTask(psm.id, psm.interval, psm),

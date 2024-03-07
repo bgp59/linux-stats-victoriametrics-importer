@@ -25,18 +25,24 @@ ZeroPcpuMap = Dict[int, ZeroPcpu]
 
 DEFAULT_PROC_STAT_INTERVAL_SEC = 0.2
 DEFAULT_PROC_STAT_FULL_METRICS_FACTOR = 15
+TEST_UPTIME_VALUE = 123.456789
+
 
 # CPU metrics, must match lsvmi/proc_stat_metrics.go:
-PROC_STAT_CPU_USER_METRIC = "proc_stat_cpu_user_pct"
-PROC_STAT_CPU_NICE_METRIC = "proc_stat_cpu_nice_pct"
-PROC_STAT_CPU_SYSTEM_METRIC = "proc_stat_cpu_system_pct"
-PROC_STAT_CPU_IDLE_METRIC = "proc_stat_cpu_idle_pct"
-PROC_STAT_CPU_IOWAIT_METRIC = "proc_stat_cpu_iowait_pct"
-PROC_STAT_CPU_IRQ_METRIC = "proc_stat_cpu_irq_pct"
-PROC_STAT_CPU_SOFTIRQ_METRIC = "proc_stat_cpu_softirq_pct"
-PROC_STAT_CPU_STEAL_METRIC = "proc_stat_cpu_steal_pct"
-PROC_STAT_CPU_GUEST_METRIC = "proc_stat_cpu_guest_pct"
-PROC_STAT_CPU_GUEST_NICE_METRIC = "proc_stat_cpu_guest_nice_pct"
+
+PROC_STAT_CPU_PCT_METRIC = "proc_stat_cpu_pct"
+
+PROC_STAT_CPU_PCT_TYPE_LABEL_NAME = "type"
+PROC_STAT_CPU_PCT_TYPE_USER = "user"
+PROC_STAT_CPU_PCT_TYPE_NICE = "nice"
+PROC_STAT_CPU_PCT_TYPE_SYSTEM = "system"
+PROC_STAT_CPU_PCT_TYPE_IDLE = "idle"
+PROC_STAT_CPU_PCT_TYPE_IOWAIT = "iowait"
+PROC_STAT_CPU_PCT_TYPE_IRQ = "irq"
+PROC_STAT_CPU_PCT_TYPE_SOFTIRQ = "softirq"
+PROC_STAT_CPU_PCT_TYPE_STEAL = "steal"
+PROC_STAT_CPU_PCT_TYPE_GUEST = "guest"
+PROC_STAT_CPU_PCT_TYPE_GUEST_NICE = "guest_nice"
 
 PROC_STAT_CPU_LABEL_NAME = "cpu"
 PROC_STAT_CPU_ALL_LABEL_VALUE = "all"
@@ -46,46 +52,47 @@ PROC_STAT_BTIME_METRIC = "proc_stat_btime_sec"
 PROC_STAT_UPTIME_METRIC = "proc_stat_uptime_sec"
 
 # Other metrics:
-STAT_PAGE_IN_COUNT_DELTA_METRIC = "proc_stat_page_in_count_delta"
-STAT_PAGE_OUT_COUNT_DELTA_METRIC = "proc_stat_page_out_count_delta"
-STAT_SWAP_IN_COUNT_DELTA_METRIC = "proc_stat_swap_in_count_delta"
-STAT_SWAP_OUT_COUNT_DELTA_METRIC = "proc_stat_swap_out_count_delta"
-STAT_CTXT_COUNT_DELTA_METRIC = "proc_stat_swap_ctxt_count_delta"
-STAT_PROCESSES_COUNT_METRIC = "proc_stat_processes_count"
-STAT_PROCS_RUNNING_COUNT_METRIC = "proc_stat_procs_running_count"
-STAT_PROCS_BLOCKED_COUNT_METRIC = "proc_stat_procs_blocked_count"
+PROC_STAT_PAGE_IN_COUNT_DELTA_METRIC = "proc_stat_page_in_count_delta"
+PROC_STAT_PAGE_OUT_COUNT_DELTA_METRIC = "proc_stat_page_out_count_delta"
+PROC_STAT_SWAP_IN_COUNT_DELTA_METRIC = "proc_stat_swap_in_count_delta"
+PROC_STAT_SWAP_OUT_COUNT_DELTA_METRIC = "proc_stat_swap_out_count_delta"
+PROC_STAT_CTXT_COUNT_DELTA_METRIC = "proc_stat_swap_ctxt_count_delta"
+PROC_STAT_PROCESSES_COUNT_METRIC = "proc_stat_processes_count"
+PROC_STAT_PROCS_RUNNING_COUNT_METRIC = "proc_stat_procs_running_count"
+PROC_STAT_PROCS_BLOCKED_COUNT_METRIC = "proc_stat_procs_blocked_count"
+
+# Actual interval since last generation:
+PROC_STAT_INTERVAL_METRIC_NAME = "proc_stat_metrics_delta_sec"
 
 
-TEST_UPTIME_VALUE = 123.456789
-
-# Map procfs.Stat PROC_STAT_CPU_ indexes into metrics name, must match lsvmi/proc_stat_metrics.go:
-proc_stat_cpu_index_metric_name_map = {
-    procfs.STAT_CPU_USER_TICKS: PROC_STAT_CPU_USER_METRIC,
-    procfs.STAT_CPU_NICE_TICKS: PROC_STAT_CPU_NICE_METRIC,
-    procfs.STAT_CPU_SYSTEM_TICKS: PROC_STAT_CPU_SYSTEM_METRIC,
-    procfs.STAT_CPU_IDLE_TICKS: PROC_STAT_CPU_IDLE_METRIC,
-    procfs.STAT_CPU_IOWAIT_TICKS: PROC_STAT_CPU_IOWAIT_METRIC,
-    procfs.STAT_CPU_IRQ_TICKS: PROC_STAT_CPU_IRQ_METRIC,
-    procfs.STAT_CPU_SOFTIRQ_TICKS: PROC_STAT_CPU_SOFTIRQ_METRIC,
-    procfs.STAT_CPU_STEAL_TICKS: PROC_STAT_CPU_STEAL_METRIC,
-    procfs.STAT_CPU_GUEST_TICKS: PROC_STAT_CPU_GUEST_METRIC,
-    procfs.STAT_CPU_GUEST_NICE_TICKS: PROC_STAT_CPU_GUEST_NICE_METRIC,
+# Map procfs.Stat PROC_STAT_CPU_ indexes into type label value:
+proc_stat_cpu_index_type_label_val_map = {
+    procfs.STAT_CPU_USER_TICKS: PROC_STAT_CPU_PCT_TYPE_USER,
+    procfs.STAT_CPU_NICE_TICKS: PROC_STAT_CPU_PCT_TYPE_NICE,
+    procfs.STAT_CPU_SYSTEM_TICKS: PROC_STAT_CPU_PCT_TYPE_SYSTEM,
+    procfs.STAT_CPU_IDLE_TICKS: PROC_STAT_CPU_PCT_TYPE_IDLE,
+    procfs.STAT_CPU_IOWAIT_TICKS: PROC_STAT_CPU_PCT_TYPE_IOWAIT,
+    procfs.STAT_CPU_IRQ_TICKS: PROC_STAT_CPU_PCT_TYPE_IRQ,
+    procfs.STAT_CPU_SOFTIRQ_TICKS: PROC_STAT_CPU_PCT_TYPE_SOFTIRQ,
+    procfs.STAT_CPU_STEAL_TICKS: PROC_STAT_CPU_PCT_TYPE_STEAL,
+    procfs.STAT_CPU_GUEST_TICKS: PROC_STAT_CPU_PCT_TYPE_GUEST,
+    procfs.STAT_CPU_GUEST_NICE_TICKS: PROC_STAT_CPU_PCT_TYPE_GUEST_NICE,
 }
 
 # Map procfs.NumericFields indexes into delta metrics name:
 proc_stat_index_delta_metric_name_map = {
-    procfs.STAT_PAGE_IN: STAT_PAGE_IN_COUNT_DELTA_METRIC,
-    procfs.STAT_PAGE_OUT: STAT_PAGE_OUT_COUNT_DELTA_METRIC,
-    procfs.STAT_SWAP_IN: STAT_SWAP_IN_COUNT_DELTA_METRIC,
-    procfs.STAT_SWAP_OUT: STAT_SWAP_OUT_COUNT_DELTA_METRIC,
-    procfs.STAT_CTXT: STAT_CTXT_COUNT_DELTA_METRIC,
+    procfs.STAT_PAGE_IN: PROC_STAT_PAGE_IN_COUNT_DELTA_METRIC,
+    procfs.STAT_PAGE_OUT: PROC_STAT_PAGE_OUT_COUNT_DELTA_METRIC,
+    procfs.STAT_SWAP_IN: PROC_STAT_SWAP_IN_COUNT_DELTA_METRIC,
+    procfs.STAT_SWAP_OUT: PROC_STAT_SWAP_OUT_COUNT_DELTA_METRIC,
+    procfs.STAT_CTXT: PROC_STAT_CTXT_COUNT_DELTA_METRIC,
 }
 
 # Map procfs.NumericFields indexes into metrics name:
 proc_stat_index_metric_name_map = {
-    procfs.STAT_PROCESSES: STAT_PROCESSES_COUNT_METRIC,
-    procfs.STAT_PROCS_RUNNING: STAT_PROCS_RUNNING_COUNT_METRIC,
-    procfs.STAT_PROCS_BLOCKED: STAT_PROCS_BLOCKED_COUNT_METRIC,
+    procfs.STAT_PROCESSES: PROC_STAT_PROCESSES_COUNT_METRIC,
+    procfs.STAT_PROCS_RUNNING: PROC_STAT_PROCS_RUNNING_COUNT_METRIC,
+    procfs.STAT_PROCS_BLOCKED: PROC_STAT_PROCS_BLOCKED_COUNT_METRIC,
 }
 
 
@@ -97,6 +104,7 @@ def generate_proc_stat_metrics(
     prev_proc_stat: Optional[procfs.Stat],
     crt_prom_ts: int,
     interval: Optional[float] = DEFAULT_PROC_STAT_INTERVAL_SEC,
+    scale_cpu_all: bool = True,
     zero_pcpu_map: Optional[ZeroPcpuMap] = None,
     full_metrics: bool = False,
     instance: str = DEFAULT_TEST_INSTANCE,
@@ -125,18 +133,19 @@ def generate_proc_stat_metrics(
             cpu_label_val = (
                 cpu if cpu != procfs.STAT_CPU_ALL else PROC_STAT_CPU_ALL_LABEL_VALUE
             )
-            for index, name in proc_stat_cpu_index_metric_name_map.items():
+            for index, type_label_val in proc_stat_cpu_index_type_label_val_map.items():
                 delta_cpu_ticks = crt_cpu_stats[index] - prev_cpu_stats[index]
                 if delta_cpu_ticks > 0 or full_metrics or not zero_pcpu[index]:
                     pcpu = delta_cpu_ticks * pcpu_factor
-                    if cpu == procfs.STAT_CPU_ALL and num_cpus > 0:
+                    if cpu == procfs.STAT_CPU_ALL and num_cpus > 0 and scale_cpu_all:
                         pcpu /= num_cpus
                     metrics.append(
-                        f"{name}{{"
+                        f"{PROC_STAT_CPU_PCT_METRIC}{{"
                         + ",".join(
                             [
                                 f'{INSTANCE_LABEL_NAME}="{instance}"',
                                 f'{HOSTNAME_LABEL_NAME}="{hostname}"',
+                                f'{PROC_STAT_CPU_PCT_TYPE_LABEL_NAME}="{type_label_val}"',
                                 f'{PROC_STAT_CPU_LABEL_NAME}="{cpu_label_val}"',
                             ]
                         )
@@ -156,6 +165,17 @@ def generate_proc_stat_metrics(
                 )
                 + f"}} {val} {crt_prom_ts}"
             )
+        # Interval:
+        metrics.append(
+            f"{PROC_STAT_INTERVAL_METRIC_NAME}{{"
+            + ",".join(
+                [
+                    f'{INSTANCE_LABEL_NAME}="{instance}"',
+                    f'{HOSTNAME_LABEL_NAME}="{hostname}"',
+                ]
+            )
+            + f"}} {interval:.06f} {crt_prom_ts}"
+        )
 
     # Boot/up-time metrics:
     if full_metrics:
@@ -199,6 +219,7 @@ def generate_proc_stat_metrics(
                 )
                 + f"}} {val} {crt_prom_ts}"
             )
+
     return metrics, new_zero_pcpu_map
 
 
@@ -210,6 +231,7 @@ def generate_proc_stat_metrics_test_case(
     cycle_num: int = 0,
     full_metrics_factor: int = DEFAULT_PROC_STAT_FULL_METRICS_FACTOR,
     interval: Optional[float] = DEFAULT_PROC_STAT_INTERVAL_SEC,
+    scale_cpu_all: bool = True,
     zero_pcpu_map: Optional[ZeroPcpuMap] = None,
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
@@ -223,6 +245,7 @@ def generate_proc_stat_metrics_test_case(
         prev_proc_stat,
         crt_prom_ts,
         interval=interval,
+        scale_cpu_all=scale_cpu_all,
         zero_pcpu_map=zero_pcpu_map,
         full_metrics=(cycle_num == 0),
         hostname=hostname,
@@ -238,6 +261,7 @@ def generate_proc_stat_metrics_test_case(
         "PrevPromTs": prev_prom_ts,
         "CycleNum": cycle_num,
         "FullMetricsFactor": full_metrics_factor,
+        "ScaleCpuAll": scale_cpu_all,
         "ZeroPcpuMap": zero_pcpu_map,
         "WantMetricsCount": len(metrics),
         "WantMetrics": metrics,
@@ -348,6 +372,24 @@ def generate_proc_stat_metrics_test_cases(
                         )
                     )
                     tc_num += 1
+    # CPU 'all' scale on/off:
+    for scale_cpu_all in [False, True]:
+        for i in range(procfs.STAT_CPU_NUM_STATS):
+            crt_proc_stat = deepcopy(proc_stat_ref)
+            crt_proc_stat["Cpu"][procfs.STAT_CPU_ALL][i] += i + 13
+            test_cases.append(
+                generate_proc_stat_metrics_test_case(
+                    f"{tc_num:04d}",
+                    crt_proc_stat,
+                    proc_stat_ref,
+                    ts=ts,
+                    cycle_num=cycle_num,
+                    scale_cpu_all=scale_cpu_all,
+                    instance=instance,
+                    hostname=hostname,
+                )
+            )
+            tc_num += 1
 
     # New CPU:
     crt_proc_stat = deepcopy(proc_stat_ref)
