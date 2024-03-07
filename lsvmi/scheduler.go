@@ -109,7 +109,10 @@ type TaskStats struct {
 }
 
 type TaskAction interface {
-	Execute()
+	// Execute returns true if the task should be re-queued. Normally this is
+	// the case unless some non-recoverable execution error occurs, in which
+	// case the task shouldn't be added anymore.
+	Execute() bool
 }
 
 type Task struct {
@@ -441,8 +444,9 @@ func (scheduler *Scheduler) workerLoop(workerId int) {
 			return
 		case task := <-todoQ:
 			startTs := time.Now()
+			reQueue := true
 			if task.action != nil {
-				task.action.Execute()
+				reQueue = task.action.Execute()
 			}
 			endTs := time.Now()
 			task.lastExecuted = endTs
@@ -455,8 +459,10 @@ func (scheduler *Scheduler) workerLoop(workerId int) {
 			taskStats.Uint64Stats[TASK_STATS_EXECUTED_COUNT] += 1
 			taskStats.RuntimeTotal += runtime
 			mu.Unlock()
-			task.addedByWorker = true
-			taskQ <- task
+			if reQueue {
+				task.addedByWorker = true
+				taskQ <- task
+			}
 		}
 	}
 }

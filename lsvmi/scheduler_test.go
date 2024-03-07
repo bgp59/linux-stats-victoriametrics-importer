@@ -39,7 +39,7 @@ type TestSchedulerTaskAction struct {
 	timestamps   []time.Time
 }
 
-func (action *TestSchedulerTaskAction) Execute() {
+func (action *TestSchedulerTaskAction) Execute() bool {
 	action.timestamps = append(action.timestamps, time.Now())
 	schedulerLog.Infof(
 		"Execute task %s: interval=%s, deadline=%s",
@@ -53,6 +53,7 @@ func (action *TestSchedulerTaskAction) Execute() {
 			action.execTimeIndx = 0
 		}
 	}
+	return true
 }
 
 func testSchedulerDurationFromSec(sec float64) time.Duration {

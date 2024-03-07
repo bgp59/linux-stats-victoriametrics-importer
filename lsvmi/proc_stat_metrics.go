@@ -16,7 +16,10 @@ import (
 
 const (
 	PROC_STAT_METRICS_CONFIG_INTERVAL_DEFAULT            = "200ms"
-	PROC_STAT_METRICS_CONFIG_FULL_METRICS_FACTOR_DEFAULT = 15
+	PROC_STAT_METRICS_CONFIG_FULL_METRICS_FACTOR_DEFAULT = 25
+
+	// This generator id:
+	PROC_STAT_METRICS_ID = "proc_stat_metrics"
 )
 
 const (
@@ -80,6 +83,8 @@ var procStatIndexMetricNameMap = map[int]string{
 	procfs.STAT_PROCS_BLOCKED: STAT_PROCS_BLOCKED_COUNT_METRIC,
 }
 
+var procStatMetricsLog = NewCompLogger("proc_stat_metrics")
+
 type ProcStatMetricsConfig struct {
 	// How often to generate the metrics in time.ParseDuration() format:
 	Interval string `yaml:"interval"`
@@ -97,6 +102,8 @@ func DefaultProcStatMetricsConfig() *ProcStatMetricsConfig {
 }
 
 type ProcStatMetrics struct {
+	// id/task_id:
+	id string
 	// Scan interval:
 	interval time.Duration
 	// Dual storage for parsed stats used as previous, current:
@@ -161,6 +168,7 @@ func NewProcStatMetrics(cfg any) (*ProcStatMetrics, error) {
 		return nil, err
 	}
 	proStatMetrics := &ProcStatMetrics{
+		id:                PROC_STAT_METRICS_ID,
 		interval:          interval,
 		zeroPcpuMap:       make(map[int][]bool),
 		cpuMetricsCache:   make(map[int][][]byte),
@@ -375,4 +383,71 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) int {
 	}
 
 	return metricsCount
+}
+
+// Satisfy the TaskActivity interface:
+func (psm *ProcStatMetrics) Execute() bool {
+	timeNowFn := time.Now
+	if psm.timeNowFn != nil {
+		timeNowFn = psm.timeNowFn
+	}
+
+	metricsQueue := GlobalMetricsQueue
+	if psm.metricsQueue != nil {
+		metricsQueue = psm.metricsQueue
+	}
+
+	crtProcStat := psm.procStat[psm.crtIndex]
+	if crtProcStat == nil {
+		prevProcStat := psm.procStat[1-psm.crtIndex]
+		if prevProcStat != nil {
+			crtProcStat = prevProcStat.Clone(false)
+		} else {
+			procfsRoot := GlobalProcfsRoot
+			if psm.procfsRoot != "" {
+				procfsRoot = psm.procfsRoot
+			}
+			crtProcStat = procfs.NewStat(procfsRoot)
+		}
+		psm.procStat[psm.crtIndex] = crtProcStat
+	}
+	err := crtProcStat.Parse()
+	if err != nil {
+		procStatMetricsLog.Warnf("%v: proc stat metrics will be disabled", err)
+		return false
+	}
+	psm.procStatTs[psm.crtIndex] = timeNowFn()
+
+	buf := metricsQueue.GetBuf()
+	metricsCount := psm.generateMetrics(buf)
+	byteCount := buf.Len()
+	metricsQueue.QueueBuf(buf)
+
+	GlobalMetricsGeneratorStatsContainer.Update(
+		psm.id, uint64(metricsCount), uint64(byteCount),
+	)
+
+	return true
+}
+
+// Define and register the task builder:
+func ProcStatMetricsTaskBuilder(cfg *LsvmiConfig) ([]*Task, error) {
+	psm, err := NewProcStatMetrics(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if psm.interval <= 0 {
+		procStatMetricsLog.Infof(
+			"interval=%s, metrics disabled", psm.interval,
+		)
+		return nil, nil
+	}
+	tasks := []*Task{
+		NewTask(psm.id, psm.interval, psm),
+	}
+	return tasks, nil
+}
+
+func init() {
+	TaskBuilders.Register(ProcStatMetricsTaskBuilder)
 }

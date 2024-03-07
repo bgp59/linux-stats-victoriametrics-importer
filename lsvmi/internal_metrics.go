@@ -139,7 +139,7 @@ func (internalMetrics *InternalMetrics) getTsSuffix() []byte {
 }
 
 // Satisfy the TaskActivity interface:
-func (internalMetrics *InternalMetrics) Execute() {
+func (internalMetrics *InternalMetrics) Execute() bool {
 	timeNowFn := time.Now
 	if internalMetrics.timeNowFn != nil {
 		timeNowFn = internalMetrics.timeNowFn
@@ -295,6 +295,7 @@ func (internalMetrics *InternalMetrics) Execute() {
 	}
 	metricsQueue.QueueBuf(buf)
 
+	return true
 }
 
 func (internalMetrics *InternalMetrics) updateUptimeMetric() []byte {

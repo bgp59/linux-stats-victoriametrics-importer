@@ -129,5 +129,4 @@ func TestProcStatMetrics(t *testing.T) {
 			func(t *testing.T) { testProcStatMetrics(tc, t) },
 		)
 	}
-
 }
