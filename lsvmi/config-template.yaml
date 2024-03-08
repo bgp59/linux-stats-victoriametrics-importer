@@ -37,10 +37,6 @@ internal_metrics_config:
 proc_stat_metrics_config:
   interval: 200ms
   full_metrics_factor: 25
-  # Whether to scale %CPU for all with the total number os CPUs or not; i.e.
-  # should a 8 CPU totally idle host report 800% (scale=false) or 100% idle
-  # (scale=true):
-  scale_cpu_all: true
 
 ###############################################
 # Scheduler

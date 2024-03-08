@@ -20,7 +20,6 @@ type ProcStatMetricsTestCase struct {
 	CrtProcStat, PrevProcStat   *procfs.Stat
 	CrtPromTs, PrevPromTs       int64
 	CycleNum, FullMetricsFactor int
-	ScaleCpuAll                 bool
 	ZeroPcpuMap                 map[int][]bool
 	WantMetricsCount            int
 	WantMetrics                 []string
@@ -49,7 +48,6 @@ func testProcStatMetrics(tc *ProcStatMetricsTestCase, t *testing.T) {
 	procStatMetrics.procStatTs[1-crtIndex] = time.UnixMilli(tc.PrevPromTs)
 	procStatMetrics.cycleNum = tc.CycleNum
 	procStatMetrics.fullMetricsFactor = tc.FullMetricsFactor
-	procStatMetrics.scaleCpuAll = tc.ScaleCpuAll
 	for cpu, ZeroPcpuMap := range tc.ZeroPcpuMap {
 		procStatMetrics.zeroPcpuMap[cpu] = make([]bool, procfs.STAT_CPU_NUM_STATS)
 		copy(procStatMetrics.zeroPcpuMap[cpu], ZeroPcpuMap)

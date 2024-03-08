@@ -41,6 +41,7 @@ const (
 
 	PROC_STAT_CPU_LABEL_NAME      = "cpu"
 	PROC_STAT_CPU_ALL_LABEL_VALUE = "all"
+	PROC_STAT_CPU_AVG_LABEL_VALUE = "avg" // % for ALL / number of CPU's
 
 	// System uptime will be based on btime:
 	PROC_STAT_BTIME_METRIC  = "proc_stat_btime_sec"
@@ -51,7 +52,7 @@ const (
 	PROC_STAT_PAGE_OUT_COUNT_DELTA_METRIC = "proc_stat_page_out_count_delta"
 	PROC_STAT_SWAP_IN_COUNT_DELTA_METRIC  = "proc_stat_swap_in_count_delta"
 	PROC_STAT_SWAP_OUT_COUNT_DELTA_METRIC = "proc_stat_swap_out_count_delta"
-	PROC_STAT_CTXT_COUNT_DELTA_METRIC     = "proc_stat_swap_ctxt_count_delta"
+	PROC_STAT_CTXT_COUNT_DELTA_METRIC     = "proc_stat_ctxt_count_delta"
 	PROC_STAT_PROCESSES_COUNT_METRIC      = "proc_stat_processes_count"
 	PROC_STAT_PROCS_RUNNING_COUNT_METRIC  = "proc_stat_procs_running_count"
 	PROC_STAT_PROCS_BLOCKED_COUNT_METRIC  = "proc_stat_procs_blocked_count"
@@ -101,17 +102,12 @@ type ProcStatMetricsConfig struct {
 	// the previous scan. However every N cycles the full set is generated. Use
 	// 0 to generate full metrics every cycle.
 	FullMetricsFactor int `yaml:"full_metrics_factor"`
-	// Whether to scale %CPU for all with the total number os CPUs or not; i.e.
-	// should a 8 CPU totally idle host report 800% (scale=false) or 100% idle
-	// (scale=true):
-	ScaleCpuAll bool `yaml:"scale_cpu_all"`
 }
 
 func DefaultProcStatMetricsConfig() *ProcStatMetricsConfig {
 	return &ProcStatMetricsConfig{
 		Interval:          PROC_STAT_METRICS_CONFIG_INTERVAL_DEFAULT,
 		FullMetricsFactor: PROC_STAT_METRICS_CONFIG_FULL_METRICS_FACTOR_DEFAULT,
-		ScaleCpuAll:       PROC_STAT_METRICS_CONFIG_SCALE_CPU_ALL_DEFAULT,
 	}
 }
 
@@ -120,8 +116,6 @@ type ProcStatMetrics struct {
 	id string
 	// Scan interval:
 	interval time.Duration
-	// Whether to scale the aggregate %CPU by the number of CPUs or not:
-	scaleCpuAll bool
 	// Dual storage for parsed stats used as previous, current:
 	procStat [2]*procfs.Stat
 	// Timestamp when the stats were collected:
@@ -140,6 +134,7 @@ type ProcStatMetrics struct {
 
 	// CPU metrics cache, indexed by CPU#, STAT_CPU_...:
 	cpuMetricsCache map[int][][]byte
+	avgCpuMetrics   [][]byte
 
 	// Bootime/uptime metrics cache:
 	btimeMetricCache, uptimeMetricCache []byte
@@ -188,7 +183,6 @@ func NewProcStatMetrics(cfg any) (*ProcStatMetrics, error) {
 	proStatMetrics := &ProcStatMetrics{
 		id:                PROC_STAT_METRICS_ID,
 		interval:          interval,
-		scaleCpuAll:       procStatMetricsCfg.ScaleCpuAll,
 		zeroPcpuMap:       make(map[int][]bool),
 		cpuMetricsCache:   make(map[int][][]byte),
 		fullMetricsFactor: procStatMetricsCfg.FullMetricsFactor,
@@ -208,8 +202,10 @@ func (psm *ProcStatMetrics) updateCpuMetricsCache(cpu int) {
 
 	cpuMetrics := make([][]byte, procfs.STAT_CPU_NUM_STATS)
 	var cpuLabelVal string
+	var avgCpuMetrics [][]byte
 	if cpu == procfs.STAT_CPU_ALL {
 		cpuLabelVal = PROC_STAT_CPU_ALL_LABEL_VALUE
+		avgCpuMetrics = make([][]byte, procfs.STAT_CPU_NUM_STATS)
 	} else {
 		cpuLabelVal = strconv.Itoa(cpu)
 	}
@@ -222,8 +218,21 @@ func (psm *ProcStatMetrics) updateCpuMetricsCache(cpu int) {
 			PROC_STAT_CPU_PCT_TYPE_LABEL_NAME, typeLabelVal,
 			PROC_STAT_CPU_LABEL_NAME, cpuLabelVal,
 		))
+		if avgCpuMetrics != nil {
+			avgCpuMetrics[index] = []byte(fmt.Sprintf(
+				`%s{%s="%s",%s="%s",%s="%s",%s="%s"} `, // N.B. include space before val
+				PROC_STAT_CPU_PCT_METRIC,
+				INSTANCE_LABEL_NAME, instance,
+				HOSTNAME_LABEL_NAME, hostname,
+				PROC_STAT_CPU_PCT_TYPE_LABEL_NAME, typeLabelVal,
+				PROC_STAT_CPU_LABEL_NAME, PROC_STAT_CPU_AVG_LABEL_VALUE,
+			))
+		}
 	}
 	psm.cpuMetricsCache[cpu] = cpuMetrics
+	if avgCpuMetrics != nil {
+		psm.avgCpuMetrics = avgCpuMetrics
+	}
 }
 
 func (psm *ProcStatMetrics) updateBtimeUptimeMetricsCache() {
@@ -322,23 +331,33 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) int {
 				psm.zeroPcpuMap[cpu] = zeroPcpu
 			}
 			if prevCpuStats != nil {
-				numCpus := len(crtProcStat.Cpu) - 1
+				numCpus := float64(len(crtProcStat.Cpu) - 1)
 				cpuMetrics := psm.cpuMetricsCache[cpu]
 				if cpuMetrics == nil {
 					psm.updateCpuMetricsCache(cpu)
 					cpuMetrics = psm.cpuMetricsCache[cpu]
 				}
+				var avgCpuMetrics [][]byte
+				if cpu == procfs.STAT_CPU_ALL && numCpus > 0 {
+					// This was updated by the call for `all` above:
+					avgCpuMetrics = psm.avgCpuMetrics
+				} else {
+					avgCpuMetrics = nil
+				}
 				for index, metric := range cpuMetrics {
 					dCpuTicks := crtCpuStats[index] - prevCpuStats[index]
 					if dCpuTicks != 0 || fullMetrics || !zeroPcpu[index] {
-						val := float64(dCpuTicks)
-						if cpu == procfs.STAT_CPU_ALL && numCpus > 0 && psm.scaleCpuAll {
-							val /= float64(numCpus)
-						}
+						pct := float64(dCpuTicks) * pCpuFactor
 						buf.Write(metric)
-						buf.WriteString(strconv.FormatFloat(val*pCpuFactor, 'f', 1, 64))
+						buf.WriteString(strconv.FormatFloat(pct, 'f', 1, 64))
 						buf.Write(promTs)
 						metricsCount++
+						if avgCpuMetrics != nil {
+							buf.Write(avgCpuMetrics[index])
+							buf.WriteString(strconv.FormatFloat(pct/numCpus, 'f', 1, 64))
+							buf.Write(promTs)
+							metricsCount++
+						}
 					}
 					zeroPcpu[index] = dCpuTicks == 0
 				}
@@ -476,8 +495,8 @@ func ProcStatMetricsTaskBuilder(cfg *LsvmiConfig) ([]*Task, error) {
 		return nil, nil
 	} else {
 		procStatMetricsLog.Infof(
-			"interval=%s, fullMetricsFactor=%d, scaleCpuAll=%v",
-			psm.interval, psm.fullMetricsFactor, psm.scaleCpuAll,
+			"interval=%s, fullMetricsFactor=%d",
+			psm.interval, psm.fullMetricsFactor,
 		)
 	}
 	tasks := []*Task{
