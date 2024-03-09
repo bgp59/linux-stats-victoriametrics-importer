@@ -58,7 +58,7 @@ PROC_STAT_PAGE_OUT_COUNT_DELTA_METRIC = "proc_stat_page_out_count_delta"
 PROC_STAT_SWAP_IN_COUNT_DELTA_METRIC = "proc_stat_swap_in_count_delta"
 PROC_STAT_SWAP_OUT_COUNT_DELTA_METRIC = "proc_stat_swap_out_count_delta"
 PROC_STAT_CTXT_COUNT_DELTA_METRIC = "proc_stat_ctxt_count_delta"
-PROC_STAT_PROCESSES_COUNT_METRIC = "proc_stat_processes_count"
+PROC_STAT_PROCESSES_COUNT_DELTA_METRIC = "proc_stat_processes_count_delta"
 PROC_STAT_PROCS_RUNNING_COUNT_METRIC = "proc_stat_procs_running_count"
 PROC_STAT_PROCS_BLOCKED_COUNT_METRIC = "proc_stat_procs_blocked_count"
 
@@ -87,11 +87,11 @@ proc_stat_index_delta_metric_name_map = {
     procfs.STAT_SWAP_IN: PROC_STAT_SWAP_IN_COUNT_DELTA_METRIC,
     procfs.STAT_SWAP_OUT: PROC_STAT_SWAP_OUT_COUNT_DELTA_METRIC,
     procfs.STAT_CTXT: PROC_STAT_CTXT_COUNT_DELTA_METRIC,
+    procfs.STAT_PROCESSES: PROC_STAT_PROCESSES_COUNT_DELTA_METRIC,
 }
 
 # Map procfs.NumericFields indexes into metrics name:
 proc_stat_index_metric_name_map = {
-    procfs.STAT_PROCESSES: PROC_STAT_PROCESSES_COUNT_METRIC,
     procfs.STAT_PROCS_RUNNING: PROC_STAT_PROCS_RUNNING_COUNT_METRIC,
     procfs.STAT_PROCS_BLOCKED: PROC_STAT_PROCS_BLOCKED_COUNT_METRIC,
 }

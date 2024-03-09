@@ -48,14 +48,14 @@ const (
 	PROC_STAT_UPTIME_METRIC = "proc_stat_uptime_sec"
 
 	// Other metrics:
-	PROC_STAT_PAGE_IN_COUNT_DELTA_METRIC  = "proc_stat_page_in_count_delta"
-	PROC_STAT_PAGE_OUT_COUNT_DELTA_METRIC = "proc_stat_page_out_count_delta"
-	PROC_STAT_SWAP_IN_COUNT_DELTA_METRIC  = "proc_stat_swap_in_count_delta"
-	PROC_STAT_SWAP_OUT_COUNT_DELTA_METRIC = "proc_stat_swap_out_count_delta"
-	PROC_STAT_CTXT_COUNT_DELTA_METRIC     = "proc_stat_ctxt_count_delta"
-	PROC_STAT_PROCESSES_COUNT_METRIC      = "proc_stat_processes_count"
-	PROC_STAT_PROCS_RUNNING_COUNT_METRIC  = "proc_stat_procs_running_count"
-	PROC_STAT_PROCS_BLOCKED_COUNT_METRIC  = "proc_stat_procs_blocked_count"
+	PROC_STAT_PAGE_IN_COUNT_DELTA_METRIC   = "proc_stat_page_in_count_delta"
+	PROC_STAT_PAGE_OUT_COUNT_DELTA_METRIC  = "proc_stat_page_out_count_delta"
+	PROC_STAT_SWAP_IN_COUNT_DELTA_METRIC   = "proc_stat_swap_in_count_delta"
+	PROC_STAT_SWAP_OUT_COUNT_DELTA_METRIC  = "proc_stat_swap_out_count_delta"
+	PROC_STAT_CTXT_COUNT_DELTA_METRIC      = "proc_stat_ctxt_count_delta"
+	PROC_STAT_PROCESSES_COUNT_DELTA_METRIC = "proc_stat_processes_count_delta"
+	PROC_STAT_PROCS_RUNNING_COUNT_METRIC   = "proc_stat_procs_running_count"
+	PROC_STAT_PROCS_BLOCKED_COUNT_METRIC   = "proc_stat_procs_blocked_count"
 
 	// Interval since last generation, i.e. the interval underlying the deltas.
 	// Normally this should be close to scan interval, but this the actual
@@ -79,16 +79,16 @@ var procStatCpuIndexTypeLabelValMap = map[int]string{
 
 // Map procfs.NumericFields indexes into delta metrics name:
 var procStatIndexDeltaMetricNameMap = map[int]string{
-	procfs.STAT_PAGE_IN:  PROC_STAT_PAGE_IN_COUNT_DELTA_METRIC,
-	procfs.STAT_PAGE_OUT: PROC_STAT_PAGE_OUT_COUNT_DELTA_METRIC,
-	procfs.STAT_SWAP_IN:  PROC_STAT_SWAP_IN_COUNT_DELTA_METRIC,
-	procfs.STAT_SWAP_OUT: PROC_STAT_SWAP_OUT_COUNT_DELTA_METRIC,
-	procfs.STAT_CTXT:     PROC_STAT_CTXT_COUNT_DELTA_METRIC,
+	procfs.STAT_PAGE_IN:   PROC_STAT_PAGE_IN_COUNT_DELTA_METRIC,
+	procfs.STAT_PAGE_OUT:  PROC_STAT_PAGE_OUT_COUNT_DELTA_METRIC,
+	procfs.STAT_SWAP_IN:   PROC_STAT_SWAP_IN_COUNT_DELTA_METRIC,
+	procfs.STAT_SWAP_OUT:  PROC_STAT_SWAP_OUT_COUNT_DELTA_METRIC,
+	procfs.STAT_CTXT:      PROC_STAT_CTXT_COUNT_DELTA_METRIC,
+	procfs.STAT_PROCESSES: PROC_STAT_PROCESSES_COUNT_DELTA_METRIC,
 }
 
 // Map procfs.NumericFields indexes into metrics name:
 var procStatIndexMetricNameMap = map[int]string{
-	procfs.STAT_PROCESSES:     PROC_STAT_PROCESSES_COUNT_METRIC,
 	procfs.STAT_PROCS_RUNNING: PROC_STAT_PROCS_RUNNING_COUNT_METRIC,
 	procfs.STAT_PROCS_BLOCKED: PROC_STAT_PROCS_BLOCKED_COUNT_METRIC,
 }
