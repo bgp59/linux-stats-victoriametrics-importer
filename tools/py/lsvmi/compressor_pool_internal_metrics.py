@@ -38,13 +38,13 @@ FLOAT64_STATS_FIELD = "Float64Stats"
 
 
 compressor_stats_uint64_delta_metric_names = {
-    0: "lsvmi_compressor_read_count_delta",
-    1: "lsvmi_compressor_read_byte_count_delta",
-    2: "lsvmi_compressor_send_count_delta",
-    3: "lsvmi_compressor_send_byte_count_delta",
-    4: "lsvmi_compressor_tout_flush_count_delta",
-    5: "lsvmi_compressor_send_error_count_delta",
-    6: "lsvmi_compressor_write_error_count_delta",
+    0: "lsvmi_compressor_read_delta",
+    1: "lsvmi_compressor_read_byte_delta",
+    2: "lsvmi_compressor_send_delta",
+    3: "lsvmi_compressor_send_byte_delta",
+    4: "lsvmi_compressor_tout_flush_delta",
+    5: "lsvmi_compressor_send_error_delta",
+    6: "lsvmi_compressor_write_error_delta",
 }
 
 compressor_stats_float64_metric_names = {

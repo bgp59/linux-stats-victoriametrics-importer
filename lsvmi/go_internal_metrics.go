@@ -14,10 +14,10 @@ const (
 	GO_MEM_SYS_BYTES_METRIC           = "lsvmi_go_mem_sys_bytes"
 	GO_MEM_HEAP_BYTES_METRIC          = "lsvmi_go_mem_heap_bytes"
 	GO_MEM_HEAP_SYS_BYTES_METRIC      = "lsvmi_go_mem_heap_sys_bytes"
-	GO_MEM_MALLOCS_DELTA_METRIC       = "lsvmi_go_mem_malloc_count_delta"
-	GO_MEM_FREE_DELTA_METRIC          = "lsvmi_go_mem_free_count_delta"
+	GO_MEM_MALLOCS_DELTA_METRIC       = "lsvmi_go_mem_malloc_delta"
+	GO_MEM_FREE_DELTA_METRIC          = "lsvmi_go_mem_free_delta"
 	GO_MEM_IN_USE_OBJECT_COUNT_METRIC = "lsvmi_go_mem_in_use_object_count"
-	GO_MEM_NUM_GC_COUNT_DELTA_METRIC  = "lsvmi_go_mem_gc_count_delta"
+	GO_MEM_NUM_GC_DELTA_METRIC        = "lsvmi_go_mem_gc_delta"
 )
 
 const (
@@ -29,7 +29,7 @@ const (
 	GO_MEM_MALLOCS_DELTA_METRIC_INDEX
 	GO_MEM_FREE_DELTA_METRIC_INDEX
 	GO_MEM_IN_USE_OBJECT_COUNT_METRIC_INDEX
-	GO_MEM_NUM_GC_COUNT_DELTA_METRIC_INDEX
+	GO_MEM_NUM_GC_DELTA_METRIC_INDEX
 
 	// Must be last:
 	GO_INTERNAL_METRICS_NUM
@@ -43,7 +43,7 @@ var goInternalMetricsNameMap = map[int]string{
 	GO_MEM_MALLOCS_DELTA_METRIC_INDEX:       GO_MEM_MALLOCS_DELTA_METRIC,
 	GO_MEM_FREE_DELTA_METRIC_INDEX:          GO_MEM_FREE_DELTA_METRIC,
 	GO_MEM_IN_USE_OBJECT_COUNT_METRIC_INDEX: GO_MEM_IN_USE_OBJECT_COUNT_METRIC,
-	GO_MEM_NUM_GC_COUNT_DELTA_METRIC_INDEX:  GO_MEM_NUM_GC_COUNT_DELTA_METRIC,
+	GO_MEM_NUM_GC_DELTA_METRIC_INDEX:        GO_MEM_NUM_GC_DELTA_METRIC,
 }
 
 type GoInternalMetrics struct {
@@ -156,7 +156,7 @@ func (gim *GoInternalMetrics) generateMetrics(
 	buf.Write(tsSuffix)
 	metricsCount++
 
-	buf.Write(metricsCache[GO_MEM_NUM_GC_COUNT_DELTA_METRIC_INDEX])
+	buf.Write(metricsCache[GO_MEM_NUM_GC_DELTA_METRIC_INDEX])
 	buf.WriteString(strconv.FormatUint(uint64(crtMemStats.NumGC-prevMemStats.NumGC), 10))
 	buf.Write(tsSuffix)
 	metricsCount++

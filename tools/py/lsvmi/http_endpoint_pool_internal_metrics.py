@@ -37,11 +37,11 @@ ENDPOINT_STATS_FIELD = "EndpointStats"
 HTTP_ENDPOINT_URL_LABEL_NAME = "url"
 
 http_endpoint_delta_metric_names = {
-    0: "lsvmi_http_ep_send_buffer_count_delta",
-    1: "lsvmi_http_ep_send_buffer_byte_count_delta",
-    2: "lsvmi_http_ep_send_buffer_error_count_delta",
-    3: "lsvmi_http_ep_healthcheck_count_delta",
-    4: "lsvmi_http_ep_healthcheck_error_count_delta",
+    0: "lsvmi_http_ep_send_buffer_delta",
+    1: "lsvmi_http_ep_send_buffer_byte_delta",
+    2: "lsvmi_http_ep_send_buffer_error_delta",
+    3: "lsvmi_http_ep_healthcheck_delta",
+    4: "lsvmi_http_ep_healthcheck_error_delta",
 }
 
 http_endpoint_metric_names = {
@@ -49,7 +49,7 @@ http_endpoint_metric_names = {
 }
 
 http_endpoint_pool_delta_metric_names = {
-    1: "lsvmi_http_ep_pool_no_healthy_ep_error_count_delta",
+    1: "lsvmi_http_ep_pool_no_healthy_ep_error_delta",
 }
 
 http_endpoint_pool_metric_names = {

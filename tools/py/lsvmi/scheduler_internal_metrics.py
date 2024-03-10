@@ -44,11 +44,11 @@ GO_TIME_MILLISECOND = 1_000_000
 GO_TIME_SECOND = 1_000_000_000
 
 task_stats_uint64_delta_metric_names = {
-    0: "lsvmi_task_scheduled_count_delta",
-    1: "lsvmi_task_delayed_count_delta",
-    2: "lsvmi_task_overrun_count_delta",
-    3: "lsvmi_task_executed_count_delta",
-    4: "lsvmi_task_deadline_hack_count_delta",
+    0: "lsvmi_task_scheduled_delta",
+    1: "lsvmi_task_delayed_delta",
+    2: "lsvmi_task_overrun_delta",
+    3: "lsvmi_task_executed_delta",
+    4: "lsvmi_task_deadline_hack_delta",
 }
 
 task_stats_interval_avg_runtime_metric = "lsvmi_task_interval_avg_runtime_sec"
@@ -68,7 +68,7 @@ def generate_task_stats_metrics(
         ts = time.time()
     promTs = str(int(ts * 1000))
     metrics = []
-    executed_count_delta = None
+    executed_delta = None
     for i, name in task_stats_uint64_delta_metric_names.items():
         if name is None:
             continue
@@ -76,7 +76,7 @@ def generate_task_stats_metrics(
         if prev_task_stats is not None:
             val -= prev_task_stats[UINT64_STATS_FIELD][i]
         if i == TASK_STATS_EXECUTED_COUNT_INDEX:
-            executed_count_delta = val
+            executed_delta = val
         metrics.append(
             f"{name}{{"
             + ",".join(
@@ -88,16 +88,16 @@ def generate_task_stats_metrics(
             )
             + f"}} {val} {promTs}"
         )
-    if executed_count_delta is None:
+    if executed_delta is None:
         val = crt_task_stats[UINT64_STATS_FIELD][TASK_STATS_EXECUTED_COUNT_INDEX]
         if prev_task_stats is not None:
             val -= prev_task_stats[UINT64_STATS_FIELD][TASK_STATS_EXECUTED_COUNT_INDEX]
     interval_runtime_average = 0
-    if executed_count_delta > 0:
+    if executed_delta > 0:
         runtime_delta = crt_task_stats[RUNTIME_TOTAL_FIELD]
         if prev_task_stats is not None:
             runtime_delta -= prev_task_stats[RUNTIME_TOTAL_FIELD]
-        interval_runtime_average = runtime_delta / GO_TIME_SECOND / executed_count_delta
+        interval_runtime_average = runtime_delta / GO_TIME_SECOND / executed_delta
     metrics.append(
         f"{task_stats_interval_avg_runtime_metric}{{"
         + ",".join(
