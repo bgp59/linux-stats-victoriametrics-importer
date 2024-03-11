@@ -38,11 +38,13 @@ const (
 	NET_DEV_TX_COMPRESSED
 
 	// Must be last! See NetDev struct for explanation about the scan#:
-	NET_DEV_SCAN_NUMBER
+	NET_DEV_NUM_STATS
 )
 
 const (
-	NET_DEV_NUM_STATS = NET_DEV_SCAN_NUMBER + 1
+	// See NetDev struct for explanation about the scan#
+	NET_DEV_SCAN_NUMBER    = NET_DEV_NUM_STATS
+	NET_DEV_NUM_STATS_SIZE = NET_DEV_SCAN_NUMBER + 1
 )
 
 type NetDev struct {
@@ -105,7 +107,7 @@ func (netDev *NetDev) Clone(full bool) *NetDev {
 	}
 
 	for dev, devStats := range netDev.DevStats {
-		newNetDev.DevStats[dev] = make([]uint64, NET_DEV_NUM_STATS)
+		newNetDev.DevStats[dev] = make([]uint64, NET_DEV_NUM_STATS_SIZE)
 		if full {
 			copy(newNetDev.DevStats[dev], devStats)
 		}
@@ -188,7 +190,7 @@ func (netDev *NetDev) Parse() error {
 
 		stats := netDev.DevStats[dev]
 		if stats == nil {
-			stats = make([]uint64, NET_DEV_NUM_STATS)
+			stats = make([]uint64, NET_DEV_NUM_STATS_SIZE)
 			netDev.DevStats[dev] = stats
 		}
 
