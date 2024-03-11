@@ -180,7 +180,7 @@ func NewProcStatMetrics(cfg any) (*ProcStatMetrics, error) {
 	if err != nil {
 		return nil, err
 	}
-	proStatMetrics := &ProcStatMetrics{
+	procStatMetrics := &ProcStatMetrics{
 		id:                PROC_STAT_METRICS_ID,
 		interval:          interval,
 		zeroPcpuMap:       make(map[int][]bool),
@@ -188,7 +188,11 @@ func NewProcStatMetrics(cfg any) (*ProcStatMetrics, error) {
 		fullMetricsFactor: procStatMetricsCfg.FullMetricsFactor,
 		tsSuffixBuf:       &bytes.Buffer{},
 	}
-	return proStatMetrics, nil
+
+	procStatMetricsLog.Infof("id=%s", procStatMetrics.id)
+	procStatMetricsLog.Infof("interval=%s", procStatMetrics.interval)
+	procStatMetricsLog.Infof("full_metrics_factor=%d", procStatMetrics.fullMetricsFactor)
+	return procStatMetrics, nil
 }
 
 func (psm *ProcStatMetrics) updateCpuMetricsCache(cpu int) {
@@ -493,11 +497,6 @@ func ProcStatMetricsTaskBuilder(cfg *LsvmiConfig) ([]*Task, error) {
 			"interval=%s, metrics disabled", psm.interval,
 		)
 		return nil, nil
-	} else {
-		procStatMetricsLog.Infof(
-			"interval=%s, fullMetricsFactor=%d",
-			psm.interval, psm.fullMetricsFactor,
-		)
 	}
 	tasks := []*Task{
 		NewTask(psm.id, psm.interval, psm),

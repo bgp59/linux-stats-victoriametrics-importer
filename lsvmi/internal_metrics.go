@@ -127,6 +127,8 @@ func NewInternalMetrics(cfg any) (*InternalMetrics, error) {
 	internalMetrics.httpEndpointPoolMetrics = NewHttpEndpointPoolInternalMetrics(internalMetrics)
 	internalMetrics.goMetrics = NewGoInternalMetrics(internalMetrics)
 	internalMetrics.osMetrics = NewOsInternalMetrics(internalMetrics)
+	internalMetricsLog.Infof("id=%s", internalMetrics.id)
+	internalMetricsLog.Infof("interval=%s", internalMetrics.interval)
 	return internalMetrics, nil
 }
 
