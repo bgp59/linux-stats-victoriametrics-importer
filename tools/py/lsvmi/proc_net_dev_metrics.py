@@ -243,6 +243,48 @@ def generate_proc_net_dev_metrics_test_cases(
                     )
                     tc_num += 1
 
+    # New dev:
+    for cycle_num in [0, 1]:
+        for zero_delta_map in [zero_delta_map_false, zero_delta_map_true]:
+            for dev in proc_net_dev_ref["DevStats"]:
+                prev_proc_net_dev = deepcopy(proc_net_dev_ref)
+                del prev_proc_net_dev["DevStats"][dev]
+                zero_delta_map = deepcopy(zero_delta_map)
+                del zero_delta_map[dev]
+                test_cases.append(
+                    generate_proc_net_dev_metrics_test_case(
+                        f"{tc_num:04d}",
+                        proc_net_dev_ref,
+                        prev_proc_net_dev,
+                        ts=ts,
+                        cycle_num=cycle_num,
+                        zero_delta_map=zero_delta_map,
+                        instance=instance,
+                        hostname=hostname,
+                    )
+                )
+                tc_num += 1
+
+    # Removed dev:
+    for cycle_num in [0, 1]:
+        for zero_delta_map in [zero_delta_map_false, zero_delta_map_true]:
+            for dev in proc_net_dev_ref["DevStats"]:
+                crt_proc_net_dev = deepcopy(proc_net_dev_ref)
+                del crt_proc_net_dev["DevStats"][dev]
+                test_cases.append(
+                    generate_proc_net_dev_metrics_test_case(
+                        f"{tc_num:04d}",
+                        crt_proc_net_dev,
+                        proc_net_dev_ref,
+                        ts=ts,
+                        cycle_num=cycle_num,
+                        zero_delta_map=zero_delta_map,
+                        instance=instance,
+                        hostname=hostname,
+                    )
+                )
+                tc_num += 1
+
     json.dump(test_cases, fp=fp, indent=2)
     fp.write("\n")
     if out_file is not None:
