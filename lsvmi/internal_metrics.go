@@ -9,8 +9,6 @@ import (
 	"time"
 )
 
-var internalMetricsLog = NewCompLogger("internal_metrics")
-
 // Generate internal metrics:
 const (
 	INTERNAL_METRICS_CONFIG_INTERVAL_DEFAULT = "5s"
@@ -27,6 +25,8 @@ const (
 	// This generator id:
 	INTERNAL_METRICS_ID = "internal_metrics"
 )
+
+var internalMetricsLog = NewCompLogger(INTERNAL_METRICS_ID)
 
 type InternalMetricsConfig struct {
 	// How often to generate the metrics in time.ParseDuration() format:

@@ -7,6 +7,27 @@ tools_py_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if tools_py_root not in sys.path:
     sys.path.append(tools_py_root)
 
+from .net_dev_parser import (
+    NET_DEV_NUM_STATS,
+    NET_DEV_RX_BYTES,
+    NET_DEV_RX_COMPRESSED,
+    NET_DEV_RX_DROP,
+    NET_DEV_RX_ERRS,
+    NET_DEV_RX_FIFO,
+    NET_DEV_RX_FRAME,
+    NET_DEV_RX_MULTICAST,
+    NET_DEV_RX_PACKETS,
+    NET_DEV_TX_BYTES,
+    NET_DEV_TX_CARRIER,
+    NET_DEV_TX_COLLS,
+    NET_DEV_TX_COMPRESSED,
+    NET_DEV_TX_DROP,
+    NET_DEV_TX_ERRS,
+    NET_DEV_TX_FIFO,
+    NET_DEV_TX_PACKETS,
+    NetDev,
+    NetDevStats,
+)
 from .stat_parser import (
     STAT_BTIME,
     STAT_CPU_ALL,

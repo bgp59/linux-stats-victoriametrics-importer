@@ -35,6 +35,9 @@ var procStatMetricsTestcasesFile = path.Join(
 )
 
 func testProcStatMetrics(tc *ProcStatMetricsTestCase, t *testing.T) {
+	tlc := testutils.NewTestLogCollect(t, Log, nil)
+	defer tlc.RestoreLog()
+
 	procStatMetrics, err := NewProcStatMetrics(nil)
 	if err != nil {
 		t.Fatal(err)

@@ -32,11 +32,18 @@ internal_metrics_config:
   # N.B. full_metrics_factor is not applicable!
 
 ###############################################
-# /proc/stat  Metrics
+# /proc/stat Metrics
 ###############################################
 proc_stat_metrics_config:
   interval: 200ms
   full_metrics_factor: 25
+
+###############################################
+# /proc/net/dev Metrics
+###############################################
+proc_net_dev_metrics_config:
+  interval: 1s
+  full_metrics_factor: 15
 
 ###############################################
 # Scheduler

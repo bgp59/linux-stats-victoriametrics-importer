@@ -17,7 +17,6 @@ import (
 const (
 	PROC_STAT_METRICS_CONFIG_INTERVAL_DEFAULT            = "200ms"
 	PROC_STAT_METRICS_CONFIG_FULL_METRICS_FACTOR_DEFAULT = 25
-	PROC_STAT_METRICS_CONFIG_SCALE_CPU_ALL_DEFAULT       = true
 
 	// This generator id:
 	PROC_STAT_METRICS_ID = "proc_stat_metrics"
@@ -93,7 +92,7 @@ var procStatIndexMetricNameMap = map[int]string{
 	procfs.STAT_PROCS_BLOCKED: PROC_STAT_PROCS_BLOCKED_COUNT_METRIC,
 }
 
-var procStatMetricsLog = NewCompLogger("proc_stat_metrics")
+var procStatMetricsLog = NewCompLogger(PROC_STAT_METRICS_ID)
 
 type ProcStatMetricsConfig struct {
 	// How often to generate the metrics in time.ParseDuration() format:
@@ -173,7 +172,7 @@ func NewProcStatMetrics(cfg any) (*ProcStatMetrics, error) {
 	case nil:
 		procStatMetricsCfg = DefaultProcStatMetricsConfig()
 	default:
-		return nil, fmt.Errorf("NewInternalMetrics: %T invalid config type", cfg)
+		return nil, fmt.Errorf("NewProcStatMetrics: %T invalid config type", cfg)
 	}
 
 	interval, err := time.ParseDuration(procStatMetricsCfg.Interval)
@@ -367,7 +366,7 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) int {
 				}
 			}
 		}
-		// CPU's may be unplugged dynamically. Check an clear zero %CPU flags as needed.
+		// CPU's may be unplugged dynamically. Check and delete zero %CPU flags as needed.
 		if len(psm.zeroPcpuMap) > len(crtProcStat.Cpu) {
 			for cpu := range psm.zeroPcpuMap {
 				if _, ok := crtProcStat.Cpu[cpu]; !ok {

@@ -33,13 +33,14 @@ const (
 )
 
 type LsvmiConfig struct {
-	GlobalConfig           *GlobalConfig           `yaml:"global_config"`
-	ProcStatMetricsConfig  *ProcStatMetricsConfig  `yaml:"proc_stat_metrics_config"`
-	InternalMetricsConfig  *InternalMetricsConfig  `yaml:"internal_metrics_config"`
-	SchedulerConfig        *SchedulerConfig        `yaml:"scheduler_config"`
-	CompressorPoolConfig   *CompressorPoolConfig   `yaml:"compressor_pool_config"`
-	HttpEndpointPoolConfig *HttpEndpointPoolConfig `yaml:"http_endpoint_pool_config"`
-	LoggerConfig           *LoggerConfig           `yaml:"log_config"`
+	GlobalConfig            *GlobalConfig            `yaml:"global_config"`
+	ProcStatMetricsConfig   *ProcStatMetricsConfig   `yaml:"proc_stat_metrics_config"`
+	ProcNetDevMetricsConfig *ProcNetDevMetricsConfig `yaml:"proc_net_dev_metrics_config"`
+	InternalMetricsConfig   *InternalMetricsConfig   `yaml:"internal_metrics_config"`
+	SchedulerConfig         *SchedulerConfig         `yaml:"scheduler_config"`
+	CompressorPoolConfig    *CompressorPoolConfig    `yaml:"compressor_pool_config"`
+	HttpEndpointPoolConfig  *HttpEndpointPoolConfig  `yaml:"http_endpoint_pool_config"`
+	LoggerConfig            *LoggerConfig            `yaml:"log_config"`
 }
 
 type GlobalConfig struct {
@@ -99,12 +100,13 @@ func DefaultGlobalConfig() *GlobalConfig {
 
 func DefaultLsvmiConfig() *LsvmiConfig {
 	return &LsvmiConfig{
-		GlobalConfig:           DefaultGlobalConfig(),
-		ProcStatMetricsConfig:  DefaultProcStatMetricsConfig(),
-		InternalMetricsConfig:  DefaultInternalMetricsConfig(),
-		SchedulerConfig:        DefaultSchedulerConfig(),
-		CompressorPoolConfig:   DefaultCompressorPoolConfig(),
-		HttpEndpointPoolConfig: DefaultHttpEndpointPoolConfig(),
+		GlobalConfig:            DefaultGlobalConfig(),
+		ProcStatMetricsConfig:   DefaultProcStatMetricsConfig(),
+		ProcNetDevMetricsConfig: DefaultProcNetDevMetricsConfig(),
+		InternalMetricsConfig:   DefaultInternalMetricsConfig(),
+		SchedulerConfig:         DefaultSchedulerConfig(),
+		CompressorPoolConfig:    DefaultCompressorPoolConfig(),
+		HttpEndpointPoolConfig:  DefaultHttpEndpointPoolConfig(),
 	}
 }
 
