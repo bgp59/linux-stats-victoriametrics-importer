@@ -211,73 +211,71 @@ func (pndm *ProcNetDevMetrics) updateMetricsCache() {
 }
 
 func (pndm *ProcNetDevMetrics) generateMetrics(buf *bytes.Buffer) int {
-	crtProcNetDev, prevProcNetDev := pndm.procNetDev[pndm.crtIndex], pndm.procNetDev[1-pndm.crtIndex]
-	if prevProcNetDev == nil {
-		return 0
-	}
-
-	crtTs, prevTs := pndm.procNetDevTs[pndm.crtIndex], pndm.procNetDevTs[1-pndm.crtIndex]
-	pndm.tsSuffixBuf.Reset()
-	fmt.Fprintf(
-		pndm.tsSuffixBuf, " %d\n", crtTs.UnixMilli(),
-	)
-	promTs := pndm.tsSuffixBuf.Bytes()
-
 	metricsCount := 0
-	fullMetrics := pndm.cycleNum == 0
-	deltaSec := crtTs.Sub(prevTs).Seconds()
-	for dev, crtDevStats := range crtProcNetDev.DevStats {
-		prevDevStats := prevProcNetDev.DevStats[dev]
-		if prevDevStats == nil {
-			continue
-		}
-		deltaMetrics := pndm.deltaMetricsCache[dev]
-		if deltaMetrics == nil {
-			pndm.updateDeltaMetricsCache(dev)
-			deltaMetrics = pndm.deltaMetricsCache[dev]
-		}
-		zeroDelta := pndm.zeroDeltaMap[dev]
-		if zeroDelta == nil {
-			zeroDelta = make([]bool, procfs.NET_DEV_NUM_STATS)
-			pndm.zeroDeltaMap[dev] = zeroDelta
-		}
+	crtProcNetDev, prevProcNetDev := pndm.procNetDev[pndm.crtIndex], pndm.procNetDev[1-pndm.crtIndex]
+	if prevProcNetDev != nil {
+		crtTs, prevTs := pndm.procNetDevTs[pndm.crtIndex], pndm.procNetDevTs[1-pndm.crtIndex]
+		pndm.tsSuffixBuf.Reset()
+		fmt.Fprintf(
+			pndm.tsSuffixBuf, " %d\n", crtTs.UnixMilli(),
+		)
+		promTs := pndm.tsSuffixBuf.Bytes()
 
-		for index, metric := range deltaMetrics {
-			val := crtDevStats[index] - prevDevStats[index]
-			if val != 0 || fullMetrics || !zeroDelta[index] {
-				buf.Write(metric)
-				rate := procNetDevIndexRate[index]
-				if rate != nil {
-					buf.WriteString(strconv.FormatFloat(
-						float64(val)/deltaSec*rate.factor, 'f', rate.prec, 64,
-					))
-				} else {
-					buf.WriteString(strconv.FormatUint(val, 10))
+		fullMetrics := pndm.cycleNum == 0
+		deltaSec := crtTs.Sub(prevTs).Seconds()
+		for dev, crtDevStats := range crtProcNetDev.DevStats {
+			prevDevStats := prevProcNetDev.DevStats[dev]
+			if prevDevStats == nil {
+				continue
+			}
+			deltaMetrics := pndm.deltaMetricsCache[dev]
+			if deltaMetrics == nil {
+				pndm.updateDeltaMetricsCache(dev)
+				deltaMetrics = pndm.deltaMetricsCache[dev]
+			}
+			zeroDelta := pndm.zeroDeltaMap[dev]
+			if zeroDelta == nil {
+				zeroDelta = make([]bool, procfs.NET_DEV_NUM_STATS)
+				pndm.zeroDeltaMap[dev] = zeroDelta
+			}
+
+			for index, metric := range deltaMetrics {
+				val := crtDevStats[index] - prevDevStats[index]
+				if val != 0 || fullMetrics || !zeroDelta[index] {
+					buf.Write(metric)
+					rate := procNetDevIndexRate[index]
+					if rate != nil {
+						buf.WriteString(strconv.FormatFloat(
+							float64(val)/deltaSec*rate.factor, 'f', rate.prec, 64,
+						))
+					} else {
+						buf.WriteString(strconv.FormatUint(val, 10))
+					}
+					buf.Write(promTs)
+					metricsCount++
 				}
-				buf.Write(promTs)
-				metricsCount++
-			}
-			zeroDelta[index] = val == 0
-		}
-	}
-
-	// Network devices may be created/enabled dynamically. Check and delete zero
-	// flags as needed.
-	if len(pndm.zeroDeltaMap) > len(crtProcNetDev.DevStats) {
-		for dev := range pndm.zeroDeltaMap {
-			if _, ok := crtProcNetDev.DevStats[dev]; !ok {
-				delete(pndm.zeroDeltaMap, dev)
+				zeroDelta[index] = val == 0
 			}
 		}
-	}
 
-	if pndm.intervalMetric == nil {
-		pndm.updateMetricsCache()
+		// Network devices may be created/enabled dynamically. Check and delete zero
+		// flags as needed.
+		if len(pndm.zeroDeltaMap) > len(crtProcNetDev.DevStats) {
+			for dev := range pndm.zeroDeltaMap {
+				if _, ok := crtProcNetDev.DevStats[dev]; !ok {
+					delete(pndm.zeroDeltaMap, dev)
+				}
+			}
+		}
+
+		if pndm.intervalMetric == nil {
+			pndm.updateMetricsCache()
+		}
+		buf.Write(pndm.intervalMetric)
+		buf.WriteString(strconv.FormatFloat(deltaSec, 'f', 6, 64))
+		buf.Write(promTs)
+		metricsCount++
 	}
-	buf.Write(pndm.intervalMetric)
-	buf.WriteString(strconv.FormatFloat(deltaSec, 'f', 6, 64))
-	buf.Write(promTs)
-	metricsCount++
 
 	// Toggle the buffers, update the collection time and the cycle#:
 	pndm.crtIndex = 1 - pndm.crtIndex
