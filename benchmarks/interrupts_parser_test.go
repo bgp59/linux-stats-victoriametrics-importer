@@ -45,9 +45,9 @@ func BenchmarkInterruptsParserProm(b *testing.B) {
 // goarch: amd64
 // pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
 // cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
-// BenchmarkInterruptsParserIO   	   74157	     16252 ns/op	     152 B/op	       3 allocs/op
-// BenchmarkInterruptsParser     	   61410	     19693 ns/op	     240 B/op	      35 allocs/op
-// BenchmarkInterruptsParserProm 	   25360	     48432 ns/op	   26327 B/op	     171 allocs/op
+// BenchmarkInterruptsParserIO   	   68378	     16126 ns/op	     152 B/op	       3 allocs/op
+// BenchmarkInterruptsParser     	   60379	     20738 ns/op	     240 B/op	      35 allocs/op
+// BenchmarkInterruptsParserProm 	   24624	     48213 ns/op	   26087 B/op	     170 allocs/op
 
 func BenchmarkInterruptsFileRead(b *testing.B) {
 	for op, name := range benchFileReadOpMap {

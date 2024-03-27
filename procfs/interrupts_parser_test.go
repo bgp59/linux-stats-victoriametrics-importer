@@ -7,6 +7,18 @@ import (
 	"testing"
 )
 
+type InterruptsCounterIndexToCpuNumTestCase struct {
+	name                        string
+	headerLine                  string
+	wantCounterIndexToCpuNumMap []int
+}
+
+type InterruptsIrqInfoTestCase struct {
+	name        string
+	infoLine    string
+	wantIrqInfo *InterruptsIrqInfo
+}
+
 type InterruptsTestCase struct {
 	name            string
 	procfsRoot      string
@@ -16,6 +28,171 @@ type InterruptsTestCase struct {
 }
 
 var interruptsTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "interrupts")
+
+func cmpInterruptsCounterIndexToCpuNumMap(
+	wantCounterIndexToCpuNumMap, gotCounterIndexToCpuNumMap []int,
+	headerLine string,
+	diffBuf *bytes.Buffer,
+) *bytes.Buffer {
+	if diffBuf == nil {
+		diffBuf = &bytes.Buffer{}
+	}
+
+	errBuf := &bytes.Buffer{}
+
+	if wantCounterIndexToCpuNumMap == nil && gotCounterIndexToCpuNumMap != nil {
+		fmt.Fprintf(
+			errBuf,
+			"\nCounterIndexToCpuNum want: %v, got: %v",
+			wantCounterIndexToCpuNumMap, gotCounterIndexToCpuNumMap,
+		)
+	} else if len(wantCounterIndexToCpuNumMap) != len(gotCounterIndexToCpuNumMap) {
+		fmt.Fprintf(
+			errBuf,
+			"\nlen(CounterIndexToCpuNum) want: %d, got: %d",
+			len(wantCounterIndexToCpuNumMap), len(gotCounterIndexToCpuNumMap),
+		)
+	} else {
+		different := false
+		for i, want := range wantCounterIndexToCpuNumMap {
+			got := gotCounterIndexToCpuNumMap[i]
+			if want != got {
+				fmt.Fprintf(
+					errBuf,
+					"\nCounterIndexToCpuNum[%d]: want: %d, got: %d",
+					i, want, got,
+				)
+				different = true
+				break
+			}
+		}
+		if different {
+			fmt.Fprintf(
+				errBuf,
+				"\nCounterIndexToCpuNum:\n\twant: %v\n\t got: %v",
+				wantCounterIndexToCpuNumMap, gotCounterIndexToCpuNumMap,
+			)
+		}
+
+	}
+
+	if errBuf.Len() > 0 {
+		if headerLine != "" {
+			fmt.Fprintf(diffBuf, "\nheaderLine: %q", headerLine)
+		}
+		diffBuf.ReadFrom(errBuf)
+	}
+	return diffBuf
+}
+
+func testInterruptsUpdateCounterIndexToCpuNumMap(tc *InterruptsCounterIndexToCpuNumTestCase, t *testing.T) {
+	interrupts := NewInterrupts("")
+	interrupts.updateCounterIndexToCpuNumMap([]byte(tc.headerLine))
+
+	diffBuf := cmpInterruptsCounterIndexToCpuNumMap(
+		tc.wantCounterIndexToCpuNumMap, interrupts.CounterIndexToCpuNum,
+		tc.headerLine,
+		nil,
+	)
+
+	if diffBuf.Len() > 0 {
+		t.Fatal(diffBuf)
+	}
+}
+
+func cmpInterruptsIrqInfo(
+	wantIrqInfo, gotIrqInfo *InterruptsIrqInfo,
+	diffBuf *bytes.Buffer,
+) *bytes.Buffer {
+	if diffBuf == nil {
+		diffBuf = &bytes.Buffer{}
+	}
+
+	errBuf := &bytes.Buffer{}
+
+	var want, got []byte
+
+	want, got = wantIrqInfo.Controller, gotIrqInfo.Controller
+	if !bytes.Equal(want, got) {
+		fmt.Fprintf(
+			errBuf,
+			"\nController:\n\twant: %v (%q)\n\t got: %v (%q)",
+			want, want, got, got,
+		)
+	}
+
+	want, got = wantIrqInfo.HWInterrupt, gotIrqInfo.HWInterrupt
+	if !bytes.Equal(want, got) {
+		fmt.Fprintf(
+			errBuf,
+			"\nHWInterrupt:\n\twant: %v (%q)\n\t got: %v (%q)",
+			want, want, got, got,
+		)
+	}
+
+	want, got = wantIrqInfo.Devices, gotIrqInfo.Devices
+	if !bytes.Equal(want, got) {
+		fmt.Fprintf(
+			errBuf,
+			"\nDevicest:\n\twant: %v (%q)\n\t got: %v (%q)",
+			want, want, got, got,
+		)
+	}
+
+	if wantIrqInfo.Changed != gotIrqInfo.Changed {
+		fmt.Fprintf(
+			errBuf,
+			"\nChanged: want: %v, got: %v",
+			wantIrqInfo.Changed, gotIrqInfo.Changed,
+		)
+	}
+
+	if errBuf.Len() > 0 {
+		fmt.Fprintf(diffBuf, "\ninfoLine: %q", gotIrqInfo.infoLine)
+		diffBuf.ReadFrom(errBuf)
+	}
+	return diffBuf
+}
+
+func testInterruptsIrqInfo(tc *InterruptsIrqInfoTestCase, t *testing.T) {
+	irqInfo := &InterruptsIrqInfo{}
+	irqInfo.update([]byte(tc.infoLine))
+
+	diffBuf := cmpInterruptsIrqInfo(tc.wantIrqInfo, irqInfo, nil)
+
+	if diffBuf.Len() > 0 {
+		t.Fatal(diffBuf)
+	}
+}
+
+func cloneInterruptsAndInfo(interrupts *Interrupts) *Interrupts {
+	// Normally Info is shared for testing it should be cloned as well:
+	newInterrupts := interrupts.Clone(true)
+	newInterrupts.Info = make(map[string]*InterruptsIrqInfo)
+	for irq, irqInfo := range interrupts.Info {
+		newIrqInfo := &InterruptsIrqInfo{
+			scanNum: irqInfo.scanNum,
+		}
+		if irqInfo.Controller != nil {
+			newIrqInfo.Controller = make([]byte, len(irqInfo.Controller))
+			copy(newIrqInfo.Controller, irqInfo.Controller)
+		}
+		if irqInfo.HWInterrupt != nil {
+			newIrqInfo.HWInterrupt = make([]byte, len(irqInfo.HWInterrupt))
+			copy(newIrqInfo.HWInterrupt, irqInfo.HWInterrupt)
+		}
+		if irqInfo.Devices != nil {
+			newIrqInfo.Devices = make([]byte, len(irqInfo.Devices))
+			copy(newIrqInfo.Devices, irqInfo.Devices)
+		}
+		if irqInfo.infoLine != nil {
+			newIrqInfo.infoLine = make([]byte, len(irqInfo.infoLine))
+			copy(newIrqInfo.infoLine, irqInfo.infoLine)
+		}
+		newInterrupts.Info[irq] = newIrqInfo
+	}
+	return newInterrupts
+}
 
 func testInterruptsParser(tc *InterruptsTestCase, t *testing.T) {
 	t.Logf(`
@@ -28,7 +205,7 @@ primeInterrupts=%v
 
 	var interrupts *Interrupts
 	if tc.primeInterrupts != nil {
-		interrupts = tc.primeInterrupts.Clone(true)
+		interrupts = cloneInterruptsAndInfo(tc.primeInterrupts)
 		interrupts.path = InterruptsPath(tc.procfsRoot)
 	} else {
 		interrupts = NewInterrupts(tc.procfsRoot)
@@ -53,24 +230,7 @@ primeInterrupts=%v
 
 	diffBuf := &bytes.Buffer{}
 
-	// if !bytes.Equal(wantInterrupts.cpuHeaderLine, interrupts.cpuHeaderLine) {
-	// 	fmt.Fprintf(
-	// 		diffBuf,
-	// 		"\ncpuHeaderLine:\n\twant: %q,\n\t got: %q",
-	// 		wantInterrupts.cpuHeaderLine, interrupts.cpuHeaderLine,
-	// 	)
-	// }
-	if wantInterrupts.IndexToCpuChanged != interrupts.IndexToCpuChanged {
-		fmt.Fprintf(
-			diffBuf,
-			"\nIndexToCpuChanged: want: %v, got: %v",
-			wantInterrupts.IndexToCpuChanged, interrupts.IndexToCpuChanged,
-		)
-	}
-	if diffBuf.Len() > 0 {
-		t.Fatal(diffBuf.String())
-	}
-
+	// Counters:
 	if wantInterrupts.numCounters != interrupts.numCounters {
 		fmt.Fprintf(
 			diffBuf,
@@ -79,129 +239,156 @@ primeInterrupts=%v
 		)
 	}
 	if diffBuf.Len() > 0 {
-		t.Fatal(diffBuf.String())
+		t.Fatal(diffBuf)
 	}
 
-	if wantInterrupts.CounterIndexToCpuNum == nil {
-		if interrupts.CounterIndexToCpuNum != nil {
+	for irq, wantCounters := range wantInterrupts.Counters {
+		gotCounters := interrupts.Counters[irq]
+		if gotCounters == nil {
 			fmt.Fprintf(
 				diffBuf,
-				"\nCounterIndexToCpuNum: want: %v, got: %v",
-				wantInterrupts.CounterIndexToCpuNum, interrupts.CounterIndexToCpuNum,
-			)
-		}
-	} else {
-		if interrupts.CounterIndexToCpuNum == nil {
-			fmt.Fprintf(
-				diffBuf,
-				"\nCounterIndexToCpuNum: want: %v, got: %v",
-				wantInterrupts.CounterIndexToCpuNum, interrupts.CounterIndexToCpuNum,
-			)
-		}
-
-		if len(wantInterrupts.CounterIndexToCpuNum) != len(interrupts.CounterIndexToCpuNum) {
-			fmt.Fprintf(
-				diffBuf,
-				"\nCounterIndexToCpuNum length: want %d, got: %d",
-				len(wantInterrupts.CounterIndexToCpuNum), len(interrupts.CounterIndexToCpuNum),
-			)
-		}
-
-		for i, wantCpuNum := range wantInterrupts.CounterIndexToCpuNum {
-			gotCpuNum := interrupts.CounterIndexToCpuNum[i]
-			if wantCpuNum != gotCpuNum {
-				fmt.Fprintf(
-					diffBuf,
-					"\nCounterIndexToCpuNum[%d]: want: %d, got: %d",
-					i, wantCpuNum, gotCpuNum,
-				)
-			}
-		}
-	}
-	if diffBuf.Len() > 0 {
-		t.Fatal(diffBuf.String())
-	}
-
-	for irq, wantInterruptsIrq := range wantInterrupts.Irq {
-		gotInterruptsIrq := interrupts.Irq[irq]
-		if gotInterruptsIrq == nil {
-			fmt.Fprintf(
-				diffBuf,
-				"\nIrq: missing %q",
+				"\nCounters: missing IRQ: %s",
 				irq,
 			)
-			continue
-		}
-
-		wantCounters, gotCounters := wantInterruptsIrq.Counters, gotInterruptsIrq.Counters
-		if len(gotCounters) != wantInterrupts.numCounters {
+		} else if len(wantCounters) < len(gotCounters) {
 			fmt.Fprintf(
 				diffBuf,
-				"\nIrq[%q].Counters length: want: %d, got: %d",
-				irq, wantInterrupts.numCounters, len(gotCounters),
+				"\nlen(Counters[%q]): want: %d, got: %d",
+				irq, len(wantCounters), len(gotCounters),
 			)
 		} else {
-			for i := 0; i < wantInterrupts.numCounters; i++ {
-				wantCounter := wantCounters[i]
-				gotCounter := gotCounters[i]
-				if wantCounter != gotCounter {
+			for i, want := range wantCounters {
+				got := gotCounters[i]
+				if want != got {
 					fmt.Fprintf(
 						diffBuf,
-						"\nIrq[%q].Counters[%d]: want: %d, got: %d",
-						irq, i, wantCounter, gotCounter,
+						"\nCounters[%q][%d]: want: %d, got: %d",
+						irq, i, want, got,
 					)
 				}
 			}
 		}
+	}
 
-		if !bytes.Equal(wantInterruptsIrq.Controller, gotInterruptsIrq.Controller) {
+	for irq := range interrupts.Counters {
+		if wantInterrupts.Counters[irq] == nil {
 			fmt.Fprintf(
 				diffBuf,
-				"\nIrq[%q].Controller:\n\twant: %v (%q)\n\tgot: %v (%q)",
+				"\nCounters: unexpected IRQ: %q",
 				irq,
-				wantInterruptsIrq.Controller, wantInterruptsIrq.Controller,
-				gotInterruptsIrq.Controller, gotInterruptsIrq.Controller,
-			)
-		}
-		if !bytes.Equal(wantInterruptsIrq.HWInterrupt, gotInterruptsIrq.HWInterrupt) {
-			fmt.Fprintf(
-				diffBuf,
-				"\nIrq[%q].HWInterrupt:\n\twant: %v (%q)\n\tgot: %v (%q)",
-				irq,
-				wantInterruptsIrq.HWInterrupt, wantInterruptsIrq.HWInterrupt,
-				gotInterruptsIrq.HWInterrupt, gotInterruptsIrq.HWInterrupt,
-			)
-		}
-		if !bytes.Equal(wantInterruptsIrq.Devices, gotInterruptsIrq.Devices) {
-			fmt.Fprintf(
-				diffBuf,
-				"\nIrq[%q].Devices:\n\twant: %v (%q)\n\tgot: %v (%q)",
-				irq,
-				wantInterruptsIrq.Devices, wantInterruptsIrq.Devices,
-				gotInterruptsIrq.Devices, gotInterruptsIrq.Devices,
-			)
-		}
-		if wantInterruptsIrq.InfoChanged != gotInterruptsIrq.InfoChanged {
-			fmt.Fprintf(
-				diffBuf,
-				"\nIrq[%q].InfoChanged: want: %v, got: %v",
-				irq, wantInterruptsIrq.InfoChanged, gotInterruptsIrq.InfoChanged,
 			)
 		}
 	}
 
-	for irq := range interrupts.Irq {
-		if wantInterrupts.Irq[irq] == nil {
+	cmpInterruptsCounterIndexToCpuNumMap(
+		wantInterrupts.CounterIndexToCpuNum, interrupts.CounterIndexToCpuNum,
+		string(interrupts.cpuHeaderLine),
+		diffBuf,
+	)
+
+	if diffBuf.Len() > 0 {
+		t.Fatal(diffBuf)
+	}
+
+	// Info:
+	for irq, wantIrqInfo := range wantInterrupts.Info {
+		gotIrqInfo := interrupts.Info[irq]
+		if gotIrqInfo == nil {
 			fmt.Fprintf(
 				diffBuf,
-				"\nIrq: unexpected %q",
+				"\nInfo: missing IRQ: %q",
+				irq,
+			)
+		} else {
+			infoDiff := cmpInterruptsIrqInfo(wantIrqInfo, gotIrqInfo, nil)
+			if infoDiff.Len() > 0 {
+				fmt.Fprintf(
+					diffBuf,
+					"\nInfo[%q]: %s",
+					irq, infoDiff,
+				)
+			}
+		}
+	}
+
+	for irq := range interrupts.Info {
+		if wantInterrupts.Info[irq] == nil {
+			fmt.Fprintf(
+				diffBuf,
+				"\nInfo: unexpected IRQ: %q",
 				irq,
 			)
 		}
 	}
 
 	if diffBuf.Len() > 0 {
-		t.Fatal(diffBuf.String())
+		t.Fatal(diffBuf)
+	}
+}
+
+func TestInterruptsUpdateCounterIndexToCpuNumMap(t *testing.T) {
+	for _, tc := range []*InterruptsCounterIndexToCpuNumTestCase{
+		{
+			"",
+			" CPU0 CPU1",
+			nil,
+		},
+		{
+			"",
+			" CPU0 CPU12",
+			[]int{0, 12},
+		},
+	} {
+		t.Run(
+			tc.name,
+			func(t *testing.T) { testInterruptsUpdateCounterIndexToCpuNumMap(tc, t) },
+		)
+	}
+}
+
+func TestInterruptsIrqInfo(t *testing.T) {
+	for _, tc := range []*InterruptsIrqInfoTestCase{
+		{
+			infoLine: "controller hw-interrupt device",
+			wantIrqInfo: &InterruptsIrqInfo{
+				Controller:  []byte("controller"),
+				HWInterrupt: []byte("hw-interrupt"),
+				Devices:     []byte("device"),
+				Changed:     true,
+			},
+		},
+		{
+			infoLine: "controller hw-interrupt dev1,dev2",
+			wantIrqInfo: &InterruptsIrqInfo{
+				Controller:  []byte("controller"),
+				HWInterrupt: []byte("hw-interrupt"),
+				Devices:     []byte("dev1,dev2"),
+				Changed:     true,
+			},
+		},
+		{
+			infoLine: "\tcontroller    hw-interrupt\t\tdevice          \t",
+			wantIrqInfo: &InterruptsIrqInfo{
+				Controller:  []byte("controller"),
+				HWInterrupt: []byte("hw-interrupt"),
+				Devices:     []byte("device"),
+				Changed:     true,
+			},
+		},
+		{
+			infoLine: "controller hw-interrupt ",
+			wantIrqInfo: &InterruptsIrqInfo{
+				Controller:  []byte("controller"),
+				HWInterrupt: []byte("hw-interrupt"),
+				Devices:     make([]byte, 0),
+				Changed:     true,
+			},
+		},
+	} {
+		t.Run(
+			tc.name,
+			func(t *testing.T) { testInterruptsIrqInfo(tc, t) },
+		)
 	}
 }
 
@@ -211,215 +398,202 @@ func TestInterruptsParser(t *testing.T) {
 			name:       "field_mapping",
 			procfsRoot: path.Join(interruptsTestdataDir, "field_mapping"),
 			wantInterrupts: &Interrupts{
+				Counters: map[string][]uint64{
+					"0":           {0, 1},
+					"1":           {1000, 1001},
+					"4":           {4000, 4001},
+					"non-numeric": {1000000, 1000001},
+					"no-info":     {2000000, 2000001},
+				},
 				CounterIndexToCpuNum: nil,
-				Irq: map[string]*InterruptsIrq{
+				Info: map[string]*InterruptsIrqInfo{
 					"0": {
-						Counters:    []uint64{0, 1},
 						Controller:  []byte("controller-0"),
 						HWInterrupt: []byte("hw-irq-0"),
 						Devices:     []byte("device0"),
-						InfoChanged: true,
+						Changed:     true,
 					},
 					"1": {
-						Counters:    []uint64{1000, 1001},
 						Controller:  []byte("controller-1"),
 						HWInterrupt: []byte("hw-irq-1"),
 						Devices:     []byte("device1-1,device1-2"),
-						InfoChanged: true,
+						Changed:     true,
 					},
 					"4": {
-						Counters:    []uint64{4000, 4001},
 						Controller:  []byte("controller-4"),
 						HWInterrupt: []byte("hw-irq-4"),
 						Devices:     []byte("device4-1,device4-2"),
-						InfoChanged: true,
+						Changed:     true,
 					},
-					"non-numeric": {
-						Counters: []uint64{1000000, 1000001},
-					},
-					"no-info": {
-						Counters: []uint64{2000000, 2000001},
-					},
+					"non-numeric": {},
+					"no-info":     {},
 				},
-				IndexToCpuChanged: true,
-				numCounters:       2,
+				numCounters: 2,
 			},
 		},
 		{
 			name:       "remove_irq",
 			procfsRoot: path.Join(interruptsTestdataDir, "field_mapping"),
 			primeInterrupts: &Interrupts{
+				Counters: map[string][]uint64{
+					"0":           {0, 1},
+					"1":           {1000, 1001},
+					"4":           {4000, 4001},
+					"non-numeric": {1000000, 1000001},
+					"no-info":     {2000000, 2000001},
+					// To be removed:
+					"11":     {11000, 11001},
+					"delete": {3000000, 3000001},
+				},
 				CounterIndexToCpuNum: nil,
-				Irq: map[string]*InterruptsIrq{
+				Info: map[string]*InterruptsIrqInfo{
 					"0": {
-						Counters:    []uint64{0, 1},
 						Controller:  []byte("controller-0"),
 						HWInterrupt: []byte("hw-irq-0"),
 						Devices:     []byte("device0"),
-						InfoChanged: true,
-						info:        []byte("controller-0   hw-irq-0    device0"),
+						Changed:     true,
 						scanNum:     1,
 					},
 					"1": {
-						Counters:    []uint64{1000, 1001},
 						Controller:  []byte("controller-1"),
 						HWInterrupt: []byte("hw-irq-1"),
 						Devices:     []byte("device1-1,device1-2"),
-						InfoChanged: true,
-						info:        []byte("controller-1   hw-irq-1    device1-1,device1-2  "),
+						Changed:     true,
 						scanNum:     1,
 					},
 					"4": {
-						Counters:    []uint64{4000, 4001},
 						Controller:  []byte("controller-4"),
 						HWInterrupt: []byte("hw-irq-4"),
 						Devices:     []byte("device4-1,device4-2"),
-						InfoChanged: true,
-						info:        []byte("controller-4   hw-irq-4    device4-1,device4-2"),
+						Changed:     true,
 						scanNum:     1,
 					},
-					"non-numeric": {
-						Counters: []uint64{1000000, 1000001},
-						scanNum:  1,
-					},
-					"no-info": {
-						Counters: []uint64{2000000, 2000001},
-						scanNum:  1,
-					},
-					// removed IRQs:
+					"non-numeric": {},
+					"no-info":     {},
+					// To be removed:
 					"11": {
-						Counters:    []uint64{11000, 11001},
 						Controller:  []byte("controller-11"),
 						HWInterrupt: []byte("hw-irq-11"),
 						Devices:     []byte("device11-1,device11-2"),
-						InfoChanged: false,
+						Changed:     false,
 						scanNum:     1,
 					},
 					"delete": {
-						Counters: []uint64{3000000, 3000001},
-						scanNum:  1,
+						scanNum: 1,
 					},
 				},
-				IndexToCpuChanged: true,
-				numCounters:       2,
-				cpuHeaderLine:     []byte("                  CPU0           CPU1"),
-				scanNum:           1,
+				numCounters: 2,
+				scanNum:     1,
 			},
 			wantInterrupts: &Interrupts{
+				Counters: map[string][]uint64{
+					"0":           {0, 1},
+					"1":           {1000, 1001},
+					"4":           {4000, 4001},
+					"non-numeric": {1000000, 1000001},
+					"no-info":     {2000000, 2000001},
+				},
 				CounterIndexToCpuNum: nil,
-				Irq: map[string]*InterruptsIrq{
+				Info: map[string]*InterruptsIrqInfo{
 					"0": {
-						Counters:    []uint64{0, 1},
 						Controller:  []byte("controller-0"),
 						HWInterrupt: []byte("hw-irq-0"),
 						Devices:     []byte("device0"),
-						InfoChanged: false,
+						Changed:     true,
 					},
 					"1": {
-						Counters:    []uint64{1000, 1001},
 						Controller:  []byte("controller-1"),
 						HWInterrupt: []byte("hw-irq-1"),
 						Devices:     []byte("device1-1,device1-2"),
-						InfoChanged: false,
+						Changed:     true,
 					},
 					"4": {
-						Counters:    []uint64{4000, 4001},
 						Controller:  []byte("controller-4"),
 						HWInterrupt: []byte("hw-irq-4"),
 						Devices:     []byte("device4-1,device4-2"),
-						InfoChanged: false,
+						Changed:     true,
 					},
-					"non-numeric": {
-						Counters: []uint64{1000000, 1000001},
-					},
-					"no-info": {
-						Counters: []uint64{2000000, 2000001},
-					},
+					"non-numeric": {},
+					"no-info":     {},
 				},
-				IndexToCpuChanged: false,
-				numCounters:       2,
+				numCounters: 2,
 			},
 		},
 		{
 			name:       "remove_cpu",
 			procfsRoot: path.Join(interruptsTestdataDir, "remove_cpu"),
 			primeInterrupts: &Interrupts{
+				Counters: map[string][]uint64{
+					"0":           {20, 21},
+					"1":           {21000, 21001},
+					"4":           {24000, 24001},
+					"non-numeric": {21000000, 21000001},
+					"no-info":     {22000000, 22000001},
+				},
 				CounterIndexToCpuNum: nil,
-				Irq: map[string]*InterruptsIrq{
+				Info: map[string]*InterruptsIrqInfo{
 					"0": {
-						Counters:    []uint64{20, 21},
 						Controller:  []byte("controller-0"),
 						HWInterrupt: []byte("hw-irq-0"),
 						Devices:     []byte("device0"),
-						InfoChanged: true,
-						info:        []byte("controller-0   hw-irq-0    device0"),
-						scanNum:     10,
+						Changed:     true,
+						infoLine:    []byte("controller-0   hw-irq-0    device0"),
+						scanNum:     1,
 					},
 					"1": {
-						Counters:    []uint64{21000, 21001},
 						Controller:  []byte("controller-1"),
 						HWInterrupt: []byte("hw-irq-1"),
 						Devices:     []byte("device1-1,device1-2"),
-						InfoChanged: true,
-						info:        []byte("controller-1   hw-irq-1    device1-1,device1-2  "),
-						scanNum:     10,
+						Changed:     true,
+						infoLine:    []byte("controller-1   hw-irq-1    device1-1,device1-2"),
+						scanNum:     1,
 					},
 					"4": {
-						Counters:    []uint64{24000, 24001},
 						Controller:  []byte("controller-4"),
 						HWInterrupt: []byte("hw-irq-4"),
 						Devices:     []byte("device4-1,device4-2"),
-						InfoChanged: true,
-						info:        []byte("controller-4   hw-irq-4    device4-1,device4-2"),
-						scanNum:     10,
+						Changed:     true,
+						infoLine:    []byte("controller-4   hw-irq-4    device4-1,device4-2"),
+						scanNum:     1,
 					},
-					"non-numeric": {
-						Counters: []uint64{21000000, 21000001},
-						scanNum:  10,
-					},
-					"no-info": {
-						Counters: []uint64{22000000, 22000001},
-						scanNum:  10,
-					},
+					"non-numeric": {},
+					"no-info":     {},
 				},
-				IndexToCpuChanged: true,
-				numCounters:       2,
-				cpuHeaderLine:     []byte("                  CPU0           CPU1"),
-				scanNum:           10,
+				numCounters: 2,
+				scanNum:     1,
 			},
 			wantInterrupts: &Interrupts{
+				Counters: map[string][]uint64{
+					"0":           {1},
+					"1":           {1001},
+					"4":           {4001},
+					"non-numeric": {1000001},
+					"no-info":     {2000001},
+				},
 				CounterIndexToCpuNum: []int{1},
-				Irq: map[string]*InterruptsIrq{
+				Info: map[string]*InterruptsIrqInfo{
 					"0": {
-						Counters:    []uint64{1},
 						Controller:  []byte("controller-0"),
 						HWInterrupt: []byte("hw-irq-0"),
 						Devices:     []byte("device0"),
-						InfoChanged: false,
+						Changed:     false,
 					},
 					"1": {
-						Counters:    []uint64{1001},
 						Controller:  []byte("controller-1"),
 						HWInterrupt: []byte("hw-irq-1"),
 						Devices:     []byte("device1-1,device1-2"),
-						InfoChanged: true,
+						Changed:     false,
 					},
 					"4": {
-						Counters:    []uint64{4001},
 						Controller:  []byte("controller-4"),
 						HWInterrupt: []byte("hw-irq-4"),
 						Devices:     []byte("device4-1,device4-2"),
-						InfoChanged: false,
+						Changed:     false,
 					},
-					"non-numeric": {
-						Counters: []uint64{1000001},
-					},
-					"no-info": {
-						Counters: []uint64{2000001},
-					},
+					"non-numeric": {},
+					"no-info":     {},
 				},
-				IndexToCpuChanged: true,
-				numCounters:       1,
+				numCounters: 1,
 			},
 		},
 	} {
