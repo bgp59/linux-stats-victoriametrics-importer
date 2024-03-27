@@ -54,14 +54,24 @@ type InterruptsIrqInfo struct {
 	scanNum int
 }
 
+type InterruptsInfo struct {
+	// IRQ info, indexed by IRQ:
+	IrqInfo map[string]*InterruptsIrqInfo
+	// Whether any info changed at this scan or not:
+	Changed bool
+	// Each scan has a different scan# from the previous one. IRQ's not
+	// associated with the most recent scan will be removed:
+	scanNum int
+}
+
 type Interrupts struct {
 	// IRQ counters, indexed by IRQ:
 	Counters map[string][]uint64
 	// Mapping counter# -> CPU#, based on the header line; nil if no mapping is
 	// needed, i.e. counter# == CPU#:
 	CounterIndexToCpuNum []int
-	// IRQ info, indexed by IRQ:
-	Info map[string]*InterruptsIrqInfo
+	// Info:
+	Info *InterruptsInfo
 
 	// The path file to  read:
 	path string
@@ -72,9 +82,6 @@ type Interrupts struct {
 	// The number of counters per line; this is needed if CounterIndexToCpuNum
 	// is nil, since it cannot be inferred:
 	numCounters int
-	// Each scan has a different scan# from the previous one. IRQ's not
-	// associated with the most recent scan will be removed:
-	scanNum int
 }
 
 var interruptsReadFileBufPool = ReadFileBufPoolReadUnbound
@@ -83,10 +90,16 @@ func InterruptsPath(procfsRoot string) string {
 	return path.Join(procfsRoot, "interrupts")
 }
 
+func NewInterruptsInfo() *InterruptsInfo {
+	return &InterruptsInfo{
+		IrqInfo: map[string]*InterruptsIrqInfo{},
+	}
+}
+
 func NewInterrupts(procfsRoot string) *Interrupts {
 	return &Interrupts{
 		Counters: map[string][]uint64{},
-		Info:     map[string]*InterruptsIrqInfo{},
+		Info:     NewInterruptsInfo(),
 		path:     InterruptsPath(procfsRoot),
 	}
 }
@@ -101,7 +114,6 @@ func (interrupts *Interrupts) Clone(full bool) *Interrupts {
 		Info:        interrupts.Info, // i.e. shared
 		path:        interrupts.path,
 		numCounters: interrupts.numCounters,
-		scanNum:     interrupts.scanNum,
 	}
 	if interrupts.Counters != nil {
 		newInterrupts.Counters = make(map[string][]uint64)
@@ -197,13 +209,10 @@ func (irqInfo *InterruptsIrqInfo) update(infoLine []byte) {
 	}
 	start = pos
 	// Strip trailing spaces, if any:
-	end := l - 1
-	for ; start <= end && isWhitespace[infoLine[end]]; end-- {
+	pos = l - 1
+	for ; start <= pos && isWhitespace[infoLine[pos]]; pos-- {
 	}
-	irqInfo.Devices = irqInfo.infoLine[start : end+1]
-
-	// Mark the entry as changed:
-	irqInfo.Changed = true
+	irqInfo.Devices = irqInfo.infoLine[start : pos+1]
 }
 
 func (interrupts *Interrupts) Parse() error {
@@ -215,8 +224,9 @@ func (interrupts *Interrupts) Parse() error {
 
 	buf, l := fBuf.Bytes(), fBuf.Len()
 
-	scanNum := interrupts.scanNum + 1
 	numCounters := interrupts.numCounters
+	info := interrupts.Info
+	scanNum := info.scanNum + 1
 	for pos, lineNum := 0, 1; pos < l; lineNum++ {
 		// Line starts here:
 		startLine, eol := pos, false
@@ -317,10 +327,10 @@ func (interrupts *Interrupts) Parse() error {
 		}
 
 		// Info:
-		irqInfo := interrupts.Info[irq]
+		irqInfo := info.IrqInfo[irq]
 		if irqInfo == nil {
 			irqInfo = &InterruptsIrqInfo{}
-			interrupts.Info[irq] = irqInfo
+			info.IrqInfo[irq] = irqInfo
 		}
 
 		// Handle description, that's applicable for numerical IRQ's only:
@@ -337,7 +347,8 @@ func (interrupts *Interrupts) Parse() error {
 			} else {
 				infoLine = buf[startInfo:pos]
 			}
-			if !bytes.Equal(irqInfo.infoLine, infoLine) {
+
+			if irqInfo.Changed = !bytes.Equal(irqInfo.infoLine, infoLine); irqInfo.Changed {
 				irqInfo.update(infoLine)
 			}
 		}
@@ -352,13 +363,13 @@ func (interrupts *Interrupts) Parse() error {
 	}
 
 	// Cleanup IRQs no longer in use, if any:
-	for irq, irqInfo := range interrupts.Info {
+	for irq, irqInfo := range info.IrqInfo {
 		if irqInfo.scanNum != scanNum {
 			delete(interrupts.Counters, irq)
-			delete(interrupts.Info, irq)
+			delete(info.IrqInfo, irq)
 		}
 	}
-	interrupts.scanNum = scanNum
+	info.scanNum = scanNum
 
 	return nil
 }
