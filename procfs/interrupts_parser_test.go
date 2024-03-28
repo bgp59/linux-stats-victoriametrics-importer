@@ -332,6 +332,14 @@ primeInterrupts=%v
 		}
 	}
 
+	if wantInterrupts.Info.Changed != interrupts.Info.Changed {
+		fmt.Fprintf(
+			diffBuf,
+			"\nInfo.Changed: want: %v, got: %v",
+			wantInterrupts.Info.Changed, interrupts.Info.Changed,
+		)
+	}
+
 	if diffBuf.Len() > 0 {
 		t.Fatal(diffBuf)
 	}
@@ -365,7 +373,6 @@ func TestInterruptsIrqInfo(t *testing.T) {
 				Controller:  []byte("controller"),
 				HWInterrupt: []byte("hw-interrupt"),
 				Devices:     []byte("device"),
-				Changed:     true,
 			},
 		},
 		{
@@ -374,7 +381,6 @@ func TestInterruptsIrqInfo(t *testing.T) {
 				Controller:  []byte("controller"),
 				HWInterrupt: []byte("hw-interrupt"),
 				Devices:     []byte("dev1,dev2"),
-				Changed:     true,
 			},
 		},
 		{
@@ -383,7 +389,6 @@ func TestInterruptsIrqInfo(t *testing.T) {
 				Controller:  []byte("controller"),
 				HWInterrupt: []byte("hw-interrupt"),
 				Devices:     []byte("device"),
-				Changed:     true,
 			},
 		},
 		{
@@ -392,7 +397,6 @@ func TestInterruptsIrqInfo(t *testing.T) {
 				Controller:  []byte("controller"),
 				HWInterrupt: []byte("hw-interrupt"),
 				Devices:     make([]byte, 0),
-				Changed:     true,
 			},
 		},
 	} {
@@ -440,6 +444,7 @@ func TestInterruptsParser(t *testing.T) {
 						"non-numeric": {},
 						"no-info":     {},
 					},
+					Changed: true,
 				},
 				numCounters: 2,
 			},
@@ -532,6 +537,7 @@ func TestInterruptsParser(t *testing.T) {
 						"non-numeric": {},
 						"no-info":     {},
 					},
+					Changed: true,
 				},
 				numCounters: 2,
 			},

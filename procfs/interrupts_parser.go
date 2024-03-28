@@ -226,6 +226,7 @@ func (interrupts *Interrupts) Parse() error {
 
 	numCounters := interrupts.numCounters
 	info := interrupts.Info
+	info.Changed = false
 	scanNum := info.scanNum + 1
 	for pos, lineNum := 0, 1; pos < l; lineNum++ {
 		// Line starts here:
@@ -350,6 +351,7 @@ func (interrupts *Interrupts) Parse() error {
 
 			if irqInfo.Changed = !bytes.Equal(irqInfo.infoLine, infoLine); irqInfo.Changed {
 				irqInfo.update(infoLine)
+				info.Changed = true
 			}
 		}
 
