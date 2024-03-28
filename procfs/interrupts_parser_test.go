@@ -139,11 +139,11 @@ func cmpInterruptsIrqInfo(
 		)
 	}
 
-	if wantIrqInfo.IrqChanged != gotIrqInfo.IrqChanged {
+	if wantIrqInfo.Changed != gotIrqInfo.Changed {
 		fmt.Fprintf(
 			errBuf,
 			"\nChanged: want: %v, got: %v",
-			wantIrqInfo.IrqChanged, gotIrqInfo.IrqChanged,
+			wantIrqInfo.Changed, gotIrqInfo.Changed,
 		)
 	}
 
@@ -179,8 +179,8 @@ func cloneInterruptsInfo(info *InterruptsInfo) *InterruptsInfo {
 	}
 	for irq, irqInfo := range info.IrqInfo {
 		newIrqInfo := &InterruptsIrqInfo{
-			IrqChanged: irqInfo.IrqChanged,
-			scanNum:    irqInfo.scanNum,
+			Changed: irqInfo.Changed,
+			scanNum: irqInfo.scanNum,
 		}
 		if irqInfo.Controller != nil {
 			newIrqInfo.Controller = make([]byte, len(irqInfo.Controller))
@@ -440,19 +440,19 @@ func TestInterruptsParser(t *testing.T) {
 							Controller:  []byte("controller-0"),
 							HWInterrupt: []byte("hw-irq-0"),
 							Devices:     []byte("device0"),
-							IrqChanged:  true,
+							Changed:     true,
 						},
 						"1": {
 							Controller:  []byte("controller-1"),
 							HWInterrupt: []byte("hw-irq-1"),
 							Devices:     []byte("device1-1,device1-2"),
-							IrqChanged:  true,
+							Changed:     true,
 						},
 						"4": {
 							Controller:  []byte("controller-4"),
 							HWInterrupt: []byte("hw-irq-4"),
 							Devices:     []byte("device4-1,device4-2"),
-							IrqChanged:  true,
+							Changed:     true,
 						},
 						"non-numeric": {},
 						"no-info":     {},
@@ -484,21 +484,21 @@ func TestInterruptsParser(t *testing.T) {
 							Controller:  []byte("controller-0"),
 							HWInterrupt: []byte("hw-irq-0"),
 							Devices:     []byte("device0"),
-							IrqChanged:  true,
+							Changed:     true,
 							scanNum:     1,
 						},
 						"1": {
 							Controller:  []byte("controller-1"),
 							HWInterrupt: []byte("hw-irq-1"),
 							Devices:     []byte("device1-1,device1-2"),
-							IrqChanged:  true,
+							Changed:     true,
 							scanNum:     1,
 						},
 						"4": {
 							Controller:  []byte("controller-4"),
 							HWInterrupt: []byte("hw-irq-4"),
 							Devices:     []byte("device4-1,device4-2"),
-							IrqChanged:  true,
+							Changed:     true,
 							scanNum:     1,
 						},
 						"non-numeric": {},
@@ -508,7 +508,7 @@ func TestInterruptsParser(t *testing.T) {
 							Controller:  []byte("controller-11"),
 							HWInterrupt: []byte("hw-irq-11"),
 							Devices:     []byte("device11-1,device11-2"),
-							IrqChanged:  false,
+							Changed:     false,
 							scanNum:     1,
 						},
 						"delete": {
@@ -537,19 +537,19 @@ func TestInterruptsParser(t *testing.T) {
 							Controller:  []byte("controller-0"),
 							HWInterrupt: []byte("hw-irq-0"),
 							Devices:     []byte("device0"),
-							IrqChanged:  true,
+							Changed:     true,
 						},
 						"1": {
 							Controller:  []byte("controller-1"),
 							HWInterrupt: []byte("hw-irq-1"),
 							Devices:     []byte("device1-1,device1-2"),
-							IrqChanged:  true,
+							Changed:     true,
 						},
 						"4": {
 							Controller:  []byte("controller-4"),
 							HWInterrupt: []byte("hw-irq-4"),
 							Devices:     []byte("device4-1,device4-2"),
-							IrqChanged:  true,
+							Changed:     true,
 						},
 						"non-numeric": {},
 						"no-info":     {},
@@ -578,7 +578,7 @@ func TestInterruptsParser(t *testing.T) {
 							Controller:  []byte("controller-0"),
 							HWInterrupt: []byte("hw-irq-0"),
 							Devices:     []byte("device0"),
-							IrqChanged:  true,
+							Changed:     true,
 							infoLine:    []byte("controller-0   hw-irq-0    device0"),
 							scanNum:     1,
 						},
@@ -586,7 +586,7 @@ func TestInterruptsParser(t *testing.T) {
 							Controller:  []byte("controller-1"),
 							HWInterrupt: []byte("hw-irq-1"),
 							Devices:     []byte("device1-1,device1-2"),
-							IrqChanged:  true,
+							Changed:     true,
 							infoLine:    []byte("controller-1   hw-irq-1    device1-1,device1-2"),
 							scanNum:     1,
 						},
@@ -594,7 +594,7 @@ func TestInterruptsParser(t *testing.T) {
 							Controller:  []byte("controller-4"),
 							HWInterrupt: []byte("hw-irq-4"),
 							Devices:     []byte("device4-1,device4-2"),
-							IrqChanged:  true,
+							Changed:     true,
 							infoLine:    []byte("controller-4   hw-irq-4    device4-1,device4-2"),
 							scanNum:     1,
 						},
@@ -623,19 +623,19 @@ func TestInterruptsParser(t *testing.T) {
 							Controller:  []byte("controller-0"),
 							HWInterrupt: []byte("hw-irq-0"),
 							Devices:     []byte("device0"),
-							IrqChanged:  false,
+							Changed:     false,
 						},
 						"1": {
 							Controller:  []byte("controller-1"),
 							HWInterrupt: []byte("hw-irq-1"),
 							Devices:     []byte("device1-1,device1-2"),
-							IrqChanged:  false,
+							Changed:     false,
 						},
 						"4": {
 							Controller:  []byte("controller-4"),
 							HWInterrupt: []byte("hw-irq-4"),
 							Devices:     []byte("device4-1,device4-2"),
-							IrqChanged:  false,
+							Changed:     false,
 						},
 						"non-numeric": {},
 						"no-info":     {},

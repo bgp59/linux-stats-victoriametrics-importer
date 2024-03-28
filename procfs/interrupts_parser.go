@@ -45,7 +45,7 @@ type InterruptsIrqInfo struct {
 	// Whether the info has changed in the current scan or not. This information
 	// may be used for generating cached metrics which may be expensive; the
 	// flag can be tested to verify if the cached values are still valid or not.
-	IrqChanged bool
+	Changed bool
 	// Cache the line part used to build the info above; if unchanged from the
 	// previous scan, the information is still valid:
 	infoLine []byte
@@ -350,7 +350,7 @@ func (interrupts *Interrupts) Parse() error {
 				infoLine = buf[startInfo:pos]
 			}
 
-			if irqInfo.IrqChanged = !bytes.Equal(irqInfo.infoLine, infoLine); irqInfo.IrqChanged {
+			if irqInfo.Changed = !bytes.Equal(irqInfo.infoLine, infoLine); irqInfo.Changed {
 				irqInfo.update(infoLine)
 				info.IrqChanged = true
 			}
