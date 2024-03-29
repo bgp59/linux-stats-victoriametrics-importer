@@ -41,7 +41,7 @@ const (
 	PROC_NET_DEV_LABEL_NAME = "dev"
 
 	// Interval since last generation, i.e. the interval underlying the deltas.
-	// Normally this should be close to scan interval, but this the actual
+	// Normally this should be close to scan interval, but this is the actual
 	// value, rather than the desired one:
 	PROC_NET_DEV_INTERVAL_METRIC_NAME = "proc_net_dev_metrics_delta_sec"
 )
