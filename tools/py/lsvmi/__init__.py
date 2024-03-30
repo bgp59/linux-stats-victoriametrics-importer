@@ -14,4 +14,9 @@ from testutils import (
     lsvmi_testcases_root,
 )
 
-from .metrics_common import HOSTNAME_LABEL_NAME, INSTANCE_LABEL_NAME, uint64_delta
+from .metrics_common import (
+    HOSTNAME_LABEL_NAME,
+    INSTANCE_LABEL_NAME,
+    b64encode_str,
+    uint64_delta,
+)

@@ -18,6 +18,7 @@ from . import (
     DEFAULT_TEST_INSTANCE,
     HOSTNAME_LABEL_NAME,
     INSTANCE_LABEL_NAME,
+    b64encode_str,
     lsvmi_testcases_root,
     uint64_delta,
 )
@@ -59,6 +60,12 @@ class ProcInterruptsMetricsTestCase:
     WantMetrics: Optional[List[str]] = None
     ReportExtra: Optional[bool] = None
     WantZeroDeltaMap: Optional[ZeroDeltaMapType] = None
+    # The []byte fields in .go have to be based64 encoded before JSON
+    # serialization, thus becoming hard to read. Save the original format in
+    # fields ignored by the Go JSON loader.
+    refCrtProcInterrupts: Optional[procfs.Interrupts] = None
+    refPrevProcInterrupts: Optional[procfs.Interrupts] = None
+    refInfoMetricsCache: Optional[Dict[str, str]] = None
 
 
 testcases_file = "proc_interrupts.json"
@@ -200,6 +207,54 @@ def generate_proc_interrupts_metrics(
     return metrics, new_zero_delta_map
 
 
+def b64encode_irq_info(
+    irq_info: Optional[procfs.InterruptsIrqInfo] = None,
+) -> procfs.InterruptsIrqInfo:
+    if irq_info is not None:
+        b64_irq_info = procfs.InterruptsIrqInfo(Changed=irq_info.Changed)
+        if irq_info.Controller is not None:
+            b64_irq_info.Controller = b64encode_str(irq_info.Controller)
+        if irq_info.HWInterrupt is not None:
+            b64_irq_info.HWInterrupt = b64encode_str(irq_info.HWInterrupt)
+        if irq_info.Devices is not None:
+            b64_irq_info.Devices = b64encode_str(irq_info.Devices)
+        return b64_irq_info
+
+
+def b64encode_info(
+    info: Optional[procfs.InterruptsInfo] = None,
+) -> procfs.InterruptsIrqInfo:
+    if info is not None:
+        b64_info = procfs.InterruptsInfo(
+            IrqChanged=info.IrqChanged,
+            CpuListChanged=info.CpuListChanged,
+        )
+        if b64_info.IrqInfo is not None:
+            info.IrqInfo = {
+                irq: b64encode_irq_info(irq_info)
+                for irq, irq_info in info.IrqInfo.items()
+            }
+        return b64_info
+
+
+def b64encode_interrupts(interrupts: procfs.Interrupts) -> procfs.Interrupts:
+    return procfs.Interrupts(
+        CpuList=interrupts.CpuList,
+        Counters=interrupts.Counters,
+        NumCounters=interrupts.NumCounters,
+        Info=b64encode_info(interrupts.Info),
+    )
+
+
+def b64encode_info_metrics_cache(
+    info_metrics_cache: Optional[Dict[str, str]] = None
+) -> Dict[str, str]:
+    if info_metrics_cache is not None:
+        return {
+            irq: b64encode_str(metric) for irq, metric in info_metrics_cache.items()
+        }
+
+
 def generate_proc_interrupts_test_case(
     name: str,
     crt_proc_interrupts: procfs.Interrupts,
@@ -249,24 +304,28 @@ def generate_proc_interrupts_test_case(
             ) != prev_info_metrics_cache.get(irq)
             if crt_irq_info.Changed:
                 crt_proc_interrupts.IrqChanged = True
+    if empty_info_metrics_cache:
+        prev_info_metrics_cache = {}
     return ProcInterruptsMetricsTestCase(
         Name=name,
         Instance=instance,
         Hostname=hostname,
-        CrtProcInterrupts=crt_proc_interrupts,
-        PrevProcInterrupts=prev_proc_interrupts,
+        CrtProcInterrupts=b64encode_interrupts(crt_proc_interrupts),
+        PrevProcInterrupts=b64encode_interrupts(prev_proc_interrupts),
         CrtPromTs=crt_prom_ts,
         PrevPromTs=prev_prom_ts,
         CycleNum=cycle_num,
         FullMetricsFactor=full_metrics_factor,
         ZeroDeltaMap=zero_delta_map,
-        InfoMetricsCache=(
-            prev_info_metrics_cache if not empty_info_metrics_cache else {}
-        ),
+        InfoMetricsCache=b64encode_info_metrics_cache(prev_info_metrics_cache),
         WantMetricsCount=len(metrics),
         WantMetrics=metrics,
         ReportExtra=True,
         WantZeroDeltaMap=want_zero_delta_map,
+        # For the reference fields:
+        refCrtProcInterrupts=crt_proc_interrupts,
+        refPrevProcInterrupts=prev_proc_interrupts,
+        refInfoMetricsCache=prev_info_metrics_cache,
     )
 
 
