@@ -318,6 +318,15 @@ func (pim *ProcInterruptsMetrics) generateMetrics(buf *bytes.Buffer) int {
 			}
 		}
 
+		// Clear zeroDelta of removed IRQ's, if any:
+		if len(pim.zeroDeltaMap) != len(crtProcInterrupts.Counters) {
+			for irq := range pim.zeroDeltaMap {
+				if _, ok := crtProcInterrupts.Counters[irq]; !ok {
+					delete(pim.zeroDeltaMap, irq)
+				}
+			}
+		}
+
 		// Info:
 		if fullMetrics || crtInfo.IrqChanged {
 			for irq, irqInfo := range crtInfo.IrqInfo {
@@ -333,6 +342,18 @@ func (pim *ProcInterruptsMetrics) generateMetrics(buf *bytes.Buffer) int {
 				if fullMetrics || irqInfo.Changed {
 					buf.Write(pim.infoMetricsCache[irq])
 					buf.WriteByte('1')
+					buf.Write(promTs)
+					metricsCount++
+				}
+			}
+		}
+
+		// Clear info for removed IRQ's, if any:
+		if len(pim.infoMetricsCache) != len(crtInfo.IrqInfo) {
+			for irq, prevMetric := range pim.infoMetricsCache {
+				if _, ok := crtProcInterrupts.Counters[irq]; !ok {
+					buf.Write(prevMetric)
+					buf.WriteByte('0')
 					buf.Write(promTs)
 					metricsCount++
 				}
