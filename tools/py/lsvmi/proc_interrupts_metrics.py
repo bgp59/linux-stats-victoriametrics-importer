@@ -185,13 +185,16 @@ def generate_proc_interrupts_metrics(
             crt_info_metric = interrupts_info_metric(instance, hostname, irq, irq_info)
             prev_info_metric = prev_info_metrics_cache.get(irq)
             if prev_info_metric is not None and prev_info_metric != crt_info_metric:
-                metrics.append(f"{prev_info_metric} 0 {crt_prom_ts}")
+                sep = " " if prev_info_metric[-1] != " " else ""
+                metrics.append(f"{prev_info_metric}{sep}0 {crt_prom_ts}")
             if full_metrics or crt_info_metric != prev_info_metric:
-                metrics.append(f"{crt_info_metric} 1 {crt_prom_ts}")
+                sep = " " if crt_info_metric[-1] != " " else ""
+                metrics.append(f"{crt_info_metric}{sep}1 {crt_prom_ts}")
 
         for irq, prev_info_metric in prev_info_metrics_cache.items():
             if irq not in crt_proc_interrupts.Info.IrqInfo:
-                metrics.append(f"{prev_info_metric} 0 {crt_prom_ts}")
+                sep = " " if prev_info_metric[-1] != " " else ""
+                metrics.append(f"{prev_info_metric}{sep}0 {crt_prom_ts}")
 
     metrics.append(
         f"{PROC_INTERRUPTS_INTERVAL_METRIC_NAME}{{"
@@ -201,7 +204,7 @@ def generate_proc_interrupts_metrics(
                 f'{HOSTNAME_LABEL_NAME}="{hostname}"',
             ]
         )
-        + f"}} {interval} {crt_prom_ts}"
+        + f"}} {interval:.06f} {crt_prom_ts}"
     )
 
     return metrics, new_zero_delta_map
@@ -229,8 +232,8 @@ def b64encode_info(
             IrqChanged=info.IrqChanged,
             CpuListChanged=info.CpuListChanged,
         )
-        if b64_info.IrqInfo is not None:
-            info.IrqInfo = {
+        if info.IrqInfo is not None:
+            b64_info.IrqInfo = {
                 irq: b64encode_irq_info(irq_info)
                 for irq, irq_info in info.IrqInfo.items()
             }

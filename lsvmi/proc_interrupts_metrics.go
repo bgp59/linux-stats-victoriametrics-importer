@@ -150,7 +150,7 @@ func (pim *ProcInterruptsMetrics) updateDeltaMetricsPrefixCache(irq string) {
 	}
 	pim.deltaMetricsPrefixCache[irq] = []byte(fmt.Sprintf(
 		`%s{%s="%s",%s="%s",%s="%s"`,
-		PROC_INTERRUPTS_INFO_METRIC,
+		PROC_INTERRUPTS_DELTA_METRIC,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 		PROC_INTERRUPTS_IRQ_LABEL_NAME, irq,
@@ -198,8 +198,8 @@ func (pim *ProcInterruptsMetrics) updateInfoMetricsCache(
 
 	prevInfoMetric := pim.infoMetricsCache[irq]
 	updatedInfoMetrics := []byte(fmt.Sprintf(
-		`%s{%s="%s",%s="%s",%s="%s",%s="%s,%s="%s",%s="%s"} `, // N.B. the space before the value is included!
-		PROC_INTERRUPTS_DELTA_METRIC,
+		`%s{%s="%s",%s="%s",%s="%s",%s="%s",%s="%s",%s="%s"} `, // N.B. the space before the value is included!
+		PROC_INTERRUPTS_INFO_METRIC,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 		PROC_INTERRUPTS_INFO_IRQ_LABEL_NAME, irq,
@@ -260,7 +260,7 @@ func (pim *ProcInterruptsMetrics) generateMetrics(buf *bytes.Buffer) int {
 		// using the map.
 		var prevCpuNumToCounterIndexMap map[int]int
 
-		if crtInfo.CpuListChanged {
+		if crtInfo.CpuListChanged || pim.deltaMetricsSuffixCache == nil {
 			// Delta metrics suffix holds the CPU#, so it needs updating:
 			pim.updateDeltaMetricsSuffixCache()
 
@@ -299,7 +299,11 @@ func (pim *ProcInterruptsMetrics) generateMetrics(buf *bytes.Buffer) int {
 			for crtI, crtCounter := range crtCounters {
 				prevI, ok := crtI, true
 				if prevCpuNumToCounterIndexMap != nil {
-					prevI, ok = prevCpuNumToCounterIndexMap[crtProcInterrupts.CpuList[crtI]]
+					crtCpu := crtI
+					if crtProcInterrupts.CpuList != nil {
+						crtCpu = crtProcInterrupts.CpuList[crtI]
+					}
+					prevI, ok = prevCpuNumToCounterIndexMap[crtCpu]
 					if !ok {
 						// This CPU didn't exist before, so no delta for it:
 						continue
@@ -328,9 +332,10 @@ func (pim *ProcInterruptsMetrics) generateMetrics(buf *bytes.Buffer) int {
 		}
 
 		// Info:
-		if fullMetrics || crtInfo.IrqChanged {
+		if fullMetrics || crtInfo.IrqChanged || len(pim.infoMetricsCache) == 0 {
 			for irq, irqInfo := range crtInfo.IrqInfo {
-				if irqInfo.Changed {
+				metric, ok := pim.infoMetricsCache[irq]
+				if irqInfo.Changed || !ok {
 					prevMetric := pim.updateInfoMetricsCache(irq, irqInfo)
 					if prevMetric != nil {
 						buf.Write(prevMetric)
@@ -338,9 +343,10 @@ func (pim *ProcInterruptsMetrics) generateMetrics(buf *bytes.Buffer) int {
 						buf.Write(promTs)
 						metricsCount++
 					}
+					metric = pim.infoMetricsCache[irq]
 				}
-				if fullMetrics || irqInfo.Changed {
-					buf.Write(pim.infoMetricsCache[irq])
+				if fullMetrics || irqInfo.Changed || !ok {
+					buf.Write(metric)
 					buf.WriteByte('1')
 					buf.Write(promTs)
 					metricsCount++
