@@ -13,15 +13,23 @@ import (
 	"github.com/eparparita/linux-stats-victoriametrics-importer/procfs"
 )
 
+// Mirror ProcInterruptsMetricsIrqData for test purposes with a structure that
+// can be JSON deserialized:
+type ProcInterruptsMetricsIrqDataTest struct {
+	CycleNum          int
+	DeltaMetricPrefix string
+	InfoMetric        string
+	ZeroDelta         []bool
+}
+
 type ProcInterruptsMetricsTestCase struct {
 	Name                                  string
 	Instance                              string
 	Hostname                              string
 	CrtProcInterrupts, PrevProcInterrupts *procfs.Interrupts
 	CrtPromTs, PrevPromTs                 int64
-	CycleNum, FullMetricsFactor           int
-	ZeroDeltaMap                          map[string][]bool
-	InfoMetricsCache                      map[string][]byte
+	FullMetricsFactor                     int
+	IrqDataCache                          map[string]*ProcInterruptsMetricsIrqDataTest
 	WantMetricsCount                      int
 	WantMetrics                           []string
 	ReportExtra                           bool
@@ -48,15 +56,16 @@ func testProcInterruptsMetrics(tc *ProcInterruptsMetricsTestCase, t *testing.T) 
 	procInterruptsMetrics.procInterruptsTs[crtIndex] = time.UnixMilli(tc.CrtPromTs)
 	procInterruptsMetrics.procInterrupts[1-crtIndex] = tc.PrevProcInterrupts
 	procInterruptsMetrics.procInterruptsTs[1-crtIndex] = time.UnixMilli(tc.PrevPromTs)
-	procInterruptsMetrics.cycleNum = tc.CycleNum
 	procInterruptsMetrics.fullMetricsFactor = tc.FullMetricsFactor
-	for irq, zeroDeltaMap := range tc.ZeroDeltaMap {
-		procInterruptsMetrics.zeroDeltaMap[irq] = make([]bool, procfs.NET_DEV_NUM_STATS)
-		copy(procInterruptsMetrics.zeroDeltaMap[irq], zeroDeltaMap)
-	}
-	for irq, infoMetric := range tc.InfoMetricsCache {
-		procInterruptsMetrics.infoMetricsCache[irq] = make([]byte, len(infoMetric))
-		copy(procInterruptsMetrics.infoMetricsCache[irq], infoMetric)
+	procInterruptsMetrics.irqDataCache = make(map[string]*ProcInterruptsMetricsIrqData)
+	for irq, irqDataTest := range tc.IrqDataCache {
+		procInterruptsMetrics.irqDataCache[irq] = &ProcInterruptsMetricsIrqData{
+			cycleNum:          irqDataTest.CycleNum,
+			deltaMetricPrefix: []byte(irqDataTest.DeltaMetricPrefix),
+			infoMetric:        []byte(irqDataTest.InfoMetric),
+			zeroDelta:         make([]bool, len(irqDataTest.ZeroDelta)),
+		}
+		copy(procInterruptsMetrics.irqDataCache[irq].zeroDelta, irqDataTest.ZeroDelta)
 	}
 
 	wantCrtIndex := 1 - crtIndex
@@ -77,14 +86,15 @@ func testProcInterruptsMetrics(tc *ProcInterruptsMetricsTestCase, t *testing.T) 
 	}
 
 	if tc.WantZeroDeltaMap != nil {
-		for irq, wantZeroDeltaMap := range tc.WantZeroDeltaMap {
-			gotZeroDeltaMap := procInterruptsMetrics.zeroDeltaMap[irq]
-			if gotZeroDeltaMap == nil {
+		for irq, wantZeroDelta := range tc.WantZeroDeltaMap {
+			irqData := procInterruptsMetrics.irqDataCache[irq]
+			if irqData == nil {
 				fmt.Fprintf(errBuf, "\nZeroDeltaMap: missing IRQ %q", irq)
 				continue
 			}
-			for index, wantVal := range wantZeroDeltaMap {
-				gotVal := gotZeroDeltaMap[index]
+			gotZeroDelta := irqData.zeroDelta
+			for index, wantVal := range wantZeroDelta {
+				gotVal := gotZeroDelta[index]
 				if wantVal != gotVal {
 					fmt.Fprintf(
 						errBuf,
@@ -94,7 +104,7 @@ func testProcInterruptsMetrics(tc *ProcInterruptsMetricsTestCase, t *testing.T) 
 				}
 			}
 		}
-		for irq := range procInterruptsMetrics.zeroDeltaMap {
+		for irq := range procInterruptsMetrics.irqDataCache {
 			if tc.WantZeroDeltaMap[irq] == nil {
 				fmt.Fprintf(errBuf, "\nZeroDeltaMap: unexpected IRQ %q", irq)
 			}

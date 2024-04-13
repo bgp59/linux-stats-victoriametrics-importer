@@ -56,6 +56,26 @@ func DefaultProcInterruptsMetricsConfig() *ProcInterruptsMetricsConfig {
 	}
 }
 
+// Group together all data that is to be indexed by IRQ, this way only one
+// lookup is required:
+type ProcInterruptsMetricsIrqData struct {
+	// Current cycle#:
+	cycleNum int
+
+	// Delta metric prefix (i.e. all but CPU#):
+	// 		`METRIC{instance="INSTANCE",hostname="HOSTNAME",irq="IRQ" ...
+	deltaMetricPrefix []byte
+
+	// Info metric:
+	infoMetric []byte
+
+	// Delta metrics are generated with skip-zero-after-zero rule, i.e. if the
+	// current and previous deltas are both zero, then the current metric is
+	// skipped, save for full cycles. Keep track of zero deltas, indexed by
+	// counter index (see procfs.Interrupts.Irq[].Counters)
+	zeroDelta []bool
+}
+
 type ProcInterruptsMetrics struct {
 	// id/task_id:
 	id string
@@ -67,27 +87,15 @@ type ProcInterruptsMetrics struct {
 	procInterruptsTs [2]time.Time
 	// Index for current stats, toggled after each use:
 	crtIndex int
-	// Current cycle#:
-	cycleNum int
 	// Full metric factor:
 	fullMetricsFactor int
 
-	// Delta metrics are generated with skip-zero-after-zero rule, i.e. if the
-	// current and previous deltas are both zero, then the current metric is
-	// skipped, save for full cycles. Keep track of zero deltas, indexed by irq
-	// and counter index (see procfs.Interrupts.Irq[].Counters)
-	zeroDeltaMap map[string][]bool
-
-	// Delta metrics prefix cache (i.e. all but CPU#), indexed by IRQ:
-	// 		`METRIC{instance="INSTANCE",hostname="HOSTNAME",irq="IRQ" ...
-	deltaMetricsPrefixCache map[string][]byte
+	// Data indexed by IRQ:
+	irqDataCache map[string]*ProcInterruptsMetricsIrqData
 
 	// Delta metrics suffix cache (CPU#), indexed by counter#:
-	//		... cpu="CPU"} `
+	//              ... cpu="CPU"} `
 	deltaMetricsSuffixCache [][]byte
-
-	// Info metrics cache, indexed by IRQ:
-	infoMetricsCache map[string][]byte
 
 	// Interval metric:
 	intervalMetric []byte
@@ -125,13 +133,11 @@ func NewProcInterruptsMetrics(cfg any) (*ProcInterruptsMetrics, error) {
 		return nil, err
 	}
 	procInterruptsMetrics := &ProcInterruptsMetrics{
-		id:                      PROC_INTERRUPTS_METRICS_ID,
-		interval:                interval,
-		zeroDeltaMap:            make(map[string][]bool),
-		deltaMetricsPrefixCache: make(map[string][]byte),
-		infoMetricsCache:        make(map[string][]byte),
-		fullMetricsFactor:       procInterruptsMetricsCfg.FullMetricsFactor,
-		tsSuffixBuf:             &bytes.Buffer{},
+		id:                PROC_INTERRUPTS_METRICS_ID,
+		interval:          interval,
+		irqDataCache:      make(map[string]*ProcInterruptsMetricsIrqData),
+		fullMetricsFactor: procInterruptsMetricsCfg.FullMetricsFactor,
+		tsSuffixBuf:       &bytes.Buffer{},
 	}
 
 	procInterruptsMetricsLog.Infof("id=%s", procInterruptsMetrics.id)
@@ -140,7 +146,9 @@ func NewProcInterruptsMetrics(cfg any) (*ProcInterruptsMetrics, error) {
 	return procInterruptsMetrics, nil
 }
 
-func (pim *ProcInterruptsMetrics) updateDeltaMetricsPrefixCache(irq string) {
+// Update the IRQ data every time a new IRQ is discovered or there is a change
+// to an existent IRQ:
+func (pim *ProcInterruptsMetrics) updateIrqDataCache(irq string) *ProcInterruptsMetricsIrqData {
 	instance, hostname := GlobalInstance, GlobalHostname
 	if pim.instance != "" {
 		instance = pim.instance
@@ -148,16 +156,43 @@ func (pim *ProcInterruptsMetrics) updateDeltaMetricsPrefixCache(irq string) {
 	if pim.hostname != "" {
 		hostname = pim.hostname
 	}
-	pim.deltaMetricsPrefixCache[irq] = []byte(fmt.Sprintf(
+
+	interrupts := pim.procInterrupts[pim.crtIndex]
+	irqInfo := interrupts.Info.IrqInfo[irq]
+
+	irqData, ok := pim.irqDataCache[irq]
+	if !ok {
+		irqData = &ProcInterruptsMetricsIrqData{
+			cycleNum:  initialCycleNum.Get(pim.fullMetricsFactor),
+			zeroDelta: make([]bool, interrupts.NumCounters),
+		}
+		pim.irqDataCache[irq] = irqData
+	}
+
+	irqData.deltaMetricPrefix = []byte(fmt.Sprintf(
 		`%s{%s="%s",%s="%s",%s="%s"`,
 		PROC_INTERRUPTS_DELTA_METRIC,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 		PROC_INTERRUPTS_IRQ_LABEL_NAME, irq,
 	))
+
+	irqData.infoMetric = []byte(fmt.Sprintf(
+		`%s{%s="%s",%s="%s",%s="%s",%s="%s",%s="%s",%s="%s"} `, // N.B. the space before the value is included!
+		PROC_INTERRUPTS_INFO_METRIC,
+		INSTANCE_LABEL_NAME, instance,
+		HOSTNAME_LABEL_NAME, hostname,
+		PROC_INTERRUPTS_INFO_IRQ_LABEL_NAME, irq,
+		PROC_INTERRUPTS_INFO_CONTROLLER_LABEL_NAME, irqInfo.Controller,
+		PROC_INTERRUPTS_INFO_HW_INTERRUPT_LABEL_NAME, irqInfo.HWInterrupt,
+		PROC_INTERRUPTS_INFO_DEV_LABEL_NAME, irqInfo.Devices,
+	))
+
+	return irqData
 }
 
-func (pim *ProcInterruptsMetrics) updateDeltaMetricsSuffixCache() {
+// Update suffix cache every time there is a change to the CPU list;
+func (pim *ProcInterruptsMetrics) updateCpuList() {
 	interrupts := pim.procInterrupts[pim.crtIndex]
 	if interrupts.CpuList == nil {
 		// No CPU is missing, i.e. CPU# == counter index#
@@ -180,43 +215,7 @@ func (pim *ProcInterruptsMetrics) updateDeltaMetricsSuffixCache() {
 	}
 }
 
-// Update an info metric cache entry and return the previous content, if
-// changed. It is possible, yet unlikely, that update was triggered by a change
-// in the line underlying the IRQ but after parsing, the relevant parts were the
-// same.
-func (pim *ProcInterruptsMetrics) updateInfoMetricsCache(
-	irq string,
-	irqInfo *procfs.InterruptsIrqInfo,
-) []byte {
-	instance, hostname := GlobalInstance, GlobalHostname
-	if pim.instance != "" {
-		instance = pim.instance
-	}
-	if pim.hostname != "" {
-		hostname = pim.hostname
-	}
-
-	prevInfoMetric := pim.infoMetricsCache[irq]
-	updatedInfoMetrics := []byte(fmt.Sprintf(
-		`%s{%s="%s",%s="%s",%s="%s",%s="%s",%s="%s",%s="%s"} `, // N.B. the space before the value is included!
-		PROC_INTERRUPTS_INFO_METRIC,
-		INSTANCE_LABEL_NAME, instance,
-		HOSTNAME_LABEL_NAME, hostname,
-		PROC_INTERRUPTS_INFO_IRQ_LABEL_NAME, irq,
-		PROC_INTERRUPTS_INFO_CONTROLLER_LABEL_NAME, irqInfo.Controller,
-		PROC_INTERRUPTS_INFO_HW_INTERRUPT_LABEL_NAME, irqInfo.HWInterrupt,
-		PROC_INTERRUPTS_INFO_DEV_LABEL_NAME, irqInfo.Devices,
-	))
-	pim.infoMetricsCache[irq] = updatedInfoMetrics
-
-	if bytes.Equal(prevInfoMetric, updatedInfoMetrics) {
-		// No material change:
-		return nil
-	}
-	return prevInfoMetric
-}
-
-func (pim *ProcInterruptsMetrics) updateMetricsCache() {
+func (pim *ProcInterruptsMetrics) updateIntervalMetricsCache() {
 	instance, hostname := GlobalInstance, GlobalHostname
 	if pim.instance != "" {
 		instance = pim.instance
@@ -250,20 +249,18 @@ func (pim *ProcInterruptsMetrics) generateMetrics(buf *bytes.Buffer) int {
 
 		deltaSec := crtTs.Sub(prevTs).Seconds()
 
-		// Counter deltas:
-		fullMetrics := pim.cycleNum == 0
-		deltaFullMetrics := fullMetrics || crtInfo.CpuListChanged
-
 		// If there was a CPU list change, then build CPU# -> counter index# for
 		// the previous list. Given a current counter index#, first map into
-		// CPU# using the current CpuList then map it into prev counter index#
-		// using the map.
+		// CPU# using the current CpuList and then map it into prev counter
+		// index# using the map.
 		var prevCpuNumToCounterIndexMap map[int]int
 
 		if crtInfo.CpuListChanged || pim.deltaMetricsSuffixCache == nil {
 			// Delta metrics suffix holds the CPU#, so it needs updating:
-			pim.updateDeltaMetricsSuffixCache()
+			pim.updateCpuList()
+		}
 
+		if crtInfo.CpuListChanged {
 			// Build the prev CPU# -> counter index# map:
 			prevCpuNumToCounterIndexMap = make(map[int]int)
 			if prevProcInterrupts.CpuList == nil {
@@ -284,18 +281,31 @@ func (pim *ProcInterruptsMetrics) generateMetrics(buf *bytes.Buffer) int {
 				continue
 			}
 
-			deltaMetricPrefix := pim.deltaMetricsPrefixCache[irq]
-			if deltaMetricPrefix == nil {
-				pim.updateDeltaMetricsPrefixCache(irq)
-				deltaMetricPrefix = pim.deltaMetricsPrefixCache[irq]
+			crtIrqInfo := crtInfo.IrqInfo[irq]
+
+			irqData := pim.irqDataCache[irq]
+			fullMetrics := irqData == nil || // 1st time IRQ
+				crtIrqInfo.Changed || // something changed
+				irqData.cycleNum == 0 // regular full cycle
+			var prevInfoMetric []byte = nil
+			if irqData == nil {
+				// 1st time IRQ:
+				irqData = pim.updateIrqDataCache(irq)
+			} else if crtIrqInfo.Changed {
+				// Info changed, may have to 0 the previous info metric:
+				prevInfoMetric = irqData.infoMetric
+				irqData = pim.updateIrqDataCache(irq)
 			}
 
 			if crtInfo.CpuListChanged {
-				// The zeroDeltaMap should be reinitialized for this IRQ:
-				pim.zeroDeltaMap[irq] = make([]bool, crtProcInterrupts.NumCounters)
+				// Previous zero delta is no longer valid:
+				irqData.zeroDelta = make([]bool, crtProcInterrupts.NumCounters)
 			}
-			irqZeroDelta := pim.zeroDeltaMap[irq]
 
+			deltaMetricPrefix := irqData.deltaMetricPrefix
+			irqZeroDelta := irqData.zeroDelta
+
+			// Delta metrics:
 			for crtI, crtCounter := range crtCounters {
 				prevI, ok := crtI, true
 				if prevCpuNumToCounterIndexMap != nil {
@@ -310,8 +320,7 @@ func (pim *ProcInterruptsMetrics) generateMetrics(buf *bytes.Buffer) int {
 					}
 				}
 				delta := crtCounter - prevCounters[prevI]
-
-				if deltaFullMetrics || delta > 0 || !irqZeroDelta[crtI] {
+				if fullMetrics || delta > 0 || !irqZeroDelta[crtI] {
 					buf.Write(deltaMetricPrefix)
 					buf.Write(pim.deltaMetricsSuffixCache[crtI])
 					buf.WriteString(strconv.FormatUint(delta, 10))
@@ -320,45 +329,34 @@ func (pim *ProcInterruptsMetrics) generateMetrics(buf *bytes.Buffer) int {
 				}
 				irqZeroDelta[crtI] = delta == 0
 			}
-		}
 
-		// Clear zeroDelta of removed IRQ's, if any:
-		if len(pim.zeroDeltaMap) != len(crtProcInterrupts.Counters) {
-			for irq := range pim.zeroDeltaMap {
-				if _, ok := crtProcInterrupts.Counters[irq]; !ok {
-					delete(pim.zeroDeltaMap, irq)
-				}
-			}
-		}
-
-		// Info:
-		if fullMetrics || crtInfo.IrqChanged || len(pim.infoMetricsCache) == 0 {
-			for irq, irqInfo := range crtInfo.IrqInfo {
-				metric, ok := pim.infoMetricsCache[irq]
-				if irqInfo.Changed || !ok {
-					prevMetric := pim.updateInfoMetricsCache(irq, irqInfo)
-					if prevMetric != nil {
-						buf.Write(prevMetric)
-						buf.WriteByte('0')
-						buf.Write(promTs)
-						metricsCount++
-					}
-					metric = pim.infoMetricsCache[irq]
-				}
-				if fullMetrics || irqInfo.Changed || !ok {
-					buf.Write(metric)
-					buf.WriteByte('1')
+			// Info metric:
+			if fullMetrics {
+				crtInfoMetric := irqData.infoMetric
+				if prevInfoMetric != nil && !bytes.Equal(prevInfoMetric, crtInfoMetric) {
+					// Must 0 previous info metric:
+					buf.Write(prevInfoMetric)
+					buf.WriteByte('0')
 					buf.Write(promTs)
 					metricsCount++
 				}
+				buf.Write(crtInfoMetric)
+				buf.WriteByte('1')
+				buf.Write(promTs)
+				metricsCount++
+			}
+
+			// Update cycle#:
+			if irqData.cycleNum++; irqData.cycleNum >= pim.fullMetricsFactor {
+				irqData.cycleNum = 0
 			}
 		}
 
 		// Clear info for removed IRQ's, if any:
-		if len(pim.infoMetricsCache) != len(crtInfo.IrqInfo) {
-			for irq, prevMetric := range pim.infoMetricsCache {
+		if len(pim.irqDataCache) != len(crtInfo.IrqInfo) {
+			for irq, prevIrqData := range pim.irqDataCache {
 				if _, ok := crtProcInterrupts.Counters[irq]; !ok {
-					buf.Write(prevMetric)
+					buf.Write(prevIrqData.infoMetric)
 					buf.WriteByte('0')
 					buf.Write(promTs)
 					metricsCount++
@@ -366,9 +364,9 @@ func (pim *ProcInterruptsMetrics) generateMetrics(buf *bytes.Buffer) int {
 			}
 		}
 
-		// Interval:
+		// Interval metric:
 		if pim.intervalMetric == nil {
-			pim.updateMetricsCache()
+			pim.updateIntervalMetricsCache()
 		}
 		buf.Write(pim.intervalMetric)
 		buf.WriteString(strconv.FormatFloat(deltaSec, 'f', 6, 64))
@@ -376,11 +374,8 @@ func (pim *ProcInterruptsMetrics) generateMetrics(buf *bytes.Buffer) int {
 		metricsCount++
 	}
 
-	// Toggle the buffers, update the collection time and the cycle#:
+	// Toggle the buffers:
 	pim.crtIndex = 1 - pim.crtIndex
-	if pim.cycleNum++; pim.cycleNum >= pim.fullMetricsFactor {
-		pim.cycleNum = 0
-	}
 
 	return metricsCount
 }

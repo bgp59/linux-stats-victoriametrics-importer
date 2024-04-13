@@ -7,6 +7,7 @@ tools_py_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if tools_py_root not in sys.path:
     sys.path.append(tools_py_root)
 
+from .common import b64encode_str
 from .interrupts_parser import Interrupts, InterruptsInfo, InterruptsIrqInfo
 from .net_dev_parser import (
     NET_DEV_NUM_STATS,

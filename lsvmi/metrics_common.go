@@ -25,8 +25,8 @@ const (
 // A metrics generator satisfies the TaskActivity interface to be able to
 // register with the scheduler.
 
-// The generated metrics are written into *bytes.Buffer's which then queued into
-// the metrics queue for transmission.
+// The generated metrics are written into *bytes.Buffer's which are then queued
+// into the metrics queue for transmission.
 
 // The general flow of the TaskActivity implementation:
 //  repeat until no more metrics
@@ -197,3 +197,34 @@ var TaskBuilders = &TaskBuildersContainer{
 	builders: make([]TaskBuilderFunc, 0),
 	mu:       &sync.Mutex{},
 }
+
+// Metrics generation may take the delta approach whereby a specific metric is
+// generated only if its value has changed from the previous scan. However in
+// order to avoid going back too far in the past for the last value, the
+// generation will occur periodically, even if there was no change. To that end,
+// each (group of) metric(s) will have a cycle# and full metrics factor (FMF).
+// The cycle# is incremented modulo FMF for every scan and every time it reaches
+// 0 it indicates a full metrics cycle (FMC). To even out (approx) FMC
+// occurrences, the cycle# is initialized differently every time a new metric is
+// discovered. The next structure provides the initial value.
+
+type InitialCycleNum struct {
+	cycleNum int
+	mu       *sync.Mutex
+}
+
+func (icm *InitialCycleNum) Get(fullMetricsFactor int) int {
+	if fullMetricsFactor <= 1 {
+		return 0
+	}
+	icm.mu.Lock()
+	defer icm.mu.Unlock()
+	cycleNum := icm.cycleNum
+	if icm.cycleNum++; icm.cycleNum < 0 {
+		// Max int rollover, cycle back to 0:
+		icm.cycleNum = 0
+	}
+	return cycleNum % fullMetricsFactor
+}
+
+var initialCycleNum = &InitialCycleNum{mu: &sync.Mutex{}}
