@@ -57,7 +57,7 @@ func testProcNetDevMetrics(tc *ProcNetDevMetricsTestCase, t *testing.T) {
 	wantCrtIndex := 1 - crtIndex
 	testMetricsQueue := testutils.NewTestMetricsQueue(0)
 	buf := testMetricsQueue.GetBuf()
-	gotMetricsCount := procNetDevMetrics.generateMetrics(buf)
+	gotMetricsCount, _ := procNetDevMetrics.generateMetrics(buf)
 	testMetricsQueue.QueueBuf(buf)
 
 	errBuf := &bytes.Buffer{}

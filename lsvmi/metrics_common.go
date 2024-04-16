@@ -57,15 +57,17 @@ const (
 	// Indexes into the per generator []int stats:
 	METRICS_GENERATOR_INVOCATION_COUNT = iota
 	METRICS_GENERATOR_METRICS_COUNT
+	METRICS_GENERATOR_EVAL_METRICS_COUNT
 	METRICS_GENERATOR_BYTES_COUNT
 	// Must be last:
 	METRICS_GENERATOR_NUM_STATS
 )
 
 const (
-	METRICS_GENERATOR_INVOCATION_DELTA_METRIC = "lsvmi_metrics_gen_invocation_delta"
-	METRICS_GENERATOR_METRICS_DELTA_METRIC    = "lsvmi_metrics_gen_metrics_delta"
-	METRICS_GENERATOR_BYTES_DELTA_METRIC      = "lsvmi_metrics_gen_bytes_delta"
+	METRICS_GENERATOR_INVOCATION_DELTA_METRIC   = "lsvmi_metrics_gen_invocation_delta"
+	METRICS_GENERATOR_METRICS_DELTA_METRIC      = "lsvmi_metrics_gen_metrics_delta"
+	METRICS_GENERATOR_EVAL_METRICS_DELTA_METRIC = "lsvmi_metrics_gen_eval_metrics_delta"
+	METRICS_GENERATOR_BYTES_DELTA_METRIC        = "lsvmi_metrics_gen_bytes_delta"
 
 	METRICS_GENERATOR_ID_LABEL_NAME = "id"
 )
@@ -80,9 +82,10 @@ type MetricsGeneratorStatsContainer struct {
 }
 
 var MetricsGeneratorStatsMetricsNameMap = map[int]string{
-	METRICS_GENERATOR_INVOCATION_COUNT: METRICS_GENERATOR_INVOCATION_DELTA_METRIC,
-	METRICS_GENERATOR_METRICS_COUNT:    METRICS_GENERATOR_METRICS_DELTA_METRIC,
-	METRICS_GENERATOR_BYTES_COUNT:      METRICS_GENERATOR_BYTES_DELTA_METRIC,
+	METRICS_GENERATOR_INVOCATION_COUNT:   METRICS_GENERATOR_INVOCATION_DELTA_METRIC,
+	METRICS_GENERATOR_METRICS_COUNT:      METRICS_GENERATOR_METRICS_DELTA_METRIC,
+	METRICS_GENERATOR_EVAL_METRICS_COUNT: METRICS_GENERATOR_EVAL_METRICS_DELTA_METRIC,
+	METRICS_GENERATOR_BYTES_COUNT:        METRICS_GENERATOR_BYTES_DELTA_METRIC,
 }
 
 func NewMetricsGeneratorStatsContainer() *MetricsGeneratorStatsContainer {
@@ -92,7 +95,7 @@ func NewMetricsGeneratorStatsContainer() *MetricsGeneratorStatsContainer {
 	}
 }
 
-func (mgs *MetricsGeneratorStatsContainer) Update(id string, metricsCount, byteCount uint64) {
+func (mgs *MetricsGeneratorStatsContainer) Update(id string, metricsCount, evalMetricsCount, byteCount uint64) {
 	mgs.mu.Lock()
 	defer mgs.mu.Unlock()
 
@@ -103,6 +106,7 @@ func (mgs *MetricsGeneratorStatsContainer) Update(id string, metricsCount, byteC
 	}
 	gStats[METRICS_GENERATOR_INVOCATION_COUNT] += 1
 	gStats[METRICS_GENERATOR_METRICS_COUNT] += metricsCount
+	gStats[METRICS_GENERATOR_EVAL_METRICS_COUNT] += evalMetricsCount
 	gStats[METRICS_GENERATOR_BYTES_COUNT] += byteCount
 }
 
