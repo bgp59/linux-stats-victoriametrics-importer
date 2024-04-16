@@ -87,6 +87,12 @@ type Interrupts struct {
 	path string
 }
 
+// The following IRQs are known to have less than CPU# cols:
+var irqWithFewerCpuCount = map[string]bool{
+	"ERR": true,
+	"MIS": true,
+}
+
 var interruptsReadFileBufPool = ReadFileBufPoolReadUnbound
 
 func InterruptsPath(procfsRoot string) string {
@@ -321,7 +327,7 @@ func (interrupts *Interrupts) Parse() error {
 			}
 		}
 		// Enough columns?
-		if counterIndex < NumCounters {
+		if counterIndex < NumCounters && !irqWithFewerCpuCount[irq] {
 			return fmt.Errorf(
 				"%s#%d: %q: missing IRQs: want: %d, got: %d",
 				interrupts.path, lineNum, getCurrentLine(buf, startLine), NumCounters, counterIndex,
