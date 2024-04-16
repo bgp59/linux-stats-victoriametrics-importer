@@ -310,7 +310,7 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 	)
 	promTs := psm.tsSuffixBuf.Bytes()
 
-	metricsCount, evalMetricsCount := 0, 0
+	actualMetricsCount, totalMetricsCount := 0, 0
 	fullMetrics := psm.cycleNum == 0
 
 	crtNumericFields := crtProcStat.NumericFields
@@ -354,16 +354,16 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 						buf.Write(metric)
 						buf.WriteString(strconv.FormatFloat(pct, 'f', 1, 64))
 						buf.Write(promTs)
-						metricsCount++
+						actualMetricsCount++
 						if avgCpuMetrics != nil {
 							buf.Write(avgCpuMetrics[index])
 							buf.WriteString(strconv.FormatFloat(pct/numCpus, 'f', 1, 64))
 							buf.Write(promTs)
-							metricsCount++
+							actualMetricsCount++
 						}
 					}
 					zeroPcpu[index] = dCpuTicks == 0
-					evalMetricsCount++
+					totalMetricsCount++
 				}
 			}
 		}
@@ -388,16 +388,16 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 			buf.Write(metric)
 			buf.WriteString(strconv.FormatUint(val, 10))
 			buf.Write(promTs)
-			metricsCount++
+			actualMetricsCount++
 		}
-		evalMetricsCount += len(deltaMetricsCache)
+		totalMetricsCount += len(deltaMetricsCache)
 
 		// Interval requires prev stats.
 		buf.Write(psm.intervalMetric)
 		buf.WriteString(strconv.FormatFloat(deltaSec, 'f', 6, 64))
 		buf.Write(promTs)
-		metricsCount++
-		evalMetricsCount++
+		actualMetricsCount++
+		totalMetricsCount++
 	}
 
 	// Boot/up-time metrics:
@@ -407,7 +407,7 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 	if fullMetrics {
 		buf.Write(psm.btimeMetricCache)
 		buf.Write(promTs)
-		metricsCount++
+		actualMetricsCount++
 	}
 	buf.Write(psm.uptimeMetricCache)
 	timeSinceFn := time.Since
@@ -416,8 +416,8 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 	}
 	buf.WriteString(strconv.FormatFloat(timeSinceFn(psm.btime).Seconds(), 'f', 3, 64))
 	buf.Write(promTs)
-	metricsCount++
-	evalMetricsCount += 2
+	actualMetricsCount++
+	totalMetricsCount += 2
 
 	// Other metrics:
 	metricsCache := psm.metricsCache
@@ -431,10 +431,10 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 			buf.Write(metric)
 			buf.WriteString(strconv.FormatUint(val, 10))
 			buf.Write(promTs)
-			metricsCount++
+			actualMetricsCount++
 		}
 	}
-	evalMetricsCount += len(metricsCache)
+	totalMetricsCount += len(metricsCache)
 
 	// Toggle the buffers, update the collection time and the cycle#:
 	psm.crtIndex = 1 - psm.crtIndex
@@ -442,7 +442,7 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 		psm.cycleNum = 0
 	}
 
-	return metricsCount, evalMetricsCount
+	return actualMetricsCount, totalMetricsCount
 }
 
 // Satisfy the TaskActivity interface:
@@ -479,12 +479,12 @@ func (psm *ProcStatMetrics) Execute() bool {
 	psm.procStatTs[psm.crtIndex] = timeNowFn()
 
 	buf := metricsQueue.GetBuf()
-	metricsCount, evalMetricsCount := psm.generateMetrics(buf)
+	actualMetricsCount, totalMetricsCount := psm.generateMetrics(buf)
 	byteCount := buf.Len()
 	metricsQueue.QueueBuf(buf)
 
 	GlobalMetricsGeneratorStatsContainer.Update(
-		psm.id, uint64(metricsCount), uint64(evalMetricsCount), uint64(byteCount),
+		psm.id, uint64(actualMetricsCount), uint64(totalMetricsCount), uint64(byteCount),
 	)
 
 	return true

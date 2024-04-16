@@ -274,11 +274,11 @@ func (internalMetrics *InternalMetrics) Execute() bool {
 		buf.Write(tsSuffix)
 
 		metricsCount += METRICS_GENERATOR_NUM_STATS
-		buf.Write(metrics[METRICS_GENERATOR_METRICS_COUNT])
+		buf.Write(metrics[METRICS_GENERATOR_ACTUAL_METRICS_COUNT])
 		buf.WriteString(strconv.Itoa(metricsCount))
 		buf.Write(tsSuffix)
 
-		buf.Write(metrics[METRICS_GENERATOR_EVAL_METRICS_COUNT])
+		buf.Write(metrics[METRICS_GENERATOR_TOTAL_METRICS_COUNT])
 		buf.WriteString(strconv.Itoa(metricsCount)) // No delta for internal metrics
 		buf.Write(tsSuffix)
 

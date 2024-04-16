@@ -211,7 +211,7 @@ func (pndm *ProcNetDevMetrics) updateMetricsCache() {
 }
 
 func (pndm *ProcNetDevMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
-	metricsCount := 0
+	actualMetricsCount := 0
 	crtProcNetDev, prevProcNetDev := pndm.procNetDev[pndm.crtIndex], pndm.procNetDev[1-pndm.crtIndex]
 	if prevProcNetDev != nil {
 		crtTs, prevTs := pndm.procNetDevTs[pndm.crtIndex], pndm.procNetDevTs[1-pndm.crtIndex]
@@ -252,7 +252,7 @@ func (pndm *ProcNetDevMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 						buf.WriteString(strconv.FormatUint(val, 10))
 					}
 					buf.Write(promTs)
-					metricsCount++
+					actualMetricsCount++
 				}
 				zeroDelta[index] = val == 0
 			}
@@ -274,13 +274,13 @@ func (pndm *ProcNetDevMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 		buf.Write(pndm.intervalMetric)
 		buf.WriteString(strconv.FormatFloat(deltaSec, 'f', 6, 64))
 		buf.Write(promTs)
-		metricsCount++
+		actualMetricsCount++
 	}
 
-	// The number of evaluated metrics:
+	// The total number of metrics:
 	//		delta metrics#: number of dev * number of counters
 	//		interval metric#: 1
-	evalMetricsCount := len(crtProcNetDev.DevStats)*procfs.NET_DEV_NUM_STATS + 1
+	totalMetricsCount := len(crtProcNetDev.DevStats)*procfs.NET_DEV_NUM_STATS + 1
 
 	// Toggle the buffers, update the collection time and the cycle#:
 	pndm.crtIndex = 1 - pndm.crtIndex
@@ -288,7 +288,7 @@ func (pndm *ProcNetDevMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 		pndm.cycleNum = 0
 	}
 
-	return metricsCount, evalMetricsCount
+	return actualMetricsCount, totalMetricsCount
 }
 
 // Satisfy the TaskActivity interface:
@@ -325,12 +325,12 @@ func (pndm *ProcNetDevMetrics) Execute() bool {
 	pndm.procNetDevTs[pndm.crtIndex] = timeNowFn()
 
 	buf := metricsQueue.GetBuf()
-	metricsCount, evalMetricsCount := pndm.generateMetrics(buf)
+	actualMetricsCount, totalMetricsCount := pndm.generateMetrics(buf)
 	byteCount := buf.Len()
 	metricsQueue.QueueBuf(buf)
 
 	GlobalMetricsGeneratorStatsContainer.Update(
-		pndm.id, uint64(metricsCount), uint64(evalMetricsCount), uint64(byteCount),
+		pndm.id, uint64(actualMetricsCount), uint64(totalMetricsCount), uint64(byteCount),
 	)
 
 	return true

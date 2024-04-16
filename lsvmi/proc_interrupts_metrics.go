@@ -264,7 +264,7 @@ func (pim *ProcInterruptsMetrics) updateIntervalMetricsCache() {
 }
 
 func (pim *ProcInterruptsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
-	metricsCount := 0
+	actualMetricsCount := 0
 	crtProcInterrupts, prevProcInterrupts := pim.procInterrupts[pim.crtIndex], pim.procInterrupts[1-pim.crtIndex]
 
 	// All metrics are deltas, so must have previous stats:
@@ -340,7 +340,7 @@ func (pim *ProcInterruptsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) 
 					buf.Write(pim.deltaMetricsSuffixCache[crtI])
 					buf.WriteString(strconv.FormatUint(delta, 10))
 					buf.Write(promTs)
-					metricsCount++
+					actualMetricsCount++
 				}
 				irqZeroDelta[crtI] = delta == 0
 			}
@@ -353,12 +353,12 @@ func (pim *ProcInterruptsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) 
 					buf.Write(prevInfoMetric)
 					buf.WriteByte('0')
 					buf.Write(promTs)
-					metricsCount++
+					actualMetricsCount++
 				}
 				buf.Write(crtInfoMetric)
 				buf.WriteByte('1')
 				buf.Write(promTs)
-				metricsCount++
+				actualMetricsCount++
 			}
 
 			// Update cycle#:
@@ -374,7 +374,7 @@ func (pim *ProcInterruptsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) 
 					buf.Write(prevIrqData.infoMetric)
 					buf.WriteByte('0')
 					buf.Write(promTs)
-					metricsCount++
+					actualMetricsCount++
 					delete(pim.irqDataCache, irq)
 				}
 			}
@@ -387,19 +387,19 @@ func (pim *ProcInterruptsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) 
 		buf.Write(pim.intervalMetric)
 		buf.WriteString(strconv.FormatFloat(deltaSec, 'f', 6, 64))
 		buf.Write(promTs)
-		metricsCount++
+		actualMetricsCount++
 	}
 
-	// The number of evaluated metrics:
+	// The total number of metrics:
 	//		delta metrics#: number of IRQs * number of counter
 	//		info metrics#:  number of IRQs
 	//		interval metric#: 1
-	evalMetricsCount := len(crtProcInterrupts.Counters)*(crtProcInterrupts.NumCounters+1) + 1
+	totalMetricsCount := len(crtProcInterrupts.Counters)*(crtProcInterrupts.NumCounters+1) + 1
 
 	// Toggle the buffers:
 	pim.crtIndex = 1 - pim.crtIndex
 
-	return metricsCount, evalMetricsCount
+	return actualMetricsCount, totalMetricsCount
 }
 
 // Satisfy the TaskActivity interface:
@@ -436,12 +436,12 @@ func (pim *ProcInterruptsMetrics) Execute() bool {
 	pim.procInterruptsTs[pim.crtIndex] = timeNowFn()
 
 	buf := metricsQueue.GetBuf()
-	metricsCount, evalMetricsCount := pim.generateMetrics(buf)
+	actualMetricsCount, totalMetricsCount := pim.generateMetrics(buf)
 	byteCount := buf.Len()
 	metricsQueue.QueueBuf(buf)
 
 	GlobalMetricsGeneratorStatsContainer.Update(
-		pim.id, uint64(metricsCount), uint64(evalMetricsCount), uint64(byteCount),
+		pim.id, uint64(actualMetricsCount), uint64(totalMetricsCount), uint64(byteCount),
 	)
 
 	return true
