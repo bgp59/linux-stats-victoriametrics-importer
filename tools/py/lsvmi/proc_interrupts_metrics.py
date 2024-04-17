@@ -27,13 +27,14 @@ DEFAULT_PROC_INTERRUPTS_FULL_METRICS_FACTOR = 15
 
 PROC_INTERRUPTS_DELTA_METRIC = "proc_interrupts_delta"
 PROC_INTERRUPTS_IRQ_LABEL_NAME = "irq"
+PROC_INTERRUPTS_IRQ_DEV_LABEL_NAME = "dev"
 PROC_INTERRUPTS_CPU_LABEL_NAME = "cpu"
 
 PROC_INTERRUPTS_INFO_METRIC = "proc_interrupts_info"
 PROC_INTERRUPTS_INFO_IRQ_LABEL_NAME = PROC_INTERRUPTS_IRQ_LABEL_NAME
 PROC_INTERRUPTS_INFO_CONTROLLER_LABEL_NAME = "controller"
 PROC_INTERRUPTS_INFO_HW_INTERRUPT_LABEL_NAME = "hw_interrupt"
-PROC_INTERRUPTS_INFO_DEV_LABEL_NAME = "dev"
+PROC_INTERRUPTS_INFO_DEV_LABEL_NAME = PROC_INTERRUPTS_IRQ_DEV_LABEL_NAME
 
 PROC_INTERRUPTS_INTERVAL_METRIC_NAME = "proc_interrupts_metrics_delta_sec"
 
@@ -72,27 +73,34 @@ testcases_file = "proc_interrupts.json"
 
 
 def interrupts_delta_metric_prefix(
+    proc_interrupts: procfs.Interrupts,
     irq: str,
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
 ) -> str:
+    irq_info = proc_interrupts.Info.IrqInfo[irq]
+    devices = irq_info.Devices or ""
     return f"{PROC_INTERRUPTS_DELTA_METRIC}{{" + ",".join(
         [
             f'{INSTANCE_LABEL_NAME}="{instance}"',
             f'{HOSTNAME_LABEL_NAME}="{hostname}"',
             f'{PROC_INTERRUPTS_IRQ_LABEL_NAME}="{irq}"',
+            f'{PROC_INTERRUPTS_IRQ_DEV_LABEL_NAME}="{devices}"',
         ]
     )
 
 
 def interrupts_delta_metric(
+    proc_interrupts: procfs.Interrupts,
     irq: str,
     cpu: Union[int, str],
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
 ) -> str:
     return (
-        interrupts_delta_metric_prefix(irq, instance=instance, hostname=hostname)
+        interrupts_delta_metric_prefix(
+            proc_interrupts, irq, instance=instance, hostname=hostname
+        )
         + f',{PROC_INTERRUPTS_CPU_LABEL_NAME}="{cpu}"'
         + "} "
     )
@@ -137,7 +145,10 @@ def update_irq_data_cache(
     irq_data_cache[irq] = ProcInterruptsMetricsIrqDataTest(
         CycleNum=cycle_num,
         DeltaMetricPrefix=interrupts_delta_metric_prefix(
-            irq, instance=instance, hostname=hostname
+            proc_interrupts,
+            irq,
+            instance=instance,
+            hostname=hostname,
         ),
         InfoMetric=interrupts_info_metric(
             proc_interrupts,
@@ -224,7 +235,11 @@ def generate_proc_interrupts_metrics(
             if full_metrics or delta > 0 or not zero_delta[crt_i]:
                 metrics.append(
                     interrupts_delta_metric(
-                        irq, crt_cpu_list[crt_i], instance=instance, hostname=hostname
+                        crt_proc_interrupts,
+                        irq,
+                        crt_cpu_list[crt_i],
+                        instance=instance,
+                        hostname=hostname,
                     )
                     + f"{delta} {crt_prom_ts}"
                 )

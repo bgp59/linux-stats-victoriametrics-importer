@@ -23,6 +23,7 @@ const (
 	// METRIC{instance="INSTANCE",hostname="HOSTNAME",irq="IRQ",cpu="CPU"}:
 	PROC_INTERRUPTS_DELTA_METRIC   = "proc_interrupts_delta"
 	PROC_INTERRUPTS_IRQ_LABEL_NAME = "irq"
+	PROC_INTERRUPTS_DEV_LABEL_NAME = "dev"
 	PROC_INTERRUPTS_CPU_LABEL_NAME = "cpu"
 
 	// METRIC{instance="INSTANCE",hostname="HOSTNAME",irq="IRQ",controller="CONTROLLER",hw_interrupt="HW_INTERRUPT",dev="DEV"}:
@@ -30,7 +31,7 @@ const (
 	PROC_INTERRUPTS_INFO_IRQ_LABEL_NAME          = PROC_INTERRUPTS_IRQ_LABEL_NAME
 	PROC_INTERRUPTS_INFO_CONTROLLER_LABEL_NAME   = "controller"
 	PROC_INTERRUPTS_INFO_HW_INTERRUPT_LABEL_NAME = "hw_interrupt"
-	PROC_INTERRUPTS_INFO_DEV_LABEL_NAME          = "dev"
+	PROC_INTERRUPTS_INFO_DEV_LABEL_NAME          = PROC_INTERRUPTS_DEV_LABEL_NAME
 
 	// Interval since last generation, i.e. the interval underlying the deltas.
 	// Normally this should be close to scan interval, but this is the actual
@@ -170,11 +171,12 @@ func (pim *ProcInterruptsMetrics) updateIrqDataCache(irq string) *ProcInterrupts
 	}
 
 	irqData.deltaMetricPrefix = []byte(fmt.Sprintf(
-		`%s{%s="%s",%s="%s",%s="%s"`,
+		`%s{%s="%s",%s="%s",%s="%s",%s="%s"`,
 		PROC_INTERRUPTS_DELTA_METRIC,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 		PROC_INTERRUPTS_IRQ_LABEL_NAME, irq,
+		PROC_INTERRUPTS_DEV_LABEL_NAME, irqInfo.Devices,
 	))
 
 	irqData.infoMetric = []byte(fmt.Sprintf(

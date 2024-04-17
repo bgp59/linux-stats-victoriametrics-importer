@@ -274,12 +274,13 @@ func (internalMetrics *InternalMetrics) Execute() bool {
 		buf.Write(tsSuffix)
 
 		metricsCount += METRICS_GENERATOR_NUM_STATS
-		buf.Write(metrics[METRICS_GENERATOR_ACTUAL_METRICS_COUNT])
-		buf.WriteString(strconv.Itoa(metricsCount))
-		buf.Write(tsSuffix)
+		metricsCountVal := []byte(strconv.Itoa(metricsCount))
 
+		buf.Write(metrics[METRICS_GENERATOR_ACTUAL_METRICS_COUNT])
+		buf.Write(metricsCountVal)
+		buf.Write(tsSuffix)
 		buf.Write(metrics[METRICS_GENERATOR_TOTAL_METRICS_COUNT])
-		buf.WriteString(strconv.Itoa(metricsCount)) // No delta for internal metrics
+		buf.Write(metricsCountVal) // No delta for internal metrics
 		buf.Write(tsSuffix)
 
 		buf.Write(metrics[METRICS_GENERATOR_BYTES_COUNT])
