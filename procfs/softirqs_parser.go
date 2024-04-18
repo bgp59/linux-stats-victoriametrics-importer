@@ -29,6 +29,9 @@ type Softirqs struct {
 	CounterIndexToCpuNum []int
 	// Whether the mapping has changed in the current scan or not:
 	IndexToCpuChanged bool
+	// The number of counters per line; this is needed if CounterIndexToCpuNum
+	// is nil, since it cannot be inferred:
+	NumCounters int
 
 	// The path file to  read:
 	path string
@@ -36,9 +39,6 @@ type Softirqs struct {
 	// the line is unchanged from the previous run then the mapping is still
 	// valid.
 	cpuHeaderLine []byte
-	// The number of counters per line; this is needed if CounterIndexToCpuNum
-	// is nil, since it cannot be inferred:
-	numCounters int
 	// Each scan has a different scan# from the previous one. IRQ's not
 	// associated with the most recent scan will be removed:
 	scanNum int
@@ -61,7 +61,7 @@ func (softirqs *Softirqs) Clone(full bool) *Softirqs {
 	newSoftirqs := &Softirqs{
 		path:              softirqs.path,
 		IndexToCpuChanged: softirqs.IndexToCpuChanged,
-		numCounters:       softirqs.numCounters,
+		NumCounters:       softirqs.NumCounters,
 		scanNum:           softirqs.scanNum,
 	}
 	if softirqs.CounterIndexToCpuNum != nil {
@@ -93,8 +93,8 @@ func (softirqs *Softirqs) Clone(full bool) *Softirqs {
 func (softirqs *Softirqs) updateCounterIndexToCpuNumMap(cpuHeaderLine []byte) error {
 	needsCounterIndexToCpuNumMap := false
 	fields := bytes.Fields(cpuHeaderLine)
-	softirqs.numCounters = len(fields)
-	counterIndexToCpuNum := make([]int, softirqs.numCounters)
+	softirqs.NumCounters = len(fields)
+	counterIndexToCpuNum := make([]int, softirqs.NumCounters)
 	for index, cpu := range fields {
 		cpuNum, l := 0, len(cpu)
 		if l <= 3 {
@@ -139,7 +139,7 @@ func (softirqs *Softirqs) Parse() error {
 	buf, l := fBuf.Bytes(), fBuf.Len()
 
 	scanNum := softirqs.scanNum + 1
-	numCounters := softirqs.numCounters
+	NumCounters := softirqs.NumCounters
 	for pos, lineNum := 0, 1; pos < l; lineNum++ {
 		// Line starts here:
 		startLine, eol := pos, false
@@ -163,7 +163,7 @@ func (softirqs *Softirqs) Parse() error {
 					)
 				}
 				softirqs.IndexToCpuChanged = true
-				numCounters = softirqs.numCounters
+				NumCounters = softirqs.NumCounters
 			} else {
 				softirqs.IndexToCpuChanged = false
 			}
@@ -196,23 +196,23 @@ func (softirqs *Softirqs) Parse() error {
 		softirqsIrq := softirqs.Irq[irq]
 		if softirqsIrq == nil {
 			softirqsIrq = &SoftirqsIrq{
-				Counters: make([]uint64, numCounters),
+				Counters: make([]uint64, NumCounters),
 			}
 			softirqs.Irq[irq] = softirqsIrq
 			counters = softirqsIrq.Counters
 		} else {
 			counters = softirqsIrq.Counters
-			if cap(counters) < numCounters {
-				counters = make([]uint64, numCounters)
+			if cap(counters) < NumCounters {
+				counters = make([]uint64, NumCounters)
 				softirqsIrq.Counters = counters
-			} else if len(counters) != numCounters {
-				counters = counters[:numCounters]
+			} else if len(counters) != NumCounters {
+				counters = counters[:NumCounters]
 				softirqsIrq.Counters = counters
 			}
 		}
 
 		counterIndex := 0
-		for !eol && pos < l && counterIndex < numCounters {
+		for !eol && pos < l && counterIndex < NumCounters {
 			for ; pos < l && isWhitespace[buf[pos]]; pos++ {
 			}
 			value, foundValue := uint64(0), false
@@ -236,10 +236,10 @@ func (softirqs *Softirqs) Parse() error {
 			}
 		}
 		// Enough columns?
-		if counterIndex < numCounters {
+		if counterIndex < NumCounters {
 			return fmt.Errorf(
 				"%s#%d: %q: missing IRQs: want: %d, got: %d",
-				softirqs.path, lineNum, getCurrentLine(buf, startLine), numCounters, counterIndex,
+				softirqs.path, lineNum, getCurrentLine(buf, startLine), NumCounters, counterIndex,
 			)
 		}
 

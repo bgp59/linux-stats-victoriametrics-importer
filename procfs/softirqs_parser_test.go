@@ -121,14 +121,14 @@ primeSoftirqs=%v
 		}
 
 		wantCounters, gotCounters := wantSoftirqsIrq.Counters, gotSoftirqsIrq.Counters
-		if len(gotCounters) != wantSoftirqs.numCounters {
+		if len(gotCounters) != wantSoftirqs.NumCounters {
 			fmt.Fprintf(
 				diffBuf,
 				"\nIrq[%q].Counters length: want: %d, got: %d",
-				irq, wantSoftirqs.numCounters, len(gotCounters),
+				irq, wantSoftirqs.NumCounters, len(gotCounters),
 			)
 		} else {
-			for i := 0; i < wantSoftirqs.numCounters; i++ {
+			for i := 0; i < wantSoftirqs.NumCounters; i++ {
 				wantCounter := wantCounters[i]
 				gotCounter := gotCounters[i]
 				if wantCounter != gotCounter {
@@ -171,7 +171,7 @@ func TestSoftirqsParser(t *testing.T) {
 					"NET_RX": {Counters: []uint64{12, 13, 14, 15}},
 				},
 				IndexToCpuChanged: true,
-				numCounters:       4,
+				NumCounters:       4,
 			},
 		},
 		{
@@ -186,7 +186,7 @@ func TestSoftirqsParser(t *testing.T) {
 					"NET_RX":  {Counters: []uint64{100012, 100013, 100014, 100015}, scanNum: 1},
 				},
 				IndexToCpuChanged: true,
-				numCounters:       4,
+				NumCounters:       4,
 				cpuHeaderLine:     []byte("                    CPU0       CPU1       CPU2       CPU3"),
 				scanNum:           1,
 			},
@@ -199,7 +199,7 @@ func TestSoftirqsParser(t *testing.T) {
 					"NET_RX": {Counters: []uint64{12, 13, 14, 15}},
 				},
 				IndexToCpuChanged: false,
-				numCounters:       4,
+				NumCounters:       4,
 			},
 		},
 		{
@@ -214,7 +214,7 @@ func TestSoftirqsParser(t *testing.T) {
 					"NET_RX": {Counters: []uint64{100012, 100013, 100014, 100015}, scanNum: 1},
 				},
 				IndexToCpuChanged: true,
-				numCounters:       4,
+				NumCounters:       4,
 				cpuHeaderLine:     []byte("                    CPU0       CPU1       CPU2       CPU3"),
 				scanNum:           1,
 			},
@@ -227,7 +227,7 @@ func TestSoftirqsParser(t *testing.T) {
 					"NET_RX": {Counters: []uint64{12, 13, 15}},
 				},
 				IndexToCpuChanged: true,
-				numCounters:       3,
+				NumCounters:       3,
 			},
 		},
 	} {
