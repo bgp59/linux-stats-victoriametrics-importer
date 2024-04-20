@@ -51,7 +51,7 @@ type HttpEndpointPoolInternalMetrics struct {
 	// after every metrics generation:
 	stats [2]*HttpEndpointPoolStats
 	// The current index:
-	crtIndex int
+	currIndex int
 	// Cache the full metrics for each url# and stats index:
 	httpEndpointDeltaMetricsCache map[string]httpEndpointPoolStatsIndexMetricMap
 	httpEndpointMetricsCache      map[string]httpEndpointPoolStatsIndexMetricMap
@@ -145,10 +145,10 @@ func (eppim *HttpEndpointPoolInternalMetrics) generateMetrics(
 
 	metricsCount := 0
 
-	crtEPPoolStats, prevEPPoolStats := eppim.stats[eppim.crtIndex], eppim.stats[1-eppim.crtIndex]
+	currEPPoolStats, prevEPPoolStats := eppim.stats[eppim.currIndex], eppim.stats[1-eppim.currIndex]
 
 	var prevPoolStats []uint64
-	crtPoolStats := crtEPPoolStats.PoolStats
+	currPoolStats := currEPPoolStats.PoolStats
 	if prevEPPoolStats != nil {
 		prevPoolStats = prevEPPoolStats.PoolStats
 	}
@@ -160,7 +160,7 @@ func (eppim *HttpEndpointPoolInternalMetrics) generateMetrics(
 		indexMetricMap = eppim.httpEndpointPoolDeltaMetricsCache
 	}
 	for index, metric := range indexMetricMap {
-		val := crtPoolStats[index]
+		val := currPoolStats[index]
 		if prevPoolStats != nil {
 			val -= prevPoolStats[index]
 		}
@@ -172,7 +172,7 @@ func (eppim *HttpEndpointPoolInternalMetrics) generateMetrics(
 
 	indexMetricMap = eppim.httpEndpointPoolMetricsCache
 	for index, metric := range indexMetricMap {
-		val := crtPoolStats[index]
+		val := currPoolStats[index]
 		buf.Write(metric)
 		buf.WriteString(strconv.FormatUint(val, 10))
 		buf.Write(tsSuffix)
@@ -180,7 +180,7 @@ func (eppim *HttpEndpointPoolInternalMetrics) generateMetrics(
 	}
 
 	var prevEPStats HttpEndpointStats
-	for url, crtEPStats := range crtEPPoolStats.EndpointStats {
+	for url, currEPStats := range currEPPoolStats.EndpointStats {
 		if prevEPPoolStats != nil {
 			prevEPStats = prevEPPoolStats.EndpointStats[url]
 		} else {
@@ -193,7 +193,7 @@ func (eppim *HttpEndpointPoolInternalMetrics) generateMetrics(
 			indexMetricMap = eppim.httpEndpointDeltaMetricsCache[url]
 		}
 		for index, metric := range indexMetricMap {
-			val := crtEPStats[index]
+			val := currEPStats[index]
 			if prevEPStats != nil {
 				val -= prevEPStats[index]
 			}
@@ -204,7 +204,7 @@ func (eppim *HttpEndpointPoolInternalMetrics) generateMetrics(
 		}
 		indexMetricMap = eppim.httpEndpointMetricsCache[url]
 		for index, metric := range indexMetricMap {
-			val := crtEPStats[index]
+			val := currEPStats[index]
 			buf.Write(metric)
 			buf.WriteString(strconv.FormatUint(val, 10))
 			buf.Write(tsSuffix)
@@ -213,7 +213,7 @@ func (eppim *HttpEndpointPoolInternalMetrics) generateMetrics(
 	}
 
 	// Flip the stats storage:
-	eppim.crtIndex = 1 - eppim.crtIndex
+	eppim.currIndex = 1 - eppim.currIndex
 
 	return metricsCount
 }

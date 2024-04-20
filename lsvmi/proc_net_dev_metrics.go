@@ -105,7 +105,7 @@ type ProcNetDevMetrics struct {
 	// Timestamp when the stats were collected:
 	procNetDevTs [2]time.Time
 	// Index for current stats, toggled after each use:
-	crtIndex int
+	currIndex int
 	// Current cycle#:
 	cycleNum int
 	// Full metric factor:
@@ -212,18 +212,18 @@ func (pndm *ProcNetDevMetrics) updateMetricsCache() {
 
 func (pndm *ProcNetDevMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 	actualMetricsCount := 0
-	crtProcNetDev, prevProcNetDev := pndm.procNetDev[pndm.crtIndex], pndm.procNetDev[1-pndm.crtIndex]
+	currProcNetDev, prevProcNetDev := pndm.procNetDev[pndm.currIndex], pndm.procNetDev[1-pndm.currIndex]
 	if prevProcNetDev != nil {
-		crtTs, prevTs := pndm.procNetDevTs[pndm.crtIndex], pndm.procNetDevTs[1-pndm.crtIndex]
+		currTs, prevTs := pndm.procNetDevTs[pndm.currIndex], pndm.procNetDevTs[1-pndm.currIndex]
 		pndm.tsSuffixBuf.Reset()
 		fmt.Fprintf(
-			pndm.tsSuffixBuf, " %d\n", crtTs.UnixMilli(),
+			pndm.tsSuffixBuf, " %d\n", currTs.UnixMilli(),
 		)
 		promTs := pndm.tsSuffixBuf.Bytes()
 
 		fullMetrics := pndm.cycleNum == 0
-		deltaSec := crtTs.Sub(prevTs).Seconds()
-		for dev, crtDevStats := range crtProcNetDev.DevStats {
+		deltaSec := currTs.Sub(prevTs).Seconds()
+		for dev, currDevStats := range currProcNetDev.DevStats {
 			prevDevStats := prevProcNetDev.DevStats[dev]
 			if prevDevStats == nil {
 				continue
@@ -240,7 +240,7 @@ func (pndm *ProcNetDevMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 			}
 
 			for index, metric := range deltaMetrics {
-				val := crtDevStats[index] - prevDevStats[index]
+				val := currDevStats[index] - prevDevStats[index]
 				if val != 0 || fullMetrics || !zeroDelta[index] {
 					buf.Write(metric)
 					rate := procNetDevIndexRate[index]
@@ -260,9 +260,9 @@ func (pndm *ProcNetDevMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 
 		// Network devices may be created/enabled dynamically. Check and delete zero
 		// flags as needed.
-		if len(pndm.zeroDeltaMap) > len(crtProcNetDev.DevStats) {
+		if len(pndm.zeroDeltaMap) > len(currProcNetDev.DevStats) {
 			for dev := range pndm.zeroDeltaMap {
-				if _, ok := crtProcNetDev.DevStats[dev]; !ok {
+				if _, ok := currProcNetDev.DevStats[dev]; !ok {
 					delete(pndm.zeroDeltaMap, dev)
 				}
 			}
@@ -280,10 +280,10 @@ func (pndm *ProcNetDevMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 	// The total number of metrics:
 	//		delta metrics#: number of dev * number of counters
 	//		interval metric#: 1
-	totalMetricsCount := len(crtProcNetDev.DevStats)*procfs.NET_DEV_NUM_STATS + 1
+	totalMetricsCount := len(currProcNetDev.DevStats)*procfs.NET_DEV_NUM_STATS + 1
 
 	// Toggle the buffers, update the collection time and the cycle#:
-	pndm.crtIndex = 1 - pndm.crtIndex
+	pndm.currIndex = 1 - pndm.currIndex
 	if pndm.cycleNum++; pndm.cycleNum >= pndm.fullMetricsFactor {
 		pndm.cycleNum = 0
 	}
@@ -303,26 +303,26 @@ func (pndm *ProcNetDevMetrics) Execute() bool {
 		metricsQueue = pndm.metricsQueue
 	}
 
-	crtProcNetDev := pndm.procNetDev[pndm.crtIndex]
-	if crtProcNetDev == nil {
-		prevProcNetDev := pndm.procNetDev[1-pndm.crtIndex]
+	currProcNetDev := pndm.procNetDev[pndm.currIndex]
+	if currProcNetDev == nil {
+		prevProcNetDev := pndm.procNetDev[1-pndm.currIndex]
 		if prevProcNetDev != nil {
-			crtProcNetDev = prevProcNetDev.Clone(false)
+			currProcNetDev = prevProcNetDev.Clone(false)
 		} else {
 			procfsRoot := GlobalProcfsRoot
 			if pndm.procfsRoot != "" {
 				procfsRoot = pndm.procfsRoot
 			}
-			crtProcNetDev = procfs.NewNetDev(procfsRoot)
+			currProcNetDev = procfs.NewNetDev(procfsRoot)
 		}
-		pndm.procNetDev[pndm.crtIndex] = crtProcNetDev
+		pndm.procNetDev[pndm.currIndex] = currProcNetDev
 	}
-	err := crtProcNetDev.Parse()
+	err := currProcNetDev.Parse()
 	if err != nil {
 		procNetDevMetricsLog.Warnf("%v: proc net dev metrics will be disabled", err)
 		return false
 	}
-	pndm.procNetDevTs[pndm.crtIndex] = timeNowFn()
+	pndm.procNetDevTs[pndm.currIndex] = timeNowFn()
 
 	buf := metricsQueue.GetBuf()
 	actualMetricsCount, totalMetricsCount := pndm.generateMetrics(buf)

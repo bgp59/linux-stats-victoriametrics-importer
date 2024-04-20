@@ -14,11 +14,11 @@ import (
 )
 
 type ProcInterruptsUpdateCpuListTestCase struct {
-	crtCpuList                   []int
-	crtNumCounters               int
-	prevCpuList                  []int
-	prevNumCounters              int
-	wantCrtToPrevCounterIndexMap map[int]int
+	currCpuList                   []int
+	currNumCounters               int
+	prevCpuList                   []int
+	prevNumCounters               int
+	wantCurrToPrevCounterIndexMap map[int]int
 }
 
 // Mirror ProcInterruptsMetricsIrqData for test purposes with a structure that
@@ -31,18 +31,18 @@ type ProcInterruptsMetricsIrqDataTest struct {
 }
 
 type ProcInterruptsMetricsTestCase struct {
-	Name                                  string
-	Description                           string
-	Instance                              string
-	Hostname                              string
-	CrtProcInterrupts, PrevProcInterrupts *procfs.Interrupts
-	CrtPromTs, PrevPromTs                 int64
-	FullMetricsFactor                     int
-	IrqDataCache                          map[string]*ProcInterruptsMetricsIrqDataTest
-	WantMetricsCount                      int
-	WantMetrics                           []string
-	ReportExtra                           bool
-	WantZeroDeltaMap                      map[string][]bool
+	Name                                   string
+	Description                            string
+	Instance                               string
+	Hostname                               string
+	CurrProcInterrupts, PrevProcInterrupts *procfs.Interrupts
+	CurrPromTs, PrevPromTs                 int64
+	FullMetricsFactor                      int
+	IrqDataCache                           map[string]*ProcInterruptsMetricsIrqDataTest
+	WantMetricsCount                       int
+	WantMetrics                            []string
+	ReportExtra                            bool
+	WantZeroDeltaMap                       map[string][]bool
 }
 
 var procInterruptsMetricsTestcasesFile = path.Join(
@@ -60,45 +60,45 @@ func testProcInterruptsUpdateCpuList(tc *ProcInterruptsUpdateCpuListTestCase, t 
 	}
 
 	prevInterrupts := procfs.NewInterrupts("")
-	crtInterrupts := prevInterrupts.Clone(false)
-	if tc.crtCpuList != nil {
-		crtInterrupts.CpuList = make([]int, len(tc.crtCpuList))
-		copy(crtInterrupts.CpuList, tc.crtCpuList)
+	currInterrupts := prevInterrupts.Clone(false)
+	if tc.currCpuList != nil {
+		currInterrupts.CpuList = make([]int, len(tc.currCpuList))
+		copy(currInterrupts.CpuList, tc.currCpuList)
 	}
-	crtInterrupts.NumCounters = tc.crtNumCounters
+	currInterrupts.NumCounters = tc.currNumCounters
 	if tc.prevCpuList != nil {
 		prevInterrupts.CpuList = make([]int, len(tc.prevCpuList))
 		copy(prevInterrupts.CpuList, tc.prevCpuList)
 	}
 	prevInterrupts.NumCounters = tc.prevNumCounters
 
-	procInterruptsMetrics.procInterrupts[procInterruptsMetrics.crtIndex] = crtInterrupts
-	procInterruptsMetrics.procInterrupts[1-procInterruptsMetrics.crtIndex] = prevInterrupts
+	procInterruptsMetrics.procInterrupts[procInterruptsMetrics.currIndex] = currInterrupts
+	procInterruptsMetrics.procInterrupts[1-procInterruptsMetrics.currIndex] = prevInterrupts
 
-	gotCrtToPrevCounterIndexMap := procInterruptsMetrics.updateCpuList()
+	gotCurrToPrevCounterIndexMap := procInterruptsMetrics.updateCpuList()
 
-	if len(tc.wantCrtToPrevCounterIndexMap) != len(gotCrtToPrevCounterIndexMap) {
+	if len(tc.wantCurrToPrevCounterIndexMap) != len(gotCurrToPrevCounterIndexMap) {
 		t.Fatalf(
-			"len(crtToPrevCounterIndexMap): want: %d, got: %d",
-			len(tc.wantCrtToPrevCounterIndexMap), len(gotCrtToPrevCounterIndexMap),
+			"len(currToPrevCounterIndexMap): want: %d, got: %d",
+			len(tc.wantCurrToPrevCounterIndexMap), len(gotCurrToPrevCounterIndexMap),
 		)
 	}
 
 	errBuf := &bytes.Buffer{}
-	for i, wantI := range tc.wantCrtToPrevCounterIndexMap {
-		gotI, ok := gotCrtToPrevCounterIndexMap[i]
+	for i, wantI := range tc.wantCurrToPrevCounterIndexMap {
+		gotI, ok := gotCurrToPrevCounterIndexMap[i]
 		if !ok {
-			fmt.Fprintf(errBuf, "crtToPrevCounterIndexMap: missing %d", i)
+			fmt.Fprintf(errBuf, "currToPrevCounterIndexMap: missing %d", i)
 			continue
 		}
 		if wantI != gotI {
-			fmt.Fprintf(errBuf, "crtToPrevCounterIndexMap[%d]: want: %d, got: %d", i, wantI, gotI)
+			fmt.Fprintf(errBuf, "currToPrevCounterIndexMap[%d]: want: %d, got: %d", i, wantI, gotI)
 		}
 	}
 
-	for i, gotI := range gotCrtToPrevCounterIndexMap {
-		if _, ok := tc.wantCrtToPrevCounterIndexMap[i]; !ok {
-			fmt.Fprintf(errBuf, "unexpected crtToPrevCounterIndexMap[%d]=%d", i, gotI)
+	for i, gotI := range gotCurrToPrevCounterIndexMap {
+		if _, ok := tc.wantCurrToPrevCounterIndexMap[i]; !ok {
+			fmt.Fprintf(errBuf, "unexpected currToPrevCounterIndexMap[%d]=%d", i, gotI)
 		}
 	}
 
@@ -159,11 +159,11 @@ func testProcInterruptsMetrics(tc *ProcInterruptsMetricsTestCase, t *testing.T) 
 	}
 	procInterruptsMetrics.instance = tc.Instance
 	procInterruptsMetrics.hostname = tc.Hostname
-	crtIndex := procInterruptsMetrics.crtIndex
-	procInterruptsMetrics.procInterrupts[crtIndex] = tc.CrtProcInterrupts
-	procInterruptsMetrics.procInterruptsTs[crtIndex] = time.UnixMilli(tc.CrtPromTs)
-	procInterruptsMetrics.procInterrupts[1-crtIndex] = tc.PrevProcInterrupts
-	procInterruptsMetrics.procInterruptsTs[1-crtIndex] = time.UnixMilli(tc.PrevPromTs)
+	currIndex := procInterruptsMetrics.currIndex
+	procInterruptsMetrics.procInterrupts[currIndex] = tc.CurrProcInterrupts
+	procInterruptsMetrics.procInterruptsTs[currIndex] = time.UnixMilli(tc.CurrPromTs)
+	procInterruptsMetrics.procInterrupts[1-currIndex] = tc.PrevProcInterrupts
+	procInterruptsMetrics.procInterruptsTs[1-currIndex] = time.UnixMilli(tc.PrevPromTs)
 	procInterruptsMetrics.fullMetricsFactor = tc.FullMetricsFactor
 	procInterruptsMetrics.irqDataCache = make(map[string]*ProcInterruptsMetricsIrqData)
 	for irq, irqDataTest := range tc.IrqDataCache {
@@ -176,7 +176,7 @@ func testProcInterruptsMetrics(tc *ProcInterruptsMetricsTestCase, t *testing.T) 
 		copy(procInterruptsMetrics.irqDataCache[irq].zeroDelta, irqDataTest.ZeroDelta)
 	}
 
-	wantCrtIndex := 1 - crtIndex
+	wantCurrIndex := 1 - currIndex
 	testMetricsQueue := testutils.NewTestMetricsQueue(0)
 	buf := testMetricsQueue.GetBuf()
 	gotMetricsCount, _ := procInterruptsMetrics.generateMetrics(buf)
@@ -184,12 +184,12 @@ func testProcInterruptsMetrics(tc *ProcInterruptsMetricsTestCase, t *testing.T) 
 
 	errBuf := &bytes.Buffer{}
 
-	gotCrtIndex := procInterruptsMetrics.crtIndex
-	if wantCrtIndex != gotCrtIndex {
+	gotCurrIndex := procInterruptsMetrics.currIndex
+	if wantCurrIndex != gotCurrIndex {
 		fmt.Fprintf(
 			errBuf,
-			"\ncrtIndex: want: %d, got: %d",
-			wantCrtIndex, gotCrtIndex,
+			"\ncurrIndex: want: %d, got: %d",
+			wantCurrIndex, gotCurrIndex,
 		)
 	}
 

@@ -120,7 +120,7 @@ type ProcStatMetrics struct {
 	// Timestamp when the stats were collected:
 	procStatTs [2]time.Time
 	// Index for current stats, toggled after each use:
-	crtIndex int
+	currIndex int
 	// Current cycle#:
 	cycleNum int
 	// Full metric factor:
@@ -246,7 +246,7 @@ func (psm *ProcStatMetrics) updateBtimeUptimeMetricsCache() {
 	if psm.hostname != "" {
 		hostname = psm.hostname
 	}
-	btime := int64(psm.procStat[psm.crtIndex].NumericFields[procfs.STAT_BTIME])
+	btime := int64(psm.procStat[psm.currIndex].NumericFields[procfs.STAT_BTIME])
 	psm.btime = time.Unix(btime, 0)
 	psm.btimeMetricCache = []byte(fmt.Sprintf(
 		`%s{%s="%s",%s="%s"} %d`, // N.B. include the value!
@@ -301,19 +301,19 @@ func (psm *ProcStatMetrics) updateMetricsCache() {
 }
 
 func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
-	crtProcStat, prevProcStat := psm.procStat[psm.crtIndex], psm.procStat[1-psm.crtIndex]
-	crtTs, prevTs := psm.procStatTs[psm.crtIndex], psm.procStatTs[1-psm.crtIndex]
+	currProcStat, prevProcStat := psm.procStat[psm.currIndex], psm.procStat[1-psm.currIndex]
+	currTs, prevTs := psm.procStatTs[psm.currIndex], psm.procStatTs[1-psm.currIndex]
 
 	psm.tsSuffixBuf.Reset()
 	fmt.Fprintf(
-		psm.tsSuffixBuf, " %d\n", crtTs.UnixMilli(),
+		psm.tsSuffixBuf, " %d\n", currTs.UnixMilli(),
 	)
 	promTs := psm.tsSuffixBuf.Bytes()
 
 	actualMetricsCount, totalMetricsCount := 0, 0
 	fullMetrics := psm.cycleNum == 0
 
-	crtNumericFields := crtProcStat.NumericFields
+	currNumericFields := currProcStat.NumericFields
 
 	var prevNumericFields []uint64 = nil
 
@@ -323,10 +323,10 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 		if psm.linuxClktckSec > 0 {
 			linuxClktckSec = psm.linuxClktckSec
 		}
-		deltaSec := crtTs.Sub(prevTs).Seconds()
+		deltaSec := currTs.Sub(prevTs).Seconds()
 		pCpuFactor := linuxClktckSec * 100. / deltaSec // %CPU = delta(ticks) * pCpuFactor
 
-		for cpu, crtCpuStats := range crtProcStat.Cpu {
+		for cpu, currCpuStats := range currProcStat.Cpu {
 			prevCpuStats := prevProcStat.Cpu[cpu]
 			zeroPcpu := psm.zeroPcpuMap[cpu]
 			if zeroPcpu == nil {
@@ -334,7 +334,7 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 				psm.zeroPcpuMap[cpu] = zeroPcpu
 			}
 			if prevCpuStats != nil {
-				numCpus := float64(len(crtProcStat.Cpu) - 1)
+				numCpus := float64(len(currProcStat.Cpu) - 1)
 				cpuMetrics := psm.cpuMetricsCache[cpu]
 				if cpuMetrics == nil {
 					psm.updateCpuMetricsCache(cpu)
@@ -348,7 +348,7 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 					avgCpuMetrics = nil
 				}
 				for index, metric := range cpuMetrics {
-					dCpuTicks := crtCpuStats[index] - prevCpuStats[index]
+					dCpuTicks := currCpuStats[index] - prevCpuStats[index]
 					if dCpuTicks != 0 || fullMetrics || !zeroPcpu[index] {
 						pct := float64(dCpuTicks) * pCpuFactor
 						buf.Write(metric)
@@ -368,9 +368,9 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 			}
 		}
 		// CPU's may be unplugged dynamically. Check and delete zero %CPU flags as needed.
-		if len(psm.zeroPcpuMap) > len(crtProcStat.Cpu) {
+		if len(psm.zeroPcpuMap) > len(currProcStat.Cpu) {
 			for cpu := range psm.zeroPcpuMap {
-				if _, ok := crtProcStat.Cpu[cpu]; !ok {
+				if _, ok := currProcStat.Cpu[cpu]; !ok {
 					delete(psm.zeroPcpuMap, cpu)
 				}
 			}
@@ -384,7 +384,7 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 			deltaMetricsCache = psm.deltaMetricsCache
 		}
 		for index, metric := range deltaMetricsCache {
-			val := crtNumericFields[index] - prevNumericFields[index]
+			val := currNumericFields[index] - prevNumericFields[index]
 			buf.Write(metric)
 			buf.WriteString(strconv.FormatUint(val, 10))
 			buf.Write(promTs)
@@ -426,7 +426,7 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 		metricsCache = psm.metricsCache
 	}
 	for index, metric := range metricsCache {
-		val := crtNumericFields[index]
+		val := currNumericFields[index]
 		if fullMetrics || prevNumericFields == nil || val != prevNumericFields[index] {
 			buf.Write(metric)
 			buf.WriteString(strconv.FormatUint(val, 10))
@@ -437,7 +437,7 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 	totalMetricsCount += len(metricsCache)
 
 	// Toggle the buffers, update the collection time and the cycle#:
-	psm.crtIndex = 1 - psm.crtIndex
+	psm.currIndex = 1 - psm.currIndex
 	if psm.cycleNum++; psm.cycleNum >= psm.fullMetricsFactor {
 		psm.cycleNum = 0
 	}
@@ -457,26 +457,26 @@ func (psm *ProcStatMetrics) Execute() bool {
 		metricsQueue = psm.metricsQueue
 	}
 
-	crtProcStat := psm.procStat[psm.crtIndex]
-	if crtProcStat == nil {
-		prevProcStat := psm.procStat[1-psm.crtIndex]
+	currProcStat := psm.procStat[psm.currIndex]
+	if currProcStat == nil {
+		prevProcStat := psm.procStat[1-psm.currIndex]
 		if prevProcStat != nil {
-			crtProcStat = prevProcStat.Clone(false)
+			currProcStat = prevProcStat.Clone(false)
 		} else {
 			procfsRoot := GlobalProcfsRoot
 			if psm.procfsRoot != "" {
 				procfsRoot = psm.procfsRoot
 			}
-			crtProcStat = procfs.NewStat(procfsRoot)
+			currProcStat = procfs.NewStat(procfsRoot)
 		}
-		psm.procStat[psm.crtIndex] = crtProcStat
+		psm.procStat[psm.currIndex] = currProcStat
 	}
-	err := crtProcStat.Parse()
+	err := currProcStat.Parse()
 	if err != nil {
 		procStatMetricsLog.Warnf("%v: proc stat metrics will be disabled", err)
 		return false
 	}
-	psm.procStatTs[psm.crtIndex] = timeNowFn()
+	psm.procStatTs[psm.currIndex] = timeNowFn()
 
 	buf := metricsQueue.GetBuf()
 	actualMetricsCount, totalMetricsCount := psm.generateMetrics(buf)

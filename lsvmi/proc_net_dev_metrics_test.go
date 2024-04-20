@@ -14,17 +14,17 @@ import (
 )
 
 type ProcNetDevMetricsTestCase struct {
-	Name                          string
-	Instance                      string
-	Hostname                      string
-	CrtProcNetDev, PrevProcNetDev *procfs.NetDev
-	CrtPromTs, PrevPromTs         int64
-	CycleNum, FullMetricsFactor   int
-	ZeroDeltaMap                  map[string][]bool
-	WantMetricsCount              int
-	WantMetrics                   []string
-	ReportExtra                   bool
-	WantZeroDeltaMap              map[string][]bool
+	Name                           string
+	Instance                       string
+	Hostname                       string
+	CurrProcNetDev, PrevProcNetDev *procfs.NetDev
+	CurrPromTs, PrevPromTs         int64
+	CycleNum, FullMetricsFactor    int
+	ZeroDeltaMap                   map[string][]bool
+	WantMetricsCount               int
+	WantMetrics                    []string
+	ReportExtra                    bool
+	WantZeroDeltaMap               map[string][]bool
 }
 
 var procNetDevMetricsTestcasesFile = path.Join(
@@ -42,11 +42,11 @@ func testProcNetDevMetrics(tc *ProcNetDevMetricsTestCase, t *testing.T) {
 	}
 	procNetDevMetrics.instance = tc.Instance
 	procNetDevMetrics.hostname = tc.Hostname
-	crtIndex := procNetDevMetrics.crtIndex
-	procNetDevMetrics.procNetDev[crtIndex] = tc.CrtProcNetDev
-	procNetDevMetrics.procNetDevTs[crtIndex] = time.UnixMilli(tc.CrtPromTs)
-	procNetDevMetrics.procNetDev[1-crtIndex] = tc.PrevProcNetDev
-	procNetDevMetrics.procNetDevTs[1-crtIndex] = time.UnixMilli(tc.PrevPromTs)
+	currIndex := procNetDevMetrics.currIndex
+	procNetDevMetrics.procNetDev[currIndex] = tc.CurrProcNetDev
+	procNetDevMetrics.procNetDevTs[currIndex] = time.UnixMilli(tc.CurrPromTs)
+	procNetDevMetrics.procNetDev[1-currIndex] = tc.PrevProcNetDev
+	procNetDevMetrics.procNetDevTs[1-currIndex] = time.UnixMilli(tc.PrevPromTs)
 	procNetDevMetrics.cycleNum = tc.CycleNum
 	procNetDevMetrics.fullMetricsFactor = tc.FullMetricsFactor
 	for dev, zeroDeltaMap := range tc.ZeroDeltaMap {
@@ -54,7 +54,7 @@ func testProcNetDevMetrics(tc *ProcNetDevMetricsTestCase, t *testing.T) {
 		copy(procNetDevMetrics.zeroDeltaMap[dev], zeroDeltaMap)
 	}
 
-	wantCrtIndex := 1 - crtIndex
+	wantCurrIndex := 1 - currIndex
 	testMetricsQueue := testutils.NewTestMetricsQueue(0)
 	buf := testMetricsQueue.GetBuf()
 	gotMetricsCount, _ := procNetDevMetrics.generateMetrics(buf)
@@ -62,12 +62,12 @@ func testProcNetDevMetrics(tc *ProcNetDevMetricsTestCase, t *testing.T) {
 
 	errBuf := &bytes.Buffer{}
 
-	gotCrtIndex := procNetDevMetrics.crtIndex
-	if wantCrtIndex != gotCrtIndex {
+	gotCurrIndex := procNetDevMetrics.currIndex
+	if wantCurrIndex != gotCurrIndex {
 		fmt.Fprintf(
 			errBuf,
-			"\ncrtIndex: want: %d, got: %d",
-			wantCrtIndex, gotCrtIndex,
+			"\ncurrIndex: want: %d, got: %d",
+			wantCurrIndex, gotCurrIndex,
 		)
 	}
 

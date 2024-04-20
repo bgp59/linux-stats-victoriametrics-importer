@@ -87,7 +87,7 @@ type ProcInterruptsMetrics struct {
 	// Timestamp when the stats were collected:
 	procInterruptsTs [2]time.Time
 	// Index for current stats, toggled after each use:
-	crtIndex int
+	currIndex int
 	// Full metric factor:
 	fullMetricsFactor int
 
@@ -158,7 +158,7 @@ func (pim *ProcInterruptsMetrics) updateIrqDataCache(irq string) *ProcInterrupts
 		hostname = pim.hostname
 	}
 
-	interrupts := pim.procInterrupts[pim.crtIndex]
+	interrupts := pim.procInterrupts[pim.currIndex]
 	irqInfo := interrupts.Info.IrqInfo[irq]
 
 	irqData, ok := pim.irqDataCache[irq]
@@ -197,12 +197,12 @@ func (pim *ProcInterruptsMetrics) updateIrqDataCache(irq string) *ProcInterrupts
 // mapping from current to previous counter index such that they target the same
 // CPU#:
 func (pim *ProcInterruptsMetrics) updateCpuList() map[int]int {
-	crt_interrupts, prev_interrupts := pim.procInterrupts[pim.crtIndex], pim.procInterrupts[1-pim.crtIndex]
+	curr_interrupts, prev_interrupts := pim.procInterrupts[pim.currIndex], pim.procInterrupts[1-pim.currIndex]
 
 	// Suffix cache:
-	if crt_interrupts.CpuList == nil {
+	if curr_interrupts.CpuList == nil {
 		// No CPU is missing, i.e. CPU# == counter index#
-		numCpus := crt_interrupts.NumCounters
+		numCpus := curr_interrupts.NumCounters
 		pim.deltaMetricsSuffixCache = make([][]byte, numCpus)
 		for i := 0; i < numCpus; i++ {
 			pim.deltaMetricsSuffixCache[i] = []byte(fmt.Sprintf(
@@ -211,8 +211,8 @@ func (pim *ProcInterruptsMetrics) updateCpuList() map[int]int {
 			))
 		}
 	} else {
-		pim.deltaMetricsSuffixCache = make([][]byte, len(crt_interrupts.CpuList))
-		for i, cpu := range crt_interrupts.CpuList {
+		pim.deltaMetricsSuffixCache = make([][]byte, len(curr_interrupts.CpuList))
+		for i, cpu := range curr_interrupts.CpuList {
 			pim.deltaMetricsSuffixCache[i] = []byte(fmt.Sprintf(
 				`,%s="%d"} `, // N.B. include space before value
 				PROC_INTERRUPTS_CPU_LABEL_NAME, cpu,
@@ -221,7 +221,7 @@ func (pim *ProcInterruptsMetrics) updateCpuList() map[int]int {
 	}
 
 	// Mapping:
-	crtToPrevCounterIndexMap := make(map[int]int)
+	currToPrevCounterIndexMap := make(map[int]int)
 	prevCpuNumToCounterIndexMap := make(map[int]int)
 	if prev_interrupts.CpuList == nil {
 		for i := 0; i < prev_interrupts.NumCounters; i++ {
@@ -232,20 +232,20 @@ func (pim *ProcInterruptsMetrics) updateCpuList() map[int]int {
 			prevCpuNumToCounterIndexMap[cpuNum] = i
 		}
 	}
-	if crt_interrupts.CpuList == nil {
-		for i := 0; i < crt_interrupts.NumCounters; i++ {
+	if curr_interrupts.CpuList == nil {
+		for i := 0; i < curr_interrupts.NumCounters; i++ {
 			if prevI, ok := prevCpuNumToCounterIndexMap[i]; ok {
-				crtToPrevCounterIndexMap[i] = prevI
+				currToPrevCounterIndexMap[i] = prevI
 			}
 		}
 	} else {
-		for crtI, cpuNum := range crt_interrupts.CpuList {
+		for currI, cpuNum := range curr_interrupts.CpuList {
 			if prevI, ok := prevCpuNumToCounterIndexMap[cpuNum]; ok {
-				crtToPrevCounterIndexMap[crtI] = prevI
+				currToPrevCounterIndexMap[currI] = prevI
 			}
 		}
 	}
-	return crtToPrevCounterIndexMap
+	return currToPrevCounterIndexMap
 }
 
 func (pim *ProcInterruptsMetrics) updateIntervalMetricsCache() {
@@ -267,94 +267,94 @@ func (pim *ProcInterruptsMetrics) updateIntervalMetricsCache() {
 
 func (pim *ProcInterruptsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 	actualMetricsCount := 0
-	crtProcInterrupts, prevProcInterrupts := pim.procInterrupts[pim.crtIndex], pim.procInterrupts[1-pim.crtIndex]
+	currProcInterrupts, prevProcInterrupts := pim.procInterrupts[pim.currIndex], pim.procInterrupts[1-pim.currIndex]
 
 	// All metrics are deltas, so must have previous stats:
 	if prevProcInterrupts != nil {
-		crtInfo := crtProcInterrupts.Info
+		currInfo := currProcInterrupts.Info
 
-		crtTs, prevTs := pim.procInterruptsTs[pim.crtIndex], pim.procInterruptsTs[1-pim.crtIndex]
+		currTs, prevTs := pim.procInterruptsTs[pim.currIndex], pim.procInterruptsTs[1-pim.currIndex]
 		pim.tsSuffixBuf.Reset()
 		fmt.Fprintf(
-			pim.tsSuffixBuf, " %d\n", crtTs.UnixMilli(),
+			pim.tsSuffixBuf, " %d\n", currTs.UnixMilli(),
 		)
 		promTs := pim.tsSuffixBuf.Bytes()
-		deltaSec := crtTs.Sub(prevTs).Seconds()
+		deltaSec := currTs.Sub(prevTs).Seconds()
 
-		// If there was a CPU list change, then build crt to previous counter
+		// If there was a CPU list change, then build curr to previous counter
 		// index# map such that they refer to the same CPU#.
-		var crtToPrevCounterIndexMap map[int]int = nil
+		var currToPrevCounterIndexMap map[int]int = nil
 
-		if crtInfo.CpuListChanged {
-			crtToPrevCounterIndexMap = pim.updateCpuList()
+		if currInfo.CpuListChanged {
+			currToPrevCounterIndexMap = pim.updateCpuList()
 		} else if pim.deltaMetricsSuffixCache == nil {
 			// 1st time, no mapping required:
 			pim.updateCpuList()
 		}
 
-		for irq, crtCounters := range crtProcInterrupts.Counters {
+		for irq, currCounters := range currProcInterrupts.Counters {
 			prevCounters := prevProcInterrupts.Counters[irq]
 			if prevCounters == nil {
 				// This is a new IRQ, no deltas for it:
 				continue
 			}
 
-			crtIrqInfo := crtInfo.IrqInfo[irq]
+			currIrqInfo := currInfo.IrqInfo[irq]
 
 			irqData := pim.irqDataCache[irq]
 			fullMetrics := irqData == nil || // 1st time IRQ
-				crtIrqInfo.Changed || // something changed
+				currIrqInfo.Changed || // something changed
 				irqData.cycleNum == 0 // regular full cycle
 			var prevInfoMetric []byte = nil
 			if irqData == nil {
 				// 1st time IRQ:
 				irqData = pim.updateIrqDataCache(irq)
-			} else if crtIrqInfo.Changed {
+			} else if currIrqInfo.Changed {
 				// Info changed, may have to 0 the previous info metric:
 				prevInfoMetric = irqData.infoMetric
 				irqData = pim.updateIrqDataCache(irq)
 			}
 
-			if crtInfo.CpuListChanged {
+			if currInfo.CpuListChanged {
 				// Previous zero delta is no longer valid:
-				irqData.zeroDelta = make([]bool, crtProcInterrupts.NumCounters)
+				irqData.zeroDelta = make([]bool, currProcInterrupts.NumCounters)
 			}
 
 			deltaMetricPrefix := irqData.deltaMetricPrefix
 			irqZeroDelta := irqData.zeroDelta
 
 			// Delta metrics:
-			for crtI, crtCounter := range crtCounters {
-				prevI, ok := crtI, true
-				if crtToPrevCounterIndexMap != nil {
-					prevI, ok = crtToPrevCounterIndexMap[crtI]
+			for currI, currCounter := range currCounters {
+				prevI, ok := currI, true
+				if currToPrevCounterIndexMap != nil {
+					prevI, ok = currToPrevCounterIndexMap[currI]
 					if !ok {
 						// This CPU didn't exist before, so no delta for it:
 						continue
 					}
 				}
-				delta := crtCounter - prevCounters[prevI]
-				if fullMetrics || delta > 0 || !irqZeroDelta[crtI] {
+				delta := currCounter - prevCounters[prevI]
+				if fullMetrics || delta > 0 || !irqZeroDelta[currI] {
 					buf.Write(deltaMetricPrefix)
-					buf.Write(pim.deltaMetricsSuffixCache[crtI])
+					buf.Write(pim.deltaMetricsSuffixCache[currI])
 					buf.WriteString(strconv.FormatUint(delta, 10))
 					buf.Write(promTs)
 					actualMetricsCount++
 				}
-				irqZeroDelta[crtI] = delta == 0
+				irqZeroDelta[currI] = delta == 0
 			}
 
 			// Info metric:
 			if fullMetrics {
-				crtInfoMetric := irqData.infoMetric
-				if prevInfoMetric != nil && !bytes.Equal(prevInfoMetric, crtInfoMetric) {
+				currInfoMetric := irqData.infoMetric
+				if prevInfoMetric != nil && !bytes.Equal(prevInfoMetric, currInfoMetric) {
 					// Must 0 previous info metric:
 					buf.Write(prevInfoMetric)
 					buf.WriteByte('0')
 					buf.Write(promTs)
 					actualMetricsCount++
 				}
-				buf.Write(crtInfoMetric)
+				buf.Write(currInfoMetric)
 				buf.WriteByte('1')
 				buf.Write(promTs)
 				actualMetricsCount++
@@ -367,9 +367,9 @@ func (pim *ProcInterruptsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) 
 		}
 
 		// Clear info for removed IRQ's, if any:
-		if len(pim.irqDataCache) != len(crtInfo.IrqInfo) {
+		if len(pim.irqDataCache) != len(currInfo.IrqInfo) {
 			for irq, prevIrqData := range pim.irqDataCache {
-				if _, ok := crtProcInterrupts.Counters[irq]; !ok {
+				if _, ok := currProcInterrupts.Counters[irq]; !ok {
 					buf.Write(prevIrqData.infoMetric)
 					buf.WriteByte('0')
 					buf.Write(promTs)
@@ -393,10 +393,10 @@ func (pim *ProcInterruptsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) 
 	//		delta metrics#: number of IRQs * number of counter
 	//		info metrics#:  number of IRQs
 	//		interval metric#: 1
-	totalMetricsCount := len(crtProcInterrupts.Counters)*(crtProcInterrupts.NumCounters+1) + 1
+	totalMetricsCount := len(currProcInterrupts.Counters)*(currProcInterrupts.NumCounters+1) + 1
 
 	// Toggle the buffers:
-	pim.crtIndex = 1 - pim.crtIndex
+	pim.currIndex = 1 - pim.currIndex
 
 	return actualMetricsCount, totalMetricsCount
 }
@@ -413,26 +413,26 @@ func (pim *ProcInterruptsMetrics) Execute() bool {
 		metricsQueue = pim.metricsQueue
 	}
 
-	crtProcInterrupts := pim.procInterrupts[pim.crtIndex]
-	if crtProcInterrupts == nil {
-		prevProcInterrupts := pim.procInterrupts[1-pim.crtIndex]
+	currProcInterrupts := pim.procInterrupts[pim.currIndex]
+	if currProcInterrupts == nil {
+		prevProcInterrupts := pim.procInterrupts[1-pim.currIndex]
 		if prevProcInterrupts != nil {
-			crtProcInterrupts = prevProcInterrupts.Clone(false)
+			currProcInterrupts = prevProcInterrupts.Clone(false)
 		} else {
 			procfsRoot := GlobalProcfsRoot
 			if pim.procfsRoot != "" {
 				procfsRoot = pim.procfsRoot
 			}
-			crtProcInterrupts = procfs.NewInterrupts(procfsRoot)
+			currProcInterrupts = procfs.NewInterrupts(procfsRoot)
 		}
-		pim.procInterrupts[pim.crtIndex] = crtProcInterrupts
+		pim.procInterrupts[pim.currIndex] = currProcInterrupts
 	}
-	err := crtProcInterrupts.Parse()
+	err := currProcInterrupts.Parse()
 	if err != nil {
 		procInterruptsMetricsLog.Warnf("%v: proc interrupts metrics will be disabled", err)
 		return false
 	}
-	pim.procInterruptsTs[pim.crtIndex] = timeNowFn()
+	pim.procInterruptsTs[pim.currIndex] = timeNowFn()
 
 	buf := metricsQueue.GetBuf()
 	actualMetricsCount, totalMetricsCount := pim.generateMetrics(buf)

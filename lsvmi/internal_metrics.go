@@ -158,8 +158,8 @@ func (internalMetrics *InternalMetrics) Execute() bool {
 	if internalMetrics.scheduler != nil {
 		scheduler = internalMetrics.scheduler
 	}
-	schedulerMetrics.stats[schedulerMetrics.crtIndex] = scheduler.SnapStats(
-		schedulerMetrics.stats[schedulerMetrics.crtIndex],
+	schedulerMetrics.stats[schedulerMetrics.currIndex] = scheduler.SnapStats(
+		schedulerMetrics.stats[schedulerMetrics.currIndex],
 	)
 
 	// Compressor pool:
@@ -168,8 +168,8 @@ func (internalMetrics *InternalMetrics) Execute() bool {
 		compressorPool = internalMetrics.compressorPool
 	}
 	if compressorPool != nil {
-		compressorPoolMetrics.stats[compressorPoolMetrics.crtIndex] = compressorPool.SnapStats(
-			compressorPoolMetrics.stats[compressorPoolMetrics.crtIndex],
+		compressorPoolMetrics.stats[compressorPoolMetrics.currIndex] = compressorPool.SnapStats(
+			compressorPoolMetrics.stats[compressorPoolMetrics.currIndex],
 		)
 	} else {
 		compressorPoolMetrics = nil
@@ -181,8 +181,8 @@ func (internalMetrics *InternalMetrics) Execute() bool {
 		httpEndpointPool = internalMetrics.httpEndpointPool
 	}
 	if httpEndpointPool != nil {
-		httpEndpointPoolMetrics.stats[httpEndpointPoolMetrics.crtIndex] = httpEndpointPool.SnapStats(
-			httpEndpointPoolMetrics.stats[httpEndpointPoolMetrics.crtIndex],
+		httpEndpointPoolMetrics.stats[httpEndpointPoolMetrics.currIndex] = httpEndpointPool.SnapStats(
+			httpEndpointPoolMetrics.stats[httpEndpointPoolMetrics.currIndex],
 		)
 	} else {
 		httpEndpointPoolMetrics = nil

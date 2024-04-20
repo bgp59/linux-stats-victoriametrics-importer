@@ -57,9 +57,9 @@ class ProcInterruptsMetricsTestCase:
     Description: Optional[str] = None
     Instance: Optional[str] = None
     Hostname: Optional[str] = None
-    CrtProcInterrupts: Optional[procfs.Interrupts] = None
+    CurrProcInterrupts: Optional[procfs.Interrupts] = None
     PrevProcInterrupts: Optional[procfs.Interrupts] = None
-    CrtPromTs: Optional[int] = None
+    CurrPromTs: Optional[int] = None
     PrevPromTs: Optional[int] = None
     FullMetricsFactor: int = DEFAULT_PROC_INTERRUPTS_FULL_METRICS_FACTOR
     IrqDataCache: Optional[Dict[str, ProcInterruptsMetricsIrqDataTest]] = None
@@ -183,9 +183,9 @@ def generate_irq_data_cache(
 
 
 def generate_proc_interrupts_metrics(
-    crt_proc_interrupts: procfs.Interrupts,
+    curr_proc_interrupts: procfs.Interrupts,
     prev_proc_interrupts: procfs.Interrupts,
-    crt_prom_ts: int,
+    curr_prom_ts: int,
     interval: Optional[float] = DEFAULT_PROC_INTERRUPTS_INTERVAL_SEC,
     irq_data_cache: Optional[Dict[str, ProcInterruptsMetricsIrqDataTest]] = None,
     instance: str = DEFAULT_TEST_INSTANCE,
@@ -193,73 +193,73 @@ def generate_proc_interrupts_metrics(
 ) -> Tuple[List[str], Optional[ZeroDeltaMapType]]:
     metrics = []
 
-    # Build the mapping between the crt and prev counter index# using the
+    # Build the mapping between the curr and prev counter index# using the
     # CpuList; 2 counter indexes have to refer to the same CPU#.
-    crt_cpu_list = crt_proc_interrupts.CpuList
-    if not crt_cpu_list:
-        crt_cpu_list = [i for i in range(crt_proc_interrupts.NumCounters)]
+    curr_cpu_list = curr_proc_interrupts.CpuList
+    if not curr_cpu_list:
+        curr_cpu_list = [i for i in range(curr_proc_interrupts.NumCounters)]
     prev_cpu_list = prev_proc_interrupts.CpuList
     if not prev_cpu_list:
         prev_cpu_list = [i for i in range(prev_proc_interrupts.NumCounters)]
     prev_cpu_to_index_map = {cpu: i for i, cpu in enumerate(prev_cpu_list)}
-    crt_to_prev_counter_index_map = {
+    curr_to_prev_counter_index_map = {
         i: prev_cpu_to_index_map[cpu]
-        for i, cpu in enumerate(crt_cpu_list)
+        for i, cpu in enumerate(curr_cpu_list)
         if cpu in prev_cpu_to_index_map
     }
-    cpu_list_changed = crt_cpu_list != prev_cpu_list
+    cpu_list_changed = curr_cpu_list != prev_cpu_list
 
     # Peruse irq_data_cache for cycle# and zero delta, if one provided:
     if irq_data_cache is None:
         irq_data_cache = {}
 
     new_zero_delta_map = {}
-    for irq, crt_counters in crt_proc_interrupts.Counters.items():
+    for irq, curr_counters in curr_proc_interrupts.Counters.items():
         prev_counters = prev_proc_interrupts.Counters.get(irq)
         if prev_counters is None:
             continue
-        new_zero_delta_map[irq] = [False] * crt_proc_interrupts.NumCounters
+        new_zero_delta_map[irq] = [False] * curr_proc_interrupts.NumCounters
         irq_data = irq_data_cache.get(irq)
         if irq_data is None or cpu_list_changed:
-            zero_delta = [False] * crt_proc_interrupts.NumCounters
+            zero_delta = [False] * curr_proc_interrupts.NumCounters
         else:
             zero_delta = irq_data.ZeroDelta
         full_metrics = irq_data is None or irq_data.CycleNum == 0
         if cpu_list_changed or zero_delta is None:
-            zero_delta = [False] * crt_proc_interrupts.NumCounters
-        for crt_i, crt_counter in enumerate(crt_counters):
-            prev_i = crt_to_prev_counter_index_map.get(crt_i)
+            zero_delta = [False] * curr_proc_interrupts.NumCounters
+        for curr_i, curr_counter in enumerate(curr_counters):
+            prev_i = curr_to_prev_counter_index_map.get(curr_i)
             if prev_i is None:
                 continue
-            delta = uint64_delta(crt_counter, prev_counters[prev_i])
-            if full_metrics or delta > 0 or not zero_delta[crt_i]:
+            delta = uint64_delta(curr_counter, prev_counters[prev_i])
+            if full_metrics or delta > 0 or not zero_delta[curr_i]:
                 metrics.append(
                     interrupts_delta_metric(
-                        crt_proc_interrupts,
+                        curr_proc_interrupts,
                         irq,
-                        crt_cpu_list[crt_i],
+                        curr_cpu_list[curr_i],
                         instance=instance,
                         hostname=hostname,
                     )
-                    + f"{delta} {crt_prom_ts}"
+                    + f"{delta} {curr_prom_ts}"
                 )
-            new_zero_delta_map[irq][crt_i] = delta == 0
+            new_zero_delta_map[irq][curr_i] = delta == 0
         prev_info_metric = irq_data.InfoMetric if irq_data is not None else None
-        crt_info_metric = interrupts_info_metric(
-            crt_proc_interrupts,
+        curr_info_metric = interrupts_info_metric(
+            curr_proc_interrupts,
             irq,
             instance=instance,
             hostname=hostname,
         )
-        if prev_info_metric is not None and prev_info_metric != crt_info_metric:
-            metrics.append(f"{prev_info_metric}0 {crt_prom_ts}")
+        if prev_info_metric is not None and prev_info_metric != curr_info_metric:
+            metrics.append(f"{prev_info_metric}0 {curr_prom_ts}")
         if prev_info_metric is None or full_metrics:
-            metrics.append(f"{crt_info_metric}1 {crt_prom_ts}")
+            metrics.append(f"{curr_info_metric}1 {curr_prom_ts}")
 
     # Handle removed IRQ's:
     for irq, irq_data in irq_data_cache.items():
-        if irq not in crt_proc_interrupts.Counters:
-            metrics.append(f"{irq_data.InfoMetric}0 {crt_prom_ts}")
+        if irq not in curr_proc_interrupts.Counters:
+            metrics.append(f"{irq_data.InfoMetric}0 {curr_prom_ts}")
 
     metrics.append(
         f"{PROC_INTERRUPTS_INTERVAL_METRIC_NAME}{{"
@@ -269,7 +269,7 @@ def generate_proc_interrupts_metrics(
                 f'{HOSTNAME_LABEL_NAME}="{hostname}"',
             ]
         )
-        + f"}} {interval:.06f} {crt_prom_ts}"
+        + f"}} {interval:.06f} {curr_prom_ts}"
     )
 
     return metrics, new_zero_delta_map
@@ -283,7 +283,7 @@ def b64encode_interrupts(interrupts: procfs.Interrupts) -> procfs.Interrupts:
 
 def generate_proc_interrupts_test_case(
     name: str,
-    crt_proc_interrupts: procfs.Interrupts,
+    curr_proc_interrupts: procfs.Interrupts,
     prev_proc_interrupts: procfs.Interrupts,
     ts: Optional[float] = None,
     cycle_num_map: Optional[Dict[str, int]] = None,
@@ -298,8 +298,8 @@ def generate_proc_interrupts_test_case(
 ) -> ProcInterruptsMetricsTestCase:
     if ts is None:
         ts = time.time()
-    crt_prom_ts = int(ts * 1000)
-    prev_prom_ts = crt_prom_ts - int(interval * 1000)
+    curr_prom_ts = int(ts * 1000)
+    prev_prom_ts = curr_prom_ts - int(interval * 1000)
 
     if empty_irq_data_cache:
         irq_data_cache = {}
@@ -321,44 +321,44 @@ def generate_proc_interrupts_test_case(
             )
 
     metrics, want_zero_delta_map = generate_proc_interrupts_metrics(
-        crt_proc_interrupts=crt_proc_interrupts,
+        curr_proc_interrupts=curr_proc_interrupts,
         prev_proc_interrupts=prev_proc_interrupts,
-        crt_prom_ts=crt_prom_ts,
+        curr_prom_ts=curr_prom_ts,
         interval=interval,
         irq_data_cache=irq_data_cache,
         instance=instance,
         hostname=hostname,
     )
-    crt_proc_interrupts = b64encode_interrupts(crt_proc_interrupts)
+    curr_proc_interrupts = b64encode_interrupts(curr_proc_interrupts)
     prev_proc_interrupts = b64encode_interrupts(prev_proc_interrupts)
-    crt_proc_interrupts.Info.CpuListChanged = (
-        crt_proc_interrupts.CpuList != prev_proc_interrupts.CpuList
+    curr_proc_interrupts.Info.CpuListChanged = (
+        curr_proc_interrupts.CpuList != prev_proc_interrupts.CpuList
     )
 
     if (
-        crt_proc_interrupts.Info is not None
-        and crt_proc_interrupts.Info.IrqInfo is not None
+        curr_proc_interrupts.Info is not None
+        and curr_proc_interrupts.Info.IrqInfo is not None
     ):
-        crt_irq_info_map = crt_proc_interrupts.Info.IrqInfo
+        curr_irq_info_map = curr_proc_interrupts.Info.IrqInfo
         prev_irq_info_map = (
             prev_proc_interrupts.Info.IrqInfo
             if prev_proc_interrupts.Info is not None
             and prev_proc_interrupts.Info.IrqInfo is not None
             else {}
         )
-        for irq, crt_irq_info in crt_irq_info_map.items():
-            if crt_irq_info != prev_irq_info_map.get(irq):
-                crt_irq_info.Changed = True
-                crt_proc_interrupts.IrqChanged = True
+        for irq, curr_irq_info in curr_irq_info_map.items():
+            if curr_irq_info != prev_irq_info_map.get(irq):
+                curr_irq_info.Changed = True
+                curr_proc_interrupts.IrqChanged = True
 
     return ProcInterruptsMetricsTestCase(
         Name=name,
         Description=description,
         Instance=instance,
         Hostname=hostname,
-        CrtProcInterrupts=crt_proc_interrupts,
+        CurrProcInterrupts=curr_proc_interrupts,
         PrevProcInterrupts=prev_proc_interrupts,
-        CrtPromTs=crt_prom_ts,
+        CurrPromTs=curr_prom_ts,
         PrevPromTs=prev_prom_ts,
         FullMetricsFactor=full_metrics_factor,
         IrqDataCache=irq_data_cache,
@@ -427,7 +427,7 @@ def generate_proc_interrupts_metrics_test_cases(
 
     ref_proc_interrupts = make_ref_proc_interrupts(irq_list, num_counters)
     # All counters changed:
-    crt_proc_interrupts = ref_proc_interrupts
+    curr_proc_interrupts = ref_proc_interrupts
     prev_proc_interrupts = deepcopy(ref_proc_interrupts)
     delta = 1
     for irq in irq_list:
@@ -443,7 +443,7 @@ def generate_proc_interrupts_metrics_test_cases(
                 test_cases.append(
                     generate_proc_interrupts_test_case(
                         f"all_counters/{tc_num:04d}",
-                        crt_proc_interrupts,
+                        curr_proc_interrupts,
                         prev_proc_interrupts,
                         cycle_num_map=cycle_num_map,
                         zero_delta_map=zero_delta_map,
@@ -462,7 +462,7 @@ def generate_proc_interrupts_metrics_test_cases(
                 tc_num += 1
 
     # Single counter change:
-    crt_proc_interrupts = ref_proc_interrupts
+    curr_proc_interrupts = ref_proc_interrupts
     delta = 1
     for zero_delta in [False, True]:
         zero_delta_map = {irq: [zero_delta] * num_counters for irq in irq_list}
@@ -477,7 +477,7 @@ def generate_proc_interrupts_metrics_test_cases(
                         test_cases.append(
                             generate_proc_interrupts_test_case(
                                 f"single_counter/{tc_num:04d}",
-                                crt_proc_interrupts,
+                                curr_proc_interrupts,
                                 prev_proc_interrupts,
                                 cycle_num_map=cycle_num_map,
                                 zero_delta_map=zero_delta_map,
@@ -500,13 +500,13 @@ def generate_proc_interrupts_metrics_test_cases(
     # New IRQ under 2 scenarios:
     #   - not in prev but in current
     #   - in both but not in cache
-    crt_proc_interrupts = ref_proc_interrupts
+    curr_proc_interrupts = ref_proc_interrupts
     for zero_delta in [False, True]:
         for cycle_num in [0, 1]:
             for empty_irq_data_cache in [False, True]:
                 for irq in irq_list:
                     for new_irq in [None, irq]:
-                        prev_proc_interrupts = deepcopy(crt_proc_interrupts)
+                        prev_proc_interrupts = deepcopy(curr_proc_interrupts)
                         if new_irq is None:
                             del prev_proc_interrupts.Counters[irq]
                             del prev_proc_interrupts.Info.IrqInfo[irq]
@@ -517,7 +517,7 @@ def generate_proc_interrupts_metrics_test_cases(
                         test_cases.append(
                             generate_proc_interrupts_test_case(
                                 f"new_irq/{tc_num:04d}",
-                                crt_proc_interrupts,
+                                curr_proc_interrupts,
                                 prev_proc_interrupts,
                                 cycle_num_map=cycle_num_map,
                                 zero_delta_map=zero_delta_map,
@@ -546,13 +546,13 @@ def generate_proc_interrupts_metrics_test_cases(
             cycle_num_map = {irq: cycle_num for irq in irq_list}
             for empty_irq_data_cache in [False, True]:
                 for irq in irq_list:
-                    crt_proc_interrupts = deepcopy(prev_proc_interrupts)
-                    del crt_proc_interrupts.Counters[irq]
-                    del crt_proc_interrupts.Info.IrqInfo[irq]
+                    curr_proc_interrupts = deepcopy(prev_proc_interrupts)
+                    del curr_proc_interrupts.Counters[irq]
+                    del curr_proc_interrupts.Info.IrqInfo[irq]
                     test_cases.append(
                         generate_proc_interrupts_test_case(
                             f"remove_irq/{tc_num:04d}",
-                            crt_proc_interrupts,
+                            curr_proc_interrupts,
                             prev_proc_interrupts,
                             cycle_num_map=cycle_num_map,
                             zero_delta_map=zero_delta_map,
@@ -579,17 +579,17 @@ def generate_proc_interrupts_metrics_test_cases(
             cycle_num_map = {irq: cycle_num for irq in irq_list}
             for empty_irq_data_cache in [False, True]:
                 for k in range(num_counters):
-                    crt_proc_interrupts = deepcopy(prev_proc_interrupts)
+                    curr_proc_interrupts = deepcopy(prev_proc_interrupts)
                     for irq in irq_list:
-                        del crt_proc_interrupts.Counters[irq][k : k + 1]
-                    crt_proc_interrupts.NumCounters -= 1
-                    crt_proc_interrupts.CpuList = [
+                        del curr_proc_interrupts.Counters[irq][k : k + 1]
+                    curr_proc_interrupts.NumCounters -= 1
+                    curr_proc_interrupts.CpuList = [
                         i for i in range(num_counters) if i != k
                     ]
                     test_cases.append(
                         generate_proc_interrupts_test_case(
                             f"remove_cpu/{tc_num:04d}",
-                            crt_proc_interrupts,
+                            curr_proc_interrupts,
                             prev_proc_interrupts,
                             cycle_num_map=cycle_num_map,
                             zero_delta_map=zero_delta_map,
@@ -609,14 +609,14 @@ def generate_proc_interrupts_metrics_test_cases(
                     tc_num += 1
 
     # New CPU:
-    crt_proc_interrupts = ref_proc_interrupts
+    curr_proc_interrupts = ref_proc_interrupts
     for zero_delta in [False, True]:
         zero_delta_map = {irq: [zero_delta] * num_counters for irq in irq_list}
         for cycle_num in [0, 1]:
             cycle_num_map = {irq: cycle_num for irq in irq_list}
             for empty_irq_data_cache in [False, True]:
                 for k in range(num_counters):
-                    prev_proc_interrupts = deepcopy(crt_proc_interrupts)
+                    prev_proc_interrupts = deepcopy(curr_proc_interrupts)
                     for irq in irq_list:
                         del prev_proc_interrupts.Counters[irq][k : k + 1]
                     prev_proc_interrupts.NumCounters -= 1
@@ -626,7 +626,7 @@ def generate_proc_interrupts_metrics_test_cases(
                     test_cases.append(
                         generate_proc_interrupts_test_case(
                             f"new_cpu/{tc_num:04d}",
-                            crt_proc_interrupts,
+                            curr_proc_interrupts,
                             prev_proc_interrupts,
                             cycle_num_map=cycle_num_map,
                             zero_delta_map=zero_delta_map,

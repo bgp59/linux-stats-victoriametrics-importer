@@ -17,7 +17,7 @@ from . import (
     lsvmi_testcases_root,
 )
 from .internal_metrics import (
-    TC_CRT_STATS_FIELD,
+    TC_CURR_STATS_FIELD,
     TC_HOSTNAME_FIELD,
     TC_INSTANCE_FIELD,
     TC_NAME_FIELD,
@@ -58,7 +58,7 @@ testcases_file = "scheduler.json"
 
 def generate_task_stats_metrics(
     task_id: str,
-    crt_task_stats: TaskStats,
+    curr_task_stats: TaskStats,
     prev_task_stats: Optional[TaskStats] = None,
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
@@ -72,7 +72,7 @@ def generate_task_stats_metrics(
     for i, name in task_stats_uint64_delta_metric_names.items():
         if name is None:
             continue
-        val = crt_task_stats[UINT64_STATS_FIELD][i]
+        val = curr_task_stats[UINT64_STATS_FIELD][i]
         if prev_task_stats is not None:
             val -= prev_task_stats[UINT64_STATS_FIELD][i]
         if i == TASK_STATS_EXECUTED_COUNT_INDEX:
@@ -89,12 +89,12 @@ def generate_task_stats_metrics(
             + f"}} {val} {promTs}"
         )
     if executed_delta is None:
-        val = crt_task_stats[UINT64_STATS_FIELD][TASK_STATS_EXECUTED_COUNT_INDEX]
+        val = curr_task_stats[UINT64_STATS_FIELD][TASK_STATS_EXECUTED_COUNT_INDEX]
         if prev_task_stats is not None:
             val -= prev_task_stats[UINT64_STATS_FIELD][TASK_STATS_EXECUTED_COUNT_INDEX]
     interval_runtime_average = 0
     if executed_delta > 0:
-        runtime_delta = crt_task_stats[RUNTIME_TOTAL_FIELD]
+        runtime_delta = curr_task_stats[RUNTIME_TOTAL_FIELD]
         if prev_task_stats is not None:
             runtime_delta -= prev_task_stats[RUNTIME_TOTAL_FIELD]
         interval_runtime_average = runtime_delta / GO_TIME_SECOND / executed_delta
@@ -114,7 +114,7 @@ def generate_task_stats_metrics(
 
 def generate_scheduler_internal_metrics_test_case(
     name: str,
-    crt_stats: SchedulerStats,
+    curr_stats: SchedulerStats,
     prev_stats: Optional[SchedulerStats] = None,
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
@@ -125,12 +125,12 @@ def generate_scheduler_internal_metrics_test_case(
         ts = time.time()
     prom_ts = int(ts * 1000)
     metrics = []
-    for task_id, crt_task_stats in crt_stats.items():
+    for task_id, curr_task_stats in curr_stats.items():
         prev_task_stats = prev_stats.get(task_id) if prev_stats is not None else None
         metrics.extend(
             generate_task_stats_metrics(
                 task_id,
-                crt_task_stats,
+                curr_task_stats,
                 prev_task_stats=prev_task_stats,
                 instance=instance,
                 hostname=hostname,
@@ -145,7 +145,7 @@ def generate_scheduler_internal_metrics_test_case(
         TC_WANT_METRICS_COUNT_FIELD: len(metrics),
         TC_WANT_METRICS_FIELD: metrics,
         TC_REPORT_EXTRA_FIELD: report_extra,
-        TC_CRT_STATS_FIELD: crt_stats,
+        TC_CURR_STATS_FIELD: curr_stats,
         TC_PREV_STATS_FIELD: prev_stats,
     }
 
@@ -190,17 +190,17 @@ def generate_scheduler_internal_metrics_test_cases(
     )
     tc_num += 1
 
-    crt_stats = deepcopy(stats_ref)
+    curr_stats = deepcopy(stats_ref)
     k = 0
-    for task_id in crt_stats:
+    for task_id in curr_stats:
         k += 1
-        for i in range(len(crt_stats[task_id][UINT64_STATS_FIELD])):
-            crt_stats[task_id][UINT64_STATS_FIELD][i] += 100 * k + i
-        crt_stats[task_id][RUNTIME_TOTAL_FIELD] += 1 * GO_TIME_SECOND
+        for i in range(len(curr_stats[task_id][UINT64_STATS_FIELD])):
+            curr_stats[task_id][UINT64_STATS_FIELD][i] += 100 * k + i
+        curr_stats[task_id][RUNTIME_TOTAL_FIELD] += 1 * GO_TIME_SECOND
     test_cases.append(
         generate_scheduler_internal_metrics_test_case(
             f"{tc_num:04d}",
-            crt_stats,
+            curr_stats,
             prev_stats=stats_ref,
             instance=instance,
             hostname=hostname,

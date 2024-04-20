@@ -78,9 +78,9 @@ PROC_NET_DEV_RATE_PREC = 1
 
 
 def generate_proc_net_dev_metrics(
-    crt_proc_net_dev: procfs.NetDev,
+    curr_proc_net_dev: procfs.NetDev,
     prev_proc_net_dev: procfs.NetDev,
-    crt_prom_ts: int,
+    curr_prom_ts: int,
     interval: Optional[float] = DEFAULT_PROC_NET_DEV_INTERVAL_SEC,
     zero_delta_map: Optional[ZeroDeltaMap] = None,
     full_metrics: bool = False,
@@ -90,14 +90,14 @@ def generate_proc_net_dev_metrics(
     metrics = []
     new_zero_delta_map = {}
 
-    for dev, crt_net_dev_stats in crt_proc_net_dev["DevStats"].items():
+    for dev, curr_net_dev_stats in curr_proc_net_dev["DevStats"].items():
         prev_net_dev_stats = prev_proc_net_dev["DevStats"].get(dev)
         if prev_net_dev_stats is None:
             continue
         new_zero_delta_map[dev] = [False] * procfs.NET_DEV_NUM_STATS
         zero_delta = zero_delta_map.get(dev)
-        for index, crt_val in enumerate(crt_net_dev_stats):
-            val = crt_val - prev_net_dev_stats[index]
+        for index, curr_val in enumerate(curr_net_dev_stats):
+            val = curr_val - prev_net_dev_stats[index]
             new_zero_delta_map[dev][index] = val == 0
             if val != 0 or full_metrics or zero_delta is None or not zero_delta[index]:
                 rate = proc_net_dev_index_rate.get(index)
@@ -113,7 +113,7 @@ def generate_proc_net_dev_metrics(
                             f'{PROC_NET_DEV_LABEL_NAME}="{dev}"',
                         ]
                     )
-                    + f"}} {val} {crt_prom_ts}"
+                    + f"}} {val} {curr_prom_ts}"
                 )
     metrics.append(
         f"{PROC_NET_DEV_INTERVAL_METRIC_NAME}{{"
@@ -123,7 +123,7 @@ def generate_proc_net_dev_metrics(
                 f'{HOSTNAME_LABEL_NAME}="{hostname}"',
             ]
         )
-        + f"}} {interval:.06f} {crt_prom_ts}"
+        + f"}} {interval:.06f} {curr_prom_ts}"
     )
 
     return metrics, new_zero_delta_map
@@ -131,7 +131,7 @@ def generate_proc_net_dev_metrics(
 
 def generate_proc_net_dev_metrics_test_case(
     name: str,
-    crt_proc_net_dev: procfs.NetDev,
+    curr_proc_net_dev: procfs.NetDev,
     prev_proc_net_dev: procfs.NetDev,
     ts: Optional[float] = None,
     cycle_num: int = 0,
@@ -143,12 +143,12 @@ def generate_proc_net_dev_metrics_test_case(
 ) -> Dict:
     if ts is None:
         ts = time.time()
-    crt_prom_ts = int(ts * 1000)
-    prev_prom_ts = crt_prom_ts - int(interval * 1000)
+    curr_prom_ts = int(ts * 1000)
+    prev_prom_ts = curr_prom_ts - int(interval * 1000)
     metrics, want_zero_delta_map = generate_proc_net_dev_metrics(
-        crt_proc_net_dev,
+        curr_proc_net_dev,
         prev_proc_net_dev,
-        crt_prom_ts,
+        curr_prom_ts,
         interval=interval,
         zero_delta_map=zero_delta_map,
         full_metrics=(cycle_num == 0),
@@ -159,9 +159,9 @@ def generate_proc_net_dev_metrics_test_case(
         "Name": name,
         "Instance": instance,
         "Hostname": hostname,
-        "CrtProcNetDev": crt_proc_net_dev,
+        "CurrProcNetDev": curr_proc_net_dev,
         "PrevProcNetDev": prev_proc_net_dev,
-        "CrtPromTs": crt_prom_ts,
+        "CurrPromTs": curr_prom_ts,
         "PrevPromTs": prev_prom_ts,
         "CycleNum": cycle_num,
         "FullMetricsFactor": full_metrics_factor,
@@ -227,12 +227,12 @@ def generate_proc_net_dev_metrics_test_cases(
         for zero_delta_map in [zero_delta_map_false, zero_delta_map_true]:
             for dev in proc_net_dev_ref["DevStats"]:
                 for index in range(procfs.NET_DEV_NUM_STATS):
-                    crt_proc_net_dev = deepcopy(proc_net_dev_ref)
-                    crt_proc_net_dev["DevStats"][dev][index] += 10000 * (index + 1)
+                    curr_proc_net_dev = deepcopy(proc_net_dev_ref)
+                    curr_proc_net_dev["DevStats"][dev][index] += 10000 * (index + 1)
                     test_cases.append(
                         generate_proc_net_dev_metrics_test_case(
                             f"{tc_num:04d}",
-                            crt_proc_net_dev,
+                            curr_proc_net_dev,
                             proc_net_dev_ref,
                             ts=ts,
                             cycle_num=cycle_num,
@@ -269,12 +269,12 @@ def generate_proc_net_dev_metrics_test_cases(
     for cycle_num in [0, 1]:
         for zero_delta_map in [zero_delta_map_false, zero_delta_map_true]:
             for dev in proc_net_dev_ref["DevStats"]:
-                crt_proc_net_dev = deepcopy(proc_net_dev_ref)
-                del crt_proc_net_dev["DevStats"][dev]
+                curr_proc_net_dev = deepcopy(proc_net_dev_ref)
+                del curr_proc_net_dev["DevStats"][dev]
                 test_cases.append(
                     generate_proc_net_dev_metrics_test_case(
                         f"{tc_num:04d}",
-                        crt_proc_net_dev,
+                        curr_proc_net_dev,
                         proc_net_dev_ref,
                         ts=ts,
                         cycle_num=cycle_num,

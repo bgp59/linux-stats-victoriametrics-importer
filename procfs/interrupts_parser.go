@@ -67,7 +67,7 @@ type InterruptsInfo struct {
 	// Cache the line used for building the CPU# list; if the line is unchanged
 	// from the previous run then the mapping is still valid. This is part of
 	// shared info in order to detect changes from one scan to another in the
-	// typical crt, prev scenario.
+	// typical curr, prev scenario.
 	cpuHeaderLine []byte
 }
 

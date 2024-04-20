@@ -32,7 +32,7 @@ type OsInternalMetrics struct {
 	// When the stats were collected:
 	statsTs [2]time.Time
 	// The current index:
-	crtIndex int
+	currIndex int
 	// Own PID:
 	pid int
 	// Page size:
@@ -57,22 +57,22 @@ func NewOsInternalMetrics(internalMetrics *InternalMetrics) *OsInternalMetrics {
 }
 
 func (osim *OsInternalMetrics) SnapStats() {
-	pidStat := osim.pidStat[osim.crtIndex]
+	pidStat := osim.pidStat[osim.currIndex]
 	if pidStat == nil {
 		procfsRoot := GlobalProcfsRoot
 		if osim.internalMetrics.procfsRoot != "" {
 			procfsRoot = osim.internalMetrics.procfsRoot
 		}
 		pidStat = procfs.NewPidStat(procfsRoot, osim.pid, procfs.PID_STAT_PID_ONLY_TID)
-		osim.pidStat[osim.crtIndex] = pidStat
+		osim.pidStat[osim.currIndex] = pidStat
 	}
 	err := pidStat.Parse(nil)
 	statsTs := time.Now()
 	if err != nil {
 		internalMetricsLog.Warnf("pidStat.Parse(pid=%d): %v", osim.pid, err)
-		osim.pidStat[osim.crtIndex] = nil
+		osim.pidStat[osim.currIndex] = nil
 	}
-	osim.statsTs[osim.crtIndex] = statsTs
+	osim.statsTs[osim.currIndex] = statsTs
 }
 
 func (osim *OsInternalMetrics) updateMetricsCache() {
@@ -114,8 +114,8 @@ func (osim *OsInternalMetrics) generateMetrics(
 	buf *bytes.Buffer, tsSuffix []byte,
 ) int {
 
-	crtPidStat, prevPidStat := osim.pidStat[osim.crtIndex], osim.pidStat[1-osim.crtIndex]
-	if crtPidStat == nil {
+	currPidStat, prevPidStat := osim.pidStat[osim.currIndex], osim.pidStat[1-osim.currIndex]
+	if currPidStat == nil {
 		// Cannot generate metrics since stats couldn't be collected:
 		return 0
 	}
@@ -133,13 +133,13 @@ func (osim *OsInternalMetrics) generateMetrics(
 	metricsCount := 0
 
 	buf.Write(osim.vszMetric)
-	buf.Write(crtPidStat.ByteSliceFields[procfs.PID_STAT_VSIZE])
+	buf.Write(currPidStat.ByteSliceFields[procfs.PID_STAT_VSIZE])
 	buf.Write(tsSuffix)
 	metricsCount++
 
 	buf.Write(osim.rssMetric)
 	rss := uint64(0)
-	for _, c := range crtPidStat.ByteSliceFields[procfs.PID_STAT_RSS] {
+	for _, c := range currPidStat.ByteSliceFields[procfs.PID_STAT_RSS] {
 		rss = (rss << 3) + (rss << 1) + uint64(c-'0')
 	}
 	rss *= osim.pagesize
@@ -148,15 +148,15 @@ func (osim *OsInternalMetrics) generateMetrics(
 	metricsCount++
 
 	buf.Write(osim.numThreadsMetric)
-	buf.Write(crtPidStat.ByteSliceFields[procfs.PID_STAT_NUM_THREADS])
+	buf.Write(currPidStat.ByteSliceFields[procfs.PID_STAT_NUM_THREADS])
 	buf.Write(tsSuffix)
 	metricsCount++
 
 	if prevPidStat != nil {
-		dTime := osim.statsTs[osim.crtIndex].Sub(osim.statsTs[1-osim.crtIndex]).Seconds()
+		dTime := osim.statsTs[osim.currIndex].Sub(osim.statsTs[1-osim.currIndex]).Seconds()
 		dTimeCpu := float64(
-			crtPidStat.NumericFields[procfs.PID_STAT_UTIME]+
-				crtPidStat.NumericFields[procfs.PID_STAT_STIME]-
+			currPidStat.NumericFields[procfs.PID_STAT_UTIME]+
+				currPidStat.NumericFields[procfs.PID_STAT_STIME]-
 				prevPidStat.NumericFields[procfs.PID_STAT_UTIME]-
 				prevPidStat.NumericFields[procfs.PID_STAT_STIME]) *
 			utils.LinuxClktckSec
@@ -168,7 +168,7 @@ func (osim *OsInternalMetrics) generateMetrics(
 	}
 
 	// Flip the stats storage:
-	osim.crtIndex = 1 - osim.crtIndex
+	osim.currIndex = 1 - osim.currIndex
 
 	return metricsCount
 }

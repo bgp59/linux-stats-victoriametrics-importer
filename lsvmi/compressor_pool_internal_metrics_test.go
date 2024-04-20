@@ -13,7 +13,7 @@ import (
 
 type CompressorPoolInternalMetricsTestCase struct {
 	InternalMetricsTestCase
-	CrtStats, PrevStats CompressorPoolStats
+	CurrStats, PrevStats CompressorPoolStats
 }
 
 var compressorPoolInternalMetricsTestcasesFile = path.Join(
@@ -43,11 +43,11 @@ func testCompressorPoolInternalMetrics(tc *CompressorPoolInternalMetricsTestCase
 		t.Fatal(err)
 	}
 	compressorPoolInternalMetrics := internalMetrics.compressorPoolMetrics
-	compressorPoolInternalMetrics.stats[compressorPoolInternalMetrics.crtIndex] = tc.CrtStats
-	compressorPoolInternalMetrics.stats[1-compressorPoolInternalMetrics.crtIndex] = tc.PrevStats
+	compressorPoolInternalMetrics.stats[compressorPoolInternalMetrics.currIndex] = tc.CurrStats
+	compressorPoolInternalMetrics.stats[1-compressorPoolInternalMetrics.currIndex] = tc.PrevStats
 	testMetricsQueue := testutils.NewTestMetricsQueue(0)
 
-	wantCrtIndex := 1 - compressorPoolInternalMetrics.crtIndex
+	wantCurrIndex := 1 - compressorPoolInternalMetrics.currIndex
 
 	buf := testMetricsQueue.GetBuf()
 	gotMetricsCount := compressorPoolInternalMetrics.generateMetrics(buf, nil)
@@ -55,12 +55,12 @@ func testCompressorPoolInternalMetrics(tc *CompressorPoolInternalMetricsTestCase
 
 	errBuf := &bytes.Buffer{}
 
-	gotCrtIndex := compressorPoolInternalMetrics.crtIndex
-	if wantCrtIndex != gotCrtIndex {
+	gotCurrIndex := compressorPoolInternalMetrics.currIndex
+	if wantCurrIndex != gotCurrIndex {
 		fmt.Fprintf(
 			errBuf,
-			"\ncrtIndex: want: %d, got: %d",
-			wantCrtIndex, gotCrtIndex,
+			"\ncurrIndex: want: %d, got: %d",
+			wantCurrIndex, gotCurrIndex,
 		)
 	}
 

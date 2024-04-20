@@ -28,7 +28,7 @@ type SchedulerInternalMetrics struct {
 	// after every metrics generation:
 	stats [2]SchedulerStats
 	// The current index:
-	crtIndex int
+	currIndex int
 	// Cache the full metrics for each taskId and stats index:
 	uint64DeltaMetricsCache map[string]taskStatsIndexMetricMap
 	// Cache the avg runtime metrics for each taskId:
@@ -92,9 +92,9 @@ func (sim *SchedulerInternalMetrics) generateMetrics(
 	}
 
 	metricsCount := 0
-	crtStats, prevStats := sim.stats[sim.crtIndex], sim.stats[1-sim.crtIndex]
+	currStats, prevStats := sim.stats[sim.currIndex], sim.stats[1-sim.currIndex]
 	var prevTaskStats *TaskStats
-	for taskId, crtTaskStats := range crtStats {
+	for taskId, currTaskStats := range currStats {
 		execCountDelta, hasExecCountDelta := uint64(0), false
 		if prevStats != nil {
 			prevTaskStats = prevStats[taskId]
@@ -108,7 +108,7 @@ func (sim *SchedulerInternalMetrics) generateMetrics(
 			uint64IndexMetricMap = sim.uint64DeltaMetricsCache[taskId]
 		}
 		for index, metric := range uint64IndexMetricMap {
-			val := crtTaskStats.Uint64Stats[index]
+			val := currTaskStats.Uint64Stats[index]
 			if prevTaskStats != nil {
 				val -= prevTaskStats.Uint64Stats[index]
 			}
@@ -125,13 +125,13 @@ func (sim *SchedulerInternalMetrics) generateMetrics(
 			runtimeAvg := 0.
 			// Safeguard against dropping exec count delta from metrics set:
 			if !hasExecCountDelta {
-				execCountDelta = crtTaskStats.Uint64Stats[TASK_STATS_EXECUTED_COUNT]
+				execCountDelta = currTaskStats.Uint64Stats[TASK_STATS_EXECUTED_COUNT]
 				if prevTaskStats != nil {
 					execCountDelta -= prevTaskStats.Uint64Stats[TASK_STATS_EXECUTED_COUNT]
 				}
 			}
 			if execCountDelta > 0 {
-				runtimeDelta := crtTaskStats.RuntimeTotal
+				runtimeDelta := currTaskStats.RuntimeTotal
 				if prevTaskStats != nil {
 					runtimeDelta -= prevTaskStats.RuntimeTotal
 				}
@@ -146,7 +146,7 @@ func (sim *SchedulerInternalMetrics) generateMetrics(
 	}
 
 	// Flip the stats storage:
-	sim.crtIndex = 1 - sim.crtIndex
+	sim.currIndex = 1 - sim.currIndex
 
 	return metricsCount
 }

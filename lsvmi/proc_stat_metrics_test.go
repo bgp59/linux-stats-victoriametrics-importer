@@ -17,8 +17,8 @@ type ProcStatMetricsTestCase struct {
 	Name                        string
 	Instance                    string
 	Hostname                    string
-	CrtProcStat, PrevProcStat   *procfs.Stat
-	CrtPromTs, PrevPromTs       int64
+	CurrProcStat, PrevProcStat  *procfs.Stat
+	CurrPromTs, PrevPromTs      int64
 	CycleNum, FullMetricsFactor int
 	ZeroPcpuMap                 map[int][]bool
 	WantMetricsCount            int
@@ -44,11 +44,11 @@ func testProcStatMetrics(tc *ProcStatMetricsTestCase, t *testing.T) {
 	}
 	procStatMetrics.instance = tc.Instance
 	procStatMetrics.hostname = tc.Hostname
-	crtIndex := procStatMetrics.crtIndex
-	procStatMetrics.procStat[crtIndex] = tc.CrtProcStat
-	procStatMetrics.procStatTs[crtIndex] = time.UnixMilli(tc.CrtPromTs)
-	procStatMetrics.procStat[1-crtIndex] = tc.PrevProcStat
-	procStatMetrics.procStatTs[1-crtIndex] = time.UnixMilli(tc.PrevPromTs)
+	currIndex := procStatMetrics.currIndex
+	procStatMetrics.procStat[currIndex] = tc.CurrProcStat
+	procStatMetrics.procStatTs[currIndex] = time.UnixMilli(tc.CurrPromTs)
+	procStatMetrics.procStat[1-currIndex] = tc.PrevProcStat
+	procStatMetrics.procStatTs[1-currIndex] = time.UnixMilli(tc.PrevPromTs)
 	procStatMetrics.cycleNum = tc.CycleNum
 	procStatMetrics.fullMetricsFactor = tc.FullMetricsFactor
 	for cpu, ZeroPcpuMap := range tc.ZeroPcpuMap {
@@ -62,7 +62,7 @@ func testProcStatMetrics(tc *ProcStatMetricsTestCase, t *testing.T) {
 		return time.Duration(tc.TimeSinceBtime * float64(time.Second))
 	}
 
-	wantCrtIndex := 1 - crtIndex
+	wantCurrIndex := 1 - currIndex
 	testMetricsQueue := testutils.NewTestMetricsQueue(0)
 	buf := testMetricsQueue.GetBuf()
 	gotMetricsCount, _ := procStatMetrics.generateMetrics(buf)
@@ -70,12 +70,12 @@ func testProcStatMetrics(tc *ProcStatMetricsTestCase, t *testing.T) {
 
 	errBuf := &bytes.Buffer{}
 
-	gotCrtIndex := procStatMetrics.crtIndex
-	if wantCrtIndex != gotCrtIndex {
+	gotCurrIndex := procStatMetrics.currIndex
+	if wantCurrIndex != gotCurrIndex {
 		fmt.Fprintf(
 			errBuf,
-			"\ncrtIndex: want: %d, got: %d",
-			wantCrtIndex, gotCrtIndex,
+			"\ncurrIndex: want: %d, got: %d",
+			wantCurrIndex, gotCurrIndex,
 		)
 	}
 

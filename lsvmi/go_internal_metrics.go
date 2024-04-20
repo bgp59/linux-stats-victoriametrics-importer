@@ -56,7 +56,7 @@ type GoInternalMetrics struct {
 	// toggled after every metrics generation:
 	memStats [2]*runtime.MemStats
 	// The current index:
-	crtIndex int
+	currIndex int
 	// Metrics cache:
 	metricsCache map[int][]byte
 }
@@ -72,10 +72,10 @@ func NewGoInternalMetrics(internalMetrics *InternalMetrics) *GoInternalMetrics {
 }
 
 func (gim *GoInternalMetrics) SnapStats() {
-	if gim.memStats[gim.crtIndex] == nil {
-		gim.memStats[gim.crtIndex] = &runtime.MemStats{}
+	if gim.memStats[gim.currIndex] == nil {
+		gim.memStats[gim.currIndex] = &runtime.MemStats{}
 	}
-	runtime.ReadMemStats(gim.memStats[gim.crtIndex])
+	runtime.ReadMemStats(gim.memStats[gim.currIndex])
 	gim.numGoRoutine = runtime.NumGoroutine()
 }
 
@@ -115,7 +115,7 @@ func (gim *GoInternalMetrics) generateMetrics(
 		metricsCache = gim.metricsCache
 	}
 
-	crtMemStats, prevMemStats := gim.memStats[gim.crtIndex], gim.memStats[1-gim.crtIndex]
+	currMemStats, prevMemStats := gim.memStats[gim.currIndex], gim.memStats[1-gim.currIndex]
 
 	metricsCount := 0
 
@@ -125,44 +125,44 @@ func (gim *GoInternalMetrics) generateMetrics(
 	metricsCount++
 
 	buf.Write(metricsCache[GO_MEM_SYS_BYTES_METRIC_INDEX])
-	buf.WriteString(strconv.FormatUint(crtMemStats.Sys, 10))
+	buf.WriteString(strconv.FormatUint(currMemStats.Sys, 10))
 	buf.Write(tsSuffix)
 	metricsCount++
 
 	buf.Write(metricsCache[GO_MEM_HEAP_BYTES_METRIC_INDEX])
-	buf.WriteString(strconv.FormatUint(crtMemStats.HeapAlloc, 10))
+	buf.WriteString(strconv.FormatUint(currMemStats.HeapAlloc, 10))
 	buf.Write(tsSuffix)
 	metricsCount++
 
 	buf.Write(metricsCache[GO_MEM_HEAP_SYS_BYTES_METRIC_INDEX])
-	buf.WriteString(strconv.FormatUint(crtMemStats.HeapSys, 10))
+	buf.WriteString(strconv.FormatUint(currMemStats.HeapSys, 10))
 	buf.Write(tsSuffix)
 	metricsCount++
 
 	buf.Write(metricsCache[GO_MEM_IN_USE_OBJECT_COUNT_METRIC_INDEX])
-	buf.WriteString(strconv.FormatUint(crtMemStats.Mallocs-crtMemStats.Frees, 10))
+	buf.WriteString(strconv.FormatUint(currMemStats.Mallocs-currMemStats.Frees, 10))
 	buf.Write(tsSuffix)
 	metricsCount++
 
 	// Note that deltas below work even at the 1st pass because prevMemStats has
 	// been primed w/ 0 when GoInternalMetrics was created:
 	buf.Write(metricsCache[GO_MEM_MALLOCS_DELTA_METRIC_INDEX])
-	buf.WriteString(strconv.FormatUint(crtMemStats.Mallocs-prevMemStats.Mallocs, 10))
+	buf.WriteString(strconv.FormatUint(currMemStats.Mallocs-prevMemStats.Mallocs, 10))
 	buf.Write(tsSuffix)
 	metricsCount++
 
 	buf.Write(metricsCache[GO_MEM_FREE_DELTA_METRIC_INDEX])
-	buf.WriteString(strconv.FormatUint(crtMemStats.Frees-prevMemStats.Frees, 10))
+	buf.WriteString(strconv.FormatUint(currMemStats.Frees-prevMemStats.Frees, 10))
 	buf.Write(tsSuffix)
 	metricsCount++
 
 	buf.Write(metricsCache[GO_MEM_NUM_GC_DELTA_METRIC_INDEX])
-	buf.WriteString(strconv.FormatUint(uint64(crtMemStats.NumGC-prevMemStats.NumGC), 10))
+	buf.WriteString(strconv.FormatUint(uint64(currMemStats.NumGC-prevMemStats.NumGC), 10))
 	buf.Write(tsSuffix)
 	metricsCount++
 
 	// Flip the stats storage:
-	gim.crtIndex = 1 - gim.crtIndex
+	gim.currIndex = 1 - gim.currIndex
 
 	return metricsCount
 }
