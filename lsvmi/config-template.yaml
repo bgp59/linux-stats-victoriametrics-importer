@@ -52,6 +52,12 @@ proc_interrupts_metrics_config:
   interval: 1s
   full_metrics_factor: 15
 
+###############################################
+# /proc/softirqs Metrics
+###############################################
+proc_softirqs_metrics_config:
+  interval: 1s
+  full_metrics_factor: 15
 
 ###############################################
 # Scheduler

@@ -58,11 +58,11 @@ primeSoftirqs=%v
 	// 		string(wantSoftirqs.cpuHeaderLine), string(softirqs.cpuHeaderLine),
 	// 	)
 	// }
-	if wantSoftirqs.IndexToCpuChanged != softirqs.IndexToCpuChanged {
+	if wantSoftirqs.CpuListChanged != softirqs.CpuListChanged {
 		fmt.Fprintf(
 			diffBuf,
 			"\nIndexToCpuChanged: want: %v, got: %v",
-			wantSoftirqs.IndexToCpuChanged, softirqs.IndexToCpuChanged,
+			wantSoftirqs.CpuListChanged, softirqs.CpuListChanged,
 		)
 	}
 	if diffBuf.Len() > 0 {
@@ -170,8 +170,8 @@ func TestSoftirqsParser(t *testing.T) {
 					"NET_TX": {Counters: []uint64{8, 9, 10, 11}},
 					"NET_RX": {Counters: []uint64{12, 13, 14, 15}},
 				},
-				IndexToCpuChanged: true,
-				NumCounters:       4,
+				CpuListChanged: true,
+				NumCounters:    4,
 			},
 		},
 		{
@@ -185,10 +185,10 @@ func TestSoftirqsParser(t *testing.T) {
 					"NET_TX":  {Counters: []uint64{10008, 10009, 100010, 100011}, scanNum: 1},
 					"NET_RX":  {Counters: []uint64{100012, 100013, 100014, 100015}, scanNum: 1},
 				},
-				IndexToCpuChanged: true,
-				NumCounters:       4,
-				cpuHeaderLine:     []byte("                    CPU0       CPU1       CPU2       CPU3"),
-				scanNum:           1,
+				CpuListChanged: true,
+				NumCounters:    4,
+				cpuHeaderLine:  []byte("                    CPU0       CPU1       CPU2       CPU3"),
+				scanNum:        1,
 			},
 			wantSoftirqs: &Softirqs{
 				CpuList: nil,
@@ -198,8 +198,8 @@ func TestSoftirqsParser(t *testing.T) {
 					"NET_TX": {Counters: []uint64{8, 9, 10, 11}},
 					"NET_RX": {Counters: []uint64{12, 13, 14, 15}},
 				},
-				IndexToCpuChanged: false,
-				NumCounters:       4,
+				CpuListChanged: false,
+				NumCounters:    4,
 			},
 		},
 		{
@@ -213,10 +213,10 @@ func TestSoftirqsParser(t *testing.T) {
 					"NET_TX": {Counters: []uint64{10008, 10009, 100010, 100011}, scanNum: 1},
 					"NET_RX": {Counters: []uint64{100012, 100013, 100014, 100015}, scanNum: 1},
 				},
-				IndexToCpuChanged: true,
-				NumCounters:       4,
-				cpuHeaderLine:     []byte("                    CPU0       CPU1       CPU2       CPU3"),
-				scanNum:           1,
+				CpuListChanged: true,
+				NumCounters:    4,
+				cpuHeaderLine:  []byte("                    CPU0       CPU1       CPU2       CPU3"),
+				scanNum:        1,
 			},
 			wantSoftirqs: &Softirqs{
 				CpuList: []int{0, 1, 3},
@@ -226,8 +226,8 @@ func TestSoftirqsParser(t *testing.T) {
 					"NET_TX": {Counters: []uint64{8, 9, 11}},
 					"NET_RX": {Counters: []uint64{12, 13, 15}},
 				},
-				IndexToCpuChanged: true,
-				NumCounters:       3,
+				CpuListChanged: true,
+				NumCounters:    3,
 			},
 		},
 	} {

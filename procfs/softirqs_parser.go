@@ -28,7 +28,7 @@ type Softirqs struct {
 	// needed, i.e. counter# == CPU#:
 	CpuList []int
 	// Whether the mapping has changed in the current scan or not:
-	IndexToCpuChanged bool
+	CpuListChanged bool
 	// The number of counters per line; this is needed if CpuList
 	// is nil, since it cannot be inferred:
 	NumCounters int
@@ -59,10 +59,10 @@ func NewSoftirqs(procfsRoot string) *Softirqs {
 
 func (softirqs *Softirqs) Clone(full bool) *Softirqs {
 	newSoftirqs := &Softirqs{
-		path:              softirqs.path,
-		IndexToCpuChanged: softirqs.IndexToCpuChanged,
-		NumCounters:       softirqs.NumCounters,
-		scanNum:           softirqs.scanNum,
+		path:           softirqs.path,
+		CpuListChanged: softirqs.CpuListChanged,
+		NumCounters:    softirqs.NumCounters,
+		scanNum:        softirqs.scanNum,
 	}
 	if softirqs.CpuList != nil {
 		newSoftirqs.CpuList = make([]int, len(softirqs.CpuList))
@@ -162,10 +162,10 @@ func (softirqs *Softirqs) Parse() error {
 						softirqs.path, lineNum, getCurrentLine(buf, startLine), err,
 					)
 				}
-				softirqs.IndexToCpuChanged = true
+				softirqs.CpuListChanged = true
 				NumCounters = softirqs.NumCounters
 			} else {
-				softirqs.IndexToCpuChanged = false
+				softirqs.CpuListChanged = false
 			}
 			pos++
 			continue
