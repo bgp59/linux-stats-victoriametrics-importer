@@ -69,33 +69,33 @@ primeSoftirqs=%v
 		t.Fatal(diffBuf.String())
 	}
 
-	if wantSoftirqs.CounterIndexToCpuNum == nil {
-		if softirqs.CounterIndexToCpuNum != nil {
+	if wantSoftirqs.CpuList == nil {
+		if softirqs.CpuList != nil {
 			fmt.Fprintf(
 				diffBuf,
 				"\nCounterIndexToCpuNum: want: %v, got: %v",
-				wantSoftirqs.CounterIndexToCpuNum, softirqs.CounterIndexToCpuNum,
+				wantSoftirqs.CpuList, softirqs.CpuList,
 			)
 		}
 	} else {
-		if softirqs.CounterIndexToCpuNum == nil {
+		if softirqs.CpuList == nil {
 			fmt.Fprintf(
 				diffBuf,
 				"\nCounterIndexToCpuNum: want: %v, got: %v",
-				wantSoftirqs.CounterIndexToCpuNum, softirqs.CounterIndexToCpuNum,
+				wantSoftirqs.CpuList, softirqs.CpuList,
 			)
 		}
 
-		if len(wantSoftirqs.CounterIndexToCpuNum) != len(softirqs.CounterIndexToCpuNum) {
+		if len(wantSoftirqs.CpuList) != len(softirqs.CpuList) {
 			fmt.Fprintf(
 				diffBuf,
 				"\nCounterIndexToCpuNum length: want %d, got: %d",
-				len(wantSoftirqs.CounterIndexToCpuNum), len(softirqs.CounterIndexToCpuNum),
+				len(wantSoftirqs.CpuList), len(softirqs.CpuList),
 			)
 		}
 
-		for i, wantCpuNum := range wantSoftirqs.CounterIndexToCpuNum {
-			gotCpuNum := softirqs.CounterIndexToCpuNum[i]
+		for i, wantCpuNum := range wantSoftirqs.CpuList {
+			gotCpuNum := softirqs.CpuList[i]
 			if wantCpuNum != gotCpuNum {
 				fmt.Fprintf(
 					diffBuf,
@@ -163,7 +163,7 @@ func TestSoftirqsParser(t *testing.T) {
 			name:       "field_mapping",
 			procfsRoot: path.Join(softirqsTestdataDir, "field_mapping"),
 			wantSoftirqs: &Softirqs{
-				CounterIndexToCpuNum: nil,
+				CpuList: nil,
 				Irq: map[string]*SoftirqsIrq{
 					"HI":     {Counters: []uint64{0, 1, 2, 3}},
 					"TIMER":  {Counters: []uint64{4, 5, 6, 7}},
@@ -178,7 +178,7 @@ func TestSoftirqsParser(t *testing.T) {
 			name:       "remove_irq",
 			procfsRoot: path.Join(softirqsTestdataDir, "field_mapping"),
 			primeSoftirqs: &Softirqs{
-				CounterIndexToCpuNum: nil,
+				CpuList: nil,
 				Irq: map[string]*SoftirqsIrq{
 					"HRTIMER": {Counters: []uint64{10000, 10001, 10002, 10003}, scanNum: 1},
 					"RCU":     {Counters: []uint64{10004, 10005, 10006, 10007}, scanNum: 1},
@@ -191,7 +191,7 @@ func TestSoftirqsParser(t *testing.T) {
 				scanNum:           1,
 			},
 			wantSoftirqs: &Softirqs{
-				CounterIndexToCpuNum: nil,
+				CpuList: nil,
 				Irq: map[string]*SoftirqsIrq{
 					"HI":     {Counters: []uint64{0, 1, 2, 3}},
 					"TIMER":  {Counters: []uint64{4, 5, 6, 7}},
@@ -206,7 +206,7 @@ func TestSoftirqsParser(t *testing.T) {
 			name:       "remove_cpu",
 			procfsRoot: path.Join(softirqsTestdataDir, "remove_cpu"),
 			primeSoftirqs: &Softirqs{
-				CounterIndexToCpuNum: nil,
+				CpuList: nil,
 				Irq: map[string]*SoftirqsIrq{
 					"HI":     {Counters: []uint64{10000, 10001, 10002, 10003}, scanNum: 1},
 					"TIMER":  {Counters: []uint64{10004, 10005, 10006, 10007}, scanNum: 1},
@@ -219,7 +219,7 @@ func TestSoftirqsParser(t *testing.T) {
 				scanNum:           1,
 			},
 			wantSoftirqs: &Softirqs{
-				CounterIndexToCpuNum: []int{0, 1, 3},
+				CpuList: []int{0, 1, 3},
 				Irq: map[string]*SoftirqsIrq{
 					"HI":     {Counters: []uint64{0, 1, 3}},
 					"TIMER":  {Counters: []uint64{4, 5, 7}},

@@ -26,10 +26,10 @@ type Softirqs struct {
 	// ) but to future proof for different handling of CPU Hot Plug (CPUHP),
 	// maintain a mapping from col# to CPU#; set to nil if no mapping is
 	// needed, i.e. counter# == CPU#:
-	CounterIndexToCpuNum []int
+	CpuList []int
 	// Whether the mapping has changed in the current scan or not:
 	IndexToCpuChanged bool
-	// The number of counters per line; this is needed if CounterIndexToCpuNum
+	// The number of counters per line; this is needed if CpuList
 	// is nil, since it cannot be inferred:
 	NumCounters int
 
@@ -64,9 +64,9 @@ func (softirqs *Softirqs) Clone(full bool) *Softirqs {
 		NumCounters:       softirqs.NumCounters,
 		scanNum:           softirqs.scanNum,
 	}
-	if softirqs.CounterIndexToCpuNum != nil {
-		newSoftirqs.CounterIndexToCpuNum = make([]int, len(softirqs.CounterIndexToCpuNum))
-		copy(newSoftirqs.CounterIndexToCpuNum, softirqs.CounterIndexToCpuNum)
+	if softirqs.CpuList != nil {
+		newSoftirqs.CpuList = make([]int, len(softirqs.CpuList))
+		copy(newSoftirqs.CpuList, softirqs.CpuList)
 	}
 	if softirqs.Irq != nil {
 		newSoftirqs.Irq = make(map[string]*SoftirqsIrq)
@@ -114,9 +114,9 @@ func (softirqs *Softirqs) updateCounterIndexToCpuNumMap(cpuHeaderLine []byte) er
 		}
 	}
 	if needsCounterIndexToCpuNumMap {
-		softirqs.CounterIndexToCpuNum = counterIndexToCpuNum
+		softirqs.CpuList = counterIndexToCpuNum
 	} else {
-		softirqs.CounterIndexToCpuNum = nil
+		softirqs.CpuList = nil
 	}
 	dstHdrCap, srcHdrLen := cap(softirqs.cpuHeaderLine), len(cpuHeaderLine)
 	if dstHdrCap < srcHdrLen {
