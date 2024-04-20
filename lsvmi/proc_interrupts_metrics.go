@@ -279,13 +279,7 @@ func (pim *ProcInterruptsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) 
 			pim.tsSuffixBuf, " %d\n", crtTs.UnixMilli(),
 		)
 		promTs := pim.tsSuffixBuf.Bytes()
-
 		deltaSec := crtTs.Sub(prevTs).Seconds()
-
-		if crtInfo.CpuListChanged || pim.deltaMetricsSuffixCache == nil {
-			// Delta metrics suffix holds the CPU#, so it needs updating:
-			pim.updateCpuList()
-		}
 
 		// If there was a CPU list change, then build crt to previous counter
 		// index# map such that they refer to the same CPU#.
@@ -293,6 +287,9 @@ func (pim *ProcInterruptsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) 
 
 		if crtInfo.CpuListChanged {
 			crtToPrevCounterIndexMap = pim.updateCpuList()
+		} else if pim.deltaMetricsSuffixCache == nil {
+			// 1st time, no mapping required:
+			pim.updateCpuList()
 		}
 
 		for irq, crtCounters := range crtProcInterrupts.Counters {
