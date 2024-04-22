@@ -8,17 +8,9 @@ import (
 	"path"
 )
 
-type SoftirqsIrq struct {
-	// IRQ counters:
-	Counters []uint64
-	// The scan# where this IRQ was found, used for removing out of scope IRQs,
-	// see scanNum in Softirqs.
-	scanNum int
-}
-
 type Softirqs struct {
 	// IRQs:
-	Irq map[string]*SoftirqsIrq
+	Counters map[string][]uint64
 
 	// The CPU#NN heading; presently softirqs implementation uses all possible
 	// CPU's (see:
@@ -41,7 +33,8 @@ type Softirqs struct {
 	cpuHeaderLine []byte
 	// Each scan has a different scan# from the previous one. IRQ's not
 	// associated with the most recent scan will be removed:
-	scanNum int
+	irqScanNum map[string]int
+	scanNum    int
 }
 
 var softirqsReadFileBufPool = ReadFileBufPoolReadUnbound
@@ -52,8 +45,9 @@ func SoftirqsPath(procfsRoot string) string {
 
 func NewSoftirqs(procfsRoot string) *Softirqs {
 	return &Softirqs{
-		Irq:  make(map[string]*SoftirqsIrq),
-		path: SoftirqsPath(procfsRoot),
+		Counters:   make(map[string][]uint64),
+		path:       SoftirqsPath(procfsRoot),
+		irqScanNum: make(map[string]int),
 	}
 }
 
@@ -68,24 +62,26 @@ func (softirqs *Softirqs) Clone(full bool) *Softirqs {
 		newSoftirqs.CpuList = make([]int, len(softirqs.CpuList))
 		copy(newSoftirqs.CpuList, softirqs.CpuList)
 	}
-	if softirqs.Irq != nil {
-		newSoftirqs.Irq = make(map[string]*SoftirqsIrq)
-		for irq, softirqsIrq := range softirqs.Irq {
-			newSoftirqsIrq := &SoftirqsIrq{
-				scanNum: softirqsIrq.scanNum,
+	if softirqs.Counters != nil {
+		newSoftirqs.Counters = make(map[string][]uint64)
+		for irq, counters := range softirqs.Counters {
+			newSoftirqs.Counters[irq] = make([]uint64, len(counters))
+			if full {
+				copy(newSoftirqs.Counters[irq], counters)
 			}
-			if softirqsIrq.Counters != nil {
-				newSoftirqsIrq.Counters = make([]uint64, len(softirqsIrq.Counters))
-				if full {
-					copy(newSoftirqsIrq.Counters, softirqsIrq.Counters)
-				}
-			}
-			newSoftirqs.Irq[irq] = newSoftirqsIrq
 		}
 	}
 	if softirqs.cpuHeaderLine != nil {
 		newSoftirqs.cpuHeaderLine = make([]byte, len(softirqs.cpuHeaderLine))
 		copy(newSoftirqs.cpuHeaderLine, softirqs.cpuHeaderLine)
+	}
+	if softirqs.irqScanNum != nil {
+		newSoftirqs.irqScanNum = make(map[string]int)
+		if full {
+			for irq, scanNum := range softirqs.irqScanNum {
+				newSoftirqs.irqScanNum[irq] = scanNum
+			}
+		}
 	}
 	return newSoftirqs
 }
@@ -138,6 +134,11 @@ func (softirqs *Softirqs) Parse() error {
 	}
 	buf, l := fBuf.Bytes(), fBuf.Len()
 
+	irqScanNum := softirqs.irqScanNum
+	if irqScanNum == nil {
+		irqScanNum = make(map[string]int)
+		softirqs.irqScanNum = irqScanNum
+	}
 	scanNum := softirqs.scanNum + 1
 	NumCounters := softirqs.NumCounters
 	for pos, lineNum := 0, 1; pos < l; lineNum++ {
@@ -192,23 +193,13 @@ func (softirqs *Softirqs) Parse() error {
 		irq := string(buf[irqStart:irqEnd])
 
 		// Parse ` NNN NNN ... NNN' softirq counters:
-		var counters []uint64
-		softirqsIrq := softirqs.Irq[irq]
-		if softirqsIrq == nil {
-			softirqsIrq = &SoftirqsIrq{
-				Counters: make([]uint64, NumCounters),
-			}
-			softirqs.Irq[irq] = softirqsIrq
-			counters = softirqsIrq.Counters
-		} else {
-			counters = softirqsIrq.Counters
-			if cap(counters) < NumCounters {
-				counters = make([]uint64, NumCounters)
-				softirqsIrq.Counters = counters
-			} else if len(counters) != NumCounters {
-				counters = counters[:NumCounters]
-				softirqsIrq.Counters = counters
-			}
+		counters := softirqs.Counters[irq]
+		if counters == nil || cap(counters) < NumCounters {
+			counters = make([]uint64, NumCounters)
+			softirqs.Counters[irq] = counters
+		} else if len(counters) > NumCounters {
+			counters = counters[:NumCounters]
+			softirqs.Counters[irq] = counters
 		}
 
 		counterIndex := 0
@@ -255,13 +246,14 @@ func (softirqs *Softirqs) Parse() error {
 		}
 
 		// Mark this irq as found during the scan:
-		softirqsIrq.scanNum = scanNum
+		irqScanNum[irq] = scanNum
 	}
 
 	// Cleanup IRQs no longer in use, if any:
-	for irq, softirqsIrq := range softirqs.Irq {
-		if softirqsIrq.scanNum != scanNum {
-			delete(softirqs.Irq, irq)
+	for irq, sNum := range irqScanNum {
+		if sNum != scanNum {
+			delete(softirqs.Counters, irq)
+			delete(irqScanNum, irq)
 		}
 	}
 	softirqs.scanNum = scanNum

@@ -109,18 +109,13 @@ primeSoftirqs=%v
 		t.Fatal(diffBuf.String())
 	}
 
-	for irq, wantSoftirqsIrq := range wantSoftirqs.Irq {
-		gotSoftirqsIrq := softirqs.Irq[irq]
-		if gotSoftirqsIrq == nil {
+	for irq, wantCounters := range wantSoftirqs.Counters {
+		gotCounters := softirqs.Counters[irq]
+		if gotCounters == nil {
 			fmt.Fprintf(
-				diffBuf,
-				"\nIrq: missing %q",
-				irq,
+				diffBuf, "\nCounters: missing %q", irq,
 			)
-			continue
 		}
-
-		wantCounters, gotCounters := wantSoftirqsIrq.Counters, gotSoftirqsIrq.Counters
 		if len(gotCounters) != wantSoftirqs.NumCounters {
 			fmt.Fprintf(
 				diffBuf,
@@ -142,8 +137,8 @@ primeSoftirqs=%v
 		}
 	}
 
-	for irq := range softirqs.Irq {
-		if wantSoftirqs.Irq[irq] == nil {
+	for irq := range softirqs.Counters {
+		if wantSoftirqs.Counters[irq] == nil {
 			fmt.Fprintf(
 				diffBuf,
 				"\nIrq: unexpected %q",
@@ -164,11 +159,11 @@ func TestSoftirqsParser(t *testing.T) {
 			procfsRoot: path.Join(softirqsTestdataDir, "field_mapping"),
 			wantSoftirqs: &Softirqs{
 				CpuList: nil,
-				Irq: map[string]*SoftirqsIrq{
-					"HI":     {Counters: []uint64{0, 1, 2, 3}},
-					"TIMER":  {Counters: []uint64{4, 5, 6, 7}},
-					"NET_TX": {Counters: []uint64{8, 9, 10, 11}},
-					"NET_RX": {Counters: []uint64{12, 13, 14, 15}},
+				Counters: map[string][]uint64{
+					"HI":     {0, 1, 2, 3},
+					"TIMER":  {4, 5, 6, 7},
+					"NET_TX": {8, 9, 10, 11},
+					"NET_RX": {12, 13, 14, 15},
 				},
 				CpuListChanged: true,
 				NumCounters:    4,
@@ -179,24 +174,30 @@ func TestSoftirqsParser(t *testing.T) {
 			procfsRoot: path.Join(softirqsTestdataDir, "field_mapping"),
 			primeSoftirqs: &Softirqs{
 				CpuList: nil,
-				Irq: map[string]*SoftirqsIrq{
-					"HRTIMER": {Counters: []uint64{10000, 10001, 10002, 10003}, scanNum: 1},
-					"RCU":     {Counters: []uint64{10004, 10005, 10006, 10007}, scanNum: 1},
-					"NET_TX":  {Counters: []uint64{10008, 10009, 100010, 100011}, scanNum: 1},
-					"NET_RX":  {Counters: []uint64{100012, 100013, 100014, 100015}, scanNum: 1},
+				Counters: map[string][]uint64{
+					"HRTIMER": {10000, 10001, 10002, 10003},
+					"RCU":     {10004, 10005, 10006, 10007},
+					"NET_TX":  {10008, 10009, 100010, 100011},
+					"NET_RX":  {100012, 100013, 100014, 100015},
 				},
 				CpuListChanged: true,
 				NumCounters:    4,
 				cpuHeaderLine:  []byte("                    CPU0       CPU1       CPU2       CPU3"),
-				scanNum:        1,
+				irqScanNum: map[string]int{
+					"HRTIMER": 1,
+					"RCU":     1,
+					"NET_TX":  1,
+					"NET_RX":  1,
+				},
+				scanNum: 1,
 			},
 			wantSoftirqs: &Softirqs{
 				CpuList: nil,
-				Irq: map[string]*SoftirqsIrq{
-					"HI":     {Counters: []uint64{0, 1, 2, 3}},
-					"TIMER":  {Counters: []uint64{4, 5, 6, 7}},
-					"NET_TX": {Counters: []uint64{8, 9, 10, 11}},
-					"NET_RX": {Counters: []uint64{12, 13, 14, 15}},
+				Counters: map[string][]uint64{
+					"HI":     {0, 1, 2, 3},
+					"TIMER":  {4, 5, 6, 7},
+					"NET_TX": {8, 9, 10, 11},
+					"NET_RX": {12, 13, 14, 15},
 				},
 				CpuListChanged: false,
 				NumCounters:    4,
@@ -207,11 +208,11 @@ func TestSoftirqsParser(t *testing.T) {
 			procfsRoot: path.Join(softirqsTestdataDir, "remove_cpu"),
 			primeSoftirqs: &Softirqs{
 				CpuList: nil,
-				Irq: map[string]*SoftirqsIrq{
-					"HI":     {Counters: []uint64{10000, 10001, 10002, 10003}, scanNum: 1},
-					"TIMER":  {Counters: []uint64{10004, 10005, 10006, 10007}, scanNum: 1},
-					"NET_TX": {Counters: []uint64{10008, 10009, 100010, 100011}, scanNum: 1},
-					"NET_RX": {Counters: []uint64{100012, 100013, 100014, 100015}, scanNum: 1},
+				Counters: map[string][]uint64{
+					"HI":     {10000, 10001, 10002, 10003},
+					"TIMER":  {10004, 10005, 10006, 10007},
+					"NET_TX": {10008, 10009, 100010, 100011},
+					"NET_RX": {100012, 100013, 100014, 100015},
 				},
 				CpuListChanged: true,
 				NumCounters:    4,
@@ -220,11 +221,11 @@ func TestSoftirqsParser(t *testing.T) {
 			},
 			wantSoftirqs: &Softirqs{
 				CpuList: []int{0, 1, 3},
-				Irq: map[string]*SoftirqsIrq{
-					"HI":     {Counters: []uint64{0, 1, 3}},
-					"TIMER":  {Counters: []uint64{4, 5, 7}},
-					"NET_TX": {Counters: []uint64{8, 9, 11}},
-					"NET_RX": {Counters: []uint64{12, 13, 15}},
+				Counters: map[string][]uint64{
+					"HI":     {0, 1, 3},
+					"TIMER":  {4, 5, 7},
+					"NET_TX": {8, 9, 11},
+					"NET_RX": {12, 13, 15},
 				},
 				CpuListChanged: true,
 				NumCounters:    3,
