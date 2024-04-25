@@ -30,6 +30,7 @@ from .net_dev_parser import (
     NetDev,
     NetDevStats,
 )
+from .softirqs_parser import Softirqs
 from .stat_parser import (
     STAT_BTIME,
     STAT_CPU_ALL,

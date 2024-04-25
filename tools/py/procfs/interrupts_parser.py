@@ -41,7 +41,7 @@ class InterruptsInfo:
 @dataclass
 class Interrupts:
     CpuList: Optional[List[int]] = None
-    Counters: Optional[List[List[int]]] = None
+    Counters: Optional[Dict[str, List[int]]] = None
     NumCounters: int = 0
     Info: Optional[InterruptsInfo] = None
 

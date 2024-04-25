@@ -27,11 +27,8 @@ const (
 	PROC_SOFTIRQS_CPU_LABEL_NAME = "cpu"
 
 	// METRIC{instance="INSTANCE",hostname="HOSTNAME",irq="IRQ"}:
-	PROC_SOFTIRQS_INFO_METRIC                  = "proc_softirqs_info"
-	PROC_SOFTIRQS_INFO_IRQ_LABEL_NAME          = PROC_SOFTIRQS_IRQ_LABEL_NAME
-	PROC_SOFTIRQS_INFO_CONTROLLER_LABEL_NAME   = "controller"
-	PROC_SOFTIRQS_INFO_HW_INTERRUPT_LABEL_NAME = "hw_interrupt"
-	PROC_SOFTIRQS_INFO_DEV_LABEL_NAME          = PROC_SOFTIRQS_DEV_LABEL_NAME
+	PROC_SOFTIRQS_INFO_METRIC         = "proc_softirqs_info"
+	PROC_SOFTIRQS_INFO_IRQ_LABEL_NAME = PROC_SOFTIRQS_IRQ_LABEL_NAME
 
 	// Interval since last generation, i.e. the interval underlying the deltas.
 	// Normally this should be close to scan interval, but this is the actual
@@ -73,7 +70,7 @@ type ProcSoftirqsMetricsIrqData struct {
 	// Delta metrics are generated with skip-zero-after-zero rule, i.e. if the
 	// current and previous deltas are both zero, then the current metric is
 	// skipped, save for full cycles. Keep track of zero deltas, indexed by
-	// counter index (see procfs.Softirqs.SoftirqsIrq[].Counters)
+	// counter index (see procfs.Softirqs.SoftirqInfo[].Counters)
 	zeroDelta []bool
 }
 
@@ -168,7 +165,7 @@ func (psirqm *ProcSoftirqsMetrics) updateIrqDataCache(irq string) *ProcSoftirqsM
 	}
 
 	irqData.deltaMetricPrefix = []byte(fmt.Sprintf(
-		`%s{%s="%s",%s="%s",%s="%s""`,
+		`%s{%s="%s",%s="%s",%s="%s"`,
 		PROC_SOFTIRQS_DELTA_METRIC,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
@@ -263,8 +260,8 @@ func (psirqm *ProcSoftirqsMetrics) generateMetrics(buf *bytes.Buffer) (int, int)
 
 	// All metrics are deltas, so must have previous stats:
 	if prevProcSoftirqs != nil {
-		currSoftirqs := currProcSoftirqs.Irq
-		prevSoftirqs := prevProcSoftirqs.Irq
+		currCounters := currProcSoftirqs.Counters
+		prevCounters := prevProcSoftirqs.Counters
 
 		currTs, prevTs := psirqm.procSoftirqsTs[psirqm.currIndex], psirqm.procSoftirqsTs[1-psirqm.currIndex]
 		psirqm.tsSuffixBuf.Reset()
@@ -286,9 +283,9 @@ func (psirqm *ProcSoftirqsMetrics) generateMetrics(buf *bytes.Buffer) (int, int)
 			psirqm.updateCpuList()
 		}
 
-		for irq, currSoftirq := range currSoftirqs {
-			prevSoftirq := prevSoftirqs[irq]
-			if prevSoftirq == nil {
+		for irq, currIrqCounters := range currCounters {
+			prevIrqCounters := prevCounters[irq]
+			if prevIrqCounters == nil {
 				// This is a new IRQ, no deltas for it:
 				continue
 			}
@@ -310,9 +307,7 @@ func (psirqm *ProcSoftirqsMetrics) generateMetrics(buf *bytes.Buffer) (int, int)
 			irqZeroDelta := irqData.zeroDelta
 
 			// Delta metrics:
-			currCounters := currSoftirq.Counters
-			prevCounters := prevSoftirq.Counters
-			for currI, currCounter := range currCounters {
+			for currI, currCounter := range currIrqCounters {
 				prevI, ok := currI, true
 				if currToPrevCounterIndexMap != nil {
 					prevI, ok = currToPrevCounterIndexMap[currI]
@@ -321,7 +316,7 @@ func (psirqm *ProcSoftirqsMetrics) generateMetrics(buf *bytes.Buffer) (int, int)
 						continue
 					}
 				}
-				delta := currCounter - prevCounters[prevI]
+				delta := currCounter - prevIrqCounters[prevI]
 				if fullMetrics || delta > 0 || !irqZeroDelta[currI] {
 					buf.Write(deltaMetricPrefix)
 					buf.Write(psirqm.deltaMetricsSuffixCache[currI])
@@ -348,9 +343,9 @@ func (psirqm *ProcSoftirqsMetrics) generateMetrics(buf *bytes.Buffer) (int, int)
 		}
 
 		// Clear info for removed IRQ's, if any:
-		if len(psirqm.irqDataCache) != len(currSoftirqs) {
+		if len(psirqm.irqDataCache) != len(currCounters) {
 			for irq, prevIrqData := range psirqm.irqDataCache {
-				if _, ok := currSoftirqs[irq]; !ok {
+				if _, ok := currCounters[irq]; !ok {
 					buf.Write(prevIrqData.infoMetric)
 					buf.WriteByte('0')
 					buf.Write(promTs)
@@ -374,7 +369,7 @@ func (psirqm *ProcSoftirqsMetrics) generateMetrics(buf *bytes.Buffer) (int, int)
 	//		delta metrics#: number of IRQs * number of counter
 	//		info metrics#:  number of IRQs
 	//		interval metric#: 1
-	totalMetricsCount := len(currProcSoftirqs.Irq)*(currProcSoftirqs.NumCounters+1) + 1
+	totalMetricsCount := len(currProcSoftirqs.Counters)*(currProcSoftirqs.NumCounters+1) + 1
 
 	// Toggle the buffers:
 	psirqm.currIndex = 1 - psirqm.currIndex
