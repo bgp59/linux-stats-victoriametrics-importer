@@ -262,7 +262,6 @@ func (pim *ProcInterruptsMetrics) updateIntervalMetricsCache() {
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 	))
-
 }
 
 func (pim *ProcInterruptsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
