@@ -403,8 +403,8 @@ func (pnsm *ProcNetSnmpMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 				}
 				buf.Write(promTs)
 				actualMetricsCount++
-				continue
 			}
+			continue
 		} else if prevValues == nil {
 			continue
 		}

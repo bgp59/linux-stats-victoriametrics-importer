@@ -20,6 +20,7 @@ type ProcNetSnmpMetricsTestCase struct {
 	CurrPromTs, PrevPromTs           int64
 	CycleNum                         []int
 	FullMetricsFactor                int
+	ZeroDelta                        []bool
 	WantMetricsCount                 int
 	WantMetrics                      []string
 	ReportExtra                      bool
@@ -51,6 +52,9 @@ func testProcNetSnmpMetrics(tc *ProcNetSnmpMetricsTestCase, t *testing.T) {
 	if tc.CycleNum != nil {
 		procNetSnmpMetrics.cycleNum = make([]int, len(tc.CycleNum))
 		copy(procNetSnmpMetrics.cycleNum, tc.CycleNum)
+	}
+	if tc.ZeroDelta != nil {
+		copy(procNetSnmpMetrics.zeroDelta, tc.ZeroDelta)
 	}
 	procNetSnmpMetrics.fullMetricsFactor = tc.FullMetricsFactor
 
