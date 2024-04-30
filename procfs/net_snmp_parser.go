@@ -237,6 +237,10 @@ type NetSnmpLineInfo struct {
 type NetSnmp struct {
 	// Parsed values:
 	Values []uint32
+	// Whether the info changed during the parse or not; a nil value indicated
+	// no change:
+	InfoChanged []byte
+
 	// File path:
 	path string
 	// Line info, used for parsing; the index below is (line# - 1) / 2:
@@ -263,21 +267,25 @@ func NewNetSnmp(procfsRoot string) *NetSnmp {
 	}
 }
 
-func (netSnmp *NetSnmp) Clone(full bool) *NetSnmp {
-	newNetSnmp := &NetSnmp{
-		Values:   make([]uint32, len(netSnmp.Values)),
-		path:     netSnmp.path,
-		lineInfo: make([]*NetSnmpLineInfo, len(netSnmp.lineInfo)),
-	}
-	for i, lineInfo := range netSnmp.lineInfo {
+func (netSnmp *NetSnmp) UpdateInfo(from *NetSnmp) {
+	netSnmp.lineInfo = make([]*NetSnmpLineInfo, len(from.lineInfo))
+	for i, lineInfo := range from.lineInfo {
 		newLineInfo := &NetSnmpLineInfo{
 			prefix: make([]byte, len(lineInfo.prefix)),
 			index:  make([]int, len(lineInfo.index)),
 		}
 		copy(newLineInfo.prefix, lineInfo.prefix)
 		copy(newLineInfo.index, lineInfo.index)
-		newNetSnmp.lineInfo[i] = newLineInfo
+		netSnmp.lineInfo[i] = newLineInfo
 	}
+}
+
+func (netSnmp *NetSnmp) Clone(full bool) *NetSnmp {
+	newNetSnmp := &NetSnmp{
+		Values: make([]uint32, len(netSnmp.Values)),
+		path:   netSnmp.path,
+	}
+	newNetSnmp.UpdateInfo(netSnmp)
 	if full {
 		copy(newNetSnmp.Values, netSnmp.Values)
 	}
@@ -322,53 +330,73 @@ func (netSnmp *NetSnmp) Parse() error {
 	}
 
 	buf, l := fBuf.Bytes(), fBuf.Len()
+	if netSnmp.InfoChanged != nil {
+		netSnmp.InfoChanged = nil
+	}
 
-	buildLineInfo := len(netSnmp.lineInfo) == 0
-	lineIndex := 0
-	for pos := 0; pos < l; lineIndex++ {
-		// Line starts here:
-		lineStart, eol := pos, false
-
-		// For odd lines build line info as needed:
-		if lineIndex&1 == 0 {
-			lineEnd := lineStart
-			for ; lineEnd < l && buf[lineEnd] != '\n'; lineEnd++ {
+	infoLineStart, infoLineEnd, infoIndex := 0, 0, 0
+	for lineNum, pos := 1, 0; pos < l; lineNum++ {
+		// Odd line# are for line info, remember the start:end indexes in case
+		// the line needs to be parsed:
+		if lineNum&1 == 1 {
+			infoLineStart, infoLineEnd = pos, pos
+			for ; infoLineEnd < l && buf[infoLineEnd] != '\n'; infoLineEnd++ {
 			}
-			if buildLineInfo {
-				lineInfo, err := buildSnmpLineInfo(buf[lineStart:lineEnd])
-				if err != nil {
-					return fmt.Errorf(
-						"%s#%d: %q: %v",
-						netSnmp.path, lineIndex+1, string(buf[lineStart:lineEnd]), err,
-					)
-				}
-				netSnmp.lineInfo = append(netSnmp.lineInfo, lineInfo)
-			}
-			pos = lineEnd + 1
+			pos = infoLineEnd + 1
+			infoIndex = lineNum >> 1
 			continue
 		}
 
-		// Even lines, parse data:
-		lineInfoIndex := lineIndex >> 1
-		if lineInfoIndex >= len(netSnmp.lineInfo) {
-			return fmt.Errorf(
-				"%s#%d: %q: unexpected line# (> %d)",
-				netSnmp.path, lineIndex+1, getCurrentLine(buf, lineStart), len(netSnmp.lineInfo)*2,
-			)
+		// Even lines, parse data; additionally parse the indo line as needed:
+		lineStart, eol := pos, false
+		var lineInfo *NetSnmpLineInfo = nil
+		if infoIndex < len(netSnmp.lineInfo) {
+			lineInfo = netSnmp.lineInfo[infoIndex]
+			// Validate prefix:
+			expectPrefix := lineInfo.prefix
+			prefixPos, expectPrefixLen := 0, len(expectPrefix)
+			for ; pos < l && prefixPos < expectPrefixLen && buf[pos] == expectPrefix[prefixPos]; pos++ {
+				prefixPos++
+			}
+			if prefixPos != expectPrefixLen {
+				// The layout of the file has changed, info must be parsed again:
+				lineInfo = nil
+				pos = lineStart
+				if netSnmp.InfoChanged == nil {
+					netSnmp.InfoChanged = []byte(fmt.Sprintf(
+						"%s:%d: %q: unexpected prefix, want %q, will rebuild info",
+						netSnmp.path, lineNum, getCurrentLine(buf, lineStart), expectPrefix,
+					))
+				}
+			}
 		}
-		lineInfo := netSnmp.lineInfo[lineInfoIndex]
+		if lineInfo == nil {
+			// 1st time prefix seen at this line#:
+			lineInfo, err = buildSnmpLineInfo(buf[infoLineStart:infoLineEnd])
+			if err != nil {
+				return fmt.Errorf(
+					"%s:%d: %q: %v",
+					netSnmp.path, lineNum-1, string(buf[infoLineStart:infoLineEnd]), err,
+				)
+			}
+			if infoIndex < len(netSnmp.lineInfo) {
+				netSnmp.lineInfo[infoIndex] = lineInfo
+			} else {
+				netSnmp.lineInfo = append(netSnmp.lineInfo, lineInfo)
+			}
 
-		// Validate prefix:
-		expectPrefix := lineInfo.prefix
-		prefixPos, expectPrefixLen := 0, len(expectPrefix)
-		for ; pos < l && prefixPos < expectPrefixLen && buf[pos] == expectPrefix[prefixPos]; pos++ {
-			prefixPos++
-		}
-		if prefixPos != expectPrefixLen {
-			return fmt.Errorf(
-				"%s#%d: %q: unexpected prefix, want %q",
-				netSnmp.path, lineIndex+1, getCurrentLine(buf, lineStart), expectPrefix,
-			)
+			// Re-verify the prefix:
+			expectPrefix := lineInfo.prefix
+			prefixPos, expectPrefixLen := 0, len(expectPrefix)
+			for ; pos < l && prefixPos < expectPrefixLen && buf[pos] == expectPrefix[prefixPos]; pos++ {
+				prefixPos++
+			}
+			if prefixPos != expectPrefixLen {
+				return fmt.Errorf(
+					"%s:%d: %q: unexpected prefix, want %q",
+					netSnmp.path, lineNum, getCurrentLine(buf, lineStart), expectPrefix,
+				)
+			}
 		}
 
 		valueIndexMap := lineInfo.index
@@ -393,8 +421,8 @@ func (netSnmp *NetSnmp) Parse() error {
 					done = true
 				} else {
 					return fmt.Errorf(
-						"%s#%d: %q: `%c': not a valid digit",
-						netSnmp.path, lineIndex+1, getCurrentLine(buf, lineStart), c,
+						"%s:%d: %q: `%c': not a valid digit",
+						netSnmp.path, lineNum, getCurrentLine(buf, lineStart), c,
 					)
 				}
 			}
@@ -406,8 +434,8 @@ func (netSnmp *NetSnmp) Parse() error {
 							value = (value ^ ((1 << 32) - 1)) + 1
 						} else {
 							return fmt.Errorf(
-								"%s#%d: %q: -%d: unexpected negative value# %d",
-								netSnmp.path, lineIndex+1, getCurrentLine(buf, lineStart), value, lineValueIndex+1,
+								"%s:%d: %q: -%d: unexpected negative value# %d",
+								netSnmp.path, lineNum, getCurrentLine(buf, lineStart), value, lineValueIndex+1,
 							)
 						}
 					}
@@ -420,8 +448,8 @@ func (netSnmp *NetSnmp) Parse() error {
 		// Enough values?
 		if lineValueIndex < lineExpectedNumVals {
 			return fmt.Errorf(
-				"%s#%d: %q: missing values: want: %d, got: %d",
-				netSnmp.path, lineIndex+1, getCurrentLine(buf, lineStart), lineExpectedNumVals, lineValueIndex,
+				"%s:%d: %q: missing values: want: %d, got: %d",
+				netSnmp.path, lineNum, getCurrentLine(buf, lineStart), lineExpectedNumVals, lineValueIndex,
 			)
 		}
 
@@ -430,20 +458,11 @@ func (netSnmp *NetSnmp) Parse() error {
 			c := buf[pos]
 			if eol = (c == '\n'); !eol && !isWhitespace[c] {
 				return fmt.Errorf(
-					"%s#%d: %q: %q unexpected content after value(s)",
-					netSnmp.path, lineIndex+1, getCurrentLine(buf, lineStart), getCurrentLine(buf, pos),
+					"%s:%d: %q: %q unexpected content after value(s)",
+					netSnmp.path, lineNum, getCurrentLine(buf, lineStart), getCurrentLine(buf, pos),
 				)
 			}
 		}
-	}
-
-	// Verify that expected number of lines were parsed:
-	lineNum, expectedLineNum := lineIndex, len(netSnmp.lineInfo)<<1
-	if lineNum != expectedLineNum {
-		return fmt.Errorf(
-			"%s: mismatched number of values: want: %d, got: %d",
-			netSnmp.path, expectedLineNum, lineNum,
-		)
 	}
 
 	return nil

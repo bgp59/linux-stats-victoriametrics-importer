@@ -477,6 +477,13 @@ func (pnsm *ProcNetSnmpMetrics) Execute() bool {
 		procNetSnmpMetricsLog.Warnf("%v: proc net snmp metrics will be disabled", err)
 		return false
 	}
+	if currProcNetSnmp.InfoChanged != nil {
+		procNetSnmpMetricsLog.Warn(string(currProcNetSnmp.InfoChanged))
+		prevProcNetSnmp := pnsm.procNetSnmp[1-pnsm.currIndex]
+		if prevProcNetSnmp != nil {
+			prevProcNetSnmp.UpdateInfo(currProcNetSnmp)
+		}
+	}
 	pnsm.procNetSnmpTs[pnsm.currIndex] = timeNowFn()
 
 	buf := metricsQueue.GetBuf()

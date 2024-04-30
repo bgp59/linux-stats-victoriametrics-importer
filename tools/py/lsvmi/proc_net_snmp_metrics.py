@@ -2,14 +2,31 @@
 
 # Generate test cases for lsvmi/proc_net_snmp_metrics_test.go
 
-from typing import List
+import json
+import os
+import sys
+import time
+from copy import deepcopy
+from dataclasses import asdict, dataclass
+from typing import List, Optional, Tuple
 
 import procfs
 
-DEFAULT_PROC_NET_DEV_INTERVAL_SEC = 1
-DEFAULT_PROC_NET_DEV_FULL_METRICS_FACTOR = 15
+from . import (
+    DEFAULT_TEST_HOSTNAME,
+    DEFAULT_TEST_INSTANCE,
+    HOSTNAME_LABEL_NAME,
+    INSTANCE_LABEL_NAME,
+    int32_to_uint32,
+    lsvmi_testcases_root,
+    uint32_delta,
+    uint32_to_int32,
+)
 
-ZeroDelta = List[bool]
+DEFAULT_PROC_NET_SNMP_INTERVAL_SEC = 1
+DEFAULT_PROC_NET_SNMP_FULL_METRICS_FACTOR = 15
+
+ZeroDeltaType = List[bool]
 
 # Metrics definitions, must match lsvmi/proc_net_snmp_metrics.go:
 PROC_NET_SNMP_IP_FORWARDING_METRIC = "proc_net_snmp_ip_forwarding"
@@ -136,6 +153,10 @@ PROC_NET_SNMP_UDPLITE_MEM_ERRORS_DELTA_METRIC = "proc_net_snmp_udplite_mem_error
 
 PROC_NET_SNMP_INTERVAL_METRIC_NAME = "proc_net_snmp_metrics_delta_sec"
 
+PROC_NET_SNMP_CYCLE_COUNTER_EXP = 4
+PROC_NET_SNMP_CYCLE_COUNTER_NUM = 1 << PROC_NET_SNMP_CYCLE_COUNTER_EXP
+PROC_NET_SNMP_CYCLE_COUNTER_MASK = PROC_NET_SNMP_CYCLE_COUNTER_NUM - 1
+
 proc_net_snmp_index_to_metric_name = {
     procfs.NET_SNMP_IP_FORWARDING: PROC_NET_SNMP_IP_FORWARDING_METRIC,
     procfs.NET_SNMP_IP_DEFAULT_TTL: PROC_NET_SNMP_IP_DEFAULT_TTL_METRIC,
@@ -232,3 +253,282 @@ proc_net_snmp_non_delta_index = set(
         procfs.NET_SNMP_TCP_RTO_MIN,
     ]
 )
+
+
+@dataclass
+class ProcNetSnmpMetricsTestCase:
+    Name: Optional[str] = None
+    Description: Optional[str] = None
+    Instance: Optional[str] = None
+    Hostname: Optional[str] = None
+    CurrProcNetSnmp: Optional[procfs.NetSnmp] = None
+    PrevProcNetSnmp: Optional[procfs.NetSnmp] = None
+    CurrPromTs: int = 0
+    PrevPromTs: int = 0
+    CycleNum: Optional[List[int]] = None
+    FullMetricsFactor: int = DEFAULT_PROC_NET_SNMP_FULL_METRICS_FACTOR
+    ZeroDelta: Optional[ZeroDeltaType] = None
+    WantMetricsCount: int = 0
+    WantMetrics: Optional[List[str]] = None
+    ReportExtra: bool = False
+    WantZeroDelta: Optional[ZeroDeltaType] = None
+
+
+testcases_file = "proc_net_snmp.json"
+
+
+def generate_proc_net_snmp_metrics(
+    curr_proc_net_snmp: procfs.NetSnmp,
+    curr_prom_ts: int,
+    prev_proc_net_snmp: Optional[procfs.NetSnmp] = None,
+    cycle_num: Optional[List[int]] = None,
+    zero_delta: Optional[ZeroDeltaType] = None,
+    interval: float = DEFAULT_PROC_NET_SNMP_INTERVAL_SEC,
+    instance: str = DEFAULT_TEST_INSTANCE,
+    hostname: str = DEFAULT_TEST_HOSTNAME,
+) -> Tuple[List[str], Optional[ZeroDeltaType]]:
+    metrics = []
+    new_zero_delta = (
+        None if prev_proc_net_snmp is None else [False] * procfs.NET_SNMP_NUM_VALUES
+    )
+
+    for i, curr_value in enumerate(curr_proc_net_snmp.Values):
+        name = proc_net_snmp_index_to_metric_name.get(i)
+        if name is None:
+            continue
+        full_metrics = (
+            cycle_num is None or cycle_num[i & PROC_NET_SNMP_CYCLE_COUNTER_MASK] == 0
+        )
+        metric_val = None
+        if i in proc_net_snmp_non_delta_index:
+            if (
+                full_metrics
+                or prev_proc_net_snmp is None
+                or curr_value != prev_proc_net_snmp.Values[i]
+            ):
+                metric_val = curr_value
+                if i in procfs.NetSnmpValueMayBeNegative:
+                    metric_val = uint32_to_int32(metric_val)
+
+        elif prev_proc_net_snmp is not None:
+            delta = uint32_delta(curr_value, prev_proc_net_snmp.Values[i])
+            if full_metrics or delta != 0 or zero_delta is None or not zero_delta[i]:
+                metric_val = delta
+            if new_zero_delta is not None:
+                new_zero_delta[i] = delta == 0
+        if metric_val is not None:
+            metrics.append(
+                f"{name}{{"
+                + ",".join(
+                    [
+                        f'{INSTANCE_LABEL_NAME}="{instance}"',
+                        f'{HOSTNAME_LABEL_NAME}="{hostname}"',
+                    ]
+                )
+                + f"}} {metric_val} {curr_prom_ts}"
+            )
+
+    if prev_proc_net_snmp is not None:
+        metrics.append(
+            f"{PROC_NET_SNMP_INTERVAL_METRIC_NAME}{{"
+            + ",".join(
+                [
+                    f'{INSTANCE_LABEL_NAME}="{instance}"',
+                    f'{HOSTNAME_LABEL_NAME}="{hostname}"',
+                ]
+            )
+            + f"}} {interval:.06f} {curr_prom_ts}"
+        )
+
+    return metrics, new_zero_delta
+
+
+def generate_proc_net_snmp_test_case(
+    name: str,
+    curr_proc_net_snmp: procfs.NetSnmp,
+    ts: Optional[float] = None,
+    prev_proc_net_snmp: Optional[procfs.NetSnmp] = None,
+    cycle_num: Optional[List[int]] = None,
+    zero_delta: Optional[ZeroDeltaType] = None,
+    interval: float = DEFAULT_PROC_NET_SNMP_INTERVAL_SEC,
+    instance: str = DEFAULT_TEST_INSTANCE,
+    hostname: str = DEFAULT_TEST_HOSTNAME,
+    full_metrics_factor: int = DEFAULT_PROC_NET_SNMP_FULL_METRICS_FACTOR,
+    description: Optional[str] = None,
+) -> ProcNetSnmpMetricsTestCase:
+    if ts is None:
+        ts = time.time()
+    curr_prom_ts = int(ts * 1000)
+    prev_prom_ts = curr_prom_ts - int(interval * 1000)
+    metrics, want_zero_delta = generate_proc_net_snmp_metrics(
+        curr_proc_net_snmp,
+        curr_prom_ts=curr_prom_ts,
+        prev_proc_net_snmp=prev_proc_net_snmp,
+        cycle_num=cycle_num,
+        zero_delta=zero_delta,
+        interval=interval,
+        instance=instance,
+        hostname=hostname,
+    )
+    return ProcNetSnmpMetricsTestCase(
+        Name=name,
+        Description=description,
+        Instance=instance,
+        Hostname=hostname,
+        CurrProcNetSnmp=curr_proc_net_snmp,
+        PrevProcNetSnmp=prev_proc_net_snmp,
+        CurrPromTs=curr_prom_ts,
+        PrevPromTs=prev_prom_ts,
+        CycleNum=cycle_num,
+        FullMetricsFactor=full_metrics_factor,
+        ZeroDelta=zero_delta,
+        WantMetricsCount=len(metrics),
+        WantMetrics=metrics,
+        ReportExtra=True,
+        WantZeroDelta=want_zero_delta,
+    )
+
+
+def make_ref_proc_net_snmp() -> procfs.NetSnmp:
+    proc_net_snmp = procfs.NetSnmp()
+    for i in range(len(proc_net_snmp.Values)):
+        v = i + 13
+        if i in procfs.NetSnmpValueMayBeNegative:
+            v = int32_to_uint32(-v)
+        proc_net_snmp.Values[i] = v
+    return proc_net_snmp
+
+
+def make_zero_delta(val: bool = False) -> ZeroDeltaType:
+    return [
+        False if i in proc_net_snmp_non_delta_index else val
+        for i in range(procfs.NET_SNMP_NUM_VALUES)
+    ]
+
+
+def generate_proc_net_snmp_metrics_test_cases(
+    instance: str = DEFAULT_TEST_INSTANCE,
+    hostname: str = DEFAULT_TEST_HOSTNAME,
+    testcases_root_dir: Optional[str] = lsvmi_testcases_root,
+):
+    ts = time.time()
+
+    if testcases_root_dir not in {None, "", "-"}:
+        out_file = os.path.join(testcases_root_dir, testcases_file)
+        os.makedirs(os.path.dirname(out_file), exist_ok=True)
+        fp = open(out_file, "wt")
+    else:
+        out_file = None
+        fp = sys.stdout
+
+    test_cases = []
+    tc_num = 0
+
+    ref_proc_net_snmp = make_ref_proc_net_snmp()
+
+    name = "no_prev"
+    for cycle_num_val in [0, 1]:
+        for zero_delta_val in [None, False, True]:
+            cycle_num = [cycle_num_val] * PROC_NET_SNMP_CYCLE_COUNTER_NUM
+            zero_delta = (
+                None if zero_delta_val is None else make_zero_delta(zero_delta_val)
+            )
+            test_cases.append(
+                generate_proc_net_snmp_test_case(
+                    f"{name}/{tc_num}",
+                    curr_proc_net_snmp=deepcopy(ref_proc_net_snmp),
+                    cycle_num=cycle_num,
+                    zero_delta=zero_delta,
+                    description=f"cycle_num={cycle_num_val}, zero_delta={zero_delta_val}",
+                )
+            )
+            tc_num += 1
+
+    name = "all_change"
+    curr_proc_net_snmp = ref_proc_net_snmp
+    max_val = max(
+        curr_proc_net_snmp.Values[i]
+        for i in range(procfs.NET_SNMP_NUM_VALUES)
+        if i not in procfs.NetSnmpValueMayBeNegative
+    )
+    prev_proc_net_snmp = procfs.NetSnmp()
+    for i, curr_val in enumerate(curr_proc_net_snmp.Values):
+        if i in proc_net_snmp_non_delta_index:
+            prev_proc_net_snmp.Values[i] = curr_val + 1
+        else:
+            prev_proc_net_snmp.Values[i] = uint32_delta(curr_val, max_val + 2 * i)
+    for cycle_num_val in [0, 1]:
+        for zero_delta_val in [None, False, True]:
+            cycle_num = [cycle_num_val] * PROC_NET_SNMP_CYCLE_COUNTER_NUM
+            zero_delta = (
+                None if zero_delta_val is None else make_zero_delta(zero_delta_val)
+            )
+            test_cases.append(
+                generate_proc_net_snmp_test_case(
+                    f"{name}/{tc_num}",
+                    curr_proc_net_snmp=curr_proc_net_snmp,
+                    prev_proc_net_snmp=prev_proc_net_snmp,
+                    cycle_num=cycle_num,
+                    zero_delta=zero_delta,
+                    description=f"cycle_num={cycle_num_val}, zero_delta={zero_delta_val}",
+                )
+            )
+            tc_num += 1
+
+    name = "no_change"
+    for cycle_num_val in [0, 1]:
+        for zero_delta_val in [None, False, True]:
+            cycle_num = [cycle_num_val] * PROC_NET_SNMP_CYCLE_COUNTER_NUM
+            zero_delta = (
+                None if zero_delta_val is None else make_zero_delta(zero_delta_val)
+            )
+            test_cases.append(
+                generate_proc_net_snmp_test_case(
+                    f"{name}/{tc_num}",
+                    curr_proc_net_snmp=ref_proc_net_snmp,
+                    prev_proc_net_snmp=ref_proc_net_snmp,
+                    cycle_num=cycle_num,
+                    zero_delta=zero_delta,
+                    description=f"cycle_num={cycle_num_val}, zero_delta={zero_delta_val}",
+                )
+            )
+            tc_num += 1
+
+    name = "single_change"
+    curr_proc_net_snmp = ref_proc_net_snmp
+    max_val = max(
+        curr_proc_net_snmp.Values[i]
+        for i in range(procfs.NET_SNMP_NUM_VALUES)
+        if i not in procfs.NetSnmpValueMayBeNegative
+    )
+    for cycle_num_val in [0, 1]:
+        for zero_delta_val in [None, False, True]:
+            cycle_num = [cycle_num_val] * PROC_NET_SNMP_CYCLE_COUNTER_NUM
+            zero_delta = (
+                None if zero_delta_val is None else make_zero_delta(zero_delta_val)
+            )
+            for i in range(procfs.NET_SNMP_NUM_VALUES):
+                prev_proc_net_snmp = deepcopy(curr_proc_net_snmp)
+                if i in proc_net_snmp_non_delta_index:
+                    prev_proc_net_snmp.Values[i] = curr_val + 1
+                else:
+                    prev_proc_net_snmp.Values[i] = uint32_delta(
+                        curr_val, max_val + 2 * i
+                    )
+                test_cases.append(
+                    generate_proc_net_snmp_test_case(
+                        f"{name}/{tc_num}",
+                        curr_proc_net_snmp=curr_proc_net_snmp,
+                        prev_proc_net_snmp=prev_proc_net_snmp,
+                        cycle_num=cycle_num,
+                        zero_delta=zero_delta,
+                        description=f"cycle_num={cycle_num_val}, zero_delta={zero_delta_val}, i={i}",
+                    )
+                )
+                tc_num += 1
+
+    json.dump(list(map(asdict, test_cases)), fp=fp, indent=2)
+    fp.write("\n")
+    if out_file is not None:
+        fp.close()
+        print(f"{out_file} generated", file=sys.stderr)

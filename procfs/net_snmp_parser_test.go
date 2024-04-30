@@ -13,6 +13,7 @@ type NetSnmpTestCase struct {
 	primeProcfsRoot string
 	wantNetSnmp     *NetSnmp
 	wantError       error
+	wantInfoChanged bool
 }
 
 var netSnmpTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "net", "snmp")
@@ -148,19 +149,33 @@ primeProcfsRoot=%q
 		)
 	}
 
-	diffBuf := &bytes.Buffer{}
+	errBuf := &bytes.Buffer{}
 	for i, wantValue := range wantNetSnmp.Values {
 		gotValue := netSnmp.Values[i]
 		if wantValue != gotValue {
 			fmt.Fprintf(
-				diffBuf,
+				errBuf,
 				"\nValues[%d (%s)]: want: %d, got: %d",
 				i, netSnmpIndexName[i], wantValue, gotValue,
 			)
 		}
 	}
-	if diffBuf.Len() > 0 {
-		t.Fatal(diffBuf.String())
+	if tc.wantInfoChanged && netSnmp.InfoChanged == nil {
+		fmt.Fprintf(
+			errBuf,
+			"\nInfoChanged expected: got: %v",
+			netSnmp.InfoChanged,
+		)
+	} else if !tc.wantInfoChanged && netSnmp.InfoChanged != nil {
+		fmt.Fprintf(
+			errBuf,
+			"\nunexpected InfoChanged: %q",
+			netSnmp.InfoChanged,
+		)
+	}
+
+	if errBuf.Len() > 0 {
+		t.Fatal(errBuf.String())
 	}
 }
 
@@ -199,6 +214,22 @@ func TestNetSnmpParser(t *testing.T) {
 					11000, 11001, 11002, 11003, 11004, 11005, 11006, 11007, 11008,
 				},
 			},
+		},
+		{
+			name:            "new_info",
+			procfsRoot:      path.Join(netSnmpTestdataDir, "field_mapping"),
+			primeProcfsRoot: path.Join(netSnmpTestdataDir, "no_icmp_msg"),
+			wantNetSnmp: &NetSnmp{
+				Values: []uint32{
+					1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018,
+					3000, 3001, 3002, 3003, 3004, 3005, 3006, 3007, 3008, 3009, 3010, 3011, 3012, 3013, 3014, 3015, 3016, 3017, 3018, 3019, 3020, 3021, 3022, 3023, 3024, 3025, 3026,
+					5000, 5001,
+					7000, 7001, 7002, testNetSnmpAsUInt32(-7003), 7004, 7005, 7006, 7007, 7008, 7009, 7010, 7011, 7012, 7013, 7014,
+					9000, 9001, 9002, 9003, 9004, 9005, 9006, 9007, 9008,
+					11000, 11001, 11002, 11003, 11004, 11005, 11006, 11007, 11008,
+				},
+			},
+			wantInfoChanged: true,
 		},
 	} {
 		t.Run(

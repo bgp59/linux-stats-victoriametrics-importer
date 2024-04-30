@@ -114,6 +114,7 @@ from .net_snmp_parser import (
     NET_SNMP_UDPLITE_RCVBUF_ERRORS,
     NET_SNMP_UDPLITE_SNDBUF_ERRORS,
     NetSnmp,
+    NetSnmpValueMayBeNegative,
 )
 from .softirqs_parser import Softirqs
 from .stat_parser import (

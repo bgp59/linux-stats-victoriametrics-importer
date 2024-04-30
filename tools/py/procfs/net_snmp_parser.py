@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 
-from dataclasses import dataclass
-from typing import List, Optional
+from dataclasses import dataclass, field
+from typing import List
 
 # JSON serialize-able NetSnmp, matching profcs/net_snmp_parser.go:
 
@@ -90,7 +90,11 @@ NET_SNMP_UDPLITE_MEM_ERRORS = 80
 
 NET_SNMP_NUM_VALUES = 81
 
+NetSnmpValueMayBeNegative = {
+    NET_SNMP_TCP_MAX_CONN,
+}
+
 
 @dataclass
 class NetSnmp:
-    Values: Optional[List[int]] = None
+    Values: List[int] = field(default_factory=lambda: [0] * NET_SNMP_NUM_VALUES)
