@@ -39,6 +39,7 @@ type LsvmiConfig struct {
 	ProcInterruptsMetricsConfig *ProcInterruptsMetricsConfig `yaml:"proc_interrupts_metrics_config"`
 	ProcSoftirqsMetricsConfig   *ProcSoftirqsMetricsConfig   `yaml:"proc_softirqs_metrics_config"`
 	ProcNetSnmpMetricsConfig    *ProcNetSnmpMetricsConfig    `yaml:"proc_net_snmp_metrics_config"`
+	ProcNetSnmp6MetricsConfig   *ProcNetSnmp6MetricsConfig   `yaml:"proc_net_snmp6_metrics_config"`
 	InternalMetricsConfig       *InternalMetricsConfig       `yaml:"internal_metrics_config"`
 	SchedulerConfig             *SchedulerConfig             `yaml:"scheduler_config"`
 	CompressorPoolConfig        *CompressorPoolConfig        `yaml:"compressor_pool_config"`
@@ -109,6 +110,7 @@ func DefaultLsvmiConfig() *LsvmiConfig {
 		ProcInterruptsMetricsConfig: DefaultProcInterruptsMetricsConfig(),
 		ProcSoftirqsMetricsConfig:   DefaultProcSoftirqsMetricsConfig(),
 		ProcNetSnmpMetricsConfig:    DefaultProcNetSnmpMetricsConfig(),
+		ProcNetSnmp6MetricsConfig:   DefaultProcNetSnmp6MetricsConfig(),
 		InternalMetricsConfig:       DefaultInternalMetricsConfig(),
 		SchedulerConfig:             DefaultSchedulerConfig(),
 		CompressorPoolConfig:        DefaultCompressorPoolConfig(),

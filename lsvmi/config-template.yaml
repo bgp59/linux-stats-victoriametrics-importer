@@ -67,6 +67,14 @@ proc_net_snmp_metrics_config:
   full_metrics_factor: 15
 
 ###############################################
+# /proc/net/snmp6 Metrics
+###############################################
+proc_net_snmp6_metrics_config:
+  interval: 1s
+  full_metrics_factor: 15
+
+
+###############################################
 # Scheduler
 ###############################################
 scheduler_config:
