@@ -9,9 +9,9 @@ import argparse
 import os
 import re
 
-from testutils import go_module_root, lsvmi_testdata_procfs_root
+from testutils import go_module_root, lsvmi_procfs_root
 
-default_net_snmp_file = os.path.join(lsvmi_testdata_procfs_root, "net", "snmp")
+default_net_snmp_file = os.path.join(lsvmi_procfs_root, "net", "snmp")
 
 index_prefix = "NET_SNMP_"
 map_variable_name = "netSnmpIndexMap"
@@ -64,21 +64,21 @@ if __name__ == "__main__":
     needs_iota = True
     for index in index_list:
         if needs_iota:
-            print(f"\t{index} = iota")
+            print(f"  {index} = iota")
             needs_iota = False
         else:
-            print(f"\t{index}")
-    print("\n" + "\t// Must be last:\n" + f"\t{index_prefix}NUM_VALUES")
+            print(f"  {index}")
+    print("\n" + "  // Must be last:\n" + f"  {index_prefix}NUM_VALUES")
     print(")")
     print()
 
     print("// Map net/snmp [PROTO][VARIABLE] pairs into parsed value indexes: ")
     print(f"var {map_variable_name} = map[string]map[string]int {{")
     for proto in proto_list:
-        print(f'\t"{proto}": {{')
+        print(f'  "{proto}": {{')
         for var, index in index_map_by_proto[proto]:
-            print(f'\t\t"{var}": {index},')
-        print("\t},")
+            print(f'    "{var}": {index},')
+        print("  },")
     print("}")
     print()
 

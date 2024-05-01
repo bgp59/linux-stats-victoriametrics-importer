@@ -9,9 +9,9 @@ on captured proc/net/snmp
 import os
 import sys
 
-from testutils import lsvmi_testdata_procfs_root, procfs_testdata_root
+from testutils import lsvmi_procfs_root, procfs_testdata_root
 
-reference_net_snmp_file = os.path.join(lsvmi_testdata_procfs_root, "net", "snmp")
+reference_net_snmp_file = os.path.join(lsvmi_procfs_root, "net", "snmp")
 output_net_snmp_file = os.path.join(
     procfs_testdata_root, "net", "snmp", "field_mapping", "net", "snmp"
 )

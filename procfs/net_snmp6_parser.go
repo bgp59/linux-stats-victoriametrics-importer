@@ -18,15 +18,15 @@ import (
 // References:
 //   https://github.com/torvalds/linux/blob/master/net/ipv6/proc.c
 //
+//
 // As per:
-//   https://github.com/torvalds/linux/blob/6bc40e44f1ddef16a787f3501b97f1fff909177c/net/ipv6/proc.c#L221
-// all values in this file are uint64.
+//   https://github.com/torvalds/linux/blob/6bc40e44f1ddef16a787f3501b97f1fff909177c/net/ipv6/proc.c#L217
+// IP6 stats are uint64 whereas the rest are uint32.
 
 // Begin of automatically generated content:
 //  Script: tools/py/net_snmp6_parser_helper.py
 //  Reference file: testdata/lsvmi/proc/net/snmp6
 
-// Index definitions for parsed values:
 const (
 	NET_SNMP6_IP6_IN_RECEIVES = iota
 	NET_SNMP6_IP6_IN_HDR_ERRORS
@@ -119,6 +119,65 @@ const (
 	// Must be last:
 	NET_SNMP6_NUM_VALUES
 )
+
+// List of indexes that are uint32:
+var netSnmp6IsUint32 = [NET_SNMP6_NUM_VALUES]bool{
+	NET_SNMP6_ICMP6_IN_MSGS:                     true,
+	NET_SNMP6_ICMP6_IN_ERRORS:                   true,
+	NET_SNMP6_ICMP6_OUT_MSGS:                    true,
+	NET_SNMP6_ICMP6_OUT_ERRORS:                  true,
+	NET_SNMP6_ICMP6_IN_CSUM_ERRORS:              true,
+	NET_SNMP6_ICMP6_IN_DEST_UNREACHS:            true,
+	NET_SNMP6_ICMP6_IN_PKT_TOO_BIGS:             true,
+	NET_SNMP6_ICMP6_IN_TIME_EXCDS:               true,
+	NET_SNMP6_ICMP6_IN_PARM_PROBLEMS:            true,
+	NET_SNMP6_ICMP6_IN_ECHOS:                    true,
+	NET_SNMP6_ICMP6_IN_ECHO_REPLIES:             true,
+	NET_SNMP6_ICMP6_IN_GROUP_MEMB_QUERIES:       true,
+	NET_SNMP6_ICMP6_IN_GROUP_MEMB_RESPONSES:     true,
+	NET_SNMP6_ICMP6_IN_GROUP_MEMB_REDUCTIONS:    true,
+	NET_SNMP6_ICMP6_IN_ROUTER_SOLICITS:          true,
+	NET_SNMP6_ICMP6_IN_ROUTER_ADVERTISEMENTS:    true,
+	NET_SNMP6_ICMP6_IN_NEIGHBOR_SOLICITS:        true,
+	NET_SNMP6_ICMP6_IN_NEIGHBOR_ADVERTISEMENTS:  true,
+	NET_SNMP6_ICMP6_IN_REDIRECTS:                true,
+	NET_SNMP6_ICMP6_IN_MLD_V2_REPORTS:           true,
+	NET_SNMP6_ICMP6_OUT_DEST_UNREACHS:           true,
+	NET_SNMP6_ICMP6_OUT_PKT_TOO_BIGS:            true,
+	NET_SNMP6_ICMP6_OUT_TIME_EXCDS:              true,
+	NET_SNMP6_ICMP6_OUT_PARM_PROBLEMS:           true,
+	NET_SNMP6_ICMP6_OUT_ECHOS:                   true,
+	NET_SNMP6_ICMP6_OUT_ECHO_REPLIES:            true,
+	NET_SNMP6_ICMP6_OUT_GROUP_MEMB_QUERIES:      true,
+	NET_SNMP6_ICMP6_OUT_GROUP_MEMB_RESPONSES:    true,
+	NET_SNMP6_ICMP6_OUT_GROUP_MEMB_REDUCTIONS:   true,
+	NET_SNMP6_ICMP6_OUT_ROUTER_SOLICITS:         true,
+	NET_SNMP6_ICMP6_OUT_ROUTER_ADVERTISEMENTS:   true,
+	NET_SNMP6_ICMP6_OUT_NEIGHBOR_SOLICITS:       true,
+	NET_SNMP6_ICMP6_OUT_NEIGHBOR_ADVERTISEMENTS: true,
+	NET_SNMP6_ICMP6_OUT_REDIRECTS:               true,
+	NET_SNMP6_ICMP6_OUT_MLD_V2_REPORTS:          true,
+	NET_SNMP6_ICMP6_OUT_TYPE133:                 true,
+	NET_SNMP6_ICMP6_OUT_TYPE135:                 true,
+	NET_SNMP6_ICMP6_OUT_TYPE143:                 true,
+	NET_SNMP6_UDP6_IN_DATAGRAMS:                 true,
+	NET_SNMP6_UDP6_NO_PORTS:                     true,
+	NET_SNMP6_UDP6_IN_ERRORS:                    true,
+	NET_SNMP6_UDP6_OUT_DATAGRAMS:                true,
+	NET_SNMP6_UDP6_RCVBUF_ERRORS:                true,
+	NET_SNMP6_UDP6_SNDBUF_ERRORS:                true,
+	NET_SNMP6_UDP6_IN_CSUM_ERRORS:               true,
+	NET_SNMP6_UDP6_IGNORED_MULTI:                true,
+	NET_SNMP6_UDP6_MEM_ERRORS:                   true,
+	NET_SNMP6_UDPLITE6_IN_DATAGRAMS:             true,
+	NET_SNMP6_UDPLITE6_NO_PORTS:                 true,
+	NET_SNMP6_UDPLITE6_IN_ERRORS:                true,
+	NET_SNMP6_UDPLITE6_OUT_DATAGRAMS:            true,
+	NET_SNMP6_UDPLITE6_RCVBUF_ERRORS:            true,
+	NET_SNMP6_UDPLITE6_SNDBUF_ERRORS:            true,
+	NET_SNMP6_UDPLITE6_IN_CSUM_ERRORS:           true,
+	NET_SNMP6_UDPLITE6_MEM_ERRORS:               true,
+}
 
 // Map net/snmp6 VARIABLE into parsed value index:
 var netSnmp6IndexMap = map[string]int{
@@ -224,9 +283,11 @@ type NetSnmp6LineInfo struct {
 type NetSnmp6 struct {
 	// Values, indexed by NET_SNMP6_...:
 	Values []uint64
+	// uint32 flags:
+	IsUint32 []bool
 	// File path:
 	path string
-	// Line info, used for parsing; the index below is by occurence#, starting from 0:
+	// Line info, used for parsing; the index below is by occurrence#, starting from 0:
 	lineInfo []*NetSnmp6LineInfo
 }
 
@@ -238,19 +299,24 @@ func NetSnmp6Path(procfsRoot string) string {
 }
 
 func NewNetSnmp6(procfsRoot string) *NetSnmp6 {
-	return &NetSnmp6{
+	netSnmp6 := &NetSnmp6{
 		Values:   make([]uint64, NET_SNMP6_NUM_VALUES),
+		IsUint32: make([]bool, NET_SNMP6_NUM_VALUES),
 		path:     NetSnmp6Path(procfsRoot),
 		lineInfo: make([]*NetSnmp6LineInfo, 0),
 	}
+	copy(netSnmp6IsUint32[:], netSnmp6.IsUint32)
+	return netSnmp6
 }
 
 func (netSnmp6 *NetSnmp6) Clone(full bool) *NetSnmp6 {
 	newNetSnmp6 := &NetSnmp6{
 		Values:   make([]uint64, len(netSnmp6.Values)),
+		IsUint32: make([]bool, len(netSnmp6.IsUint32)),
 		path:     netSnmp6.path,
 		lineInfo: make([]*NetSnmp6LineInfo, len(netSnmp6.lineInfo)),
 	}
+	copy(netSnmp6.IsUint32, newNetSnmp6.IsUint32)
 	copy(newNetSnmp6.lineInfo, netSnmp6.lineInfo)
 	if full {
 		copy(newNetSnmp6.Values, netSnmp6.Values)

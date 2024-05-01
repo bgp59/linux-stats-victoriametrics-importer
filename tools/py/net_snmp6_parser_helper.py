@@ -9,13 +9,19 @@ import argparse
 import os
 import re
 
-from testutils import go_module_root, lsvmi_testdata_procfs_root
+from testutils import go_module_root, lsvmi_procfs_root
 
-default_net_snmp6_file = os.path.join(lsvmi_testdata_procfs_root, "net", "snmp6")
+default_net_snmp6_file = os.path.join(lsvmi_procfs_root, "net", "snmp6")
 
 index_prefix = "NET_SNMP6_"
-
+num_values = f"{index_prefix}NUM_VALUES"
+uint32_index_list_variable_name = "netSnmp6IsUint32"
 map_variable_name = "netSnmp6IndexMap"
+
+
+def is_uint32(name: str) -> bool:
+    return re.match(r"Ip6", name) is None
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -30,6 +36,7 @@ if __name__ == "__main__":
     # Index list and map:
     index_list = []
     index_map = {}
+    is_uint32_index_list = []
     for var in variables:
         # UDPLite -> UDPlite:
         index = re.sub("Lite", "lite", var)
@@ -42,6 +49,8 @@ if __name__ == "__main__":
         index = index_prefix + index
         index_list.append(index)
         index_map[var] = index
+        if is_uint32(var):
+            is_uint32_index_list.append(index)
 
     this_file_rel_path = os.path.relpath(os.path.abspath(__file__), go_module_root)
     net_snmp6_file_rel_path = os.path.relpath(
@@ -55,23 +64,29 @@ if __name__ == "__main__":
         + f"//  Reference file: {net_snmp6_file_rel_path}\n"
     )
 
-    print("// Index definitions for parsed values:")
     print("const (")
     needs_iota = True
     for index in index_list:
         if needs_iota:
-            print(f"\t{index} = iota")
+            print(f"  {index} = iota")
             needs_iota = False
         else:
-            print(f"\t{index}")
-    print("\n" + "\t// Must be last:\n" + f"\t{index_prefix}NUM_VALUES")
+            print(f"  {index}")
+    print("\n" + "  // Must be last:\n" + f"  {num_values}")
     print(")")
+    print()
+
+    print("// List of indexes that are uint32:")
+    print(f"var {uint32_index_list_variable_name} = [{num_values}]bool {{")
+    for index in is_uint32_index_list:
+        print(f"  {index}: true,")
+    print("}")
     print()
 
     print("// Map net/snmp6 VARIABLE into parsed value index: ")
     print(f"var {map_variable_name} = map[string]int {{")
     for var in variables:
-        print(f'\t"{var}": {index_map[var]},')
+        print(f'  "{var}": {index_map[var]},')
     print("}")
     print()
 
