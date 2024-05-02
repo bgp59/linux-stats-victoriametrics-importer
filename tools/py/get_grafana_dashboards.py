@@ -21,7 +21,7 @@ default_grafana_root_url = "http://localhost:3000"
 default_grafana_user = "admin"
 default_grafana_password = "lsvmi"
 default_grafana_folder = None
-default_grafana_out_dir = os.path.join(root_dir, 'grafana', 'dashboards')
+default_grafana_out_dir = os.path.join('grafana', 'dashboards')
 
 
 def normalize_title(title: str) -> str:
@@ -47,17 +47,17 @@ if __name__ == "__main__":
     parser.add_argument(
         "-r", "--root-url",
         default=default_grafana_root_url,
-        help="""Grafana root URL, default: %(default)s"""
+        help="""Grafana root URL, default: %(default)r"""
     )
     parser.add_argument(
         "-u", "--user",
         default=default_grafana_user,
-        help="""Grafana user, default: %(default)s"""
+        help="""Grafana user, default: %(default)r"""
     )
     parser.add_argument(
         "-p", "--password",
         default=default_grafana_password,
-        help="""Grafana password, default: %(default)s"""
+        help="""Grafana password, default: %(default)r"""
     )
     parser.add_argument(
         "-f", "--folder",
@@ -72,7 +72,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "-o", "--out-dir",
         default=default_grafana_out_dir,
-        help="""Out dir, use `-' for stdout, default: %(default)s"""
+        help="""Out dir, use `-' for stdout, default: %(default)r. A relative
+             path is relative to the root location of the project."""
     )
 
     args = parser.parse_args()
@@ -94,6 +95,8 @@ if __name__ == "__main__":
     ]
     
     out_dir = None if args.out_dir == "-" else args.out_dir
+    if out_dir is not None:
+        out_dir = os.path.join(root_dir, out_dir)
     for uid in uid_list:
         r = requests.get(f'{root_url}/api/dashboards/uid/{uid}', auth=auth)
         r.raise_for_status()
