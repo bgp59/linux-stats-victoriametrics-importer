@@ -32,48 +32,43 @@ def normalize_title(title: str) -> str:
     return normal_title
   
 
-def dashboard_to_fname(dashboard: dict, suffix: str = '.json') -> str:
-    title = dashboard.get("dashboard", {}).get("title")
-    if title is None:
-        return None
-    folder_title = dashboard.get("meta", {}).get("folderTitle", "")
-    title = normalize_title(title)
-    folder_title = normalize_title(folder_title)
-    return os.path.join(folder_title, title + suffix)
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-r", "--root-url",
         default=default_grafana_root_url,
-        help="""Grafana root URL, default: %(default)r"""
+        help="""Grafana root URL, default: %(default)r."""
     )
     parser.add_argument(
         "-u", "--user",
         default=default_grafana_user,
-        help="""Grafana user, default: %(default)r"""
+        help="""Grafana user, default: %(default)r."""
     )
     parser.add_argument(
         "-p", "--password",
         default=default_grafana_password,
-        help="""Grafana password, default: %(default)r"""
+        help="""Grafana password, default: %(default)r."""
     )
     parser.add_argument(
         "-f", "--folder",
         default=default_grafana_folder,
-        help="""Grafana folder, if not specified select all folders"""
+        help="""Grafana folder, if not specified select all folders."""
     )
     parser.add_argument(
         "-t", "--title",
         action="append",
-        help="""Grafana dashboard title(s), if not specified select select all dashboards"""
+        help="""Grafana dashboard title(s), if not specified select select all dashboards."""
     )
     parser.add_argument(
         "-o", "--out-dir",
         default=default_grafana_out_dir,
         help="""Out dir, use `-' for stdout, default: %(default)r. A relative
              path is relative to the root location of the project."""
+    )
+    parser.add_argument(
+        "-N", "--normalize-uid",
+        action="store_true",
+        help="""Normalize UID based on title."""
     )
 
     args = parser.parse_args()
@@ -100,20 +95,23 @@ if __name__ == "__main__":
     for uid in uid_list:
         r = requests.get(f'{root_url}/api/dashboards/uid/{uid}', auth=auth)
         r.raise_for_status()
-        dashboard = r.json()
+        dashboard_meta = r.json()
+        dashboard, meta = dashboard_meta["dashboard"], dashboard_meta["meta"]
+        norm_title, norm_folder  = normalize_title(dashboard["title"]), normalize_title(meta["folderTitle"])
         if out_dir is not None:
-            fname = dashboard_to_fname(dashboard)
-            if fname is None:
-                print(f'cannot find title for dashboard uid={uid!r}', file=sys.stderr)
-                continue
-            ofile_path = os.path.join(out_dir, dashboard_to_fname(dashboard))
-            os.makedirs(os.path.dirname(ofile_path), exist_ok=True)
-            ofile = open(ofile_path, "wt")
+            fname = os.path.join(out_dir, norm_folder, norm_title + ".json")
+            os.makedirs(os.path.dirname(fname), exist_ok=True)
+            ofile = open(fname, "wt")
         else:
             ofile = sys.stdout
+        if args.normalize_uid:
+            org_uid, new_uid = dashboard["uid"], norm_title # f"{norm_folder}_{norm_title}"
+            if org_uid != new_uid:
+                dashboard["uid"] = new_uid
+                print(
+                    f'dashboard: {dashboard["title"]!r} folder: {meta["folderTitle"]!r}: uid: {org_uid!r} -> {new_uid!r}', file=sys.stderr)
         json.dump(dashboard, ofile, indent=2)
         print("", file=ofile)
         if out_dir is not None:
             ofile.close()
-            print(f"{ofile_path} created")
-
+            print(f"{fname} created", file=sys.stderr)

@@ -1,489 +1,448 @@
 {
-  "meta": {
-    "type": "db",
-    "canSave": true,
-    "canEdit": true,
-    "canAdmin": true,
-    "canStar": true,
-    "canDelete": true,
-    "slug": "proc-softirqs",
-    "url": "/d/mg5bI5BIk/proc-softirqs",
-    "expires": "0001-01-01T00:00:00Z",
-    "created": "2024-04-24T18:53:20-07:00",
-    "updated": "2024-04-24T19:07:54-07:00",
-    "updatedBy": "admin",
-    "createdBy": "admin",
-    "version": 4,
-    "hasAcl": false,
-    "isFolder": false,
-    "folderId": 8,
-    "folderUid": "UrwSRz0Sk",
-    "folderTitle": "lsvmi",
-    "folderUrl": "/dashboards/f/UrwSRz0Sk/lsvmi",
-    "provisioned": false,
-    "provisionedExternalId": "",
-    "annotationsPermissions": {
-      "dashboard": {
-        "canAdd": true,
-        "canEdit": true,
-        "canDelete": true
-      },
-      "organization": {
-        "canAdd": true,
-        "canEdit": true,
-        "canDelete": true
-      }
-    },
-    "publicDashboardAccessToken": "",
-    "publicDashboardUid": "",
-    "publicDashboardEnabled": false
-  },
-  "dashboard": {
-    "annotations": {
-      "list": [
-        {
-          "builtIn": 1,
-          "datasource": {
-            "type": "grafana",
-            "uid": "-- Grafana --"
-          },
-          "enable": true,
-          "hide": true,
-          "iconColor": "rgba(0, 211, 255, 1)",
-          "name": "Annotations & Alerts",
-          "target": {
-            "limit": 100,
-            "matchAny": false,
-            "tags": [],
-            "type": "dashboard"
-          },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
           "type": "dashboard"
-        }
-      ]
-    },
-    "editable": true,
-    "fiscalYearStartMonth": 0,
-    "graphTooltip": 0,
-    "id": 13,
-    "links": [],
-    "liveNow": false,
-    "panels": [
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${datasource}"
         },
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 13,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
             },
-            "custom": {
-              "axisCenteredZero": false,
-              "axisColorMode": "text",
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
             },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
           },
-          "overrides": []
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
         },
-        "gridPos": {
-          "h": 8,
-          "w": 12,
-          "x": 0,
-          "y": 0
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 2,
+      "interval": "${interval}",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
         },
-        "id": 2,
-        "interval": "${interval}",
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom",
-            "showLegend": true
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
           },
-          "tooltip": {
-            "mode": "single",
-            "sort": "none"
+          "editorMode": "code",
+          "expr": "proc_softirqs_delta{\n    instance=~\"${instance}\",\n    hostname=~\"${hostname}\",\n    irq=~\"${dev_irq}\",\n    cpu=~\"${cpu}\"\n} >= ${threshold}",
+          "interval": "${interval}",
+          "legendFormat": "{{irq}}/cpu{{cpu}}/{{hostname}}/{{instance}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Softirqs# Delta",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Int / sec",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
           }
         },
-        "targets": [
-          {
-            "datasource": {
-              "type": "prometheus",
-              "uid": "${datasource}"
-            },
-            "editorMode": "code",
-            "expr": "proc_softirqs_delta{\n    instance=~\"${instance}\",\n    hostname=~\"${hostname}\",\n    irq=~\"${dev_irq}\",\n    cpu=~\"${cpu}\"\n} >= ${threshold}",
-            "interval": "${interval}",
-            "legendFormat": "{{irq}}/cpu{{cpu}}/{{hostname}}/{{instance}}",
-            "range": true,
-            "refId": "A"
-          }
-        ],
-        "title": "Softirqs# Delta",
-        "type": "timeseries"
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 4,
+      "interval": "${interval}",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "(\n    proc_softirqs_delta{\n        instance=~\"${instance}\",\n        hostname=~\"${hostname}\",\n        irq=~\"${dev_irq}\",\n       cpu=~\"${cpu}\"\n    } >= ${threshold}\n) \n/ on (instance, hostname) group_left\nproc_softirqs_metrics_delta_sec{\n    instance=~\"${instance}\",\n    hostname=~\"${hostname}\"\n}",
+          "interval": "${interval}",
+          "legendFormat": "{{irq}}/cpu{{cpu}}/{{hostname}}/{{instance}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Softirqs Rate",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "5s",
+  "revision": 1,
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "default",
+          "value": "default"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Datasource",
+        "multi": false,
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "queryValue": "",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
       },
       {
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
         "datasource": {
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisCenteredZero": false,
-              "axisColorMode": "text",
-              "axisLabel": "Int / sec",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
+        "definition": "lsvmi_uptime_sec",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Instance",
+        "multi": true,
+        "name": "instance",
+        "options": [],
+        "query": {
+          "query": "lsvmi_uptime_sec",
+          "refId": "StandardVariableQuery"
         },
-        "gridPos": {
-          "h": 8,
-          "w": 12,
-          "x": 12,
-          "y": 0
+        "refresh": 2,
+        "regex": "/.*instance=\"([^\"]*).*/",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
         },
-        "id": 4,
-        "interval": "${interval}",
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom",
-            "showLegend": true
-          },
-          "tooltip": {
-            "mode": "single",
-            "sort": "none"
-          }
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
         },
-        "targets": [
+        "definition": "lsvmi_uptime_sec{instance=~\"${instance}\"}",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Hostname",
+        "multi": true,
+        "name": "hostname",
+        "options": [],
+        "query": {
+          "query": "lsvmi_uptime_sec{instance=~\"${instance}\"}",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "/.*hostname=\"([^\"]*).*/",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "proc_softirqs_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Devices",
+        "multi": true,
+        "name": "devices",
+        "options": [],
+        "query": {
+          "query": "proc_softirqs_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "/.*dev=\"([^\"]*)\".*/",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "proc_softirqs_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+        "hide": 0,
+        "includeAll": true,
+        "label": "IRQ",
+        "multi": true,
+        "name": "dev_irq",
+        "options": [],
+        "query": {
+          "query": "proc_softirqs_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "/.*irq=\"([^\"]*)\".*/",
+        "skipUrlSync": false,
+        "sort": 3,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "proc_softirqs_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+        "hide": 0,
+        "includeAll": true,
+        "label": "CPU",
+        "multi": true,
+        "name": "cpu",
+        "options": [],
+        "query": {
+          "query": "proc_softirqs_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "/.*cpu=\"([^\"]*)\".*/",
+        "skipUrlSync": false,
+        "sort": 3,
+        "type": "query"
+      },
+      {
+        "hide": 2,
+        "name": "interval",
+        "query": "1s",
+        "skipUrlSync": false,
+        "type": "constant"
+      },
+      {
+        "hide": 2,
+        "label": "",
+        "name": "lookback",
+        "query": "16s",
+        "skipUrlSync": false,
+        "type": "constant"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "0",
+          "value": "0"
+        },
+        "hide": 0,
+        "label": "Delta Threshold",
+        "name": "threshold",
+        "options": [
           {
-            "datasource": {
-              "type": "prometheus",
-              "uid": "${datasource}"
-            },
-            "editorMode": "code",
-            "expr": "(\n    proc_softirqs_delta{\n        instance=~\"${instance}\",\n        hostname=~\"${hostname}\",\n        irq=~\"${dev_irq}\",\n       cpu=~\"${cpu}\"\n    } >= ${threshold}\n) \n/ on (instance, hostname) group_left\nproc_softirqs_metrics_delta_sec{\n    instance=~\"${instance}\",\n    hostname=~\"${hostname}\"\n}",
-            "interval": "${interval}",
-            "legendFormat": "{{irq}}/cpu{{cpu}}/{{hostname}}/{{instance}}",
-            "range": true,
-            "refId": "A"
-          }
-        ],
-        "title": "Softirqs Rate",
-        "type": "timeseries"
-      }
-    ],
-    "refresh": "5s",
-    "revision": 1,
-    "schemaVersion": 38,
-    "style": "dark",
-    "tags": [],
-    "templating": {
-      "list": [
-        {
-          "current": {
-            "selected": false,
-            "text": "default",
-            "value": "default"
-          },
-          "hide": 0,
-          "includeAll": false,
-          "label": "Datasource",
-          "multi": false,
-          "name": "datasource",
-          "options": [],
-          "query": "prometheus",
-          "queryValue": "",
-          "refresh": 1,
-          "regex": "",
-          "skipUrlSync": false,
-          "type": "datasource"
-        },
-        {
-          "current": {
             "selected": true,
-            "text": [
-              "All"
-            ],
-            "value": [
-              "$__all"
-            ]
-          },
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "definition": "lsvmi_uptime_sec",
-          "hide": 0,
-          "includeAll": true,
-          "label": "Instance",
-          "multi": true,
-          "name": "instance",
-          "options": [],
-          "query": {
-            "query": "lsvmi_uptime_sec",
-            "refId": "StandardVariableQuery"
-          },
-          "refresh": 2,
-          "regex": "/.*instance=\"([^\"]*).*/",
-          "skipUrlSync": false,
-          "sort": 1,
-          "type": "query"
-        },
-        {
-          "current": {
-            "selected": true,
-            "text": [
-              "All"
-            ],
-            "value": [
-              "$__all"
-            ]
-          },
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "definition": "lsvmi_uptime_sec{instance=~\"${instance}\"}",
-          "hide": 0,
-          "includeAll": true,
-          "label": "Hostname",
-          "multi": true,
-          "name": "hostname",
-          "options": [],
-          "query": {
-            "query": "lsvmi_uptime_sec{instance=~\"${instance}\"}",
-            "refId": "StandardVariableQuery"
-          },
-          "refresh": 2,
-          "regex": "/.*hostname=\"([^\"]*).*/",
-          "skipUrlSync": false,
-          "sort": 1,
-          "type": "query"
-        },
-        {
-          "current": {
-            "selected": true,
-            "text": [
-              "All"
-            ],
-            "value": [
-              "$__all"
-            ]
-          },
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "definition": "proc_softirqs_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
-          "hide": 0,
-          "includeAll": true,
-          "label": "Devices",
-          "multi": true,
-          "name": "devices",
-          "options": [],
-          "query": {
-            "query": "proc_softirqs_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
-            "refId": "StandardVariableQuery"
-          },
-          "refresh": 2,
-          "regex": "/.*dev=\"([^\"]*)\".*/",
-          "skipUrlSync": false,
-          "sort": 1,
-          "type": "query"
-        },
-        {
-          "current": {
-            "selected": true,
-            "text": [
-              "All"
-            ],
-            "value": [
-              "$__all"
-            ]
-          },
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "definition": "proc_softirqs_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
-          "hide": 0,
-          "includeAll": true,
-          "label": "IRQ",
-          "multi": true,
-          "name": "dev_irq",
-          "options": [],
-          "query": {
-            "query": "proc_softirqs_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
-            "refId": "StandardVariableQuery"
-          },
-          "refresh": 2,
-          "regex": "/.*irq=\"([^\"]*)\".*/",
-          "skipUrlSync": false,
-          "sort": 3,
-          "type": "query"
-        },
-        {
-          "current": {
-            "selected": true,
-            "text": [
-              "All"
-            ],
-            "value": [
-              "$__all"
-            ]
-          },
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "definition": "proc_softirqs_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
-          "hide": 0,
-          "includeAll": true,
-          "label": "CPU",
-          "multi": true,
-          "name": "cpu",
-          "options": [],
-          "query": {
-            "query": "proc_softirqs_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
-            "refId": "StandardVariableQuery"
-          },
-          "refresh": 2,
-          "regex": "/.*cpu=\"([^\"]*)\".*/",
-          "skipUrlSync": false,
-          "sort": 3,
-          "type": "query"
-        },
-        {
-          "hide": 2,
-          "name": "interval",
-          "query": "1s",
-          "skipUrlSync": false,
-          "type": "constant"
-        },
-        {
-          "hide": 2,
-          "label": "",
-          "name": "lookback",
-          "query": "16s",
-          "skipUrlSync": false,
-          "type": "constant"
-        },
-        {
-          "current": {
-            "selected": false,
             "text": "0",
             "value": "0"
-          },
-          "hide": 0,
-          "label": "Delta Threshold",
-          "name": "threshold",
-          "options": [
-            {
-              "selected": true,
-              "text": "0",
-              "value": "0"
-            }
-          ],
-          "query": "0",
-          "skipUrlSync": false,
-          "type": "textbox"
-        }
-      ]
-    },
-    "time": {
-      "from": "now-30m",
-      "to": "now"
-    },
-    "timepicker": {},
-    "timezone": "",
-    "title": "proc_softirqs",
-    "uid": "mg5bI5BIk",
-    "version": 4,
-    "weekStart": ""
-  }
+          }
+        ],
+        "query": "0",
+        "skipUrlSync": false,
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "proc_softirqs",
+  "uid": "proc_softirqs",
+  "version": 4,
+  "weekStart": ""
 }
