@@ -101,7 +101,7 @@ if __name__ == "__main__":
         if out_dir is not None:
             fname = dashboard_to_fname(dashboard)
             if fname is None:
-                print(f'cannot find title for dashboard uid={uid}', file=sys.stderr)
+                print(f'cannot find title for dashboard uid={uid!r}', file=sys.stderr)
                 continue
             ofile_path = os.path.join(out_dir, dashboard_to_fname(dashboard))
             os.makedirs(os.path.dirname(ofile_path), exist_ok=True)
