@@ -266,7 +266,7 @@ type ProcNetSnmpMetrics struct {
 	// Delta metrics are generated with skip-zero-after-zero rule, i.e. if the
 	// current and previous deltas are both zero, then the current metric is
 	// skipped, save for full cycles. Keep track of zero deltas, indexed by
-	// counter index (see procfs.NetSnmp.Irq[].Counters)
+	// counter index (see procfs.NetSnmp.Values)
 	zeroDelta []bool
 
 	// The following are needed for testing only. Left to their default values,
