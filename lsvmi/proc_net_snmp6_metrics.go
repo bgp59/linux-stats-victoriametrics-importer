@@ -43,12 +43,12 @@ const (
 	PROC_NET_SNMP6_IP6_FRAG_CREATES_DELTA_METRIC                  = "proc_net_snmp6_ip6_frag_creates_delta"
 	PROC_NET_SNMP6_IP6_IN_MCAST_PKTS_DELTA_METRIC                 = "proc_net_snmp6_ip6_in_mcast_pkts_delta"
 	PROC_NET_SNMP6_IP6_OUT_MCAST_PKTS_DELTA_METRIC                = "proc_net_snmp6_ip6_out_mcast_pkts_delta"
-	PROC_NET_SNMP6_IP6_IN_OCTETS_DELTA_METRIC                     = "proc_net_snmp6_ip6_in_octets_delta"
-	PROC_NET_SNMP6_IP6_OUT_OCTETS_DELTA_METRIC                    = "proc_net_snmp6_ip6_out_octets_delta"
-	PROC_NET_SNMP6_IP6_IN_MCAST_OCTETS_DELTA_METRIC               = "proc_net_snmp6_ip6_in_mcast_octets_delta"
-	PROC_NET_SNMP6_IP6_OUT_MCAST_OCTETS_DELTA_METRIC              = "proc_net_snmp6_ip6_out_mcast_octets_delta"
-	PROC_NET_SNMP6_IP6_IN_BCAST_OCTETS_DELTA_METRIC               = "proc_net_snmp6_ip6_in_bcast_octets_delta"
-	PROC_NET_SNMP6_IP6_OUT_BCAST_OCTETS_DELTA_METRIC              = "proc_net_snmp6_ip6_out_bcast_octets_delta"
+	PROC_NET_SNMP6_IP6_IN_KBPS_METRIC                             = "proc_net_snmp6_ip6_in_kbps"
+	PROC_NET_SNMP6_IP6_OUT_KBPS_METRIC                            = "proc_net_snmp6_ip6_out_kbps"
+	PROC_NET_SNMP6_IP6_IN_MCAST_KBPS_METRIC                       = "proc_net_snmp6_ip6_in_mcast_kbps"
+	PROC_NET_SNMP6_IP6_OUT_MCAST_KBPS_METRIC                      = "proc_net_snmp6_ip6_out_mcast_kbps"
+	PROC_NET_SNMP6_IP6_IN_BCAST_KBPS_METRIC                       = "proc_net_snmp6_ip6_in_bcast_kbps"
+	PROC_NET_SNMP6_IP6_OUT_BCAST_KBPS_METRIC                      = "proc_net_snmp6_ip6_out_bcast_kbps"
 	PROC_NET_SNMP6_IP6_IN_NO_ECT_PKTS_DELTA_METRIC                = "proc_net_snmp6_ip6_in_no_ect_pkts_delta"
 	PROC_NET_SNMP6_IP6_IN_ECT1_PKTS_DELTA_METRIC                  = "proc_net_snmp6_ip6_in_ect1_pkts_delta"
 	PROC_NET_SNMP6_IP6_IN_ECT0_PKTS_DELTA_METRIC                  = "proc_net_snmp6_ip6_in_ect0_pkts_delta"
@@ -115,6 +115,21 @@ const (
 	PROC_NET_SNMP6_INTERVAL_METRIC_NAME = "proc_net_snmp6_metrics_delta_sec"
 )
 
+// Certain values are used to generate rates:
+type ProcNetSnmp6Rate struct {
+	factor float64 // dVal/dTime * factor
+	prec   int     // FormatFloat prec arg
+}
+
+var procNetSnmp6IndexRate = [procfs.NET_SNMP6_NUM_VALUES]*ProcNetSnmp6Rate{
+	procfs.NET_SNMP6_IP6_IN_OCTETS:        {8. / 1000., 1},
+	procfs.NET_SNMP6_IP6_OUT_OCTETS:       {8. / 1000., 1},
+	procfs.NET_SNMP6_IP6_IN_MCAST_OCTETS:  {8. / 1000., 1},
+	procfs.NET_SNMP6_IP6_OUT_MCAST_OCTETS: {8. / 1000., 1},
+	procfs.NET_SNMP6_IP6_IN_BCAST_OCTETS:  {8. / 1000., 1},
+	procfs.NET_SNMP6_IP6_OUT_BCAST_OCTETS: {8. / 1000., 1},
+}
+
 // Rather than having individual metric cycle counter, employ N < number of
 // metrics whereby the metric generated from index i will use (i % N) counter.
 // This grouping will slightly increase the efficiency, especially if N is a
@@ -149,12 +164,12 @@ var procNetSnmp6IndexToMetricNameMap = map[int]string{
 	procfs.NET_SNMP6_IP6_FRAG_CREATES:                  PROC_NET_SNMP6_IP6_FRAG_CREATES_DELTA_METRIC,
 	procfs.NET_SNMP6_IP6_IN_MCAST_PKTS:                 PROC_NET_SNMP6_IP6_IN_MCAST_PKTS_DELTA_METRIC,
 	procfs.NET_SNMP6_IP6_OUT_MCAST_PKTS:                PROC_NET_SNMP6_IP6_OUT_MCAST_PKTS_DELTA_METRIC,
-	procfs.NET_SNMP6_IP6_IN_OCTETS:                     PROC_NET_SNMP6_IP6_IN_OCTETS_DELTA_METRIC,
-	procfs.NET_SNMP6_IP6_OUT_OCTETS:                    PROC_NET_SNMP6_IP6_OUT_OCTETS_DELTA_METRIC,
-	procfs.NET_SNMP6_IP6_IN_MCAST_OCTETS:               PROC_NET_SNMP6_IP6_IN_MCAST_OCTETS_DELTA_METRIC,
-	procfs.NET_SNMP6_IP6_OUT_MCAST_OCTETS:              PROC_NET_SNMP6_IP6_OUT_MCAST_OCTETS_DELTA_METRIC,
-	procfs.NET_SNMP6_IP6_IN_BCAST_OCTETS:               PROC_NET_SNMP6_IP6_IN_BCAST_OCTETS_DELTA_METRIC,
-	procfs.NET_SNMP6_IP6_OUT_BCAST_OCTETS:              PROC_NET_SNMP6_IP6_OUT_BCAST_OCTETS_DELTA_METRIC,
+	procfs.NET_SNMP6_IP6_IN_OCTETS:                     PROC_NET_SNMP6_IP6_IN_KBPS_METRIC,
+	procfs.NET_SNMP6_IP6_OUT_OCTETS:                    PROC_NET_SNMP6_IP6_OUT_KBPS_METRIC,
+	procfs.NET_SNMP6_IP6_IN_MCAST_OCTETS:               PROC_NET_SNMP6_IP6_IN_MCAST_KBPS_METRIC,
+	procfs.NET_SNMP6_IP6_OUT_MCAST_OCTETS:              PROC_NET_SNMP6_IP6_OUT_MCAST_KBPS_METRIC,
+	procfs.NET_SNMP6_IP6_IN_BCAST_OCTETS:               PROC_NET_SNMP6_IP6_IN_BCAST_KBPS_METRIC,
+	procfs.NET_SNMP6_IP6_OUT_BCAST_OCTETS:              PROC_NET_SNMP6_IP6_OUT_BCAST_KBPS_METRIC,
 	procfs.NET_SNMP6_IP6_IN_NO_ECT_PKTS:                PROC_NET_SNMP6_IP6_IN_NO_ECT_PKTS_DELTA_METRIC,
 	procfs.NET_SNMP6_IP6_IN_ECT1_PKTS:                  PROC_NET_SNMP6_IP6_IN_ECT1_PKTS_DELTA_METRIC,
 	procfs.NET_SNMP6_IP6_IN_ECT0_PKTS:                  PROC_NET_SNMP6_IP6_IN_ECT0_PKTS_DELTA_METRIC,
@@ -369,6 +384,8 @@ func (pnsm6 *ProcNetSnmp6Metrics) generateMetrics(buf *bytes.Buffer) (int, int) 
 			pnsm6.tsSuffixBuf, " %d\n", currTs.UnixMilli(),
 		)
 		promTs := pnsm6.tsSuffixBuf.Bytes()
+		prevTs := pnsm6.procNetSnmp6Ts[1-pnsm6.currIndex]
+		deltaSec := currTs.Sub(prevTs).Seconds()
 
 		metricsCache := pnsm6.metricsCache
 		if metricsCache == nil {
@@ -395,15 +412,19 @@ func (pnsm6 *ProcNetSnmp6Metrics) generateMetrics(buf *bytes.Buffer) (int, int) 
 				pnsm6.cycleNum[index&PROC_NET_SNMP6_CYCLE_COUNTER_MASK] == 0 || // i.e. full cycle
 				!zeroDelta[index] { // i.e. after non-zero
 				buf.Write(metricsCache[index])
-				buf.WriteString(strconv.FormatUint(uint64(delta), 10))
+				if rate := procNetSnmp6IndexRate[index]; rate != nil {
+					buf.WriteString(strconv.FormatFloat(
+						float64(delta)*rate.factor/deltaSec, 'f', rate.prec, 64,
+					))
+				} else {
+					buf.WriteString(strconv.FormatUint(uint64(delta), 10))
+				}
 				buf.Write(promTs)
 				actualMetricsCount++
 			}
 			zeroDelta[index] = delta == 0
 		}
 
-		prevTs := pnsm6.procNetSnmp6Ts[1-pnsm6.currIndex]
-		deltaSec := currTs.Sub(prevTs).Seconds()
 		if pnsm6.intervalMetric == nil {
 			pnsm6.updateIntervalMetricsCache()
 		}

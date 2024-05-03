@@ -62,20 +62,12 @@ PROC_NET_SNMP6_IP6_IN_MCAST_PKTS_DELTA_METRIC = "proc_net_snmp6_ip6_in_mcast_pkt
 PROC_NET_SNMP6_IP6_OUT_MCAST_PKTS_DELTA_METRIC = (
     "proc_net_snmp6_ip6_out_mcast_pkts_delta"
 )
-PROC_NET_SNMP6_IP6_IN_OCTETS_DELTA_METRIC = "proc_net_snmp6_ip6_in_octets_delta"
-PROC_NET_SNMP6_IP6_OUT_OCTETS_DELTA_METRIC = "proc_net_snmp6_ip6_out_octets_delta"
-PROC_NET_SNMP6_IP6_IN_MCAST_OCTETS_DELTA_METRIC = (
-    "proc_net_snmp6_ip6_in_mcast_octets_delta"
-)
-PROC_NET_SNMP6_IP6_OUT_MCAST_OCTETS_DELTA_METRIC = (
-    "proc_net_snmp6_ip6_out_mcast_octets_delta"
-)
-PROC_NET_SNMP6_IP6_IN_BCAST_OCTETS_DELTA_METRIC = (
-    "proc_net_snmp6_ip6_in_bcast_octets_delta"
-)
-PROC_NET_SNMP6_IP6_OUT_BCAST_OCTETS_DELTA_METRIC = (
-    "proc_net_snmp6_ip6_out_bcast_octets_delta"
-)
+PROC_NET_SNMP6_IP6_IN_KBPS_METRIC = "proc_net_snmp6_ip6_in_kbps"
+PROC_NET_SNMP6_IP6_OUT_KBPS_METRIC = "proc_net_snmp6_ip6_out_kbps"
+PROC_NET_SNMP6_IP6_IN_MCAST_KBPS_METRIC = "proc_net_snmp6_ip6_in_mcast_kbps"
+PROC_NET_SNMP6_IP6_OUT_MCAST_KBPS_METRIC = "proc_net_snmp6_ip6_out_mcast_kbps"
+PROC_NET_SNMP6_IP6_IN_BCAST_KBPS_METRIC = "proc_net_snmp6_ip6_in_bcast_kbps"
+PROC_NET_SNMP6_IP6_OUT_BCAST_KBPS_METRIC = "proc_net_snmp6_ip6_out_bcast_kbps"
 PROC_NET_SNMP6_IP6_IN_NO_ECT_PKTS_DELTA_METRIC = (
     "proc_net_snmp6_ip6_in_no_ect_pkts_delta"
 )
@@ -226,6 +218,15 @@ PROC_NET_SNMP6_CYCLE_COUNTER_EXP = 4
 PROC_NET_SNMP6_CYCLE_COUNTER_NUM = 1 << PROC_NET_SNMP6_CYCLE_COUNTER_EXP
 PROC_NET_SNMP6_CYCLE_COUNTER_MASK = PROC_NET_SNMP6_CYCLE_COUNTER_NUM - 1
 
+proc_net_snmp6_index_rate = {
+    procfs.NET_SNMP6_IP6_IN_OCTETS: (8.0 / 1000.0, 1),
+    procfs.NET_SNMP6_IP6_OUT_OCTETS: (8.0 / 1000.0, 1),
+    procfs.NET_SNMP6_IP6_IN_MCAST_OCTETS: (8.0 / 1000.0, 1),
+    procfs.NET_SNMP6_IP6_OUT_MCAST_OCTETS: (8.0 / 1000.0, 1),
+    procfs.NET_SNMP6_IP6_IN_BCAST_OCTETS: (8.0 / 1000.0, 1),
+    procfs.NET_SNMP6_IP6_OUT_BCAST_OCTETS: (8.0 / 1000.0, 1),
+}
+
 proc_net_snmp6_index_to_metric_name = {
     procfs.NET_SNMP6_IP6_IN_RECEIVES: PROC_NET_SNMP6_IP6_IN_RECEIVES_DELTA_METRIC,
     procfs.NET_SNMP6_IP6_IN_HDR_ERRORS: PROC_NET_SNMP6_IP6_IN_HDR_ERRORS_DELTA_METRIC,
@@ -249,12 +250,12 @@ proc_net_snmp6_index_to_metric_name = {
     procfs.NET_SNMP6_IP6_FRAG_CREATES: PROC_NET_SNMP6_IP6_FRAG_CREATES_DELTA_METRIC,
     procfs.NET_SNMP6_IP6_IN_MCAST_PKTS: PROC_NET_SNMP6_IP6_IN_MCAST_PKTS_DELTA_METRIC,
     procfs.NET_SNMP6_IP6_OUT_MCAST_PKTS: PROC_NET_SNMP6_IP6_OUT_MCAST_PKTS_DELTA_METRIC,
-    procfs.NET_SNMP6_IP6_IN_OCTETS: PROC_NET_SNMP6_IP6_IN_OCTETS_DELTA_METRIC,
-    procfs.NET_SNMP6_IP6_OUT_OCTETS: PROC_NET_SNMP6_IP6_OUT_OCTETS_DELTA_METRIC,
-    procfs.NET_SNMP6_IP6_IN_MCAST_OCTETS: PROC_NET_SNMP6_IP6_IN_MCAST_OCTETS_DELTA_METRIC,
-    procfs.NET_SNMP6_IP6_OUT_MCAST_OCTETS: PROC_NET_SNMP6_IP6_OUT_MCAST_OCTETS_DELTA_METRIC,
-    procfs.NET_SNMP6_IP6_IN_BCAST_OCTETS: PROC_NET_SNMP6_IP6_IN_BCAST_OCTETS_DELTA_METRIC,
-    procfs.NET_SNMP6_IP6_OUT_BCAST_OCTETS: PROC_NET_SNMP6_IP6_OUT_BCAST_OCTETS_DELTA_METRIC,
+    procfs.NET_SNMP6_IP6_IN_OCTETS: PROC_NET_SNMP6_IP6_IN_KBPS_METRIC,
+    procfs.NET_SNMP6_IP6_OUT_OCTETS: PROC_NET_SNMP6_IP6_OUT_KBPS_METRIC,
+    procfs.NET_SNMP6_IP6_IN_MCAST_OCTETS: PROC_NET_SNMP6_IP6_IN_MCAST_KBPS_METRIC,
+    procfs.NET_SNMP6_IP6_OUT_MCAST_OCTETS: PROC_NET_SNMP6_IP6_OUT_MCAST_KBPS_METRIC,
+    procfs.NET_SNMP6_IP6_IN_BCAST_OCTETS: PROC_NET_SNMP6_IP6_IN_BCAST_KBPS_METRIC,
+    procfs.NET_SNMP6_IP6_OUT_BCAST_OCTETS: PROC_NET_SNMP6_IP6_OUT_BCAST_KBPS_METRIC,
     procfs.NET_SNMP6_IP6_IN_NO_ECT_PKTS: PROC_NET_SNMP6_IP6_IN_NO_ECT_PKTS_DELTA_METRIC,
     procfs.NET_SNMP6_IP6_IN_ECT1_PKTS: PROC_NET_SNMP6_IP6_IN_ECT1_PKTS_DELTA_METRIC,
     procfs.NET_SNMP6_IP6_IN_ECT0_PKTS: PROC_NET_SNMP6_IP6_IN_ECT0_PKTS_DELTA_METRIC,
@@ -368,6 +369,12 @@ def generate_proc_net_snmp6_metrics(
         else:
             delta = uint64_delta(curr_value, prev_proc_net_snmp6.Values[i])
         if full_metrics or delta != 0 or zero_delta is None or not zero_delta[i]:
+            rate = proc_net_snmp6_index_rate.get(i)
+            if rate is not None:
+                factor, prec = rate
+                val = f"{delta * factor / interval:.{prec}f}"
+            else:
+                val = str(delta)
             metrics.append(
                 f"{name}{{"
                 + ",".join(
@@ -376,7 +383,7 @@ def generate_proc_net_snmp6_metrics(
                         f'{HOSTNAME_LABEL_NAME}="{hostname}"',
                     ]
                 )
-                + f"}} {delta} {curr_prom_ts}"
+                + f"}} {val} {curr_prom_ts}"
             )
         new_zero_delta[i] = delta == 0
 
@@ -454,6 +461,7 @@ def generate_proc_net_snmp6_metrics_test_cases(
     testcases_root_dir: Optional[str] = lsvmi_testcases_root,
 ):
     ts = time.time()
+    interval = DEFAULT_PROC_NET_SNMP6_INTERVAL_SEC
 
     if testcases_root_dir not in {None, "", "-"}:
         out_file = os.path.join(testcases_root_dir, testcases_file)
@@ -467,16 +475,21 @@ def generate_proc_net_snmp6_metrics_test_cases(
     tc_num = 0
 
     ref_proc_net_snmp6 = make_ref_proc_net_snmp6()
+    max_val = max(ref_proc_net_snmp6.Values)
 
     name = "all_change"
     curr_proc_net_snmp6 = ref_proc_net_snmp6
-    max_val = max(curr_proc_net_snmp6.Values)
     prev_proc_net_snmp6 = procfs.NetSnmp6()
     for i, curr_val in enumerate(curr_proc_net_snmp6.Values):
+        rate = proc_net_snmp6_index_rate.get(i)
+        delta = max_val + 2 * i
+        if rate is not None:
+            factor = rate[0]
+            delta = int(delta / factor * interval)
         if curr_proc_net_snmp6.IsUint32[i]:
-            prev_proc_net_snmp6.Values[i] = uint32_delta(curr_val, max_val + 2 * i)
+            prev_proc_net_snmp6.Values[i] = uint32_delta(curr_val, delta)
         else:
-            prev_proc_net_snmp6.Values[i] = uint64_delta(curr_val, max_val + 2 * i)
+            prev_proc_net_snmp6.Values[i] = uint64_delta(curr_val, delta)
     for cycle_num_val in [0, 1]:
         for zero_delta_val in [None, False, True]:
             cycle_num = [cycle_num_val] * PROC_NET_SNMP6_CYCLE_COUNTER_NUM
@@ -490,6 +503,7 @@ def generate_proc_net_snmp6_metrics_test_cases(
                     prev_proc_net_snmp6=prev_proc_net_snmp6,
                     cycle_num=cycle_num,
                     zero_delta=zero_delta,
+                    interval=interval,
                     description=f"cycle_num={cycle_num_val}, zero_delta={zero_delta_val}",
                 )
             )
@@ -509,6 +523,7 @@ def generate_proc_net_snmp6_metrics_test_cases(
                     prev_proc_net_snmp6=ref_proc_net_snmp6,
                     cycle_num=cycle_num,
                     zero_delta=zero_delta,
+                    interval=interval,
                     description=f"cycle_num={cycle_num_val}, zero_delta={zero_delta_val}",
                 )
             )
@@ -516,7 +531,6 @@ def generate_proc_net_snmp6_metrics_test_cases(
 
     name = "single_change"
     curr_proc_net_snmp6 = ref_proc_net_snmp6
-    max_val = max(curr_proc_net_snmp6.Values)
     for cycle_num_val in [0, 1]:
         for zero_delta_val in [None, False, True]:
             cycle_num = [cycle_num_val] * PROC_NET_SNMP6_CYCLE_COUNTER_NUM
@@ -525,14 +539,15 @@ def generate_proc_net_snmp6_metrics_test_cases(
             )
             for i in range(procfs.NET_SNMP6_NUM_VALUES):
                 prev_proc_net_snmp6 = deepcopy(curr_proc_net_snmp6)
+                rate = proc_net_snmp6_index_rate.get(i)
+                delta = max_val + 2 * i
+                if rate is not None:
+                    factor = rate[0]
+                    delta = int(delta / factor * interval)
                 if curr_proc_net_snmp6.IsUint32[i]:
-                    prev_proc_net_snmp6.Values[i] = uint32_delta(
-                        curr_val, max_val + 2 * i
-                    )
+                    prev_proc_net_snmp6.Values[i] = uint32_delta(curr_val, delta)
                 else:
-                    prev_proc_net_snmp6.Values[i] = uint64_delta(
-                        curr_val, max_val + 2 * i
-                    )
+                    prev_proc_net_snmp6.Values[i] = uint64_delta(curr_val, delta)
                 test_cases.append(
                     generate_proc_net_snmp6_test_case(
                         f"{name}/{tc_num}",
@@ -540,6 +555,7 @@ def generate_proc_net_snmp6_metrics_test_cases(
                         prev_proc_net_snmp6=prev_proc_net_snmp6,
                         cycle_num=cycle_num,
                         zero_delta=zero_delta,
+                        interval=interval,
                         description=f"cycle_num={cycle_num_val}, zero_delta={zero_delta_val}, i={i}",
                     )
                 )
