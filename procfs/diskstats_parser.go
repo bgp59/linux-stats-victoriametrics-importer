@@ -74,7 +74,11 @@ type DiskstatsDevInfo struct {
 type Diskstats struct {
 	// Device stats and info, indexed by "major:minor":
 	DevInfoMap map[string]*DiskstatsDevInfo
-	// Devices may be appear/disappear dynamically. To keep track of deletion,
+	// Whether there was any change in disk info (major:minor or name) from the
+	// previous scan or not; a change here may be used to force an early parse
+	// (i.e. not waiting for a full cycle) of related info, such as mount info:
+	Changed bool
+	// Devices may be appear/disappear dynamically. To keep track of removals,
 	// each parse invocation is associated with a different from before scan#
 	// and each found majorMinor will be updated below for it. At the end of the
 	// pass, the devices that have a different scan# are leftover from a
@@ -115,6 +119,7 @@ func NewDiskstats(procfsRoot string) *Diskstats {
 func (diskstats *Diskstats) Clone(full bool) *Diskstats {
 	newDiskstats := &Diskstats{
 		DevInfoMap:        make(map[string]*DiskstatsDevInfo),
+		Changed:           diskstats.Changed,
 		scanNum:           diskstats.scanNum,
 		path:              diskstats.path,
 		jiffiesToMillisec: diskstats.jiffiesToMillisec,
@@ -144,6 +149,7 @@ func (diskstats *Diskstats) Parse() error {
 
 	buf, l := fBuf.Bytes(), fBuf.Len()
 
+	diskstats.Changed = false
 	devInfoMap := diskstats.DevInfoMap
 	jiffiesToMillisec, fieldsInJiffies := diskstats.jiffiesToMillisec, diskstats.fieldsInJiffies
 	scanNum := diskstats.scanNum + 1
@@ -190,8 +196,10 @@ func (diskstats *Diskstats) Parse() error {
 				Stats: make([]uint32, DISKSTATS_VALUE_FIELDS_NUM),
 			}
 			devInfoMap[majorMinor] = devInfo
+			diskstats.Changed = true
 		} else if devInfo.Name != name {
 			devInfo.Name = name
+			diskstats.Changed = true
 		}
 		stats := devInfo.Stats
 		for fieldNum = 0; !eol && pos < l && fieldNum < DISKSTATS_VALUE_FIELDS_NUM; pos++ {
@@ -246,6 +254,7 @@ func (diskstats *Diskstats) Parse() error {
 	for majorMinor, devInfo := range diskstats.DevInfoMap {
 		if scanNum != devInfo.scanNum {
 			delete(diskstats.DevInfoMap, majorMinor)
+			diskstats.Changed = true
 		}
 	}
 	diskstats.scanNum = scanNum

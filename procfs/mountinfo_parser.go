@@ -37,7 +37,6 @@ type Mountinfo struct {
 	// e.g. MOUNTINFO_MOUNT_POINT for "major:minor"
 	//   mountPoint = .devMountInfo["major:minor"][MOUNTINFO_MOUNT_POINT]
 	DevMountInfo map[string][][]byte
-
 	// The file is not expected to change very often, so in order to avoid a
 	// rather expensive parsing, its previous content is cached and the parsing
 	// occurs only if there are changes.
