@@ -73,6 +73,17 @@ proc_net_snmp6_metrics_config:
   interval: 1s
   full_metrics_factor: 15
 
+###############################################
+# /proc/diskstats and /proc/mountifo Metrics
+###############################################
+proc_diskstats_metrics_config:
+  interval: 5s
+  full_metrics_factor: 12
+  # Whether to include full mountinfo metrics or not; if true they will be
+  # generated when a disk info (major:minor or name) change is detected or at
+  # full metrics interval.
+  include_mountinfo: false
+
 
 ###############################################
 # Scheduler
@@ -101,7 +112,7 @@ compressor_pool_config:
   # Metrics queue size, it should be deep enough to accommodate metrics up to
   # send_buffer_timeout:
   metrics_queue_size: 64
-  # Compression level: 0..9, -1 stands for ggzip.DefaultCompression:
+  # Compression level: 0..9, -1 stands for gzip.DefaultCompression:
   compression_level: -1
   # Batch target size; metrics will be read from the queue until the
   # compressed size is ~ to the value below. The value can have the usual `k`
@@ -110,7 +121,7 @@ compressor_pool_config:
   # Flush interval. If batch_target_size is not reached before this interval
   # expires, the metrics compressed thus far are being sent anyway. Use 0 to
   # disable time flush. The value should be compatible with
-  # https:#pkg.go.dev/time#ParseDuration
+  # https://pkg.go.dev/time#ParseDuration
   flush_interval: 5s
 
 ###############################################
@@ -139,7 +150,7 @@ http_endpoint_pool_config:
   # How often to rotate the healthy endpoint list, to load balance the
   # connections. Set to 0 to rotate after every use or to -1s to disable the
   # rotation. The value must be compatible with
-  # https:#pkg.go.dev/time#ParseDuration
+  # https://pkg.go.dev/time#ParseDuration
   healthy_rotate_interval: 5m
 
   # After what time to reset the cumulative error count of a failed endpoint.
@@ -148,16 +159,16 @@ http_endpoint_pool_config:
   # before it makes it back to the head of the list, then the error count used
   # to declare it unhealthy is no longer relevant and it should be reset. Use 0
   # to disable. The value must be compatible with
-  # https:#pkg.go.dev/time#ParseDuration
+  # https://pkg.go.dev/time#ParseDuration
   error_reset_interval: 1m
 
   # How often to check if an unhealthy endpoint has become healthy. The value
-  # must be compatible with https:#pkg.go.dev/time#ParseDuration and >= 1s
+  # must be compatible with https://pkg.go.dev/time#ParseDuration and >= 1s
   health_check_interval: 5s
 
   # How long to wait for a healthy endpoint, in case healthy is empty; normally
   # this should be > health_check_interval. The value must be compatible with
-  # https:#pkg.go.dev/time#ParseDuration
+  # https://pkg.go.dev/time#ParseDuration
   healthy_max_wait: 6s
 
   # How long to wait for a SendBuffer call to succeed; normally this should be
@@ -165,18 +176,18 @@ http_endpoint_pool_config:
   send_buffer_timeout: 30s
 
   # Rate limit in Mbps; it may be specified as FLOAT or FLOAT:INTERVAL, where
-  # INTERVAL must be compatible with https:#pkg.go.dev/time#ParseDuration.
+  # INTERVAL must be compatible with https://pkg.go.dev/time#ParseDuration.
   # INTERVAL determines the granularity of traffic control and in general the
   # smaller the value, the smoother the traffic. The default is "1s" and
   # shouldn't be smaller than "50ms". Leave empty/undefined for no limit.
   rate_limit_mbps:
 
-  # Parameters for https:#pkg.go.dev/net#Dialer:
+  # Parameters for https://pkg.go.dev/net#Dialer:
   # Timeout:
   tcp_conn_timeout: 2s
   # KeepAlive:
   tcp_keep_alive: 15s
-  # Parameters for https:#pkg.go.dev/net/http#Transport:
+  # Parameters for https://pkg.go.dev/net/http#Transport:
   # MaxIdleConns:
   max_idle_conns: 0
   # MaxIdleConnsPerHost:
@@ -185,7 +196,7 @@ http_endpoint_pool_config:
   max_conns_per_host: 0
   # IdleConnTimeout:
   idle_conn_timeout: 1m
-  # Parameters for https:#pkg.go.dev/net/http#Client:
+  # Parameters for https://pkg.go.dev/net/http#Client:
   # Timeout:
   response_timeout: 5s
 
@@ -196,10 +207,10 @@ log_config:
   # Whether to log in JSON format. Override w/
   #  --log-json-format=false, to disable
   #     or
-  #   --log-json-format, to enable
+  #  --log-json-format, to enable
   use_json: false
 
-  # The log level, must one of the following:
+  # The log level, must be one of the following:
   #   panic, fatal, error, warning, info, debug, trace
   # Override w/ --log-level=LEVEL 
   log_level: info
@@ -207,6 +218,6 @@ log_config:
   # Whether to disable report file:line#. Override w/
   #  --log-disable-report-file=false, to enable
   #     or
-  #   --log-disable-report-file, to disable
+  #  --log-disable-report-file, to disable
   disable_report_file: false
 
