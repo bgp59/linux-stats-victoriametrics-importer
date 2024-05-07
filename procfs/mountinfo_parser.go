@@ -31,17 +31,14 @@ const (
 	MOUNTINFO_NUM_FIELDS
 )
 
+type MountinfoParsedLine [MOUNTINFO_NUM_FIELDS][]byte
+
 type Mountinfo struct {
-	// All information will be presented as byte slices, indexed by
-	// "major:minor"; the backing for all the slices is `.content'.
-	// e.g. MOUNTINFO_MOUNT_POINT for "major:minor"
-	//   mountPoint = .devMountInfo["major:minor"][MOUNTINFO_MOUNT_POINT]
-	DevMountInfo map[string][][]byte
+	ParsedLines []*MountinfoParsedLine
 	// The file is not expected to change very often, so in order to avoid a
 	// rather expensive parsing, its previous content is cached and the parsing
 	// occurs only if there are changes.
-	Changed                 bool
-	ParseCount, ChangeCount uint64
+	Changed bool
 
 	// Whether to force an update at every parse or not, regardless of content
 	// change, in support of testing/benchmarking.
@@ -63,24 +60,21 @@ func MountinfoPath(procfsRoot string, pid int) string {
 
 func NewMountinfo(procfsRoot string, pid int) *Mountinfo {
 	return &Mountinfo{
-		DevMountInfo: make(map[string][][]byte),
-		content:      &bytes.Buffer{},
-		path:         MountinfoPath(procfsRoot, pid),
+		ParsedLines: make([]*MountinfoParsedLine, 0),
+		content:     &bytes.Buffer{},
+		path:        MountinfoPath(procfsRoot, pid),
 	}
 }
 
 func (mountinfo *Mountinfo) Clone(full bool) *Mountinfo {
 	NewMountinfo := &Mountinfo{
-		DevMountInfo: make(map[string][][]byte),
-		ParseCount:   mountinfo.ParseCount,
-		ChangeCount:  mountinfo.ChangeCount,
-		Changed:      mountinfo.Changed,
-		path:         mountinfo.path,
+		ParsedLines: make([]*MountinfoParsedLine, 0),
+		Changed:     mountinfo.Changed,
+		ForceUpdate: mountinfo.ForceUpdate,
+		path:        mountinfo.path,
 	}
-
 	if full {
 		NewMountinfo.content = bytes.NewBuffer(mountinfo.content.Bytes())
-		NewMountinfo.ForceUpdate = mountinfo.ForceUpdate
 		NewMountinfo.update()
 	} else {
 		NewMountinfo.content = &bytes.Buffer{}
@@ -91,10 +85,14 @@ func (mountinfo *Mountinfo) Clone(full bool) *Mountinfo {
 
 func (mountinfo *Mountinfo) update() error {
 	buf, l := mountinfo.content.Bytes(), mountinfo.content.Len()
-	info := make([][]byte, MOUNTINFO_NUM_FIELDS)
 
-	devMountInfo := mountinfo.DevMountInfo
+	if mountinfo.ParsedLines == nil {
+		mountinfo.ParsedLines = make([]*MountinfoParsedLine, 0)
+	} else {
+		mountinfo.ParsedLines = mountinfo.ParsedLines[:0]
+	}
 	for pos, lineNum := 0, 1; pos < l; lineNum++ {
+		info := new(MountinfoParsedLine)
 		lineStart, fieldIndex, eol := pos, MOUNTINFO_MOUNT_ID, false
 		optionalFieldsStart, optionalFieldsEnd := -1, -1
 		for ; !eol && pos < l && fieldIndex < MOUNTINFO_NUM_FIELDS; pos++ {
@@ -148,14 +146,7 @@ func (mountinfo *Mountinfo) update() error {
 			}
 		}
 
-		// Update the "major:minor" index:
-		majorMinor := string(info[MOUNTINFO_MAJOR_MINOR])
-		devInfo := devMountInfo[majorMinor]
-		if devInfo == nil {
-			devInfo = make([][]byte, MOUNTINFO_NUM_FIELDS)
-			devMountInfo[majorMinor] = devInfo
-		}
-		copy(devInfo, info)
+		mountinfo.ParsedLines = append(mountinfo.ParsedLines, info)
 	}
 
 	return nil
@@ -165,10 +156,8 @@ func (mountinfo *Mountinfo) Parse() error {
 	fBuf, err := mountinfoReadFileBufPool.ReadFile(mountinfo.path)
 	defer mountinfoReadFileBufPool.ReturnBuf(fBuf)
 	if err == nil {
-		mountinfo.ParseCount++
 		mountinfo.Changed = mountinfo.ForceUpdate || !bytes.Equal(mountinfo.content.Bytes(), fBuf.Bytes())
 		if mountinfo.Changed {
-			mountinfo.ChangeCount++
 			mountinfo.content = bytes.NewBuffer(fBuf.Bytes())
 			err = mountinfo.update()
 		}
