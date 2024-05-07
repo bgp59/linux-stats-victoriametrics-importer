@@ -131,7 +131,7 @@ func (mountinfo *Mountinfo) update() error {
 		if fieldIndex < MOUNTINFO_NUM_FIELDS {
 			// Missing fields:
 			return fmt.Errorf(
-				"%s#%d: %q: missing fields: want: %d, got: %d",
+				"%s:%d: %q: missing fields: want: %d, got: %d",
 				mountinfo.path, lineNum, getCurrentLine(buf, lineStart), MOUNTINFO_NUM_FIELDS, fieldIndex,
 			)
 		}
@@ -140,7 +140,7 @@ func (mountinfo *Mountinfo) update() error {
 			c := buf[pos]
 			if eol = (c == '\n'); !eol && !isWhitespace[c] {
 				return fmt.Errorf(
-					"%s#%d: %q: %q: unexpected content after the last field",
+					"%s:%d: %q: %q: unexpected content after the last field",
 					mountinfo.path, lineNum, getCurrentLine(buf, lineStart), getCurrentLine(buf, pos),
 				)
 			}

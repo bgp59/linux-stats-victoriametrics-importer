@@ -211,7 +211,7 @@ func (pidStatus *PidStatus) Parse(usePathFrom *PidStatus) error {
 		}
 		if prefixEndPos <= prefixStartPos {
 			return fmt.Errorf(
-				"%s#%d: %q: `PREFIX:' not found",
+				"%s:%d: %q: `PREFIX:' not found",
 				*pidStatus.path, lineNum, getCurrentLine(buf, lineStartPos),
 			)
 		}
@@ -237,7 +237,7 @@ func (pidStatus *PidStatus) Parse(usePathFrom *PidStatus) error {
 					done = true
 				} else {
 					return fmt.Errorf(
-						"%s#%d: %q: `%c' invalid value for a digit",
+						"%s:%d: %q: `%c' invalid value for a digit",
 						*pidStatus.path, lineNum, getCurrentLine(buf, lineStartPos), c,
 					)
 				}
@@ -308,7 +308,7 @@ func (pidStatus *PidStatus) Parse(usePathFrom *PidStatus) error {
 				}
 				if unitLen == 0 {
 					return fmt.Errorf(
-						"%s#%d: %q: missing unit",
+						"%s:%d: %q: missing unit",
 						*pidStatus.path, lineNum, getCurrentLine(buf, lineStartPos),
 					)
 				}
@@ -320,7 +320,7 @@ func (pidStatus *PidStatus) Parse(usePathFrom *PidStatus) error {
 		// Check for empty field:
 		if valueLen == 0 && !emptyValueOK {
 			return fmt.Errorf(
-				"%s#%d: %q: empty value(s)",
+				"%s:%d: %q: empty value(s)",
 				*pidStatus.path, lineNum, getCurrentLine(buf, lineStartPos),
 			)
 

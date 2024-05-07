@@ -252,7 +252,7 @@ func (interrupts *Interrupts) Parse() error {
 				err = interrupts.updateCpuList(buf[0:pos])
 				if err != nil {
 					return fmt.Errorf(
-						"%s#%d: %q: %v",
+						"%s:%d: %q: %v",
 						interrupts.path, lineNum, getCurrentLine(buf, startLine), err,
 					)
 				}
@@ -281,7 +281,7 @@ func (interrupts *Interrupts) Parse() error {
 		}
 		if irqEnd < 0 {
 			return fmt.Errorf(
-				"%s#%d: %q: missing `IRQ:'",
+				"%s:%d: %q: missing `IRQ:'",
 				interrupts.path, lineNum, getCurrentLine(buf, startLine),
 			)
 		}
@@ -316,7 +316,7 @@ func (interrupts *Interrupts) Parse() error {
 					done = true
 				} else {
 					return fmt.Errorf(
-						"%s#%d: %q: `%c' not a valid digit",
+						"%s:%d: %q: `%c' not a valid digit",
 						interrupts.path, lineNum, getCurrentLine(buf, startLine), buf[pos],
 					)
 				}
@@ -329,7 +329,7 @@ func (interrupts *Interrupts) Parse() error {
 		// Enough columns?
 		if counterIndex < NumCounters && !irqWithFewerCpuCount[irq] {
 			return fmt.Errorf(
-				"%s#%d: %q: missing IRQs: want: %d, got: %d",
+				"%s:%d: %q: missing IRQs: want: %d, got: %d",
 				interrupts.path, lineNum, getCurrentLine(buf, startLine), NumCounters, counterIndex,
 			)
 		}

@@ -183,7 +183,7 @@ func (netDev *NetDev) Parse() error {
 		}
 		if dev == "" {
 			return fmt.Errorf(
-				"%s#%d: %q: missing `DEV:'",
+				"%s:%d: %q: missing `DEV:'",
 				netDev.path, lineNum, getCurrentLine(buf, lineStart),
 			)
 		}
@@ -209,7 +209,7 @@ func (netDev *NetDev) Parse() error {
 					done = true
 				} else {
 					return fmt.Errorf(
-						"%s#%d: %q: invalid value",
+						"%s:%d: %q: invalid value",
 						netDev.path, lineNum, getCurrentLine(buf, lineStart),
 					)
 				}
@@ -223,7 +223,7 @@ func (netDev *NetDev) Parse() error {
 		// All values retrieved?
 		if statIndex < NET_DEV_SCAN_NUMBER {
 			return fmt.Errorf(
-				"%s#%d: %q: not enough values: want: %d, got: %d",
+				"%s:%d: %q: not enough values: want: %d, got: %d",
 				netDev.path, lineNum, getCurrentLine(buf, lineStart), NET_DEV_SCAN_NUMBER, statIndex,
 			)
 		}
@@ -236,7 +236,7 @@ func (netDev *NetDev) Parse() error {
 			c := buf[pos]
 			if eol = (c == '\n'); !eol && !isWhitespace[c] {
 				return fmt.Errorf(
-					"%s#%d: %q: %q: unexpected content after dev counters",
+					"%s:%d: %q: %q: unexpected content after dev counters",
 					netDev.path, lineNum, getCurrentLine(buf, lineStart), getCurrentLine(buf, pos),
 				)
 			}

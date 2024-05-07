@@ -215,7 +215,7 @@ func (stat *Stat) Parse() error {
 					cpuNum = (cpuNum << 3) + (cpuNum << 1) + int(digit)
 				} else {
 					return fmt.Errorf(
-						"%s#%d: %q: cpu# `%c': invalid digit",
+						"%s:%d: %q: cpu# `%c': invalid digit",
 						stat.path, lineNum, getCurrentLine(buf, lineStartPos), c,
 					)
 
@@ -263,7 +263,7 @@ func (stat *Stat) Parse() error {
 					done = true
 				} else {
 					return fmt.Errorf(
-						"%s#%d: %q: `%c': invalid digit",
+						"%s:%d: %q: `%c': invalid digit",
 						stat.path, lineNum, getCurrentLine(buf, pos), c,
 					)
 				}
@@ -278,7 +278,7 @@ func (stat *Stat) Parse() error {
 		// Verify that enough values were parsed:
 		if fieldIndex < minNumValues {
 			return fmt.Errorf(
-				"%s#%d: %q: invalid value count: want (at least) %d, got: %d",
+				"%s:%d: %q: invalid value count: want (at least) %d, got: %d",
 				stat.path, lineNum, getCurrentLine(buf, lineStartPos), minNumValues, fieldIndex,
 			)
 		}

@@ -184,7 +184,7 @@ func (diskstats *Diskstats) Parse() error {
 		}
 		if fieldNum < DISKSTATS_INFO_FIELDS_NUM {
 			return fmt.Errorf(
-				"%s#%d: %q: missing info fields: want: %d, got: %d",
+				"%s:%d: %q: missing info fields: want: %d, got: %d",
 				diskstats.path, lineNum, getCurrentLine(buf, lineStart), DISKSTATS_INFO_FIELDS_NUM, fieldNum,
 			)
 		}
@@ -215,7 +215,7 @@ func (diskstats *Diskstats) Parse() error {
 					break
 				} else {
 					return fmt.Errorf(
-						"%s#%d: %q: `%c' not a valid digit",
+						"%s:%d: %q: `%c' not a valid digit",
 						diskstats.path, lineNum, getCurrentLine(buf, lineStart), c,
 					)
 				}
@@ -230,7 +230,7 @@ func (diskstats *Diskstats) Parse() error {
 		}
 		if fieldNum < minNumDiskstatsValues {
 			return fmt.Errorf(
-				"%s#%d: %q: missing stats fields: want (at least): %d, got: %d",
+				"%s:%d: %q: missing stats fields: want (at least): %d, got: %d",
 				diskstats.path, lineNum, getCurrentLine(buf, lineStart), minNumDiskstatsValues, fieldNum,
 			)
 		}
@@ -240,7 +240,7 @@ func (diskstats *Diskstats) Parse() error {
 			c := buf[pos]
 			if eol = (c == '\n'); !eol && !isWhitespace[c] {
 				return fmt.Errorf(
-					"%s#%d: %q: %q: unexpected content after the last field",
+					"%s:%d: %q: %q: unexpected content after the last field",
 					diskstats.path, lineNum, getCurrentLine(buf, lineStart), getCurrentLine(buf, pos),
 				)
 			}

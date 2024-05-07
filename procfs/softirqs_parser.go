@@ -159,7 +159,7 @@ func (softirqs *Softirqs) Parse() error {
 				err = softirqs.updateCounterIndexToCpuNumMap(buf[0:pos])
 				if err != nil {
 					return fmt.Errorf(
-						"%s#%d: %q: %v",
+						"%s:%d: %q: %v",
 						softirqs.path, lineNum, getCurrentLine(buf, startLine), err,
 					)
 				}
@@ -186,7 +186,7 @@ func (softirqs *Softirqs) Parse() error {
 		}
 		if irqEnd < 0 {
 			return fmt.Errorf(
-				"%s#%d: %q: invalid `SOFTIRQ:'",
+				"%s:%d: %q: invalid `SOFTIRQ:'",
 				softirqs.path, lineNum, getCurrentLine(buf, startLine),
 			)
 		}
@@ -216,7 +216,7 @@ func (softirqs *Softirqs) Parse() error {
 					done = true
 				} else {
 					return fmt.Errorf(
-						"%s#%d: %q: `%c' not a valid digit",
+						"%s:%d: %q: `%c' not a valid digit",
 						softirqs.path, lineNum, getCurrentLine(buf, startLine), buf[pos],
 					)
 				}
@@ -229,7 +229,7 @@ func (softirqs *Softirqs) Parse() error {
 		// Enough columns?
 		if counterIndex < NumCounters {
 			return fmt.Errorf(
-				"%s#%d: %q: missing IRQs: want: %d, got: %d",
+				"%s:%d: %q: missing IRQs: want: %d, got: %d",
 				softirqs.path, lineNum, getCurrentLine(buf, startLine), NumCounters, counterIndex,
 			)
 		}
@@ -239,7 +239,7 @@ func (softirqs *Softirqs) Parse() error {
 			c := buf[pos]
 			if eol = (c == '\n'); !eol && !isWhitespace[c] {
 				return fmt.Errorf(
-					"%s#%d: %q: %q unexpected content after IRQ counter(s)",
+					"%s:%d: %q: %q unexpected content after IRQ counter(s)",
 					softirqs.path, lineNum, getCurrentLine(buf, startLine), getCurrentLine(buf, pos),
 				)
 			}
