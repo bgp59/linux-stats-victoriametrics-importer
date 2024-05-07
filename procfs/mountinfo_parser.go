@@ -5,6 +5,7 @@ package procfs
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"path"
 	"strconv"
 )
@@ -55,6 +56,9 @@ type Mountinfo struct {
 var mountinfoReadFileBufPool = ReadFileBufPool256k
 
 func MountinfoPath(procfsRoot string, pid int) string {
+	if pid <= 0 {
+		pid = os.Getpid()
+	}
 	return path.Join(procfsRoot, strconv.Itoa(pid), "mountinfo")
 }
 
