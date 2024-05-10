@@ -79,10 +79,8 @@ proc_net_snmp6_metrics_config:
 proc_diskstats_metrics_config:
   interval: 5s
   full_metrics_factor: 12
-  # Whether to include full mountinfo metrics or not; if true they will be
-  # generated when a disk info (major:minor or name) change is detected or at
-  # full metrics interval.
-  include_mountinfo: false
+  # The PID to use for /proc/PID/mountinfo, use 0 for self.
+  mountinfo_pid: 1
 
 
 ###############################################
