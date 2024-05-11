@@ -90,13 +90,19 @@ var procDiskstatsIndexToMetricNameMap = map[int]string{
 	procfs.DISKSTATS_FLUSH_MILLISEC:         PROC_DISKSTATS_FLUSH_PCT_METRIC,
 }
 
-// Mountinfo index to metrics label map; indexes not in the map will be ignored:
-var procMountinfoIndexToMetricLabelMap = map[int]string{
-	procfs.MOUNTINFO_MAJOR_MINOR:  PROC_MOUNTINFO_MAJ_MIN_LABEL_NAME,
-	procfs.MOUNTINFO_ROOT:         PROC_MOUNTINFO_ROOT_LABEL_NAME,
-	procfs.MOUNTINFO_MOUNT_POINT:  PROC_MOUNTINFO_MOUNT_POINT_LABEL_NAME,
-	procfs.MOUNTINFO_FS_TYPE:      PROC_MOUNTINFO_FS_TYPE_LABEL_NAME,
-	procfs.MOUNTINFO_MOUNT_SOURCE: PROC_MOUNTINFO_MOUNT_SOURCE_LABEL_NAME,
+// List of Mountinfo indexes used for labels; to ensure predictable label order,
+// they are grouped a list of pairs:
+type MountinfoIndexLabelPair struct {
+	index int
+	label string
+}
+
+var procMountinfoIndexToMetricLabelList = []*MountinfoIndexLabelPair{
+	{procfs.MOUNTINFO_MAJOR_MINOR, PROC_MOUNTINFO_MAJ_MIN_LABEL_NAME},
+	{procfs.MOUNTINFO_ROOT, PROC_MOUNTINFO_ROOT_LABEL_NAME},
+	{procfs.MOUNTINFO_MOUNT_POINT, PROC_MOUNTINFO_MOUNT_POINT_LABEL_NAME},
+	{procfs.MOUNTINFO_FS_TYPE, PROC_MOUNTINFO_FS_TYPE_LABEL_NAME},
+	{procfs.MOUNTINFO_MOUNT_SOURCE, PROC_MOUNTINFO_MOUNT_SOURCE_LABEL_NAME},
 }
 
 type ProcDiskstatsMetricsConfig struct {
@@ -136,6 +142,7 @@ type ProcDiskstatsMetrics struct {
 	mountinfoPid      int
 	procMountinfo     *procfs.Mountinfo
 	mountinfoCycleNum int
+	// Ensure predictable label
 	// If mountinfo parser encounters an error, do not disable the entire
 	// metrics generator, only the info part; keep track of such condition
 	// separately:
@@ -232,7 +239,9 @@ func (pdsm *ProcDiskstatsMetrics) updateDiskstatsMetricsCache(majMin, diskName s
 	pdsm.diskstatsMetricsCache[majMin] = metrics
 }
 
-func (pdsm *ProcDiskstatsMetrics) updateMountinfoMetricsCache() {
+// When updating mountinfo return an iterable object with the metrics that went
+// out of scope; they should be pushed w/ the associated value set to 0.
+func (pdsm *ProcDiskstatsMetrics) updateMountinfoMetricsCache() map[string]bool {
 	instance, hostname := GlobalInstance, GlobalHostname
 	if pdsm.instance != "" {
 		instance = pdsm.instance
@@ -241,28 +250,40 @@ func (pdsm *ProcDiskstatsMetrics) updateMountinfoMetricsCache() {
 		hostname = pdsm.hostname
 	}
 
+	outOfScopeMetrics := make(map[string]bool)
+	for _, metric := range pdsm.mountinfoMetricsCache {
+		outOfScopeMetrics[string(metric)] = true
+	}
+
 	parsedLines := pdsm.procMountinfo.ParsedLines
-	pdsm.mountinfoMetricsCache = make([][]byte, len(parsedLines))
-	metric := &bytes.Buffer{}
-	prefix := []byte(fmt.Sprintf(
+	pdsm.mountinfoMetricsCache = make([][]byte, 0)
+	buf := &bytes.Buffer{}
+	fmt.Fprintf(
+		buf,
 		`%s{%s="%s",%s="%s",%s="%d"`,
 		PROC_MOUNTINFO_METRIC,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 		PROC_MOUNTINFO_PID_LABEL_NAME, pdsm.mountinfoPid,
-	))
-	for index, parsedLine := range parsedLines {
-		metric.Reset()
-		metric.Write(prefix)
-		for i, label := range procMountinfoIndexToMetricLabelMap {
+	)
+	prefixLen := buf.Len()
+	diskstats := pdsm.procDiskstats[pdsm.currIndex]
+	for _, parsedLine := range parsedLines {
+		// Keep only info that has a maj:min matching diskstats:
+		if diskstats.DevInfoMap[string((*parsedLine)[procfs.MOUNTINFO_MAJOR_MINOR])] == nil {
+			continue
+		}
+		buf.Truncate(prefixLen)
+		for _, indexLabel := range procMountinfoIndexToMetricLabelList {
 			fmt.Fprintf(
-				metric,
+				buf,
 				`,%s="%s"`,
-				label, (*parsedLine)[i],
+				indexLabel.label, (*parsedLine)[indexLabel.index],
 			)
 		}
-		metric.WriteString(`} `) // N.B. space before value included
-		pdsm.mountinfoMetricsCache[index] = make([]byte, metric.Len())
-		copy(pdsm.mountinfoMetricsCache[index], metric.Bytes())
+		buf.WriteString(`} `) // N.B. space before value included
+		pdsm.mountinfoMetricsCache = append(pdsm.mountinfoMetricsCache, bytes.Clone(buf.Bytes()))
+		delete(outOfScopeMetrics, buf.String())
 	}
+	return outOfScopeMetrics
 }
