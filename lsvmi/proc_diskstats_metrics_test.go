@@ -142,6 +142,69 @@ func TestMountinfoMetricsCacheUpdate(t *testing.T) {
 				`proc_mountinfo{instance="test_lsvmi",hostname="test-lsvmi",pid="-1",maj_min="100:1",root="/100:1",mount_point="/mout/100/1",fs_type="fs100_1",source="/dev/disk/100_1"} `,
 			},
 		},
+		{
+			Name:     "add",
+			Instance: "test_lsvmi",
+			Hostname: "test-lsvmi",
+			Pid:      -1,
+			ParsedLines: [][procfs.MOUNTINFO_NUM_FIELDS]string{
+				{
+					procfs.MOUNTINFO_MAJOR_MINOR:  "100:0",
+					procfs.MOUNTINFO_ROOT:         "/100:0",
+					procfs.MOUNTINFO_MOUNT_POINT:  "/mout/100/0",
+					procfs.MOUNTINFO_FS_TYPE:      "fs100_0",
+					procfs.MOUNTINFO_MOUNT_SOURCE: "/dev/disk/100_0",
+				},
+				{
+					procfs.MOUNTINFO_MAJOR_MINOR:  "100:1",
+					procfs.MOUNTINFO_ROOT:         "/100:1",
+					procfs.MOUNTINFO_MOUNT_POINT:  "/mout/100/1",
+					procfs.MOUNTINFO_FS_TYPE:      "fs100_1",
+					procfs.MOUNTINFO_MOUNT_SOURCE: "/dev/disk/100_1",
+				},
+			},
+			PrimeMountinfoMetricsCache: []string{
+				`proc_mountinfo{instance="test_lsvmi",hostname="test-lsvmi",pid="-1",maj_min="100:0",root="/100:0",mount_point="/mout/100/0",fs_type="fs100_0",source="/dev/disk/100_0"} `,
+			},
+			WantMountinfoMetricsCache: []string{
+				`proc_mountinfo{instance="test_lsvmi",hostname="test-lsvmi",pid="-1",maj_min="100:0",root="/100:0",mount_point="/mout/100/0",fs_type="fs100_0",source="/dev/disk/100_0"} `,
+				`proc_mountinfo{instance="test_lsvmi",hostname="test-lsvmi",pid="-1",maj_min="100:1",root="/100:1",mount_point="/mout/100/1",fs_type="fs100_1",source="/dev/disk/100_1"} `,
+			},
+		},
+		{
+			Name:     "remove",
+			Instance: "test_lsvmi",
+			Hostname: "test-lsvmi",
+			Pid:      -1,
+			ParsedLines: [][procfs.MOUNTINFO_NUM_FIELDS]string{
+				{
+					procfs.MOUNTINFO_MAJOR_MINOR:  "100:0",
+					procfs.MOUNTINFO_ROOT:         "/100:0",
+					procfs.MOUNTINFO_MOUNT_POINT:  "/mout/100/0",
+					procfs.MOUNTINFO_FS_TYPE:      "fs100_0",
+					procfs.MOUNTINFO_MOUNT_SOURCE: "/dev/disk/100_0",
+				},
+				{
+					procfs.MOUNTINFO_MAJOR_MINOR:  "100:1",
+					procfs.MOUNTINFO_ROOT:         "/100:1",
+					procfs.MOUNTINFO_MOUNT_POINT:  "/mout/100/1",
+					procfs.MOUNTINFO_FS_TYPE:      "fs100_1",
+					procfs.MOUNTINFO_MOUNT_SOURCE: "/dev/disk/100_1",
+				},
+			},
+			PrimeMountinfoMetricsCache: []string{
+				`proc_mountinfo{instance="test_lsvmi",hostname="test-lsvmi",pid="-1",maj_min="100:0",root="/100:0",mount_point="/mout/100/0",fs_type="fs100_0",source="/dev/disk/100_0"} `,
+				`proc_mountinfo{instance="test_lsvmi",hostname="test-lsvmi",pid="-1",maj_min="100:1",root="/100:1",mount_point="/mout/100/1",fs_type="fs100_1",source="/dev/disk/100_1"} `,
+				`proc_mountinfo{instance="test_lsvmi",hostname="test-lsvmi",pid="-1",maj_min="100:2",root="/100:2",mount_point="/mout/100/2",fs_type="fs100_2",source="/dev/disk/100_2"} `,
+			},
+			WantMountinfoMetricsCache: []string{
+				`proc_mountinfo{instance="test_lsvmi",hostname="test-lsvmi",pid="-1",maj_min="100:0",root="/100:0",mount_point="/mout/100/0",fs_type="fs100_0",source="/dev/disk/100_0"} `,
+				`proc_mountinfo{instance="test_lsvmi",hostname="test-lsvmi",pid="-1",maj_min="100:1",root="/100:1",mount_point="/mout/100/1",fs_type="fs100_1",source="/dev/disk/100_1"} `,
+			},
+			WantMountinfoOutOfScopeMetrics: []string{
+				`proc_mountinfo{instance="test_lsvmi",hostname="test-lsvmi",pid="-1",maj_min="100:2",root="/100:2",mount_point="/mout/100/2",fs_type="fs100_2",source="/dev/disk/100_2"} `,
+			},
+		},
 	} {
 		t.Run(
 			tc.Name,
