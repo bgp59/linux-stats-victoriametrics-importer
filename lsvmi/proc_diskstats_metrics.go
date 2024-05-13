@@ -51,9 +51,14 @@ const (
 	PROC_MOUNTINFO_MOUNT_POINT_LABEL_NAME  = "mount_point"
 	PROC_MOUNTINFO_FS_TYPE_LABEL_NAME      = "fs_type"
 	PROC_MOUNTINFO_MOUNT_SOURCE_LABEL_NAME = "source"
+
+	// Interval since last generation, i.e. the interval underlying the deltas.
+	// Normally this should be close to scan interval, but this is the actual
+	// value, rather than the desired one:
+	PROC_DISKSTATS_INTERVAL_METRIC_NAME = "proc_diskstats_metrics_delta_sec"
 )
 
-// Certain values are used to generate rates:
+// Certain values are used to generate %pct:
 type ProcDiskstatsPctMetric struct {
 	factor float64 // dVal/dTime * factor
 	prec   int     // FormatFloat prec arg
@@ -256,7 +261,7 @@ func (pdsm *ProcDiskstatsMetrics) updateDiskstatsMetricsCache(majMin, diskName s
 }
 
 // When updating mountinfo return an iterable object with the metrics that went
-// out of scope; they should be pushed w/ the associated value set to 0.
+// out of scope, they should be pushed w/ the associated value set to 0.
 func (pdsm *ProcDiskstatsMetrics) updateMountinfoMetricsCache() map[string]bool {
 	instance, hostname := GlobalInstance, GlobalHostname
 	if pdsm.instance != "" {
@@ -314,22 +319,21 @@ func (pdsm *ProcDiskstatsMetrics) updateIntervalMetricsCache() {
 	}
 	pdsm.intervalMetric = []byte(fmt.Sprintf(
 		`%s{%s="%s",%s="%s"} `, // N.B. include space before val
-		PROC_INTERRUPTS_INTERVAL_METRIC_NAME,
+		PROC_DISKSTATS_INTERVAL_METRIC_NAME,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 	))
 }
 
 func (pdsm *ProcDiskstatsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
-	actualMetricsCount, totalMetricsCount := 0, 0
-
 	// All metrics are deltas, previous stats are required:
 	prevProcDiskstats := pdsm.procDiskstats[1-pdsm.currIndex]
 	if prevProcDiskstats == nil {
 		pdsm.currIndex = 1 - pdsm.currIndex
-		return actualMetricsCount, totalMetricsCount
+		return 0, 0
 	}
 
+	actualMetricsCount, totalMetricsCount := 0, 0
 	currProcDiskstats := pdsm.procDiskstats[pdsm.currIndex]
 	currTs, prevTs := pdsm.procDiskstatsTs[pdsm.currIndex], pdsm.procDiskstatsTs[1-pdsm.currIndex]
 	pdsm.tsSuffixBuf.Reset()
@@ -347,14 +351,13 @@ func (pdsm *ProcDiskstatsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) 
 			continue
 		}
 		diskstatsMetricInfo := pdsm.diskstatsMetricsInfo[majMin]
-		if diskstatsMetricInfo == nil || // new disk
+		fullCycle := diskstatsMetricInfo == nil || diskstatsMetricInfo.cycleNum == 0
+		if diskstatsMetricInfo == nil || // new disk with a previous state
 			currProcDiskstats.Changed && currDevInfo.Name != prevDevInfo.Name { // name changed
 			pdsm.updateDiskstatsMetricsCache(majMin, currDevInfo.Name)
 			diskstatsMetricInfo = pdsm.diskstatsMetricsInfo[majMin]
 		}
-
 		currStats, prevStats := currDevInfo.Stats, prevDevInfo.Stats
-		fullCycle := diskstatsMetricInfo.cycleNum == 0
 		zeroDelta := diskstatsMetricInfo.zeroDelta
 		for i, metric := range diskstatsMetricInfo.metricsCache {
 			if metric == nil {
@@ -364,8 +367,8 @@ func (pdsm *ProcDiskstatsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) 
 			if delta != 0 || fullCycle || !zeroDelta[i] {
 				buf.Write(metric)
 				if pctMetric := ProcDiskstatsIndexPctMetric[i]; pctMetric != nil {
-					pct := float64(delta) * pctMetric.factor / deltaSec
-					buf.WriteString(strconv.FormatFloat(pct, 'f', pctMetric.prec, 64))
+					buf.WriteString(strconv.FormatFloat(
+						float64(delta)*pctMetric.factor/deltaSec, 'f', pctMetric.prec, 64))
 				} else {
 					buf.WriteString(strconv.FormatUint(uint64(delta), 10))
 				}
@@ -397,8 +400,7 @@ func (pdsm *ProcDiskstatsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) 
 		}
 	} else {
 		procMountinfo := pdsm.procMountinfo
-		changed := currProcDiskstats.Changed || procMountinfo.Changed
-		if changed {
+		if procMountinfo.Changed || pdsm.mountinfoMetricsCache == nil {
 			outOfScopeMetrics := pdsm.updateMountinfoMetricsCache()
 			for metric := range outOfScopeMetrics {
 				buf.WriteString(metric)
@@ -410,7 +412,7 @@ func (pdsm *ProcDiskstatsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) 
 			totalMetricsCount += cnt
 		}
 		cnt := len(pdsm.mountinfoMetricsCache)
-		if changed || pdsm.mountinfoCycleNum == 0 {
+		if procMountinfo.Changed || pdsm.mountinfoCycleNum == 0 {
 			for _, metric := range pdsm.mountinfoMetricsCache {
 				buf.Write(metric)
 				buf.WriteByte('1')
@@ -438,4 +440,93 @@ func (pdsm *ProcDiskstatsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) 
 	pdsm.currIndex = 1 - pdsm.currIndex
 
 	return actualMetricsCount, totalMetricsCount
+}
+
+// Satisfy the TaskActivity interface:
+func (pdsm *ProcDiskstatsMetrics) Execute() bool {
+	timeNowFn := time.Now
+	if pdsm.timeNowFn != nil {
+		timeNowFn = pdsm.timeNowFn
+	}
+
+	metricsQueue := GlobalMetricsQueue
+	if pdsm.metricsQueue != nil {
+		metricsQueue = pdsm.metricsQueue
+	}
+
+	// diskstats:
+	currProcDiskstats := pdsm.procDiskstats[pdsm.currIndex]
+	if currProcDiskstats == nil {
+		prevProcDiskstats := pdsm.procDiskstats[1-pdsm.currIndex]
+		if prevProcDiskstats != nil {
+			currProcDiskstats = prevProcDiskstats.Clone(false)
+		} else {
+			procfsRoot := GlobalProcfsRoot
+			if pdsm.procfsRoot != "" {
+				procfsRoot = pdsm.procfsRoot
+			}
+			currProcDiskstats = procfs.NewDiskstats(procfsRoot)
+		}
+		pdsm.procDiskstats[pdsm.currIndex] = currProcDiskstats
+	}
+	err := currProcDiskstats.Parse()
+	if err != nil {
+		procDiskstatsMetricsLog.Warnf("%v: proc diskstats metrics will be disabled", err)
+		return false
+	}
+
+	// mountinfo:
+	if !pdsm.mountifoDisabled {
+		if pdsm.procMountinfo == nil || pdsm.mountinfoCycleNum == 0 || currProcDiskstats.Changed {
+			if pdsm.procMountinfo == nil {
+				procfsRoot := GlobalProcfsRoot
+				if pdsm.procfsRoot != "" {
+					procfsRoot = pdsm.procfsRoot
+				}
+				pdsm.procMountinfo = procfs.NewMountinfo(procfsRoot, pdsm.mountinfoPid)
+			}
+			err := pdsm.procMountinfo.Parse()
+			if err != nil {
+				procDiskstatsMetricsLog.Warnf("%v: proc mountinfo metrics will be disabled", err)
+				pdsm.mountifoDisabled = true
+			}
+		} else {
+			pdsm.procMountinfo.Changed = false
+		}
+	}
+
+	pdsm.procDiskstatsTs[pdsm.currIndex] = timeNowFn()
+
+	buf := metricsQueue.GetBuf()
+	actualMetricsCount, totalMetricsCount := pdsm.generateMetrics(buf)
+	byteCount := buf.Len()
+	metricsQueue.QueueBuf(buf)
+
+	GlobalMetricsGeneratorStatsContainer.Update(
+		pdsm.id, uint64(actualMetricsCount), uint64(totalMetricsCount), uint64(byteCount),
+	)
+
+	return true
+}
+
+// Define and register the task builder:
+func ProcDiskstatsMetricsTaskBuilder(cfg *LsvmiConfig) ([]*Task, error) {
+	pdsm, err := NewProcDiskstatsMetrics(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if pdsm.interval <= 0 {
+		procDiskstatsMetricsLog.Infof(
+			"interval=%s, metrics disabled", pdsm.interval,
+		)
+		return nil, nil
+	}
+	tasks := []*Task{
+		NewTask(pdsm.id, pdsm.interval, pdsm),
+	}
+	return tasks, nil
+}
+
+func init() {
+	TaskBuilders.Register(ProcDiskstatsMetricsTaskBuilder)
 }

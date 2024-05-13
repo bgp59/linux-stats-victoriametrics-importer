@@ -4,25 +4,52 @@ import (
 	"bytes"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/eparparita/linux-stats-victoriametrics-importer/internal/testutils"
 	"github.com/eparparita/linux-stats-victoriametrics-importer/procfs"
 )
 
-type MountinfoMetricsCacheUpdateTestCase struct {
+type ProcMountinfoMetricsCacheUpdateTestCase struct {
 	Name                           string
 	Description                    string
 	Instance                       string
 	Hostname                       string
 	Pid                            int
-	ParsedLines                    [][procfs.MOUNTINFO_NUM_FIELDS]string
+	ParsedLines                    []map[int]string
 	DiskMajMinList                 []string
 	PrimeMountinfoMetricsCache     []string
 	WantMountinfoMetricsCache      []string
 	WantMountinfoOutOfScopeMetrics []string
 }
 
-func makeMountinfo(parsedLines [][procfs.MOUNTINFO_NUM_FIELDS]string) *procfs.Mountinfo {
+type ProcDiskstatsMetricsInfoTest struct {
+	CycleNum     int
+	ZeroDelta    []bool
+	MetricsCache []string
+}
+
+type ProcDiskstatsMetricsTestCase struct {
+	Name                                 string
+	Description                          string
+	Instance                             string
+	Hostname                             string
+	MountinfoPid                         int
+	CurrProcDiskstats, PrevProcDiskstats *procfs.Diskstats
+	CurrPromTs, PrevPromTs               int64
+	PrimeDiskstatsMetricsInfo            map[string]*ProcDiskstatsMetricsInfoTest
+	MountifoParsedLines                  []map[int]string
+	MountinfoChanged                     bool
+	PrimeMountinfoMetricsCache           []string
+	MountinfoCycleNum                    int
+	FullMetricsFactor                    int
+	WantMetricsCount                     int
+	WantMetrics                          []string
+	ReportExtra                          bool
+	WantZeroDeltaMap                     map[string][]bool
+}
+
+func makeProcMountinfo(parsedLines []map[int]string) *procfs.Mountinfo {
 	procMountinfo := procfs.NewMountinfo("", -1)
 	for _, parsedLine := range parsedLines {
 		mountinfoParsedLine := procfs.MountinfoParsedLine{}
@@ -34,7 +61,58 @@ func makeMountinfo(parsedLines [][procfs.MOUNTINFO_NUM_FIELDS]string) *procfs.Mo
 	return procMountinfo
 }
 
-func testMountinfoMetricsCacheUpdate(tc *MountinfoMetricsCacheUpdateTestCase, t *testing.T) {
+func makeProcDiskstatsMetrics(tc *ProcDiskstatsMetricsTestCase) (*ProcDiskstatsMetrics, error) {
+	pdsm, err := NewProcDiskstatsMetrics(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	pdsm.instance = tc.Instance
+	pdsm.hostname = tc.Hostname
+	pdsm.mountinfoPid = tc.MountinfoPid
+
+	pdsm.procDiskstats[pdsm.currIndex] = tc.CurrProcDiskstats
+	pdsm.procDiskstatsTs[pdsm.currIndex] = time.UnixMilli(tc.CurrPromTs)
+	pdsm.procDiskstats[1-pdsm.currIndex] = tc.PrevProcDiskstats
+	pdsm.procDiskstatsTs[1-pdsm.currIndex] = time.UnixMilli(tc.PrevPromTs)
+
+	for majMin, infoTC := range tc.PrimeDiskstatsMetricsInfo {
+		info := &ProcDiskstatsMetricsInfo{
+			cycleNum: infoTC.CycleNum,
+		}
+		if infoTC.MetricsCache != nil {
+			info.metricsCache = make([][]byte, len(infoTC.MetricsCache))
+			for i, metric := range infoTC.MetricsCache {
+				info.metricsCache[i] = []byte(metric)
+			}
+		}
+		if infoTC.ZeroDelta != nil {
+			info.zeroDelta = make([]bool, len(infoTC.ZeroDelta))
+			copy(info.zeroDelta, infoTC.ZeroDelta)
+		}
+		pdsm.diskstatsMetricsInfo[majMin] = info
+	}
+
+	if tc.MountifoParsedLines != nil {
+		pdsm.procMountinfo = makeProcMountinfo(tc.MountifoParsedLines)
+		pdsm.procMountinfo.Changed = tc.MountinfoChanged
+		pdsm.mountinfoCycleNum = tc.MountinfoCycleNum
+	} else {
+		pdsm.mountifoDisabled = true
+	}
+	if tc.PrimeMountinfoMetricsCache != nil {
+		pdsm.mountinfoMetricsCache = make([][]byte, len(tc.PrimeMountinfoMetricsCache))
+		for i, metric := range tc.PrimeMountinfoMetricsCache {
+			pdsm.mountinfoMetricsCache[i] = []byte(metric)
+		}
+	}
+
+	pdsm.fullMetricsFactor = tc.FullMetricsFactor
+
+	return pdsm, nil
+}
+
+func testProcMountinfoMetricsCacheUpdate(tc *ProcMountinfoMetricsCacheUpdateTestCase, t *testing.T) {
 	tlc := testutils.NewTestLogCollect(t, Log, nil)
 	defer tlc.RestoreLog()
 
@@ -63,7 +141,7 @@ func testMountinfoMetricsCacheUpdate(tc *MountinfoMetricsCacheUpdateTestCase, t 
 	}
 	pdsm.procDiskstats[pdsm.currIndex] = procDiskstats
 
-	pdsm.procMountinfo = makeMountinfo(tc.ParsedLines)
+	pdsm.procMountinfo = makeProcMountinfo(tc.ParsedLines)
 	if tc.PrimeMountinfoMetricsCache != nil {
 		pdsm.mountinfoMetricsCache = make([][]byte, len(tc.PrimeMountinfoMetricsCache))
 		for i, metric := range tc.PrimeMountinfoMetricsCache {
@@ -114,14 +192,14 @@ func testMountinfoMetricsCacheUpdate(tc *MountinfoMetricsCacheUpdateTestCase, t 
 	}
 }
 
-func TestMountinfoMetricsCacheUpdate(t *testing.T) {
-	for _, tc := range []*MountinfoMetricsCacheUpdateTestCase{
+func TestProcMountinfoMetricsCacheUpdate(t *testing.T) {
+	for _, tc := range []*ProcMountinfoMetricsCacheUpdateTestCase{
 		{
 			Name:     "initial",
 			Instance: "test_lsvmi",
 			Hostname: "test-lsvmi",
 			Pid:      -1,
-			ParsedLines: [][procfs.MOUNTINFO_NUM_FIELDS]string{
+			ParsedLines: []map[int]string{
 				{
 					procfs.MOUNTINFO_MAJOR_MINOR:  "100:0",
 					procfs.MOUNTINFO_ROOT:         "/100:0",
@@ -147,7 +225,7 @@ func TestMountinfoMetricsCacheUpdate(t *testing.T) {
 			Instance: "test_lsvmi",
 			Hostname: "test-lsvmi",
 			Pid:      -1,
-			ParsedLines: [][procfs.MOUNTINFO_NUM_FIELDS]string{
+			ParsedLines: []map[int]string{
 				{
 					procfs.MOUNTINFO_MAJOR_MINOR:  "100:0",
 					procfs.MOUNTINFO_ROOT:         "/100:0",
@@ -176,7 +254,7 @@ func TestMountinfoMetricsCacheUpdate(t *testing.T) {
 			Instance: "test_lsvmi",
 			Hostname: "test-lsvmi",
 			Pid:      -1,
-			ParsedLines: [][procfs.MOUNTINFO_NUM_FIELDS]string{
+			ParsedLines: []map[int]string{
 				{
 					procfs.MOUNTINFO_MAJOR_MINOR:  "100:0",
 					procfs.MOUNTINFO_ROOT:         "/100:0",
@@ -208,7 +286,7 @@ func TestMountinfoMetricsCacheUpdate(t *testing.T) {
 	} {
 		t.Run(
 			tc.Name,
-			func(t *testing.T) { testMountinfoMetricsCacheUpdate(tc, t) },
+			func(t *testing.T) { testProcMountinfoMetricsCacheUpdate(tc, t) },
 		)
 	}
 }
