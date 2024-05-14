@@ -78,11 +78,6 @@ var loggerLevelArg = NewStringFlagCheckUsed(
 	`, GetLogLevelNames()),
 )
 
-var loggerDisableReportFileArg = NewBoolFlagCheckUsed(
-	"log-disable-report-file",
-	"Disable file:line# reporting",
-)
-
 var logSourceRoot string
 
 func GetSourceRoot() (string, error) {
@@ -224,17 +219,15 @@ func SetLogger(cfg any) error {
 		logCfg    *LoggerConfig
 	)
 
-	if cfg != nil {
-		switch cfg := cfg.(type) {
-		case *LoggerConfig:
-			logCfg = cfg
-		case *LsvmiConfig:
-			logCfg = cfg.LoggerConfig
-		case nil:
-			logCfg = DefaultLoggerConfig()
-		default:
-			return fmt.Errorf("cfg: %T invalid type", cfg)
-		}
+	switch cfg := cfg.(type) {
+	case *LoggerConfig:
+		logCfg = cfg
+	case *LsvmiConfig:
+		logCfg = cfg.LoggerConfig
+	case nil:
+		logCfg = DefaultLoggerConfig()
+	default:
+		return fmt.Errorf("cfg: %T invalid type", cfg)
 	}
 
 	levelName = logCfg.Level

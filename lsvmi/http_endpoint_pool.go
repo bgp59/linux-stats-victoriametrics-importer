@@ -257,8 +257,8 @@ func NewHttpEndpoint(cfg *HttpEndpointConfig) (*HttpEndpoint, error) {
 		markUnhealthyThreshold: cfg.MarkUnhealthyThreshold,
 	}
 	if ep.URL, err = url.Parse(ep.url); err != nil {
-		ep = nil
 		err = fmt.Errorf("NewHttpEndpoint(%s): %v", ep.url, err)
+		ep = nil
 	}
 	return ep, err
 }
