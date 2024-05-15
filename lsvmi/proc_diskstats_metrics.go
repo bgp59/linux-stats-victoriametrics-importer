@@ -64,7 +64,7 @@ type ProcDiskstatsPctMetric struct {
 	prec   int     // FormatFloat prec arg
 }
 
-var ProcDiskstatsIndexPctMetric = [procfs.DISKSTATS_VALUE_FIELDS_NUM]*ProcDiskstatsPctMetric{
+var procDiskstatsIndexPctMetric = [procfs.DISKSTATS_VALUE_FIELDS_NUM]*ProcDiskstatsPctMetric{
 	procfs.DISKSTATS_READ_MILLISEC:        {100. / 1000., 2},
 	procfs.DISKSTATS_WRITE_MILLISEC:       {100. / 1000., 2},
 	procfs.DISKSTATS_IO_MILLISEC:          {100. / 1000., 2},
@@ -366,7 +366,7 @@ func (pdsm *ProcDiskstatsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) 
 			delta := currStats[i] - prevStats[i]
 			if delta != 0 || fullCycle || !zeroDelta[i] {
 				buf.Write(metric)
-				if pctMetric := ProcDiskstatsIndexPctMetric[i]; pctMetric != nil {
+				if pctMetric := procDiskstatsIndexPctMetric[i]; pctMetric != nil {
 					buf.WriteString(strconv.FormatFloat(
 						float64(delta)*pctMetric.factor/deltaSec, 'f', pctMetric.prec, 64))
 				} else {
@@ -425,6 +425,15 @@ func (pdsm *ProcDiskstatsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) 
 			pdsm.mountinfoCycleNum = 0
 		}
 		totalMetricsCount += cnt
+	}
+
+	// Clean up info no longer in scope:
+	if len(pdsm.diskstatsMetricsInfo) != len(currProcDiskstats.DevInfoMap) {
+		for majMin := range pdsm.diskstatsMetricsInfo {
+			if currProcDiskstats.DevInfoMap[majMin] != nil {
+				delete(currProcDiskstats.DevInfoMap, majMin)
+			}
+		}
 	}
 
 	// Interval metric:

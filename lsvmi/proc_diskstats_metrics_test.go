@@ -3,6 +3,7 @@ package lsvmi
 import (
 	"bytes"
 	"fmt"
+	"path"
 	"testing"
 	"time"
 
@@ -48,6 +49,11 @@ type ProcDiskstatsMetricsTestCase struct {
 	ReportExtra                          bool
 	WantZeroDeltaMap                     map[string][]bool
 }
+
+var procDiskstatsMetricsTestcasesFile = path.Join(
+	"..", testutils.LsvmiTestcasesSubdir,
+	"proc_diskstats.json",
+)
 
 func makeProcMountinfo(parsedLines []map[int]string) *procfs.Mountinfo {
 	procMountinfo := procfs.NewMountinfo("", -1)
@@ -192,6 +198,79 @@ func testProcMountinfoMetricsCacheUpdate(tc *ProcMountinfoMetricsCacheUpdateTest
 	}
 }
 
+func testProcDiskstatsMetrics(tc *ProcDiskstatsMetricsTestCase, t *testing.T) {
+	tlc := testutils.NewTestLogCollect(t, Log, nil)
+	defer tlc.RestoreLog()
+
+	if tc.Description != "" {
+		t.Logf("Description: %s", tc.Description)
+	}
+	pdsm, err := makeProcDiskstatsMetrics(tc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantCurrIndex := 1 - pdsm.currIndex
+	testMetricsQueue := testutils.NewTestMetricsQueue(0)
+	buf := testMetricsQueue.GetBuf()
+	gotMetricsCount, _ := pdsm.generateMetrics(buf)
+	testMetricsQueue.QueueBuf(buf)
+
+	errBuf := &bytes.Buffer{}
+
+	gotCurrIndex := pdsm.currIndex
+	if wantCurrIndex != gotCurrIndex {
+		fmt.Fprintf(
+			errBuf,
+			"\ncurrIndex: want: %d, got: %d",
+			wantCurrIndex, gotCurrIndex,
+		)
+	}
+
+	if tc.WantZeroDeltaMap != nil {
+		for majMin, wantZeroDelta := range tc.WantZeroDeltaMap {
+			info := pdsm.diskstatsMetricsInfo[majMin]
+			if info == nil {
+				fmt.Fprintf(errBuf, "\nzeroDelta: missing %q", majMin)
+				continue
+			}
+			gotZeroDelta := info.zeroDelta
+			if len(wantZeroDelta) != len(gotZeroDelta) {
+				fmt.Fprintf(
+					errBuf,
+					"\nzeroDelta[%q] length: want: %d, got: %d",
+					majMin, len(wantZeroDelta), len(gotZeroDelta),
+				)
+				continue
+			}
+			for i, wantVal := range wantZeroDelta {
+				gotVal := gotZeroDelta[i]
+				if wantVal != gotVal {
+					fmt.Fprintf(
+						errBuf,
+						"\nzeroDelta[%q][%d]: want: %v, got: %v",
+						majMin, i, wantVal, gotVal,
+					)
+				}
+			}
+		}
+	}
+
+	if tc.WantMetricsCount != gotMetricsCount {
+		fmt.Fprintf(
+			errBuf,
+			"\nmetrics count: want: %d, got: %d",
+			tc.WantMetricsCount, gotMetricsCount,
+		)
+	}
+
+	testMetricsQueue.GenerateReport(tc.WantMetrics, tc.ReportExtra, errBuf)
+
+	if errBuf.Len() > 0 {
+		t.Fatal(errBuf)
+	}
+}
+
 func TestProcMountinfoMetricsCacheUpdate(t *testing.T) {
 	for _, tc := range []*ProcMountinfoMetricsCacheUpdateTestCase{
 		{
@@ -287,6 +366,21 @@ func TestProcMountinfoMetricsCacheUpdate(t *testing.T) {
 		t.Run(
 			tc.Name,
 			func(t *testing.T) { testProcMountinfoMetricsCacheUpdate(tc, t) },
+		)
+	}
+}
+
+func TestProcDiskstatsMetrics(t *testing.T) {
+	t.Logf("Loading testcases from %q ...", procDiskstatsMetricsTestcasesFile)
+	testcases := make([]*ProcDiskstatsMetricsTestCase, 0)
+	err := testutils.LoadJsonFile(procDiskstatsMetricsTestcasesFile, &testcases)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range testcases {
+		t.Run(
+			tc.Name,
+			func(t *testing.T) { testProcDiskstatsMetrics(tc, t) },
 		)
 	}
 }
