@@ -40,6 +40,8 @@ const (
 	PROC_DISKSTATS_NUM_FLUSH_REQUESTS_DELTA_METRIC     = "proc_diskstats_num_flush_requests_delta"
 	PROC_DISKSTATS_FLUSH_PCT_METRIC                    = "proc_diskstats_flush_pct"
 
+	PROC_DISKSTATS_INFO_METRIC = "proc_diskstats_info"
+
 	PROC_DISKSTATS_MAJ_MIN_LABEL_NAME = "maj_min"
 	PROC_DISKSTATS_NAME_LABEL_NAME    = "name"
 
@@ -141,6 +143,8 @@ type ProcDiskstatsMetricsInfo struct {
 	zeroDelta []bool
 	// Metrics cache, indexed by diskstats index:
 	metricsCache [][]byte
+	// Info metric:
+	infoMetric []byte
 }
 
 type ProcDiskstatsMetrics struct {
@@ -258,6 +262,15 @@ func (pdsm *ProcDiskstatsMetrics) updateDiskstatsMetricsCache(majMin, diskName s
 			PROC_DISKSTATS_NAME_LABEL_NAME, diskName,
 		))
 	}
+
+	info.infoMetric = []byte(fmt.Sprintf(
+		`%s{%s="%s",%s="%s",%s="%s",%s="%s"} `, // N.B. space before value included
+		PROC_DISKSTATS_INFO_METRIC,
+		INSTANCE_LABEL_NAME, instance,
+		HOSTNAME_LABEL_NAME, hostname,
+		PROC_DISKSTATS_MAJ_MIN_LABEL_NAME, majMin,
+		PROC_DISKSTATS_NAME_LABEL_NAME, diskName,
+	))
 }
 
 // When updating mountinfo return an iterable object with the metrics that went
@@ -351,9 +364,16 @@ func (pdsm *ProcDiskstatsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) 
 			continue
 		}
 		diskstatsMetricInfo := pdsm.diskstatsMetricsInfo[majMin]
-		fullCycle := diskstatsMetricInfo == nil || diskstatsMetricInfo.cycleNum == 0
-		if diskstatsMetricInfo == nil || // new disk with a previous state
-			currProcDiskstats.Changed && currDevInfo.Name != prevDevInfo.Name { // name changed
+		nameChanged := currProcDiskstats.Changed && currDevInfo.Name != prevDevInfo.Name
+		fullData := diskstatsMetricInfo == nil || diskstatsMetricInfo.cycleNum == 0 || nameChanged
+		if diskstatsMetricInfo == nil || nameChanged {
+			if diskstatsMetricInfo != nil {
+				// Annul previous info now, since it will be updated:
+				buf.Write(diskstatsMetricInfo.infoMetric)
+				buf.WriteByte('0')
+				buf.Write(promTs)
+				actualMetricsCount++
+			}
 			pdsm.updateDiskstatsMetricsCache(majMin, currDevInfo.Name)
 			diskstatsMetricInfo = pdsm.diskstatsMetricsInfo[majMin]
 		}
@@ -364,7 +384,7 @@ func (pdsm *ProcDiskstatsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) 
 				continue
 			}
 			delta := currStats[i] - prevStats[i]
-			if delta != 0 || fullCycle || !zeroDelta[i] {
+			if delta != 0 || fullData || !zeroDelta[i] {
 				buf.Write(metric)
 				if pctMetric := procDiskstatsIndexPctMetric[i]; pctMetric != nil {
 					buf.WriteString(strconv.FormatFloat(
@@ -377,17 +397,26 @@ func (pdsm *ProcDiskstatsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) 
 			}
 			zeroDelta[i] = delta == 0
 		}
+
+		if fullData {
+			// Info:
+			buf.Write(diskstatsMetricInfo.infoMetric)
+			buf.WriteByte('1')
+			buf.Write(promTs)
+			actualMetricsCount++
+		}
+
 		// Update cycleNum for this maj:min:
 		if diskstatsMetricInfo.cycleNum += 1; diskstatsMetricInfo.cycleNum >= pdsm.fullMetricsFactor {
 			diskstatsMetricInfo.cycleNum = 0
 		}
-		totalMetricsCount += len(diskstatsMetricInfo.metricsCache)
+		totalMetricsCount += len(diskstatsMetricInfo.metricsCache) + 1
 	}
 
 	// mountinfo metrics, unless disabled:
 	if pdsm.mountifoDisabled {
 		if pdsm.mountinfoMetricsCache != nil {
-			// Annul prev metrics:
+			// Annul all mountinfo metrics:
 			for _, metric := range pdsm.mountinfoMetricsCache {
 				buf.Write(metric)
 				buf.WriteByte('0')
@@ -420,11 +449,11 @@ func (pdsm *ProcDiskstatsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) 
 			}
 			actualMetricsCount += cnt
 		}
+		totalMetricsCount += cnt
 		// Update cycle num:
 		if pdsm.mountinfoCycleNum += 1; pdsm.mountinfoCycleNum >= pdsm.fullMetricsFactor {
 			pdsm.mountinfoCycleNum = 0
 		}
-		totalMetricsCount += cnt
 	}
 
 	// Clean up info no longer in scope:

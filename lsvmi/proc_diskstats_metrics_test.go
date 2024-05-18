@@ -28,6 +28,7 @@ type ProcDiskstatsMetricsInfoTest struct {
 	CycleNum     int
 	ZeroDelta    []bool
 	MetricsCache []string
+	InfoMetric   string
 }
 
 type ProcDiskstatsMetricsTestCase struct {
@@ -95,6 +96,9 @@ func makeProcDiskstatsMetrics(tc *ProcDiskstatsMetricsTestCase) (*ProcDiskstatsM
 		if infoTC.ZeroDelta != nil {
 			info.zeroDelta = make([]bool, len(infoTC.ZeroDelta))
 			copy(info.zeroDelta, infoTC.ZeroDelta)
+		}
+		if infoTC.InfoMetric != "" {
+			info.infoMetric = []byte(infoTC.InfoMetric)
 		}
 		pdsm.diskstatsMetricsInfo[majMin] = info
 	}

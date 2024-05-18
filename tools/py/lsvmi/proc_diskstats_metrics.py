@@ -59,6 +59,8 @@ PROC_DISKSTATS_NUM_FLUSH_REQUESTS_DELTA_METRIC = (
 )
 PROC_DISKSTATS_FLUSH_PCT_METRIC = "proc_diskstats_flush_pct"
 
+PROC_DISKSTATS_INFO_METRIC = "proc_diskstats_info"
+
 PROC_DISKSTATS_MAJ_MIN_LABEL_NAME = "maj_min"
 PROC_DISKSTATS_NAME_LABEL_NAME = "name"
 
@@ -121,6 +123,7 @@ class ProcDiskstatsMetricsInfoTest:
         default_factory=lambda: [False] * procfs.DISKSTATS_VALUE_FIELDS_NUM
     )
     MetricsCache: Optional[List[str]] = None
+    InfoMetric: Optional[str] = None
 
 
 @dataclass
@@ -147,9 +150,9 @@ class ProcDiskstatsMetricsTestCase:
 
 
 def build_diskstats_metric(
+    metric_name: str,
     maj_min: str,
     disk_name: str,
-    metric_name: str,
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
 ) -> Optional[str]:
@@ -176,7 +179,7 @@ def build_diskstats_metrics(
 ) -> List[str]:
     return [
         build_diskstats_metric(
-            maj_min, disk_name, metric_name, instance=instance, hostname=hostname
+            metric_name, maj_min, disk_name, instance=instance, hostname=hostname
         )
         for metric_name in procDiskstatsIndexToMetricNameMap.values()
     ]
@@ -236,17 +239,13 @@ def generate_proc_diskstats_metrics(
         prev_dev_info = prev_proc_diskstats.DevInfoMap.get(maj_min)
         if prev_dev_info is None:
             continue
-        metrics_info = diskstats_metrics_info.get(
-            maj_min, ProcDiskstatsMetricsInfoTest()
-        )
+        metrics_info = diskstats_metrics_info.get(maj_min)
+        name_change = curr_dev_info.Name != prev_dev_info.Name
+        full_data = metrics_info is None or metrics_info.CycleNum == 0 or name_change
         zero_delta = [False] * procfs.DISKSTATS_VALUE_FIELDS_NUM
         for index, metric_name in procDiskstatsIndexToMetricNameMap.items():
             delta = uint32_delta(curr_dev_info.Stats[index], prev_dev_info.Stats[index])
-            if (
-                metrics_info.CycleNum == 0
-                or delta != 0
-                or not metrics_info.ZeroDelta[index]
-            ):
+            if delta != 0 or full_data or not metrics_info.ZeroDelta[index]:
                 if index in procDiskstatsIndexPctMetric:
                     factor, prec = procDiskstatsIndexPctMetric[index]
                     value = f"{delta * factor / interval:.{prec}f}"
@@ -254,15 +253,37 @@ def generate_proc_diskstats_metrics(
                     value = str(delta)
                 metrics.append(
                     build_diskstats_metric(
+                        metric_name,
                         maj_min,
                         curr_dev_info.Name,
-                        metric_name,
                         instance=instance,
                         hostname=hostname,
                     )
                     + f"{value} {curr_prom_ts}"
                 )
             zero_delta[index] = delta == 0
+        if metrics_info is not None and name_change:
+            metrics.append(
+                build_diskstats_metric(
+                    PROC_DISKSTATS_INFO_METRIC,
+                    maj_min,
+                    prev_dev_info.Name,
+                    instance=instance,
+                    hostname=hostname,
+                )
+                + f"0 {curr_prom_ts}"
+            )
+        if full_data:
+            metrics.append(
+                build_diskstats_metric(
+                    PROC_DISKSTATS_INFO_METRIC,
+                    maj_min,
+                    curr_dev_info.Name,
+                    instance=instance,
+                    hostname=hostname,
+                )
+                + f"1 {curr_prom_ts}"
+            )
         zero_delta_map[maj_min] = zero_delta
 
     if mountinfo_parsed_lines is not None:
@@ -469,6 +490,13 @@ def generate_proc_diskstats_metrics_test_cases(
                         MetricsCache=build_diskstats_metrics(
                             maj_min, dev_info.Name, instance=instance, hostname=hostname
                         ),
+                        InfoMetric=build_diskstats_metric(
+                            PROC_DISKSTATS_INFO_METRIC,
+                            maj_min,
+                            dev_info.Name,
+                            instance=instance,
+                            hostname=hostname,
+                        ),
                     )
                     for maj_min, dev_info in curr_proc_diskstats.DevInfoMap.items()
                 }
@@ -516,6 +544,13 @@ def generate_proc_diskstats_metrics_test_cases(
                     MetricsCache=build_diskstats_metrics(
                         maj_min, dev_info.Name, instance=instance, hostname=hostname
                     ),
+                    InfoMetric=build_diskstats_metric(
+                        PROC_DISKSTATS_INFO_METRIC,
+                        maj_min,
+                        dev_info.Name,
+                        instance=instance,
+                        hostname=hostname,
+                    ),
                 )
                 for maj_min, dev_info in curr_proc_diskstats.DevInfoMap.items()
             }
@@ -546,6 +581,13 @@ def generate_proc_diskstats_metrics_test_cases(
             ZeroDelta=[True] * procfs.DISKSTATS_VALUE_FIELDS_NUM,
             MetricsCache=build_diskstats_metrics(
                 maj_min, dev_info.Name, instance=instance, hostname=hostname
+            ),
+            InfoMetric=build_diskstats_metric(
+                PROC_DISKSTATS_INFO_METRIC,
+                maj_min,
+                dev_info.Name,
+                instance=instance,
+                hostname=hostname,
             ),
         )
         for maj_min, dev_info in curr_proc_diskstats.DevInfoMap.items()
@@ -582,6 +624,13 @@ def generate_proc_diskstats_metrics_test_cases(
                 MetricsCache=build_diskstats_metrics(
                     maj_min, dev_info.Name, instance=instance, hostname=hostname
                 ),
+                InfoMetric=build_diskstats_metric(
+                    PROC_DISKSTATS_INFO_METRIC,
+                    maj_min,
+                    dev_info.Name,
+                    instance=instance,
+                    hostname=hostname,
+                ),
             )
             for maj_min, dev_info in prev_proc_diskstats.DevInfoMap.items()
         }
@@ -608,15 +657,22 @@ def generate_proc_diskstats_metrics_test_cases(
             delta = max_val + (n + 1) * procfs.DISKSTATS_VALUE_FIELDS_NUM + i
             dev_info.Stats[i] = uint32_delta(dev_info.Stats[i], delta)
         diskstats_metrics_info = {
-            mm: ProcDiskstatsMetricsInfoTest(
+            maj_min1: ProcDiskstatsMetricsInfoTest(
                 CycleNum=1,
                 ZeroDelta=[True] * procfs.DISKSTATS_VALUE_FIELDS_NUM,
                 MetricsCache=build_diskstats_metrics(
-                    mm, dev_info.Name, instance=instance, hostname=hostname
+                    maj_min1, dev_info.Name, instance=instance, hostname=hostname
+                ),
+                InfoMetric=build_diskstats_metric(
+                    PROC_DISKSTATS_INFO_METRIC,
+                    maj_min1,
+                    dev_info.Name,
+                    instance=instance,
+                    hostname=hostname,
                 ),
             )
-            for mm, dev_info in curr_proc_diskstats.DevInfoMap.items()
-            if mm != maj_min
+            for maj_min1, dev_info in curr_proc_diskstats.DevInfoMap.items()
+            if maj_min1 != maj_min
         }
         description = f"maj_min={maj_min}"
         test_cases.append(
@@ -654,6 +710,13 @@ def generate_proc_diskstats_metrics_test_cases(
             ZeroDelta=[True] * procfs.DISKSTATS_VALUE_FIELDS_NUM,
             MetricsCache=build_diskstats_metrics(
                 maj_min, dev_info.Name, instance=instance, hostname=hostname
+            ),
+            InfoMetric=build_diskstats_metric(
+                PROC_DISKSTATS_INFO_METRIC,
+                maj_min,
+                dev_info.Name,
+                instance=instance,
+                hostname=hostname,
             ),
         )
         for maj_min, dev_info in prev_proc_diskstats.DevInfoMap.items()
