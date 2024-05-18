@@ -80,7 +80,7 @@ proc_diskstats_metrics_config:
   interval: 5s
   full_metrics_factor: 12
   # The PID to use for /proc/PID/mountinfo, use 0 for self.
-  mountinfo_pid: 1
+  mountinfo_pid: 0
 
 
 ###############################################
