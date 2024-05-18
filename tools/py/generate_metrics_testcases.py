@@ -3,6 +3,7 @@
 import argparse
 
 from lsvmi.internal_metrics import generators as internal_metrics_generators
+from lsvmi.proc_diskstats_metrics import generate_proc_diskstats_metrics_test_cases
 from lsvmi.proc_interrupts_metrics import generate_proc_interrupts_metrics_test_cases
 from lsvmi.proc_net_dev_metrics import generate_proc_net_dev_metrics_test_cases
 from lsvmi.proc_net_snmp6_metrics import generate_proc_net_snmp6_metrics_test_cases
@@ -12,6 +13,7 @@ from lsvmi.proc_stat_metrics import generate_proc_stat_metrics_test_cases
 from testutils import DEFAULT_TEST_HOSTNAME, DEFAULT_TEST_INSTANCE, lsvmi_testcases_root
 
 testcase_generator_fn_map = {
+    "proc_diskstats": generate_proc_diskstats_metrics_test_cases,
     "proc_interrupts": generate_proc_interrupts_metrics_test_cases,
     "proc_net_dev": generate_proc_net_dev_metrics_test_cases,
     "proc_net_snmp": generate_proc_net_snmp_metrics_test_cases,
