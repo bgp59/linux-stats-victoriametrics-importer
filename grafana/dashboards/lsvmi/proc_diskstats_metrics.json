@@ -304,7 +304,7 @@
           },
           "gridPos": {
             "h": 8,
-            "w": 8,
+            "w": 10,
             "x": 0,
             "y": 9
           },
@@ -363,7 +363,7 @@
               "refId": "C"
             }
           ],
-          "title": "Read Deltas,  ${hostname}, Mounted Only: ${mounted_only}",
+          "title": "Read Deltas/${hostname}, MntOnly: ${mounted_only}",
           "type": "timeseries"
         },
         {
@@ -443,8 +443,8 @@
           },
           "gridPos": {
             "h": 8,
-            "w": 8,
-            "x": 8,
+            "w": 10,
+            "x": 10,
             "y": 9
           },
           "id": 8,
@@ -502,7 +502,7 @@
               "refId": "C"
             }
           ],
-          "title": "Read Rates ${hostname}, Mounted Only = ${mounted_only}",
+          "title": "Read Rates/${hostname}, MntOnly: ${mounted_only}",
           "type": "timeseries"
         },
         {
@@ -582,7 +582,7 @@
           },
           "gridPos": {
             "h": 8,
-            "w": 8,
+            "w": 10,
             "x": 0,
             "y": 17
           },
@@ -641,7 +641,7 @@
               "refId": "C"
             }
           ],
-          "title": "Write Deltas,  ${hostname}, Mounted Only: ${mounted_only}",
+          "title": "Write Deltas/${hostname}, MntOnly: ${mounted_only}",
           "type": "timeseries"
         },
         {
@@ -721,8 +721,8 @@
           },
           "gridPos": {
             "h": 8,
-            "w": 8,
-            "x": 8,
+            "w": 10,
+            "x": 10,
             "y": 17
           },
           "id": 10,
@@ -780,7 +780,7 @@
               "refId": "C"
             }
           ],
-          "title": "Write Rates ${hostname}, Mounted Only = ${mounted_only}",
+          "title": "Write Rates/${hostname}, MntOnly: ${mounted_only}",
           "type": "timeseries"
         },
         {
@@ -860,7 +860,7 @@
           },
           "gridPos": {
             "h": 8,
-            "w": 8,
+            "w": 10,
             "x": 0,
             "y": 25
           },
@@ -919,7 +919,7 @@
               "refId": "C"
             }
           ],
-          "title": "Discard Deltas, ${hostname}, Mounted Only: ${mounted_only}",
+          "title": "Discard Deltas/${hostname}, MntOnly: ${mounted_only}",
           "type": "timeseries"
         },
         {
@@ -999,8 +999,8 @@
           },
           "gridPos": {
             "h": 8,
-            "w": 8,
-            "x": 8,
+            "w": 10,
+            "x": 10,
             "y": 25
           },
           "id": 12,
@@ -1058,7 +1058,199 @@
               "refId": "C"
             }
           ],
-          "title": "Discard Rates ${hostname}, Mounted Only = ${mounted_only}",
+          "title": "Discard Rates/${hostname}, MntOnly: ${mounted_only}",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "IMPORTANT! Must select a specific **Hostname**",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "ops",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 10,
+            "x": 0,
+            "y": 33
+          },
+          "id": 19,
+          "interval": "${interval}",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "proc_diskstats_num_flush_requests_delta{\n  instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n} >= ${delta_threshold}\nand on (instance, hostname, maj_min)\n(\n  last_over_time(proc_mountinfo{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${lookback}]) * ${mounted_only}\n  or\n  last_over_time(proc_diskstats_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n) > 0",
+              "hide": false,
+              "interval": "${interval}",
+              "legendFormat": "flush(dev={{name}},maj_min={{maj_min}},host={{hostname}},inst={{instance}})",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Flush Rq Deltas/${hostname}, MntOnly: ${mounted_only}",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "IMPORTANT! Must select a specific **Hostname**",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "ops/sec",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 10,
+            "x": 10,
+            "y": 33
+          },
+          "id": 20,
+          "interval": "${interval}",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "(\n  proc_diskstats_num_flush_requests_delta{\n    instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n  }\n  and on (instance, hostname, maj_min)\n  (\n    last_over_time(proc_mountinfo{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n    or\n    last_over_time(proc_diskstats_info{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n  ) > 0\n) / on (instance, host) group_left()\n(\n  proc_diskstats_metrics_delta_sec{instance=~\"${instance}\",hostname=\"${hostname}\"} > 0\n) >= ${rate_threshold}",
+              "hide": false,
+              "interval": "${interval}",
+              "legendFormat": "flush(dev={{name}},maj_min={{maj_min}},host={{hostname}},inst={{instance}})",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Flush Rq Rates/${hostname}, MntOnly: ${mounted_only}",
           "type": "timeseries"
         }
       ],
@@ -1286,8 +1478,8 @@
         "allValue": ".*",
         "current": {
           "selected": false,
-          "text": "e857698ab7ed",
-          "value": "e857698ab7ed"
+          "text": "9676dc62ec5e",
+          "value": "9676dc62ec5e"
         },
         "datasource": {
           "type": "prometheus",
@@ -1435,11 +1627,6 @@
         "type": "query"
       },
       {
-        "current": {
-          "selected": true,
-          "text": "5s",
-          "value": "5s"
-        },
         "hide": 2,
         "name": "interval",
         "query": "5s",
@@ -1447,11 +1634,6 @@
         "type": "constant"
       },
       {
-        "current": {
-          "selected": true,
-          "text": "65s",
-          "value": "65s"
-        },
         "hide": 2,
         "label": "",
         "name": "lookback",
@@ -1529,6 +1711,6 @@
   "timezone": "",
   "title": "proc_diskstats_metrics",
   "uid": "proc_diskstats_metrics",
-  "version": 28,
+  "version": 29,
   "weekStart": ""
 }
