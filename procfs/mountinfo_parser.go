@@ -77,11 +77,9 @@ func (mountinfo *Mountinfo) Clone(full bool) *Mountinfo {
 		ForceUpdate: mountinfo.ForceUpdate,
 		path:        mountinfo.path,
 	}
+	NewMountinfo.content = &bytes.Buffer{}
 	if full {
-		NewMountinfo.content = bytes.NewBuffer(mountinfo.content.Bytes())
-		NewMountinfo.update()
-	} else {
-		NewMountinfo.content = &bytes.Buffer{}
+		NewMountinfo.content.Write(mountinfo.content.Bytes())
 	}
 
 	return NewMountinfo
@@ -158,13 +156,13 @@ func (mountinfo *Mountinfo) update() error {
 
 func (mountinfo *Mountinfo) Parse() error {
 	fBuf, err := mountinfoReadFileBufPool.ReadFile(mountinfo.path)
-	defer mountinfoReadFileBufPool.ReturnBuf(fBuf)
 	if err == nil {
 		mountinfo.Changed = mountinfo.ForceUpdate || !bytes.Equal(mountinfo.content.Bytes(), fBuf.Bytes())
 		if mountinfo.Changed {
-			mountinfo.content = bytes.NewBuffer(fBuf.Bytes())
+			fBuf, mountinfo.content = mountinfo.content, fBuf
 			err = mountinfo.update()
 		}
 	}
+	mountinfoReadFileBufPool.ReturnBuf(fBuf)
 	return err
 }

@@ -91,22 +91,30 @@ statfs_metrics_config:
   # The PID to use for /proc/PID/mountinfo, use 0 for self.
   mountinfo_pid: 0
 
-	# The list list of filesystem types to include; if not defined/empty then all
-	# are included:
-  # include_file_system_types: []
+  # The list list of filesystem types to include; if not defined/empty then all
+  # are included:
+  include_file_system_types: []
 
-	# The list list of filesystem types to exclude; if not defined/empty then none
-	# is excluded. If a filesystem type appears in both lists then exclude takes
-	# precedence. The default is set for well known remote filesystems:
-  # exclude_file_system_types: [
-  #   "dav",
-  #   "sftp",
-  #   "smb",
-  #   "cifs",
-  #   "nfs",
-  #   "davfs2",
-  #   "sshfs",
-  # ]
+  # The list list of filesystem types to exclude; if not defined/empty then none
+  # is excluded. If a filesystem type appears in both lists then exclude takes
+  # precedence. Recommended exclusions contain remote file systems and pseudo
+  # file systems:
+  exclude_file_system_types: [
+    "cgroup",
+    "cgroup2",
+    "cifs",
+    "dav",
+    "davfs2",
+    "devpts",
+    "fakeowner",
+    "mqueue",
+    "nfs",
+    "proc",
+    "sftp",
+    "smb",
+    "sshfs",
+    "sysfs",
+  ]
 
 ###############################################
 # Scheduler
