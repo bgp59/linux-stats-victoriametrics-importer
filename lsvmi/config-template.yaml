@@ -82,6 +82,31 @@ proc_diskstats_metrics_config:
   # The PID to use for /proc/PID/mountinfo, use 0 for self.
   mountinfo_pid: 0
 
+###############################################
+# Statfs (AKA Disk Free/df) Metrics 
+###############################################
+statfs_metrics_config:
+  interval: 5s
+  full_metrics_factor: 12
+  # The PID to use for /proc/PID/mountinfo, use 0 for self.
+  mountinfo_pid: 0
+
+	# The list list of filesystem types to include; if not defined/empty then all
+	# are included:
+  # include_file_system_types: []
+
+	# The list list of filesystem types to exclude; if not defined/empty then none
+	# is excluded. If a filesystem type appears in both lists then exclude takes
+	# precedence. The default is set for well known remote filesystems:
+  # exclude_file_system_types: [
+  #   "dav",
+  #   "sftp",
+  #   "smb",
+  #   "cifs",
+  #   "nfs",
+  #   "davfs2",
+  #   "sshfs",
+  # ]
 
 ###############################################
 # Scheduler
