@@ -116,6 +116,9 @@ type StatfsMetrics struct {
 	// Stats indexed by mount source; there can be multiple mounts for the same
 	// source, the first one encountered will be considered:
 	statfsInfo map[string]*StatfsInfo
+	// The list of out-of-scope ..._enabled metrics, they should be published w/
+	// 0 status:
+	outOfScopeEnabledMetrics [][]byte
 	// Timestamp when the stats were collected:
 	statfsTs [2]time.Time
 	// Whether there is a prev timestamp or not, essentially not first time
@@ -241,29 +244,41 @@ func (sfsm *StatfsMetrics) updateStatfsInfo() {
 		hostname = sfsm.hostname
 	}
 
+	sfsm.outOfScopeEnabledMetrics = nil
+
 	mountSources := make(map[string]bool)
 	for _, parsedLine := range sfsm.procMountinfo.ParsedLines {
 		fsType := string(parsedLine[procfs.MOUNTINFO_FS_TYPE])
 		if !sfsm.keepFsType(fsType) {
 			continue
 		}
+
 		mountSource := string(parsedLine[procfs.MOUNTINFO_MOUNT_SOURCE])
 		if mountSources[mountSource] {
 			continue // already encountered
 		}
 		mountSources[mountSource] = true
+
+		mountPoint := string(parsedLine[procfs.MOUNTINFO_MOUNT_POINT])
 		statfsInfo := sfsm.statfsInfo[mountSource]
 		if statfsInfo == nil {
 			statfsInfo = &StatfsInfo{
-				cycleNum: initialCycleNum.Get(sfsm.fullMetricsFactor),
+				cycleNum:    initialCycleNum.Get(sfsm.fullMetricsFactor),
+				mountPoint:  mountPoint,
+				mountSource: mountSource,
+				fsType:      fsType,
 			}
 			sfsm.statfsInfo[mountSource] = statfsInfo
 		} else if statfsInfo.disabled {
 			continue
+		} else if statfsInfo.mountPoint != mountPoint ||
+			statfsInfo.mountSource != mountSource ||
+			statfsInfo.fsType != fsType {
+			sfsm.outOfScopeEnabledMetrics = append(sfsm.outOfScopeEnabledMetrics, statfsInfo.enabledMetric)
+			statfsInfo.mountPoint = mountPoint
+			statfsInfo.mountSource = mountSource
+			statfsInfo.fsType = fsType
 		}
-		statfsInfo.mountPoint = string(parsedLine[procfs.MOUNTINFO_MOUNT_POINT])
-		statfsInfo.mountSource = mountSource
-		statfsInfo.fsType = fsType
 		labels := fmt.Sprintf(
 			`%s="%s",%s="%s",%s="%s",%s="%s",%s="%s"`,
 			INSTANCE_LABEL_NAME, instance,
@@ -318,9 +333,12 @@ func (sfsm *StatfsMetrics) updateStatfsInfo() {
 		))
 	}
 
-	// Remove out of scope info:
-	for mountSource := range sfsm.statfsInfo {
+	// Handle out of scope mount sources:
+	for mountSource, statfsInfo := range sfsm.statfsInfo {
 		if !mountSources[mountSource] {
+			if !statfsInfo.wasDisabled {
+				sfsm.outOfScopeEnabledMetrics = append(sfsm.outOfScopeEnabledMetrics, statfsInfo.enabledMetric)
+			}
 			delete(sfsm.statfsInfo, mountSource)
 		}
 	}
@@ -450,6 +468,16 @@ func (sfsm *StatfsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 		if statfsInfo.cycleNum += 1; statfsInfo.cycleNum >= sfsm.fullMetricsFactor {
 			statfsInfo.cycleNum = 0
 		}
+	}
+
+	if sfsm.outOfScopeEnabledMetrics != nil {
+		for _, metric := range sfsm.outOfScopeEnabledMetrics {
+			buf.Write(metric)
+			buf.WriteByte('0')
+			buf.Write(promTs)
+			actualMetricsCount += 1
+		}
+		sfsm.outOfScopeEnabledMetrics = nil
 	}
 
 	if sfsm.validPrevTs {

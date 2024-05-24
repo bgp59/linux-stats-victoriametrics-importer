@@ -872,32 +872,7 @@
                 ]
               }
             },
-            "overrides": [
-              {
-                "__systemRef": "hideSeriesFrom",
-                "matcher": {
-                  "id": "byNames",
-                  "options": {
-                    "mode": "exclude",
-                    "names": [
-                      "free(fs=/dev/vda1,mnt=/etc/resolv.conf,host=500a5a1ea3a7,inst=lsvmi)"
-                    ],
-                    "prefix": "All except:",
-                    "readOnly": true
-                  }
-                },
-                "properties": [
-                  {
-                    "id": "custom.hideFrom",
-                    "value": {
-                      "legend": false,
-                      "tooltip": false,
-                      "viz": true
-                    }
-                  }
-                ]
-              }
-            ]
+            "overrides": []
           },
           "gridPos": {
             "h": 8,
@@ -950,7 +925,7 @@
           "type": "timeseries"
         }
       ],
-      "title": "Stats For ${hostname} (specific host required!)",
+      "title": "Stats For ${fs} Filesystem(s) on ${hostname} (specific host required!)",
       "type": "row"
     }
   ],
@@ -1110,6 +1085,6 @@
   "timezone": "",
   "title": "statfs_metrics",
   "uid": "statfs_metrics",
-  "version": 9,
+  "version": 11,
   "weekStart": ""
 }
