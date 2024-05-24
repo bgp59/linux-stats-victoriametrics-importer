@@ -9,7 +9,7 @@ import (
 	"github.com/eparparita/linux-stats-victoriametrics-importer/procfs"
 )
 
-type StatfsKeepFsTypeTestCase struct {
+type StatfsMetricsKeepFsTypeTestCase struct {
 	name        string
 	includeList []string
 	excludeList []string
@@ -17,16 +17,22 @@ type StatfsKeepFsTypeTestCase struct {
 	wantNotKeep []string
 }
 
-type UpdateStatfsInfoTestCase struct {
-	name                      string
-	instance                  string
-	hostname                  string
-	primeMountinfoParsedLines [][procfs.MOUNTINFO_NUM_FIELDS]string
-	mountinfoParsedLines      [][procfs.MOUNTINFO_NUM_FIELDS]string
-	wantStatfsInfo            map[string]*StatfsInfo
+type StatfsMetricsMountifoTestData struct {
+	MountPoint  string
+	MountSource string
+	FsType      string
 }
 
-func testStatfsKeepFsType(tc *StatfsKeepFsTypeTestCase, t *testing.T) {
+type UpdateStatfsInfoTestCase struct {
+	name                 string
+	instance             string
+	hostname             string
+	primeStatfsMountinfo []*StatfsMetricsMountifoTestData
+	statfsMountinfo      []*StatfsMetricsMountifoTestData
+	wantStatfsInfo       map[string]*StatfsInfo
+}
+
+func testStatfsKeepFsType(tc *StatfsMetricsKeepFsTypeTestCase, t *testing.T) {
 	tlc := testutils.NewTestLogCollect(t, Log, nil)
 	defer tlc.RestoreLog()
 
@@ -73,23 +79,22 @@ func testStatfsKeepFsType(tc *StatfsKeepFsTypeTestCase, t *testing.T) {
 	}
 }
 
+func primeMountinfoParsedLinesForStatfsTest(
+	sfsm *StatfsMetrics, mitdList []*StatfsMetricsMountifoTestData,
+) {
+	sfsm.procMountinfo.ParsedLines = make([]*procfs.MountinfoParsedLine, len(mitdList))
+	for i, mitd := range mitdList {
+		mountinfoParsedLine := procfs.MountinfoParsedLine{}
+		mountinfoParsedLine[procfs.MOUNTINFO_MOUNT_POINT] = []byte(mitd.MountPoint)
+		mountinfoParsedLine[procfs.MOUNTINFO_MOUNT_SOURCE] = []byte(mitd.MountSource)
+		mountinfoParsedLine[procfs.MOUNTINFO_FS_TYPE] = []byte(mitd.FsType)
+		sfsm.procMountinfo.ParsedLines[i] = &mountinfoParsedLine
+	}
+}
+
 func testUpdateStatfsInfo(tc *UpdateStatfsInfoTestCase, t *testing.T) {
 	tlc := testutils.NewTestLogCollect(t, Log, nil)
 	defer tlc.RestoreLog()
-
-	setMountifoParsedLines := func(
-		sfsm *StatfsMetrics,
-		parsedLines [][procfs.MOUNTINFO_NUM_FIELDS]string,
-	) {
-		sfsm.procMountinfo.ParsedLines = make([]*procfs.MountinfoParsedLine, len(parsedLines))
-		for i, parsedLine := range parsedLines {
-			mountinfoParsedLine := procfs.MountinfoParsedLine{}
-			for j, part := range parsedLine {
-				mountinfoParsedLine[j] = []byte(part)
-			}
-			sfsm.procMountinfo.ParsedLines[i] = &mountinfoParsedLine
-		}
-	}
 
 	sfsm, err := NewStatfsMetrics(nil)
 	if err != nil {
@@ -100,15 +105,15 @@ func testUpdateStatfsInfo(tc *UpdateStatfsInfoTestCase, t *testing.T) {
 	sfsm.hostname = tc.hostname
 
 	wantOutOfScopeEnabledMetrics := make(map[string]bool)
-	if tc.primeMountinfoParsedLines != nil {
-		setMountifoParsedLines(sfsm, tc.primeMountinfoParsedLines)
+	if tc.primeStatfsMountinfo != nil {
+		primeMountinfoParsedLinesForStatfsTest(sfsm, tc.primeStatfsMountinfo)
 		sfsm.updateStatfsInfo()
 	}
-	if tc.mountinfoParsedLines != nil {
+	if tc.statfsMountinfo != nil {
 		for _, statfsInfo := range sfsm.statfsInfo {
 			wantOutOfScopeEnabledMetrics[string(statfsInfo.enabledMetric)] = true
 		}
-		setMountifoParsedLines(sfsm, tc.mountinfoParsedLines)
+		primeMountinfoParsedLinesForStatfsTest(sfsm, tc.statfsMountinfo)
 		sfsm.updateStatfsInfo()
 		for _, statfsInfo := range sfsm.statfsInfo {
 			delete(wantOutOfScopeEnabledMetrics, string(statfsInfo.enabledMetric))
@@ -173,7 +178,7 @@ func testUpdateStatfsInfo(tc *UpdateStatfsInfoTestCase, t *testing.T) {
 }
 
 func TestStatfsKeepFsType(t *testing.T) {
-	for _, tc := range []*StatfsKeepFsTypeTestCase{
+	for _, tc := range []*StatfsMetricsKeepFsTypeTestCase{
 		{
 			name: "include_all,exclude_none",
 			wantKeep: []string{
@@ -238,12 +243,8 @@ func TestUpdateStatfsInfo(t *testing.T) {
 			name:     "new",
 			instance: instance,
 			hostname: hostname,
-			mountinfoParsedLines: [][procfs.MOUNTINFO_NUM_FIELDS]string{
-				{
-					procfs.MOUNTINFO_MOUNT_POINT:  "/m1",
-					procfs.MOUNTINFO_MOUNT_SOURCE: "/dev/1",
-					procfs.MOUNTINFO_FS_TYPE:      "fs1",
-				},
+			statfsMountinfo: []*StatfsMetricsMountifoTestData{
+				{"/m1", "/dev/1", "fs1"},
 			},
 			wantStatfsInfo: map[string]*StatfsInfo{
 				"/dev/1": {
@@ -257,17 +258,9 @@ func TestUpdateStatfsInfo(t *testing.T) {
 			name:     "duplicate_mount_source",
 			instance: instance,
 			hostname: hostname,
-			mountinfoParsedLines: [][procfs.MOUNTINFO_NUM_FIELDS]string{
-				{
-					procfs.MOUNTINFO_MOUNT_POINT:  "/m1",
-					procfs.MOUNTINFO_MOUNT_SOURCE: "/dev/1",
-					procfs.MOUNTINFO_FS_TYPE:      "fs1",
-				},
-				{
-					procfs.MOUNTINFO_MOUNT_POINT:  "/m1-1",
-					procfs.MOUNTINFO_MOUNT_SOURCE: "/dev/1",
-					procfs.MOUNTINFO_FS_TYPE:      "fs1",
-				},
+			statfsMountinfo: []*StatfsMetricsMountifoTestData{
+				{"/m1", "/dev/1", "fs1"},
+				{"/m1-1", "/dev/1", "fs1"},
 			},
 			wantStatfsInfo: map[string]*StatfsInfo{
 				"/dev/1": {
@@ -281,19 +274,11 @@ func TestUpdateStatfsInfo(t *testing.T) {
 			name:     "update_mount_source",
 			instance: instance,
 			hostname: hostname,
-			primeMountinfoParsedLines: [][procfs.MOUNTINFO_NUM_FIELDS]string{
-				{
-					procfs.MOUNTINFO_MOUNT_POINT:  "/m1-before",
-					procfs.MOUNTINFO_MOUNT_SOURCE: "/dev/1-before",
-					procfs.MOUNTINFO_FS_TYPE:      "fs1-before",
-				},
+			primeStatfsMountinfo: []*StatfsMetricsMountifoTestData{
+				{"/m1-before", "/dev/1", "fs1-before"},
 			},
-			mountinfoParsedLines: [][procfs.MOUNTINFO_NUM_FIELDS]string{
-				{
-					procfs.MOUNTINFO_MOUNT_POINT:  "/m1",
-					procfs.MOUNTINFO_MOUNT_SOURCE: "/dev/1",
-					procfs.MOUNTINFO_FS_TYPE:      "fs1",
-				},
+			statfsMountinfo: []*StatfsMetricsMountifoTestData{
+				{"/m1", "/dev/1", "fs1"},
 			},
 			wantStatfsInfo: map[string]*StatfsInfo{
 				"/dev/1": {
@@ -307,19 +292,11 @@ func TestUpdateStatfsInfo(t *testing.T) {
 			name:     "remove_mount_source",
 			instance: instance,
 			hostname: hostname,
-			primeMountinfoParsedLines: [][procfs.MOUNTINFO_NUM_FIELDS]string{
-				{
-					procfs.MOUNTINFO_MOUNT_POINT:  "/m2",
-					procfs.MOUNTINFO_MOUNT_SOURCE: "/dev/2",
-					procfs.MOUNTINFO_FS_TYPE:      "fs2",
-				},
+			primeStatfsMountinfo: []*StatfsMetricsMountifoTestData{
+				{"/m2", "/dev/2", "fs2"},
 			},
-			mountinfoParsedLines: [][procfs.MOUNTINFO_NUM_FIELDS]string{
-				{
-					procfs.MOUNTINFO_MOUNT_POINT:  "/m1",
-					procfs.MOUNTINFO_MOUNT_SOURCE: "/dev/1",
-					procfs.MOUNTINFO_FS_TYPE:      "fs1",
-				},
+			statfsMountinfo: []*StatfsMetricsMountifoTestData{
+				{"/m1", "/dev/1", "fs1"},
 			},
 			wantStatfsInfo: map[string]*StatfsInfo{
 				"/dev/1": {

@@ -501,7 +501,7 @@
               "Value #bfree": "Free Blk#",
               "Value #blocks": "Total Blk#",
               "Value #bsize": "Blk Sz",
-              "Value #enabled": "StatfsEnble",
+              "Value #enabled": "StatfsEnbled",
               "Value #ffree": "Free Inode#",
               "Value #files": "Total Inode#",
               "Value #free_pct": "% Free",
@@ -929,7 +929,7 @@
       "type": "row"
     }
   ],
-  "refresh": "",
+  "refresh": "5s",
   "revision": 1,
   "schemaVersion": 38,
   "style": "dark",
@@ -960,10 +960,10 @@
         "current": {
           "selected": true,
           "text": [
-            "lsvmi"
+            "All"
           ],
           "value": [
-            "lsvmi"
+            "$__all"
           ]
         },
         "datasource": {
@@ -1085,6 +1085,6 @@
   "timezone": "",
   "title": "statfs_metrics",
   "uid": "statfs_metrics",
-  "version": 11,
+  "version": 13,
   "weekStart": ""
 }
