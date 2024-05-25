@@ -40,7 +40,7 @@ const (
 
 	PROC_STAT_CPU_LABEL_NAME      = "cpu"
 	PROC_STAT_CPU_ALL_LABEL_VALUE = "all"
-	PROC_STAT_CPU_AVG_LABEL_VALUE = "avg" // % for ALL / number of CPU's
+	PROC_STAT_CPU_AVG_LABEL_VALUE = "avg" // % for ALL / number of CPUs
 
 	// System uptime will be based on btime:
 	PROC_STAT_BTIME_METRIC  = "proc_stat_btime_sec"
@@ -57,7 +57,7 @@ const (
 	PROC_STAT_PROCS_BLOCKED_COUNT_METRIC = "proc_stat_procs_blocked_count"
 
 	// Interval since last generation, i.e. the interval underlying the deltas.
-	// Normally this should be close to scan interval, but this the actual
+	// Normally this should be close to scan interval, but this is the actual
 	// value, rather than the desired one:
 	PROC_STAT_INTERVAL_METRIC_NAME = "proc_stat_metrics_delta_sec"
 )
@@ -110,43 +110,59 @@ func DefaultProcStatMetricsConfig() *ProcStatMetricsConfig {
 	}
 }
 
+// Group together info indexed by CPU# to minimize the number of lookups:
+type ProcStatCpuInfo struct {
+	// Metrics cache, indexed by STAT_CPU_...:
+	metrics [][]byte
+	// Current cycle#:
+	cycleNum int
+	// For %CPU no metrics will be generated for 0 after 0, except for full
+	// cycles. Keep whether the previous value was 0 or not, indexed by
+	// STAT_CPU_...:
+	zeroPcpu []bool
+}
+
 type ProcStatMetrics struct {
 	// id/task_id:
 	id string
 	// Scan interval:
 	interval time.Duration
+	// Full metric factor(s):
+	fullMetricsFactor int
+
 	// Dual storage for parsed stats used as previous, current:
 	procStat [2]*procfs.Stat
 	// Timestamp when the stats were collected:
 	procStatTs [2]time.Time
 	// Index for current stats, toggled after each use:
 	currIndex int
-	// Current cycle#:
-	cycleNum int
-	// Full metric factor:
-	fullMetricsFactor int
 
-	// For %CPU no metrics will be generated for 0 after 0, except for full
-	// cycles. Keep whether the previous value was 0 or not, indexed by CPU#,
-	// STAT_CPU_...:
-	zeroPcpuMap map[int][]bool
+	// Per CPU# info:
+	cpuInfo map[int]*ProcStatCpuInfo
 
-	// CPU metrics cache, indexed by CPU#, STAT_CPU_...:
-	cpuMetricsCache map[int][][]byte
-	avgCpuMetrics   [][]byte
+	// Avg (`all' / number of CPUs) metrics, indexed by STAT_CPU_...:
+	avgCpuMetrics [][]byte
 
 	// Bootime/uptime metrics cache:
-	btimeMetricCache, uptimeMetricCache []byte
+	btimeMetric, uptimeMetric []byte
 	// Cache the btime at the 1st reading to be used as a reference for uptime:
 	btime time.Time
 
-	// Other metrics caches, indexed by stat#:
-	deltaMetricsCache, metricsCache map[int][]byte
+	// Other metrics, indexed by stat#:
+	otherMetrics   map[int][]byte
+	otherZeroDelta []bool
+	otherCycleNum  int
+
 	// Interval metric:
 	intervalMetric []byte
 
 	// A buffer for the timestamp suffix:
 	tsSuffixBuf *bytes.Buffer
+
+	// Cache the total metrics count, this is revised every time the number of
+	// observed CPUs increases:
+	maxNumCpus        int
+	totalMetricsCount int
 
 	// The following are needed for testing only. Left to their default values,
 	// the usual objects will be used.
@@ -182,11 +198,13 @@ func NewProcStatMetrics(cfg any) (*ProcStatMetrics, error) {
 	procStatMetrics := &ProcStatMetrics{
 		id:                PROC_STAT_METRICS_ID,
 		interval:          interval,
-		zeroPcpuMap:       make(map[int][]bool),
-		cpuMetricsCache:   make(map[int][][]byte),
+		cpuInfo:           make(map[int]*ProcStatCpuInfo),
 		fullMetricsFactor: procStatMetricsCfg.FullMetricsFactor,
+		otherZeroDelta:    make([]bool, procfs.STAT_NUMERIC_NUM_STATS),
 		tsSuffixBuf:       &bytes.Buffer{},
 	}
+	procStatMetrics.updateMaxNumCpus(1)
+	procStatMetrics.otherCycleNum = initialCycleNum.Get(procStatMetrics.fullMetricsFactor)
 
 	procStatMetricsLog.Infof("id=%s", procStatMetrics.id)
 	procStatMetricsLog.Infof("interval=%s", procStatMetrics.interval)
@@ -194,7 +212,15 @@ func NewProcStatMetrics(cfg any) (*ProcStatMetrics, error) {
 	return procStatMetrics, nil
 }
 
-func (psm *ProcStatMetrics) updateCpuMetricsCache(cpu int) {
+func (psm *ProcStatMetrics) updateMaxNumCpus(numCpus int) {
+	psm.maxNumCpus = numCpus
+	psm.totalMetricsCount = ((psm.maxNumCpus+2)*procfs.STAT_CPU_NUM_STATS + // (... +2) for all ad avg
+		len(procStatIndexDeltaMetricNameMap) +
+		len(procStatIndexMetricNameMap) +
+		2 + 1) // +2 for btime and uptime; +1 for interval
+}
+
+func (psm *ProcStatMetrics) updateCpuInfo(cpu int) {
 	instance, hostname := GlobalInstance, GlobalHostname
 	if psm.instance != "" {
 		instance = psm.instance
@@ -232,13 +258,17 @@ func (psm *ProcStatMetrics) updateCpuMetricsCache(cpu int) {
 			))
 		}
 	}
-	psm.cpuMetricsCache[cpu] = cpuMetrics
+	psm.cpuInfo[cpu] = &ProcStatCpuInfo{
+		metrics:  cpuMetrics,
+		cycleNum: initialCycleNum.Get(psm.fullMetricsFactor),
+		zeroPcpu: make([]bool, procfs.STAT_CPU_NUM_STATS),
+	}
 	if avgCpuMetrics != nil {
 		psm.avgCpuMetrics = avgCpuMetrics
 	}
 }
 
-func (psm *ProcStatMetrics) updateBtimeUptimeMetricsCache() {
+func (psm *ProcStatMetrics) updateOtherMetrics() {
 	instance, hostname := GlobalInstance, GlobalHostname
 	if psm.instance != "" {
 		instance = psm.instance
@@ -246,45 +276,34 @@ func (psm *ProcStatMetrics) updateBtimeUptimeMetricsCache() {
 	if psm.hostname != "" {
 		hostname = psm.hostname
 	}
+
 	btime := int64(psm.procStat[psm.currIndex].NumericFields[procfs.STAT_BTIME])
 	psm.btime = time.Unix(btime, 0)
-	psm.btimeMetricCache = []byte(fmt.Sprintf(
+	psm.btimeMetric = []byte(fmt.Sprintf(
 		`%s{%s="%s",%s="%s"} %d`, // N.B. include the value!
 		PROC_STAT_BTIME_METRIC,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 		btime,
 	))
-	psm.uptimeMetricCache = []byte(fmt.Sprintf(
+	psm.uptimeMetric = []byte(fmt.Sprintf(
 		`%s{%s="%s",%s="%s"} `, // N.B. include space before val
 		PROC_STAT_UPTIME_METRIC,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 	))
-}
 
-func (psm *ProcStatMetrics) updateMetricsCache() {
-	instance, hostname := GlobalInstance, GlobalHostname
-	if psm.instance != "" {
-		instance = psm.instance
-	}
-	if psm.hostname != "" {
-		hostname = psm.hostname
-	}
-
-	psm.deltaMetricsCache = make(map[int][]byte)
+	psm.otherMetrics = make(map[int][]byte)
 	for index, name := range procStatIndexDeltaMetricNameMap {
-		psm.deltaMetricsCache[index] = []byte(fmt.Sprintf(
+		psm.otherMetrics[index] = []byte(fmt.Sprintf(
 			`%s{%s="%s",%s="%s"} `, // N.B. include space before val
 			name,
 			INSTANCE_LABEL_NAME, instance,
 			HOSTNAME_LABEL_NAME, hostname,
 		))
 	}
-
-	psm.metricsCache = make(map[int][]byte)
 	for index, name := range procStatIndexMetricNameMap {
-		psm.metricsCache[index] = []byte(fmt.Sprintf(
+		psm.otherMetrics[index] = []byte(fmt.Sprintf(
 			`%s{%s="%s",%s="%s"} `, // N.B. include space before val
 			name,
 			INSTANCE_LABEL_NAME, instance,
@@ -302,147 +321,140 @@ func (psm *ProcStatMetrics) updateMetricsCache() {
 
 func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 	currProcStat, prevProcStat := psm.procStat[psm.currIndex], psm.procStat[1-psm.currIndex]
-	currTs, prevTs := psm.procStatTs[psm.currIndex], psm.procStatTs[1-psm.currIndex]
+	actualMetricsCount := 0
+	numCpus := len(currProcStat.Cpu)
+	if numCpus > psm.maxNumCpus {
+		psm.updateMaxNumCpus(numCpus)
 
-	psm.tsSuffixBuf.Reset()
-	fmt.Fprintf(
-		psm.tsSuffixBuf, " %d\n", currTs.UnixMilli(),
-	)
-	promTs := psm.tsSuffixBuf.Bytes()
+	}
 
-	actualMetricsCount, totalMetricsCount := 0, 0
-	fullMetrics := psm.cycleNum == 0
-
-	currNumericFields := currProcStat.NumericFields
-
-	var prevNumericFields []uint64 = nil
-
+	// Since most stats are deltas, wait until a prev stats:
 	if prevProcStat != nil {
-		// %CPU require prev stats:
+		currTs, prevTs := psm.procStatTs[psm.currIndex], psm.procStatTs[1-psm.currIndex]
+		psm.tsSuffixBuf.Reset()
+		fmt.Fprintf(
+			psm.tsSuffixBuf, " %d\n", currTs.UnixMilli(),
+		)
+		promTs := psm.tsSuffixBuf.Bytes()
+
+		// %CPU:
 		linuxClktckSec := utils.LinuxClktckSec
 		if psm.linuxClktckSec > 0 {
 			linuxClktckSec = psm.linuxClktckSec
 		}
 		deltaSec := currTs.Sub(prevTs).Seconds()
 		pCpuFactor := linuxClktckSec * 100. / deltaSec // %CPU = delta(ticks) * pCpuFactor
-
+		var avgCpuMetrics [][]byte
 		for cpu, currCpuStats := range currProcStat.Cpu {
 			prevCpuStats := prevProcStat.Cpu[cpu]
-			zeroPcpu := psm.zeroPcpuMap[cpu]
-			if zeroPcpu == nil {
-				zeroPcpu = make([]bool, procfs.STAT_CPU_NUM_STATS)
-				psm.zeroPcpuMap[cpu] = zeroPcpu
+			if prevCpuStats == nil {
+				continue
 			}
-			if prevCpuStats != nil {
-				numCpus := float64(len(currProcStat.Cpu) - 1)
-				cpuMetrics := psm.cpuMetricsCache[cpu]
-				if cpuMetrics == nil {
-					psm.updateCpuMetricsCache(cpu)
-					cpuMetrics = psm.cpuMetricsCache[cpu]
-				}
-				var avgCpuMetrics [][]byte
-				if cpu == procfs.STAT_CPU_ALL && numCpus > 0 {
-					// This was updated by the call for `all` above:
-					avgCpuMetrics = psm.avgCpuMetrics
-				} else {
-					avgCpuMetrics = nil
-				}
-				for index, metric := range cpuMetrics {
-					dCpuTicks := currCpuStats[index] - prevCpuStats[index]
-					if dCpuTicks != 0 || fullMetrics || !zeroPcpu[index] {
-						pct := float64(dCpuTicks) * pCpuFactor
-						buf.Write(metric)
-						buf.WriteString(strconv.FormatFloat(pct, 'f', 1, 64))
+			cpuInfo := psm.cpuInfo[cpu]
+			fullMetrics := cpuInfo == nil || cpuInfo.cycleNum == 0
+			if cpuInfo == nil {
+				psm.updateCpuInfo(cpu)
+				cpuInfo = psm.cpuInfo[cpu]
+				fullMetrics = true
+			}
+			zeroPcpu := cpuInfo.zeroPcpu
+			if cpu == procfs.STAT_CPU_ALL && numCpus > 0 {
+				// This was updated by the call for `all` above:
+				avgCpuMetrics = psm.avgCpuMetrics
+			} else {
+				avgCpuMetrics = nil
+			}
+			for index, metric := range cpuInfo.metrics {
+				dCpuTicks := currCpuStats[index] - prevCpuStats[index]
+				if dCpuTicks != 0 || fullMetrics || !zeroPcpu[index] {
+					pct := float64(dCpuTicks) * pCpuFactor
+					buf.Write(metric)
+					buf.WriteString(strconv.FormatFloat(pct, 'f', 1, 64))
+					buf.Write(promTs)
+					actualMetricsCount++
+					if avgCpuMetrics != nil && numCpus > 0 {
+						buf.Write(avgCpuMetrics[index])
+						buf.WriteString(strconv.FormatFloat(pct/float64(numCpus), 'f', 1, 64))
 						buf.Write(promTs)
 						actualMetricsCount++
-						if avgCpuMetrics != nil {
-							buf.Write(avgCpuMetrics[index])
-							buf.WriteString(strconv.FormatFloat(pct/numCpus, 'f', 1, 64))
-							buf.Write(promTs)
-							actualMetricsCount++
-						}
 					}
 					zeroPcpu[index] = dCpuTicks == 0
-					totalMetricsCount++
 				}
 			}
+			if cpuInfo.cycleNum++; cpuInfo.cycleNum >= psm.fullMetricsFactor {
+				cpuInfo.cycleNum = 0
+			}
 		}
-		// CPU's may be unplugged dynamically. Check and delete zero %CPU flags as needed.
-		if len(psm.zeroPcpuMap) > len(currProcStat.Cpu) {
-			for cpu := range psm.zeroPcpuMap {
+		// CPU's may be unplugged dynamically; remove out-of-scope CPUs:
+		if len(psm.cpuInfo) > len(currProcStat.Cpu) {
+			for cpu := range psm.cpuInfo {
 				if _, ok := currProcStat.Cpu[cpu]; !ok {
-					delete(psm.zeroPcpuMap, cpu)
+					delete(psm.cpuInfo, cpu)
 				}
 			}
 		}
 
-		// Delta metrics require prev stats.
-		prevNumericFields = prevProcStat.NumericFields
-		deltaMetricsCache := psm.deltaMetricsCache
-		if deltaMetricsCache == nil {
-			psm.updateMetricsCache()
-			deltaMetricsCache = psm.deltaMetricsCache
+		// Other metrics:
+		otherMetrics := psm.otherMetrics
+		otherFullMetrics := otherMetrics == nil || psm.otherCycleNum == 0
+		if otherMetrics == nil {
+			psm.updateOtherMetrics()
+			otherMetrics = psm.otherMetrics
 		}
-		for index, metric := range deltaMetricsCache {
-			val := currNumericFields[index] - prevNumericFields[index]
-			buf.Write(metric)
-			buf.WriteString(strconv.FormatUint(val, 10))
-			buf.Write(promTs)
-			actualMetricsCount++
-		}
-		totalMetricsCount += len(deltaMetricsCache)
+		currNumericFields, prevNumericFields := currProcStat.NumericFields, prevProcStat.NumericFields
 
-		// Interval requires prev stats.
+		// Other metrics - deltas:
+		otherZeroDelta := psm.otherZeroDelta
+		for index := range procStatIndexDeltaMetricNameMap {
+			delta := currNumericFields[index] - prevNumericFields[index]
+			if otherFullMetrics || delta != 0 || !otherZeroDelta[index] {
+				buf.Write(otherMetrics[index])
+				buf.WriteString(strconv.FormatUint(delta, 10))
+				buf.Write(promTs)
+				actualMetricsCount++
+			}
+			otherZeroDelta[index] = delta == 0
+		}
+
+		// Other metrics - non-deltas:
+		for index := range procStatIndexMetricNameMap {
+			val := currNumericFields[index]
+			if otherFullMetrics || val != prevNumericFields[index] {
+				buf.Write(otherMetrics[index])
+				buf.WriteString(strconv.FormatUint(val, 10))
+				buf.Write(promTs)
+				actualMetricsCount++
+			}
+		}
+
+		// Boot/up-time metrics:
+		if otherFullMetrics {
+			buf.Write(psm.btimeMetric)
+			buf.Write(promTs)
+			timeSinceFn := time.Since
+			if psm.timeSinceFn != nil {
+				timeSinceFn = psm.timeSinceFn
+			}
+			buf.WriteString(strconv.FormatFloat(timeSinceFn(psm.btime).Seconds(), 'f', 3, 64))
+			buf.Write(promTs)
+			actualMetricsCount += 2
+		}
+
+		// Interval:
 		buf.Write(psm.intervalMetric)
 		buf.WriteString(strconv.FormatFloat(deltaSec, 'f', 6, 64))
 		buf.Write(promTs)
 		actualMetricsCount++
-		totalMetricsCount++
-	}
 
-	// Boot/up-time metrics:
-	if psm.btimeMetricCache == nil {
-		psm.updateBtimeUptimeMetricsCache()
-	}
-	if fullMetrics {
-		buf.Write(psm.btimeMetricCache)
-		buf.Write(promTs)
-		actualMetricsCount++
-	}
-	buf.Write(psm.uptimeMetricCache)
-	timeSinceFn := time.Since
-	if psm.timeSinceFn != nil {
-		timeSinceFn = psm.timeSinceFn
-	}
-	buf.WriteString(strconv.FormatFloat(timeSinceFn(psm.btime).Seconds(), 'f', 3, 64))
-	buf.Write(promTs)
-	actualMetricsCount++
-	totalMetricsCount += 2
-
-	// Other metrics:
-	metricsCache := psm.metricsCache
-	if metricsCache == nil {
-		psm.updateMetricsCache()
-		metricsCache = psm.metricsCache
-	}
-	for index, metric := range metricsCache {
-		val := currNumericFields[index]
-		if fullMetrics || prevNumericFields == nil || val != prevNumericFields[index] {
-			buf.Write(metric)
-			buf.WriteString(strconv.FormatUint(val, 10))
-			buf.Write(promTs)
-			actualMetricsCount++
+		if psm.otherCycleNum++; psm.otherCycleNum >= psm.fullMetricsFactor {
+			psm.otherCycleNum = 0
 		}
 	}
-	totalMetricsCount += len(metricsCache)
 
-	// Toggle the buffers, update the collection time and the cycle#:
+	// Toggle the buffers:
 	psm.currIndex = 1 - psm.currIndex
-	if psm.cycleNum++; psm.cycleNum >= psm.fullMetricsFactor {
-		psm.cycleNum = 0
-	}
 
-	return actualMetricsCount, totalMetricsCount
+	return actualMetricsCount, psm.totalMetricsCount
 }
 
 // Satisfy the TaskActivity interface:
