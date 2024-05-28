@@ -111,7 +111,7 @@ func DefaultProcStatMetricsConfig() *ProcStatMetricsConfig {
 }
 
 // Group together info indexed by CPU# to minimize the number of lookups:
-type ProcStatCpuInfo struct {
+type ProcStatMetricsCpuInfo struct {
 	// Metrics cache, indexed by STAT_CPU_...:
 	metrics [][]byte
 	// Current cycle#:
@@ -138,7 +138,7 @@ type ProcStatMetrics struct {
 	currIndex int
 
 	// Per CPU# info:
-	cpuInfo map[int]*ProcStatCpuInfo
+	cpuInfo map[int]*ProcStatMetricsCpuInfo
 
 	// Avg (`all' / number of CPUs) metrics, indexed by STAT_CPU_...:
 	avgCpuMetrics [][]byte
@@ -198,7 +198,7 @@ func NewProcStatMetrics(cfg any) (*ProcStatMetrics, error) {
 	procStatMetrics := &ProcStatMetrics{
 		id:                PROC_STAT_METRICS_ID,
 		interval:          interval,
-		cpuInfo:           make(map[int]*ProcStatCpuInfo),
+		cpuInfo:           make(map[int]*ProcStatMetricsCpuInfo),
 		fullMetricsFactor: procStatMetricsCfg.FullMetricsFactor,
 		otherZeroDelta:    make([]bool, procfs.STAT_NUMERIC_NUM_STATS),
 		tsSuffixBuf:       &bytes.Buffer{},
@@ -258,7 +258,7 @@ func (psm *ProcStatMetrics) updateCpuInfo(cpu int) {
 			))
 		}
 	}
-	psm.cpuInfo[cpu] = &ProcStatCpuInfo{
+	psm.cpuInfo[cpu] = &ProcStatMetricsCpuInfo{
 		metrics:  cpuMetrics,
 		cycleNum: initialCycleNum.Get(psm.fullMetricsFactor),
 		zeroPcpu: make([]bool, procfs.STAT_CPU_NUM_STATS),
@@ -435,6 +435,7 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 			if psm.timeSinceFn != nil {
 				timeSinceFn = psm.timeSinceFn
 			}
+			buf.Write(psm.uptimeMetric)
 			buf.WriteString(strconv.FormatFloat(timeSinceFn(psm.btime).Seconds(), 'f', 3, 64))
 			buf.Write(promTs)
 			actualMetricsCount += 2

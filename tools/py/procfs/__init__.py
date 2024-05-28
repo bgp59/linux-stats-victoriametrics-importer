@@ -268,5 +268,4 @@ from .stat_parser import (
     STAT_SWAP_IN,
     STAT_SWAP_OUT,
     Stat,
-    StatCpuStats,
 )

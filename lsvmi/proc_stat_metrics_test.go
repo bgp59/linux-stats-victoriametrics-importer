@@ -13,20 +13,28 @@ import (
 	"github.com/eparparita/linux-stats-victoriametrics-importer/procfs"
 )
 
+type ProcStatMetricsCpuInfoTestData struct {
+	CycleNum int
+	ZeroPcpu []bool
+}
+
 type ProcStatMetricsTestCase struct {
-	Name                        string
-	Instance                    string
-	Hostname                    string
-	CurrProcStat, PrevProcStat  *procfs.Stat
-	CurrPromTs, PrevPromTs      int64
-	CycleNum, FullMetricsFactor int
-	ZeroPcpuMap                 map[int][]bool
-	WantMetricsCount            int
-	WantMetrics                 []string
-	ReportExtra                 bool
-	WantZeroPcpuMap             map[int][]bool
-	LinuxClktckSec              float64
-	TimeSinceBtime              float64
+	Name                             string
+	Description                      string
+	Instance                         string
+	Hostname                         string
+	CurrProcStat, PrevProcStat       *procfs.Stat
+	CurrPromTs, PrevPromTs           int64
+	CpuInfo                          map[int]*ProcStatMetricsCpuInfoTestData
+	OtherCycleNum, FullMetricsFactor int
+	OtherZeroDelta                   []bool
+	WantMetricsCount                 int
+	WantMetrics                      []string
+	ReportExtra                      bool
+	WantZeroPcpuMap                  map[int][]bool
+	WantOtherZeroDelta               []bool
+	LinuxClktckSec                   float64
+	TimeSinceBtime                   float64
 }
 
 var procStatMetricsTestcasesFile = path.Join(
@@ -37,6 +45,8 @@ var procStatMetricsTestcasesFile = path.Join(
 func testProcStatMetrics(tc *ProcStatMetricsTestCase, t *testing.T) {
 	tlc := testutils.NewTestLogCollect(t, Log, nil)
 	defer tlc.RestoreLog()
+
+	t.Logf("Description: %s", tc.Description)
 
 	procStatMetrics, err := NewProcStatMetrics(nil)
 	if err != nil {
@@ -49,12 +59,23 @@ func testProcStatMetrics(tc *ProcStatMetricsTestCase, t *testing.T) {
 	procStatMetrics.procStatTs[currIndex] = time.UnixMilli(tc.CurrPromTs)
 	procStatMetrics.procStat[1-currIndex] = tc.PrevProcStat
 	procStatMetrics.procStatTs[1-currIndex] = time.UnixMilli(tc.PrevPromTs)
-	procStatMetrics.cycleNum = tc.CycleNum
 	procStatMetrics.fullMetricsFactor = tc.FullMetricsFactor
-	for cpu, ZeroPcpuMap := range tc.ZeroPcpuMap {
-		procStatMetrics.zeroPcpuMap[cpu] = make([]bool, procfs.STAT_CPU_NUM_STATS)
-		copy(procStatMetrics.zeroPcpuMap[cpu], ZeroPcpuMap)
+
+	if tc.CpuInfo != nil {
+		for cpu, cpuInfo := range tc.CpuInfo {
+			procStatMetrics.updateCpuInfo(cpu)
+			procStatMetrics.cpuInfo[cpu].cycleNum = cpuInfo.CycleNum
+			if cpuInfo.ZeroPcpu != nil {
+				copy(procStatMetrics.cpuInfo[cpu].zeroPcpu, cpuInfo.ZeroPcpu)
+			}
+		}
 	}
+
+	procStatMetrics.otherCycleNum = tc.OtherCycleNum
+	if tc.OtherZeroDelta != nil {
+		copy(procStatMetrics.otherZeroDelta, tc.OtherZeroDelta)
+	}
+
 	if tc.LinuxClktckSec > 0 {
 		procStatMetrics.linuxClktckSec = tc.LinuxClktckSec
 	}
@@ -80,26 +101,39 @@ func testProcStatMetrics(tc *ProcStatMetricsTestCase, t *testing.T) {
 	}
 
 	if tc.WantZeroPcpuMap != nil {
-		for cpu, wantZeroPcpuMap := range tc.WantZeroPcpuMap {
-			gotZeroPcpuMap := procStatMetrics.zeroPcpuMap[cpu]
-			if gotZeroPcpuMap == nil {
-				fmt.Fprintf(errBuf, "\nZeroPcpuMap: missing cpu %d", cpu)
+		for cpu, wantZeroPcpu := range tc.WantZeroPcpuMap {
+			gotZeroPcpu := procStatMetrics.cpuInfo[cpu].zeroPcpu
+			if gotZeroPcpu == nil {
+				fmt.Fprintf(errBuf, "\n.cpuInfo: missing cpu %d", cpu)
 				continue
 			}
-			for index, wantVal := range wantZeroPcpuMap {
-				gotVal := gotZeroPcpuMap[index]
+			for index, wantVal := range wantZeroPcpu {
+				gotVal := gotZeroPcpu[index]
 				if wantVal != gotVal {
 					fmt.Fprintf(
 						errBuf,
-						"\nZeroPcpuMap[%d][%d]: want: %v, got: %v",
+						"\n.cpuInfo[%d].zeroPcpu[%d]: want: %v, got: %v",
 						cpu, index, wantVal, gotVal,
 					)
 				}
 			}
 		}
-		for cpu := range procStatMetrics.zeroPcpuMap {
+		for cpu := range procStatMetrics.cpuInfo {
 			if tc.WantZeroPcpuMap[cpu] == nil {
-				fmt.Fprintf(errBuf, "\nZeroPcpuMap: unexpected cpu %d", cpu)
+				fmt.Fprintf(errBuf, "\n.cpuInfo: unexpected cpu %d", cpu)
+			}
+		}
+	}
+
+	if tc.WantOtherZeroDelta != nil {
+		for index, wantVal := range tc.WantOtherZeroDelta {
+			gotVal := procStatMetrics.otherZeroDelta[index]
+			if wantVal != gotVal {
+				fmt.Fprintf(
+					errBuf,
+					"\n.otherZeroDelta[%d]: want: %v, got: %v",
+					index, wantVal, gotVal,
+				)
 			}
 		}
 	}

@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 
-from typing import Dict, List, Literal, Union
+from dataclasses import dataclass
+from typing import Dict, List, Optional
 
 # JSON serialize-able Stat, matching profcs/stat_parser.go:
 
@@ -29,9 +30,8 @@ STAT_PROCS_RUNNING = 7
 STAT_PROCS_BLOCKED = 8
 STAT_NUMERIC_NUM_STATS = 9
 
-StatCpuStats = Dict[int, List[int]]
 
-Stat = Dict[
-    Union[Literal["Cpu"], Literal["NumericFields"]],
-    Union[StatCpuStats, List[int]],
-]
+@dataclass
+class Stat:
+    Cpu: Optional[Dict[int, List[int]]] = None
+    NumericFields: Optional[List[int]] = None
