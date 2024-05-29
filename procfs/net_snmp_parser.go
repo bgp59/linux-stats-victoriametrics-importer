@@ -226,18 +226,18 @@ var netSnmpIndexMap = map[string]map[string]int{
 // Values that are to be ignored will be mapped into a negative inddex.
 
 type NetSnmpLineInfo struct {
-	// Line prefix, inculsive of `:', discovered during the 1st pass, it will be
+	// Line prefix, inclusive of `:', discovered during the 1st pass, it will be
 	// used for sanity checks in all subsequent passes:
 	prefix []byte
-	// Index mapping: 0..N-1 -> index0, index1, ..., index(N-1),
-	//  where N = number of variables
-	index []int
+	// Mapping the variable position within the line 0..N-1 -> index0, index1,
+	// ..., index(N-1), where N = number of variables
+	indexMap []int
 }
 
 type NetSnmp struct {
 	// Parsed values:
 	Values []uint32
-	// Whether the info changed during the parse or not; a nil value indicated
+	// Whether the info changed during the parse or not; a nil value indicates
 	// no change:
 	InfoChanged []byte
 
@@ -271,11 +271,11 @@ func (netSnmp *NetSnmp) UpdateInfo(from *NetSnmp) {
 	netSnmp.lineInfo = make([]*NetSnmpLineInfo, len(from.lineInfo))
 	for i, lineInfo := range from.lineInfo {
 		newLineInfo := &NetSnmpLineInfo{
-			prefix: make([]byte, len(lineInfo.prefix)),
-			index:  make([]int, len(lineInfo.index)),
+			prefix:   make([]byte, len(lineInfo.prefix)),
+			indexMap: make([]int, len(lineInfo.indexMap)),
 		}
 		copy(newLineInfo.prefix, lineInfo.prefix)
-		copy(newLineInfo.index, lineInfo.index)
+		copy(newLineInfo.indexMap, lineInfo.indexMap)
 		netSnmp.lineInfo[i] = newLineInfo
 	}
 }
@@ -303,19 +303,19 @@ func buildSnmpLineInfo(line []byte) (*NetSnmpLineInfo, error) {
 	}
 	proto := strings.TrimSpace(string(line[:prefixLen-1]))
 	lineInfo := &NetSnmpLineInfo{
-		prefix: make([]byte, prefixLen),
-		index:  make([]int, len(variables)),
+		prefix:   make([]byte, prefixLen),
+		indexMap: make([]int, len(variables)),
 	}
 	copy(lineInfo.prefix, line[:prefixLen])
-	for i := 0; i < len(lineInfo.index); i++ {
-		lineInfo.index[i] = -1 // i.e. assume un-mapped
+	for i := 0; i < len(lineInfo.indexMap); i++ {
+		lineInfo.indexMap[i] = -1 // i.e. assume un-mapped
 	}
 	protoIndexMap := netSnmpIndexMap[proto]
 	if protoIndexMap != nil {
 		for i, variable := range variables {
 			valueIndex, ok := protoIndexMap[variable]
 			if ok {
-				lineInfo.index[i] = valueIndex
+				lineInfo.indexMap[i] = valueIndex
 			}
 		}
 	}
@@ -359,7 +359,7 @@ func (netSnmp *NetSnmp) Parse() error {
 				prefixPos++
 			}
 			if prefixPos != expectPrefixLen {
-				// The layout of the file has changed, info must be parsed again:
+				// The layout of the file has changed, the info must be parsed again:
 				lineInfo = nil
 				pos = lineStart
 				if netSnmp.InfoChanged == nil {
@@ -371,7 +371,7 @@ func (netSnmp *NetSnmp) Parse() error {
 			}
 		}
 		if lineInfo == nil {
-			// 1st time prefix seen at this line#:
+			// 1st time prefix:
 			lineInfo, err = buildSnmpLineInfo(buf[infoLineStart:infoLineEnd])
 			if err != nil {
 				return fmt.Errorf(
@@ -399,7 +399,7 @@ func (netSnmp *NetSnmp) Parse() error {
 			}
 		}
 
-		valueIndexMap := lineInfo.index
+		valueIndexMap := lineInfo.indexMap
 		lineValueIndex, lineExpectedNumVals := 0, len(valueIndexMap)
 		for !eol && pos < l && lineValueIndex < lineExpectedNumVals {
 			// Locate the start of the value:
