@@ -31,8 +31,6 @@ const (
 const (
 	// The pseudo cpu# used for all:
 	STAT_CPU_ALL = -1
-	// The pseudo cpu# used to indicate that the prefix is not a CPU:
-	STAT_NO_CPU_PREFIX = -2
 
 	// The minimum number of columns expected for cpu stats:
 	STAT_CPU_MIN_NUM_FIELDS = STAT_CPU_SOFTIRQ_TICKS + 1
@@ -63,6 +61,8 @@ const (
 type Stat struct {
 	// CPU stats indexed by CPU#; STAT_CPU_ALL is the index for all CPU:
 	Cpu map[int][]uint64
+	// The number of CPU's found, excluding `all`:
+	NumCpus int
 	// Any other info is a scalar in a list:
 	NumericFields []uint64
 	// The path file to read:
@@ -172,6 +172,7 @@ func (stat *Stat) Parse() error {
 	)
 
 	scanNum := stat.scanNum + 1
+	stat.NumCpus = 0
 
 	pos, lineNum, eol := 0, 0, true
 	for {
@@ -187,15 +188,14 @@ func (stat *Stat) Parse() error {
 		}
 
 		// Line starts here:
-		lineStartPos := pos
-		eol = false
 		lineNum++
+		lineStartPos, eol := pos, false
 
 		// Parse prefix; during the scan assess whether it is "cpu", "cpuNN" or
 		// something else:
 		for ; pos < l && isWhitespace[buf[pos]]; pos++ {
 		}
-		prefixStartPos, prefixIndex, cpuNum := pos, 0, STAT_CPU_ALL
+		prefixStartPos, prefixIndex, isCpuPrefix, cpuNum := pos, 0, true, 0
 
 		for done := false; !eol && pos < l && !done; pos++ {
 			c := buf[pos]
@@ -205,12 +205,9 @@ func (stat *Stat) Parse() error {
 			}
 			if prefixIndex < statCpuPrefixLen {
 				if c != statCpuPrefix[prefixIndex] {
-					cpuNum = STAT_NO_CPU_PREFIX
+					isCpuPrefix = false
 				}
-			} else if cpuNum != STAT_NO_CPU_PREFIX {
-				if cpuNum == STAT_CPU_ALL {
-					cpuNum = 0
-				}
+			} else if isCpuPrefix {
 				if digit := c - '0'; digit < 10 {
 					cpuNum = (cpuNum << 3) + (cpuNum << 1) + int(digit)
 				} else {
@@ -228,8 +225,12 @@ func (stat *Stat) Parse() error {
 			continue
 		}
 
-		if cpuNum != STAT_NO_CPU_PREFIX {
-			// It is a cpu prefix:
+		if isCpuPrefix {
+			if prefixIndex == statCpuPrefixLen {
+				cpuNum = STAT_CPU_ALL
+			} else {
+				stat.NumCpus += 1
+			}
 			indexList = statPrefixToDstIndexList["cpu"]
 			Values = stat.Cpu[cpuNum]
 			if Values == nil {
