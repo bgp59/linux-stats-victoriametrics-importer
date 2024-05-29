@@ -34,4 +34,5 @@ STAT_NUMERIC_NUM_STATS = 9
 @dataclass
 class Stat:
     Cpu: Optional[Dict[int, List[int]]] = None
+    NumCpus: int = 0
     NumericFields: Optional[List[int]] = None

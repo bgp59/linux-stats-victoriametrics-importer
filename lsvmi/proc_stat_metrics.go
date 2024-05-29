@@ -38,6 +38,9 @@ const (
 	PROC_STAT_CPU_PCT_TYPE_GUEST      = "guest"
 	PROC_STAT_CPU_PCT_TYPE_GUEST_NICE = "guest_nice"
 
+	// CPU presence metric:
+	PROC_STAT_CPU_UP_METRIC = "proc_stat_cpu_up"
+
 	PROC_STAT_CPU_LABEL_NAME      = "cpu"
 	PROC_STAT_CPU_ALL_LABEL_VALUE = "all"
 	PROC_STAT_CPU_AVG_LABEL_VALUE = "avg" // % for ALL / number of CPUs
@@ -112,8 +115,10 @@ func DefaultProcStatMetricsConfig() *ProcStatMetricsConfig {
 
 // Group together info indexed by CPU# to minimize the number of lookups:
 type ProcStatMetricsCpuInfo struct {
-	// Metrics cache, indexed by STAT_CPU_...:
-	metrics [][]byte
+	// %CPU metrics cache, indexed by STAT_CPU_...:
+	pCpuMetrics [][]byte
+	// Up metric:
+	upMetric []byte
 	// Current cycle#:
 	cycleNum int
 	// For %CPU no metrics will be generated for 0 after 0, except for full
@@ -141,7 +146,8 @@ type ProcStatMetrics struct {
 	cpuInfo map[int]*ProcStatMetricsCpuInfo
 
 	// Avg (`all' / number of CPUs) metrics, indexed by STAT_CPU_...:
-	avgCpuMetrics [][]byte
+	avgPCpuMetrics [][]byte
+	avgCpuUpMetric []byte
 
 	// Bootime/uptime metrics cache:
 	btimeMetric, uptimeMetric []byte
@@ -214,10 +220,14 @@ func NewProcStatMetrics(cfg any) (*ProcStatMetrics, error) {
 
 func (psm *ProcStatMetrics) updateMaxNumCpus(numCpus int) {
 	psm.maxNumCpus = numCpus
-	psm.totalMetricsCount = ((psm.maxNumCpus+2)*procfs.STAT_CPU_NUM_STATS + // (... +2) for all ad avg
+	psm.totalMetricsCount = (
+	// (...+2 for all and avg)*(...+1 for up metric)
+	(psm.maxNumCpus+1)*(procfs.STAT_CPU_NUM_STATS+1) +
+		// Non-CPU stats:
 		len(procStatIndexDeltaMetricNameMap) +
 		len(procStatIndexMetricNameMap) +
-		2 + 1) // +2 for btime and uptime; +1 for interval
+		// +2 for btime and uptime; +1 for interval
+		2 + 1)
 }
 
 func (psm *ProcStatMetrics) updateCpuInfo(cpu int) {
@@ -229,17 +239,17 @@ func (psm *ProcStatMetrics) updateCpuInfo(cpu int) {
 		hostname = psm.hostname
 	}
 
-	cpuMetrics := make([][]byte, procfs.STAT_CPU_NUM_STATS)
+	pCpuMetrics := make([][]byte, procfs.STAT_CPU_NUM_STATS)
 	var cpuLabelVal string
-	var avgCpuMetrics [][]byte
+	var avgPCpuMetrics [][]byte
 	if cpu == procfs.STAT_CPU_ALL {
 		cpuLabelVal = PROC_STAT_CPU_ALL_LABEL_VALUE
-		avgCpuMetrics = make([][]byte, procfs.STAT_CPU_NUM_STATS)
+		avgPCpuMetrics = make([][]byte, procfs.STAT_CPU_NUM_STATS)
 	} else {
 		cpuLabelVal = strconv.Itoa(cpu)
 	}
 	for index, typeLabelVal := range procStatCpuIndexTypeLabelValMap {
-		cpuMetrics[index] = []byte(fmt.Sprintf(
+		pCpuMetrics[index] = []byte(fmt.Sprintf(
 			`%s{%s="%s",%s="%s",%s="%s",%s="%s"} `, // N.B. include space before val
 			PROC_STAT_CPU_PCT_METRIC,
 			INSTANCE_LABEL_NAME, instance,
@@ -247,8 +257,8 @@ func (psm *ProcStatMetrics) updateCpuInfo(cpu int) {
 			PROC_STAT_CPU_PCT_TYPE_LABEL_NAME, typeLabelVal,
 			PROC_STAT_CPU_LABEL_NAME, cpuLabelVal,
 		))
-		if avgCpuMetrics != nil {
-			avgCpuMetrics[index] = []byte(fmt.Sprintf(
+		if avgPCpuMetrics != nil {
+			avgPCpuMetrics[index] = []byte(fmt.Sprintf(
 				`%s{%s="%s",%s="%s",%s="%s",%s="%s"} `, // N.B. include space before val
 				PROC_STAT_CPU_PCT_METRIC,
 				INSTANCE_LABEL_NAME, instance,
@@ -259,12 +269,26 @@ func (psm *ProcStatMetrics) updateCpuInfo(cpu int) {
 		}
 	}
 	psm.cpuInfo[cpu] = &ProcStatMetricsCpuInfo{
-		metrics:  cpuMetrics,
+		pCpuMetrics: pCpuMetrics,
+		upMetric: []byte(fmt.Sprintf(
+			`%s{%s="%s",%s="%s",%s="%s"} `, // N.B. include space before val
+			PROC_STAT_CPU_UP_METRIC,
+			INSTANCE_LABEL_NAME, instance,
+			HOSTNAME_LABEL_NAME, hostname,
+			PROC_STAT_CPU_LABEL_NAME, cpuLabelVal,
+		)),
 		cycleNum: initialCycleNum.Get(psm.fullMetricsFactor),
 		zeroPcpu: make([]bool, procfs.STAT_CPU_NUM_STATS),
 	}
-	if avgCpuMetrics != nil {
-		psm.avgCpuMetrics = avgCpuMetrics
+	if avgPCpuMetrics != nil {
+		psm.avgPCpuMetrics = avgPCpuMetrics
+		psm.avgCpuUpMetric = []byte(fmt.Sprintf(
+			`%s{%s="%s",%s="%s",%s="%s"} `, // N.B. include space before val
+			PROC_STAT_CPU_UP_METRIC,
+			INSTANCE_LABEL_NAME, instance,
+			HOSTNAME_LABEL_NAME, hostname,
+			PROC_STAT_CPU_LABEL_NAME, PROC_STAT_CPU_AVG_LABEL_VALUE,
+		))
 	}
 }
 
@@ -322,10 +346,9 @@ func (psm *ProcStatMetrics) updateOtherMetrics() {
 func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 	currProcStat, prevProcStat := psm.procStat[psm.currIndex], psm.procStat[1-psm.currIndex]
 	actualMetricsCount := 0
-	numCpus := len(currProcStat.Cpu)
+	numCpus := currProcStat.NumCpus
 	if numCpus > psm.maxNumCpus {
 		psm.updateMaxNumCpus(numCpus)
-
 	}
 
 	// Since most stats are deltas, wait until a prev stats:
@@ -344,7 +367,7 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 		}
 		deltaSec := currTs.Sub(prevTs).Seconds()
 		pCpuFactor := linuxClktckSec * 100. / deltaSec // %CPU = delta(ticks) * pCpuFactor
-		var avgCpuMetrics [][]byte
+		var avgPCpuMetrics [][]byte
 		for cpu, currCpuStats := range currProcStat.Cpu {
 			prevCpuStats := prevProcStat.Cpu[cpu]
 			if prevCpuStats == nil {
@@ -360,11 +383,11 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 			zeroPcpu := cpuInfo.zeroPcpu
 			if cpu == procfs.STAT_CPU_ALL && numCpus > 0 {
 				// This was updated by the call for `all` above:
-				avgCpuMetrics = psm.avgCpuMetrics
+				avgPCpuMetrics = psm.avgPCpuMetrics
 			} else {
-				avgCpuMetrics = nil
+				avgPCpuMetrics = nil
 			}
-			for index, metric := range cpuInfo.metrics {
+			for index, metric := range cpuInfo.pCpuMetrics {
 				dCpuTicks := currCpuStats[index] - prevCpuStats[index]
 				if dCpuTicks != 0 || fullMetrics || !zeroPcpu[index] {
 					pct := float64(dCpuTicks) * pCpuFactor
@@ -372,13 +395,25 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 					buf.WriteString(strconv.FormatFloat(pct, 'f', 1, 64))
 					buf.Write(promTs)
 					actualMetricsCount++
-					if avgCpuMetrics != nil && numCpus > 0 {
-						buf.Write(avgCpuMetrics[index])
+					if avgPCpuMetrics != nil {
+						buf.Write(avgPCpuMetrics[index])
 						buf.WriteString(strconv.FormatFloat(pct/float64(numCpus), 'f', 1, 64))
 						buf.Write(promTs)
 						actualMetricsCount++
 					}
 					zeroPcpu[index] = dCpuTicks == 0
+				}
+			}
+			if fullMetrics {
+				buf.Write(cpuInfo.upMetric)
+				buf.WriteByte('1')
+				buf.Write(promTs)
+				actualMetricsCount++
+				if avgPCpuMetrics != nil {
+					buf.Write(psm.avgCpuUpMetric)
+					buf.WriteByte('1')
+					buf.Write(promTs)
+					actualMetricsCount++
 				}
 			}
 			if cpuInfo.cycleNum++; cpuInfo.cycleNum >= psm.fullMetricsFactor {
@@ -387,9 +422,20 @@ func (psm *ProcStatMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 		}
 		// CPU's may be unplugged dynamically; remove out-of-scope CPUs:
 		if len(psm.cpuInfo) > len(currProcStat.Cpu) {
-			for cpu := range psm.cpuInfo {
+			for cpu, cpuInfo := range psm.cpuInfo {
 				if _, ok := currProcStat.Cpu[cpu]; !ok {
+					// This CPU is out of scope:
+					buf.Write(cpuInfo.upMetric)
+					buf.WriteByte('0')
+					buf.Write(promTs)
+					actualMetricsCount++
 					delete(psm.cpuInfo, cpu)
+					if cpu == procfs.STAT_CPU_ALL {
+						buf.Write(psm.avgCpuUpMetric)
+						buf.WriteByte('0')
+						buf.Write(promTs)
+						actualMetricsCount++
+					}
 				}
 			}
 		}

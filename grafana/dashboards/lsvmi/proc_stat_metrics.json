@@ -84,8 +84,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -180,8 +179,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -276,8 +274,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -372,8 +369,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -468,8 +464,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -564,8 +559,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -660,8 +654,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -756,8 +749,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -852,8 +844,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -948,8 +939,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1058,8 +1048,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1154,8 +1143,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1250,8 +1238,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1346,8 +1333,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1442,8 +1428,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1538,8 +1523,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1634,8 +1618,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1730,8 +1713,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1826,8 +1808,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1922,8 +1903,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2033,8 +2013,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2130,8 +2109,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2217,8 +2195,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2469,8 +2446,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2576,8 +2552,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2683,8 +2658,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2777,8 +2751,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2871,8 +2844,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2978,8 +2950,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3138,7 +3109,7 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+        "definition": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",cpu=\"all\"}",
         "hide": 0,
         "includeAll": true,
         "label": "Type",
@@ -3146,7 +3117,7 @@
         "name": "type",
         "options": [],
         "query": {
-          "query": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+          "query": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",cpu=\"all\"}",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
@@ -3158,19 +3129,15 @@
       {
         "allValue": ".+",
         "current": {
-          "selected": true,
-          "text": [
-            "All"
-          ],
-          "value": [
-            "$__all"
-          ]
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
         },
         "datasource": {
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+        "definition": "proc_stat_cpu_up{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
         "hide": 0,
         "includeAll": true,
         "label": "CPU",
@@ -3178,7 +3145,7 @@
         "name": "cpu",
         "options": [],
         "query": {
-          "query": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+          "query": "proc_stat_cpu_up{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
@@ -3238,6 +3205,11 @@
         "type": "interval"
       },
       {
+        "current": {
+          "selected": true,
+          "text": "200ms",
+          "value": "200ms"
+        },
         "hide": 2,
         "name": "interval",
         "query": "200ms",
@@ -3254,6 +3226,6 @@
   "timezone": "",
   "title": "proc_stat_metrics",
   "uid": "proc_stat_metrics",
-  "version": 26,
+  "version": 30,
   "weekStart": ""
 }

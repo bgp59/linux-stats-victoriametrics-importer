@@ -47,6 +47,8 @@ PROC_STAT_CPU_PCT_TYPE_STEAL = "steal"
 PROC_STAT_CPU_PCT_TYPE_GUEST = "guest"
 PROC_STAT_CPU_PCT_TYPE_GUEST_NICE = "guest_nice"
 
+PROC_STAT_CPU_UP_METRIC = "proc_stat_cpu_up"
+
 PROC_STAT_CPU_LABEL_NAME = "cpu"
 PROC_STAT_CPU_ALL_LABEL_VALUE = "all"
 PROC_STAT_CPU_AVG_LABEL_VALUE = "avg"
@@ -154,7 +156,7 @@ def generate_proc_stat_metrics(
     new_other_zero_delta = [False] * procfs.STAT_NUMERIC_NUM_STATS
 
     # CPU stats:
-    num_cpus = len(curr_proc_stat.Cpu)
+    num_cpus =curr_proc_stat.NumCpus
     for cpu, curr_cpu_stats in curr_proc_stat.Cpu.items():
         new_zero_pcpu_map[cpu] = [False] * procfs.STAT_CPU_NUM_STATS
         prev_cpu_stats = prev_proc_stat.Cpu.get(cpu)
@@ -166,6 +168,7 @@ def generate_proc_stat_metrics(
         cpu_label_val = (
             cpu if cpu != procfs.STAT_CPU_ALL else PROC_STAT_CPU_ALL_LABEL_VALUE
         )
+        cpu_avg = cpu == procfs.STAT_CPU_ALL and num_cpus > 0
         for index, type_label_val in proc_stat_cpu_index_type_label_val_map.items():
             delta_cpu_ticks = uint64_delta(curr_cpu_stats[index], prev_cpu_stats[index])
             if delta_cpu_ticks > 0 or full_metrics or not cpu_info[cpu].ZeroPcpu[index]:
@@ -182,7 +185,7 @@ def generate_proc_stat_metrics(
                     )
                     + f"}} {pcpu:.1f} {curr_prom_ts}"
                 )
-                if cpu == procfs.STAT_CPU_ALL and num_cpus > 0:
+                if cpu_avg:
                     metrics.append(
                         f"{PROC_STAT_CPU_PCT_METRIC}{{"
                         + ",".join(
@@ -195,8 +198,31 @@ def generate_proc_stat_metrics(
                         )
                         + f"}} {pcpu/num_cpus:.1f} {curr_prom_ts}"
                     )
-
-            new_zero_pcpu_map[cpu][index] = delta_cpu_ticks == 0
+            new_zero_pcpu_map[cpu][index] = delta_cpu_ticks == 0 
+        if full_metrics:
+            metrics.append(
+                f"{PROC_STAT_CPU_UP_METRIC}{{"
+                + ",".join(
+                    [
+                        f'{INSTANCE_LABEL_NAME}="{instance}"',
+                        f'{HOSTNAME_LABEL_NAME}="{hostname}"',
+                        f'{PROC_STAT_CPU_LABEL_NAME}="{cpu_label_val}"',
+                    ]
+                )
+                + f"}} 1 {curr_prom_ts}"
+            )
+            if cpu_avg:
+                metrics.append(
+                    f"{PROC_STAT_CPU_UP_METRIC}{{"
+                    + ",".join(
+                        [
+                            f'{INSTANCE_LABEL_NAME}="{instance}"',
+                            f'{HOSTNAME_LABEL_NAME}="{hostname}"',
+                            f'{PROC_STAT_CPU_LABEL_NAME}="{PROC_STAT_CPU_AVG_LABEL_VALUE}"',
+                        ]
+                    )
+                    + f"}} 1 {curr_prom_ts}"
+                )
 
     # Other metrics:
     curr_numeric_fields, prev_numeric_fields = (
@@ -345,6 +371,7 @@ def make_ref_proc_stat(num_cpus: int = 2, ts: Optional[float] = None) -> procfs.
             cpu_ticks[i] = 2 * procfs.STAT_CPU_NUM_STATS * cpu + i
             cpu_ticks_all[i] += cpu_ticks[i]
         stat.Cpu[cpu] = cpu_ticks
+    stat.NumCpus = num_cpus
     stat.Cpu[procfs.STAT_CPU_ALL] = cpu_ticks_all
 
     if ts is None:
