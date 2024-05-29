@@ -670,8 +670,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "proc_interrupts",
-  "uid": "proc_interrupts",
-  "version": 19,
+  "title": "proc_interrupts_metrics",
+  "uid": "proc_interrupts_metrics",
+  "version": 21,
   "weekStart": ""
 }

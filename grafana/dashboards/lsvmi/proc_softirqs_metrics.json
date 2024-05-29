@@ -441,8 +441,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "proc_softirqs",
-  "uid": "proc_softirqs",
-  "version": 4,
+  "title": "proc_softirqs_metrics",
+  "uid": "proc_softirqs_metrics",
+  "version": 6,
   "weekStart": ""
 }
