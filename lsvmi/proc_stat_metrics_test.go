@@ -73,6 +73,7 @@ func testProcStatMetrics(tc *ProcStatMetricsTestCase, t *testing.T) {
 
 	procStatMetrics.otherCycleNum = tc.OtherCycleNum
 	if tc.OtherZeroDelta != nil {
+		procStatMetrics.updateOtherMetrics()
 		copy(procStatMetrics.otherZeroDelta, tc.OtherZeroDelta)
 	}
 

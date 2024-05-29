@@ -384,8 +384,7 @@ def generate_proc_stat_metrics_test_cases(
     test_cases = []
     tc_num = 0
 
-    # First time:
-    name = "first_time"
+    name = "all_new"
     curr_proc_stat = proc_stat_ref
     prev_proc_stat = deepcopy(proc_stat_ref)
     for cpu, cpu_ticks in prev_proc_stat.Cpu.items():
@@ -399,7 +398,7 @@ def generate_proc_stat_metrics_test_cases(
         )
     test_cases.append(
         generate_proc_stat_metrics_test_case(
-            name,
+            f"{name}/{tc_num:04d}",
             curr_proc_stat,
             prev_proc_stat,
             ts=ts,
@@ -408,6 +407,74 @@ def generate_proc_stat_metrics_test_cases(
         )
     )
     tc_num += 1
+
+    name = "all_change"
+    for zero_delta in [True, False]:
+        other_zero_delta = [
+            zero_delta if i in proc_stat_index_delta_metric_name_map else False
+            for i in range(procfs.STAT_NUMERIC_NUM_STATS)
+        ]
+        for cycle_num in [0, 1]:
+            cpu_info = {
+                cpu: ProcStatMetricsCpuInfoTestData(
+                    CycleNum=cycle_num,
+                    ZeroPcpu=[zero_delta] * procfs.STAT_CPU_NUM_STATS,
+                )
+                for cpu in curr_proc_stat.Cpu
+            }
+            test_cases.append(
+                generate_proc_stat_metrics_test_case(
+                    f"{name}/{tc_num:04d}",
+                    curr_proc_stat,
+                    prev_proc_stat,
+                    ts=ts,
+                    cpu_info=cpu_info,
+                    other_cycle_num=cycle_num,
+                    other_zero_delta=other_zero_delta,
+                    instance=instance,
+                    hostname=hostname,
+                    description=f"zero_delta={zero_delta},cycle_num={cycle_num}",
+                )
+            )
+            tc_num += 1
+
+    name = "one_pcpu_change"
+    curr_proc_stat = proc_stat_ref
+    for zero_delta in [True, False]:
+        other_zero_delta = [
+            zero_delta if i in proc_stat_index_delta_metric_name_map else False
+            for i in range(procfs.STAT_NUMERIC_NUM_STATS)
+        ]
+        for cycle_num in [0, 1]:
+            cpu_info = {
+                cpu: ProcStatMetricsCpuInfoTestData(
+                    CycleNum=cycle_num,
+                    ZeroPcpu=[zero_delta] * procfs.STAT_CPU_NUM_STATS,
+                )
+                for cpu in curr_proc_stat.Cpu
+            }
+            for cpu in curr_proc_stat.Cpu:
+                for i in range(procfs.STAT_CPU_NUM_STATS):
+                    prev_proc_stat = deepcopy(curr_proc_stat)
+                    prev_proc_stat.Cpu[cpu][i] = uint64_delta(
+                        prev_proc_stat.Cpu[cpu][i],
+                        procfs.STAT_CPU_NUM_STATS * (cpu_ticks_max + cpu) + i,
+                    )
+                    test_cases.append(
+                        generate_proc_stat_metrics_test_case(
+                            f"{name}/{tc_num:04d}",
+                            curr_proc_stat,
+                            prev_proc_stat,
+                            ts=ts,
+                            cpu_info=cpu_info,
+                            other_cycle_num=cycle_num,
+                            other_zero_delta=other_zero_delta,
+                            instance=instance,
+                            hostname=hostname,
+                            description=f"zero_delta={zero_delta},cycle_num={cycle_num},cpu={cpu},i={i}",
+                        )
+                    )
+                    tc_num += 1
 
     # proc_stat_ref = {
     #     "Cpu": {},
