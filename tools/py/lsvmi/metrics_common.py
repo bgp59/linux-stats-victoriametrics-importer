@@ -1,8 +1,15 @@
 #! /usr/bin/env python3
 
+import json
+import os
+import sys
+from dataclasses import asdict
+from typing import List, Optional
 
 INSTANCE_LABEL_NAME = "instance"
 HOSTNAME_LABEL_NAME = "hostname"
+
+from testutils import lsvmi_test_cases_root_dir
 
 
 def uint32_delta(curr: int, prev: int) -> int:
@@ -25,3 +32,22 @@ def uint64_delta(curr: int, prev: int) -> int:
     while delta < 0:
         delta += 1 << 64
     return delta
+
+
+def save_test_cases(
+    test_cases: List,
+    test_cases_file: Optional[str] = None,
+    test_cases_root_dir: Optional[str] = lsvmi_test_cases_root_dir,
+):
+    use_stdout = test_cases_file in [None, "-"] or test_cases_root_dir in [None, "-"]
+    if use_stdout:
+        fp = sys.stdout
+    else:
+        out_file = os.path.join(test_cases_root_dir, test_cases_file)
+        out_dir = os.path.dirname(out_file)
+        os.makedirs(out_dir, exist_ok=True)
+        fp = open(out_file, "wt")
+    json.dump(list(map(asdict, test_cases)), fp=fp, indent=2)
+    if not use_stdout:
+        fp.close()
+        print(f"{out_file} generated", file=sys.stderr)

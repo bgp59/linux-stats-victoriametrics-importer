@@ -11,13 +11,14 @@ from testutils import (
     DEFAULT_TEST_HOSTNAME,
     DEFAULT_TEST_INSTANCE,
     TEST_LINUX_CLKTCK_SEC,
-    lsvmi_testcases_root,
+    lsvmi_test_cases_root_dir,
 )
 
 from .metrics_common import (
     HOSTNAME_LABEL_NAME,
     INSTANCE_LABEL_NAME,
     int32_to_uint32,
+    save_test_cases,
     uint32_delta,
     uint32_to_int32,
     uint64_delta,

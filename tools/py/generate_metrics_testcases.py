@@ -10,7 +10,11 @@ from lsvmi.proc_net_snmp6_metrics import generate_proc_net_snmp6_metrics_test_ca
 from lsvmi.proc_net_snmp_metrics import generate_proc_net_snmp_metrics_test_cases
 from lsvmi.proc_softirqs_metrics import generate_proc_softirqs_metrics_test_cases
 from lsvmi.proc_stat_metrics import generate_proc_stat_metrics_test_cases
-from testutils import DEFAULT_TEST_HOSTNAME, DEFAULT_TEST_INSTANCE, lsvmi_testcases_root
+from testutils import (
+    DEFAULT_TEST_HOSTNAME,
+    DEFAULT_TEST_INSTANCE,
+    lsvmi_test_cases_root_dir,
+)
 
 testcase_generator_fn_map = {
     "proc_diskstats": generate_proc_diskstats_metrics_test_cases,
@@ -48,8 +52,8 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-o",
-        "--testcases-root-dir",
-        default=lsvmi_testcases_root,
+        "--test-cases-root-dir",
+        default=lsvmi_test_cases_root_dir,
         help=f"""
             Generate file(s) under this dir, use `-' for stdout. 
             Default: %(default)s
@@ -64,5 +68,5 @@ if __name__ == "__main__":
     for t in target_metrics:
         testcase_generator_fn_map[t](
             hostname=args.hostname,
-            testcases_root_dir=args.testcases_root_dir,
+            test_cases_root_dir=args.test_cases_root_dir,
         )

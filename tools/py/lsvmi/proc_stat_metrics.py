@@ -2,12 +2,9 @@
 
 # Generate test cases for lsvmi/proc_stat_metrics_test.go
 
-import json
-import os
-import sys
 import time
 from copy import deepcopy
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 import procfs
@@ -18,7 +15,8 @@ from . import (
     HOSTNAME_LABEL_NAME,
     INSTANCE_LABEL_NAME,
     TEST_LINUX_CLKTCK_SEC,
-    lsvmi_testcases_root,
+    lsvmi_test_cases_root_dir,
+    save_test_cases,
     uint64_delta,
 )
 
@@ -135,7 +133,7 @@ proc_stat_relevant_numeric_field_indexes = list(
 ) + list(proc_stat_index_metric_name_map)
 
 
-testcases_file = "proc_stat.json"
+test_cases_file = "proc_stat.json"
 
 
 def generate_proc_stat_metrics(
@@ -156,12 +154,12 @@ def generate_proc_stat_metrics(
     new_other_zero_delta = [False] * procfs.STAT_NUMERIC_NUM_STATS
 
     # CPU stats:
-    num_cpus =curr_proc_stat.NumCpus
+    num_cpus = curr_proc_stat.NumCpus
     for cpu, curr_cpu_stats in curr_proc_stat.Cpu.items():
-        new_zero_pcpu_map[cpu] = [False] * procfs.STAT_CPU_NUM_STATS
         prev_cpu_stats = prev_proc_stat.Cpu.get(cpu)
         if prev_cpu_stats is None:
             continue
+        new_zero_pcpu_map[cpu] = [False] * procfs.STAT_CPU_NUM_STATS
         full_metrics = (
             cpu_info is None or cpu not in cpu_info or cpu_info[cpu].CycleNum == 0
         )
@@ -198,7 +196,7 @@ def generate_proc_stat_metrics(
                         )
                         + f"}} {pcpu/num_cpus:.1f} {curr_prom_ts}"
                     )
-            new_zero_pcpu_map[cpu][index] = delta_cpu_ticks == 0 
+            new_zero_pcpu_map[cpu][index] = delta_cpu_ticks == 0
         if full_metrics:
             metrics.append(
                 f"{PROC_STAT_CPU_UP_METRIC}{{"
@@ -387,17 +385,8 @@ def make_ref_proc_stat(num_cpus: int = 2, ts: Optional[float] = None) -> procfs.
 def generate_proc_stat_metrics_test_cases(
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
-    testcases_root_dir: Optional[str] = lsvmi_testcases_root,
+    test_cases_root_dir: Optional[str] = lsvmi_test_cases_root_dir,
 ):
-
-    if testcases_root_dir not in {None, "", "-"}:
-        out_file = os.path.join(testcases_root_dir, testcases_file)
-        os.makedirs(os.path.dirname(out_file), exist_ok=True)
-        fp = open(out_file, "wt")
-    else:
-        out_file = None
-        fp = sys.stdout
-
     num_cpus = 2
     ts = time.time()
     proc_stat_ref = make_ref_proc_stat(num_cpus=num_cpus, ts=ts)
@@ -503,162 +492,124 @@ def generate_proc_stat_metrics_test_cases(
                     )
                     tc_num += 1
 
-    # proc_stat_ref = {
-    #     "Cpu": {},
-    #     "NumericFields": [0] * procfs.STAT_NUMERIC_NUM_STATS,
-    # }
-    # cpu_ticks_all = [0] * procfs.STAT_CPU_NUM_STATS
-    # num_cpus = 2
-    # for cpu in range(num_cpus):
-    #     cpu_ticks = [0] * procfs.STAT_CPU_NUM_STATS
-    #     for i in range(procfs.STAT_CPU_NUM_STATS):
-    #         cpu_ticks[i] = 2 * procfs.STAT_CPU_NUM_STATS * cpu + i
-    #         cpu_ticks_all[i] += cpu_ticks[i]
-    #     proc_stat_ref["Cpu"][cpu] = cpu_ticks
-    # proc_stat_ref["Cpu"][procfs.STAT_CPU_ALL] = cpu_ticks_all
-    # proc_stat_ref["NumericFields"][procfs.STAT_BTIME] = int(ts)
-    # for i in proc_stat_index_delta_metric_name_map:
-    #     proc_stat_ref["NumericFields"][i] = 2 * procfs.STAT_CPU_NUM_STATS * i
-    # for i in proc_stat_index_metric_name_map:
-    #     proc_stat_ref["NumericFields"][i] = 2 * procfs.STAT_CPU_NUM_STATS * i
+    name = "one_non_cpu_change"
+    curr_proc_stat = proc_stat_ref
+    for zero_delta in [True, False]:
+        other_zero_delta = [
+            zero_delta if i in proc_stat_index_delta_metric_name_map else False
+            for i in range(procfs.STAT_NUMERIC_NUM_STATS)
+        ]
+        for cycle_num in [0, 1]:
+            cpu_info = {
+                cpu: ProcStatMetricsCpuInfoTestData(
+                    CycleNum=cycle_num,
+                    ZeroPcpu=[zero_delta] * procfs.STAT_CPU_NUM_STATS,
+                )
+                for cpu in curr_proc_stat.Cpu
+            }
+            for i in proc_stat_relevant_numeric_field_indexes:
+                prev_proc_stat = deepcopy(curr_proc_stat)
+                prev_proc_stat.NumericFields[i] = uint64_delta(
+                    prev_proc_stat.NumericFields[i],
+                    2 * procfs.STAT_NUMERIC_NUM_STATS + i,
+                )
+                test_cases.append(
+                    generate_proc_stat_metrics_test_case(
+                        f"{name}/{tc_num:04d}",
+                        curr_proc_stat,
+                        prev_proc_stat,
+                        ts=ts,
+                        cpu_info=cpu_info,
+                        other_cycle_num=cycle_num,
+                        other_zero_delta=other_zero_delta,
+                        instance=instance,
+                        hostname=hostname,
+                        description=f"zero_delta={zero_delta},cycle_num={cycle_num},i={i}",
+                    )
+                )
+                tc_num += 1
 
-    # test_cases = []
-    # tc_num = 0
+    name = "new_cpu"
+    curr_proc_stat = proc_stat_ref
+    for new_cpu in curr_proc_stat.Cpu:
+        # Leave `all' in the mix just to test that the code is robust, in real
+        # life should never occur.
+        # if new_cpu == procfs.STAT_CPU_ALL:
+        #     continue
+        for prev_present in [False, True]:
+            prev_proc_stat = deepcopy(curr_proc_stat)
+            if not prev_present:
+                del prev_proc_stat.Cpu[new_cpu]
+            for zero_delta in [True, False]:
+                other_zero_delta = [
+                    zero_delta if i in proc_stat_index_delta_metric_name_map else False
+                    for i in range(procfs.STAT_NUMERIC_NUM_STATS)
+                ]
+                cpu_info = {
+                    cpu: ProcStatMetricsCpuInfoTestData(
+                        CycleNum=cycle_num,
+                        ZeroPcpu=[zero_delta] * procfs.STAT_CPU_NUM_STATS,
+                    )
+                    for cpu in curr_proc_stat.Cpu
+                    if cpu != new_cpu
+                }
+                for cycle_num in [0, 1]:
+                    test_cases.append(
+                        generate_proc_stat_metrics_test_case(
+                            f"{name}/{tc_num:04d}",
+                            curr_proc_stat,
+                            prev_proc_stat,
+                            ts=ts,
+                            cpu_info=cpu_info,
+                            other_cycle_num=cycle_num,
+                            other_zero_delta=other_zero_delta,
+                            instance=instance,
+                            hostname=hostname,
+                            description=f"zero_delta={zero_delta},cycle_num={cycle_num},new_cpu={new_cpu},prev_present={prev_present}",
+                        )
+                    )
+                    tc_num += 1
 
-    # # No previous stats:
-    # for cycle_num in [0, 1]:
-    #     for zero in [False, True]:
-    #         zero_pcpu_map = {}
-    #         for cpu in proc_stat_ref["Cpu"]:
-    #             zero_pcpu_map[cpu] = [zero] * procfs.STAT_CPU_NUM_STATS
-    #         test_cases.append(
-    #             generate_proc_stat_metrics_test_case(
-    #                 f"{tc_num:04d}",
-    #                 proc_stat_ref,
-    #                 None,
-    #                 ts=ts,
-    #                 cycle_num=cycle_num,
-    #                 zero_pcpu_map=zero_pcpu_map,
-    #                 instance=instance,
-    #                 hostname=hostname,
-    #             )
-    #         )
-    #         tc_num += 1
+    name = "remove_cpu"
+    prev_proc_stat = proc_stat_ref
+    for rm_cpu in curr_proc_stat.Cpu:
+        # Leave `all' in the mix just to test that the code is robust, in real
+        # life should never occur.
+        # if rm_cpu == procfs.STAT_CPU_ALL:
+        #     continue
+        curr_proc_stat = deepcopy(prev_proc_stat)
+        del curr_proc_stat.Cpu[rm_cpu]
+        for prev_present in [False, True]:
+            for zero_delta in [True, False]:
+                other_zero_delta = [
+                    zero_delta if i in proc_stat_index_delta_metric_name_map else False
+                    for i in range(procfs.STAT_NUMERIC_NUM_STATS)
+                ]
+                cpu_info = {
+                    cpu: ProcStatMetricsCpuInfoTestData(
+                        CycleNum=cycle_num,
+                        ZeroPcpu=[zero_delta] * procfs.STAT_CPU_NUM_STATS,
+                    )
+                    for cpu in curr_proc_stat.Cpu
+                    if cpu != rm_cpu or prev_present
+                }
+                for cycle_num in [0, 1]:
+                    test_cases.append(
+                        generate_proc_stat_metrics_test_case(
+                            f"{name}/{tc_num:04d}",
+                            curr_proc_stat,
+                            prev_proc_stat,
+                            ts=ts,
+                            cpu_info=cpu_info,
+                            other_cycle_num=cycle_num,
+                            other_zero_delta=other_zero_delta,
+                            instance=instance,
+                            hostname=hostname,
+                            description=f"zero_delta={zero_delta},cycle_num={cycle_num},rm_cpu={rm_cpu},prev_present={prev_present}",
+                        )
+                    )
+                    tc_num += 1
 
-    # # No stats change:
-    # for cycle_num in [0, 1]:
-    #     for zero in [False, True]:
-    #         zero_pcpu_map = {}
-    #         for cpu in proc_stat_ref["Cpu"]:
-    #             zero_pcpu_map[cpu] = [zero] * procfs.STAT_CPU_NUM_STATS
-    #         test_cases.append(
-    #             generate_proc_stat_metrics_test_case(
-    #                 f"{tc_num:04d}",
-    #                 proc_stat_ref,
-    #                 proc_stat_ref,
-    #                 ts=ts,
-    #                 cycle_num=cycle_num,
-    #                 zero_pcpu_map=zero_pcpu_map,
-    #                 instance=instance,
-    #                 hostname=hostname,
-    #             )
-    #         )
-    #         tc_num += 1
-
-    # # Single CPU stat change:
-    # for cycle_num in [0, 1]:
-    #     for zero in [False, True]:
-    #         zero_pcpu_map = {}
-    #         for cpu in proc_stat_ref["Cpu"]:
-    #             zero_pcpu_map[cpu] = [zero] * procfs.STAT_CPU_NUM_STATS
-    #         for cpu in proc_stat_ref["Cpu"]:
-    #             for i in range(procfs.STAT_CPU_NUM_STATS):
-    #                 curr_proc_stat = deepcopy(proc_stat_ref)
-    #                 curr_proc_stat["Cpu"][cpu][i] += i + 13
-    #                 test_cases.append(
-    #                     generate_proc_stat_metrics_test_case(
-    #                         f"{tc_num:04d}",
-    #                         curr_proc_stat,
-    #                         proc_stat_ref,
-    #                         ts=ts,
-    #                         cycle_num=cycle_num,
-    #                         zero_pcpu_map=zero_pcpu_map,
-    #                         instance=instance,
-    #                         hostname=hostname,
-    #                     )
-    #                 )
-    #                 tc_num += 1
-
-    # # New CPU:
-    # curr_proc_stat = deepcopy(proc_stat_ref)
-    # curr_proc_stat["Cpu"][num_cpus] = [i * 10 for i in range(procfs.STAT_CPU_NUM_STATS)]
-    # for cycle_num in [0, 1]:
-    #     for zero in [False, True]:
-    #         zero_pcpu_map = {}
-    #         for cpu in proc_stat_ref["Cpu"]:
-    #             zero_pcpu_map[cpu] = [zero] * procfs.STAT_CPU_NUM_STATS
-    #         test_cases.append(
-    #             generate_proc_stat_metrics_test_case(
-    #                 f"{tc_num:04d}",
-    #                 curr_proc_stat,
-    #                 proc_stat_ref,
-    #                 ts=ts,
-    #                 cycle_num=cycle_num,
-    #                 zero_pcpu_map=zero_pcpu_map,
-    #                 instance=instance,
-    #                 hostname=hostname,
-    #             )
-    #         )
-    #         tc_num += 1
-
-    # # Vanishing CPU:
-    # for cycle_num in [0, 1]:
-    #     for zero in [False, True]:
-    #         zero_pcpu_map = {}
-    #         for cpu in proc_stat_ref["Cpu"]:
-    #             zero_pcpu_map[cpu] = [zero] * procfs.STAT_CPU_NUM_STATS
-    #         for cpu in proc_stat_ref["Cpu"]:
-    #             if cpu == procfs.STAT_CPU_ALL:
-    #                 continue
-    #             curr_proc_stat = deepcopy(proc_stat_ref)
-    #             del curr_proc_stat["Cpu"][cpu]
-    #             test_cases.append(
-    #                 generate_proc_stat_metrics_test_case(
-    #                     f"{tc_num:04d}",
-    #                     curr_proc_stat,
-    #                     proc_stat_ref,
-    #                     ts=ts,
-    #                     cycle_num=cycle_num,
-    #                     zero_pcpu_map=zero_pcpu_map,
-    #                     instance=instance,
-    #                     hostname=hostname,
-    #                 )
-    #             )
-    #             tc_num += 1
-
-    # # Other stats change:
-    # for cycle_num in [0, 1]:
-    #     for i in list(proc_stat_index_delta_metric_name_map) + list(
-    #         proc_stat_index_metric_name_map
-    #     ):
-    #         curr_proc_stat = deepcopy(proc_stat_ref)
-    #         curr_proc_stat["NumericFields"][i] += 1000 * (i + 1)
-    #         test_cases.append(
-    #             generate_proc_stat_metrics_test_case(
-    #                 f"{tc_num:04d}",
-    #                 curr_proc_stat,
-    #                 proc_stat_ref,
-    #                 ts=ts,
-    #                 cycle_num=cycle_num,
-    #                 zero_pcpu_map=zero_pcpu_map,
-    #                 instance=instance,
-    #                 hostname=hostname,
-    #             )
-    #         )
-    #         tc_num += 1
-
-    json.dump(list(map(asdict, test_cases)), fp=fp, indent=2)
-    fp.write("\n")
-    if out_file is not None:
-        fp.close()
-        print(f"{out_file} generated", file=sys.stderr)
+    save_test_cases(
+        test_cases, test_cases_file, test_cases_root_dir=test_cases_root_dir
+    )

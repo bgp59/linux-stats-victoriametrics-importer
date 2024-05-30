@@ -16,7 +16,7 @@ from . import (
     DEFAULT_TEST_INSTANCE,
     HOSTNAME_LABEL_NAME,
     INSTANCE_LABEL_NAME,
-    lsvmi_testcases_root,
+    lsvmi_test_cases_root_dir,
 )
 
 DEFAULT_PROC_NET_DEV_INTERVAL_SEC = 1
@@ -46,7 +46,7 @@ PROC_NET_DEV_TX_COMPRESSED_DELTA_METRIC = "proc_net_dev_tx_compressed_delta"
 PROC_NET_DEV_LABEL_NAME = "dev"
 PROC_NET_DEV_INTERVAL_METRIC_NAME = "proc_net_dev_metrics_delta_sec"
 
-testcases_file = "proc_net_dev.json"
+test_cases_file = "proc_net_dev.json"
 
 # Map stats index (see procfs/net_dev_parser.go) into metrics names:
 proc_net_dev_index_delta_metric_name_map = {
@@ -176,12 +176,12 @@ def generate_proc_net_dev_metrics_test_case(
 def generate_proc_net_dev_metrics_test_cases(
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
-    testcases_root_dir: Optional[str] = lsvmi_testcases_root,
+    test_cases_root_dir: Optional[str] = lsvmi_test_cases_root_dir,
 ):
     ts = time.time()
 
-    if testcases_root_dir not in {None, "", "-"}:
-        out_file = os.path.join(testcases_root_dir, testcases_file)
+    if test_cases_root_dir not in {None, "", "-"}:
+        out_file = os.path.join(test_cases_root_dir, test_cases_file)
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
         fp = open(out_file, "wt")
     else:

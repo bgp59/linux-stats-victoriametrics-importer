@@ -2,12 +2,9 @@
 
 # Generate test cases for lsvmi/proc_net_snmp_metrics_test.go
 
-import json
-import os
-import sys
 import time
 from copy import deepcopy
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 import procfs
@@ -18,7 +15,8 @@ from . import (
     HOSTNAME_LABEL_NAME,
     INSTANCE_LABEL_NAME,
     int32_to_uint32,
-    lsvmi_testcases_root,
+    lsvmi_test_cases_root_dir,
+    save_test_cases,
     uint32_delta,
     uint32_to_int32,
 )
@@ -26,7 +24,6 @@ from . import (
 DEFAULT_PROC_NET_SNMP_INTERVAL_SEC = 1
 DEFAULT_PROC_NET_SNMP_FULL_METRICS_FACTOR = 15
 
-ZeroDeltaType = List[bool]
 
 # Metrics definitions, must match lsvmi/proc_net_snmp_metrics.go:
 PROC_NET_SNMP_IP_FORWARDING_METRIC = "proc_net_snmp_ip_forwarding"
@@ -267,14 +264,14 @@ class ProcNetSnmpMetricsTestCase:
     PrevPromTs: int = 0
     CycleNum: Optional[List[int]] = None
     FullMetricsFactor: int = DEFAULT_PROC_NET_SNMP_FULL_METRICS_FACTOR
-    ZeroDelta: Optional[ZeroDeltaType] = None
+    ZeroDelta: Optional[List[bool]] = None
     WantMetricsCount: int = 0
     WantMetrics: Optional[List[str]] = None
     ReportExtra: bool = False
-    WantZeroDelta: Optional[ZeroDeltaType] = None
+    WantZeroDelta: Optional[List[bool]] = None
 
 
-testcases_file = "proc_net_snmp.json"
+test_cases_file = "proc_net_snmp.json"
 
 
 def generate_proc_net_snmp_metrics(
@@ -282,11 +279,11 @@ def generate_proc_net_snmp_metrics(
     curr_prom_ts: int,
     prev_proc_net_snmp: Optional[procfs.NetSnmp] = None,
     cycle_num: Optional[List[int]] = None,
-    zero_delta: Optional[ZeroDeltaType] = None,
+    zero_delta: Optional[List[bool]] = None,
     interval: float = DEFAULT_PROC_NET_SNMP_INTERVAL_SEC,
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
-) -> Tuple[List[str], Optional[ZeroDeltaType]]:
+) -> Tuple[List[str], Optional[List[bool]]]:
     metrics = []
     new_zero_delta = (
         None if prev_proc_net_snmp is None else [False] * procfs.NET_SNMP_NUM_VALUES
@@ -349,7 +346,7 @@ def generate_proc_net_snmp_test_case(
     ts: Optional[float] = None,
     prev_proc_net_snmp: Optional[procfs.NetSnmp] = None,
     cycle_num: Optional[List[int]] = None,
-    zero_delta: Optional[ZeroDeltaType] = None,
+    zero_delta: Optional[List[bool]] = None,
     interval: float = DEFAULT_PROC_NET_SNMP_INTERVAL_SEC,
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
@@ -399,7 +396,7 @@ def make_ref_proc_net_snmp() -> procfs.NetSnmp:
     return proc_net_snmp
 
 
-def make_zero_delta(val: bool = False) -> ZeroDeltaType:
+def make_zero_delta(val: bool = False) -> List[bool]:
     return [
         False if i in proc_net_snmp_non_delta_index else val
         for i in range(procfs.NET_SNMP_NUM_VALUES)
@@ -409,18 +406,8 @@ def make_zero_delta(val: bool = False) -> ZeroDeltaType:
 def generate_proc_net_snmp_metrics_test_cases(
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
-    testcases_root_dir: Optional[str] = lsvmi_testcases_root,
+    test_cases_root_dir: Optional[str] = lsvmi_test_cases_root_dir,
 ):
-    ts = time.time()
-
-    if testcases_root_dir not in {None, "", "-"}:
-        out_file = os.path.join(testcases_root_dir, testcases_file)
-        os.makedirs(os.path.dirname(out_file), exist_ok=True)
-        fp = open(out_file, "wt")
-    else:
-        out_file = None
-        fp = sys.stdout
-
     test_cases = []
     tc_num = 0
 
@@ -527,8 +514,6 @@ def generate_proc_net_snmp_metrics_test_cases(
                 )
                 tc_num += 1
 
-    json.dump(list(map(asdict, test_cases)), fp=fp, indent=2)
-    fp.write("\n")
-    if out_file is not None:
-        fp.close()
-        print(f"{out_file} generated", file=sys.stderr)
+    save_test_cases(
+        test_cases, test_cases_file, test_cases_root_dir=test_cases_root_dir
+    )

@@ -16,7 +16,7 @@ PROCFS_TESTDATA_ROOT_SUBDIR = f"{TESTDATA_SUBDIR}/procfs"
 tools_py_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 go_module_root = os.path.dirname(os.path.dirname((tools_py_root)))
 lsvmi_procfs_root = os.path.join(go_module_root, LSVMI_PROCFS_ROOT_SUBDIR)
-lsvmi_testcases_root = os.path.join(go_module_root, LSVMI_TESTCASES_SUBDIR)
+lsvmi_test_cases_root_dir = os.path.join(go_module_root, LSVMI_TESTCASES_SUBDIR)
 
 procfs_testdata_root = os.path.join(go_module_root, PROCFS_TESTDATA_ROOT_SUBDIR)
 

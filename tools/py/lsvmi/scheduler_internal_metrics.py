@@ -14,7 +14,7 @@ from . import (
     DEFAULT_TEST_INSTANCE,
     HOSTNAME_LABEL_NAME,
     INSTANCE_LABEL_NAME,
-    lsvmi_testcases_root,
+    lsvmi_test_cases_root_dir,
 )
 from .internal_metrics import (
     TC_CURR_STATS_FIELD,
@@ -53,7 +53,7 @@ task_stats_uint64_delta_metric_names = {
 
 task_stats_interval_avg_runtime_metric = "lsvmi_task_interval_avg_runtime_sec"
 
-testcases_file = "scheduler.json"
+test_cases_file = "scheduler.json"
 
 
 def generate_task_stats_metrics(
@@ -153,12 +153,12 @@ def generate_scheduler_internal_metrics_test_case(
 def generate_scheduler_internal_metrics_test_cases(
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
-    testcases_root_dir: Optional[str] = lsvmi_testcases_root,
+    test_cases_root_dir: Optional[str] = lsvmi_test_cases_root_dir,
 ):
     ts = time.time()
 
-    if testcases_root_dir not in {None, "", "-"}:
-        out_file = os.path.join(testcases_root_dir, testcases_sub_dir, testcases_file)
+    if test_cases_root_dir not in {None, "", "-"}:
+        out_file = os.path.join(test_cases_root_dir, testcases_sub_dir, test_cases_file)
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
         fp = open(out_file, "wt")
     else:

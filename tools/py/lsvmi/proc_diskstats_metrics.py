@@ -2,12 +2,9 @@
 
 # Generate test cases for lsvmi/proc_interrupts_metrics_test.go
 
-import json
-import os
-import sys
 import time
 from copy import deepcopy
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
 import procfs
@@ -17,7 +14,8 @@ from . import (
     DEFAULT_TEST_INSTANCE,
     HOSTNAME_LABEL_NAME,
     INSTANCE_LABEL_NAME,
-    lsvmi_testcases_root,
+    lsvmi_test_cases_root_dir,
+    save_test_cases,
     uint32_delta,
 )
 
@@ -113,7 +111,7 @@ procMountinfoIndexToMetricLabelList = [
 
 ZeroDeltaType = List[bool]
 
-testcases_file = "proc_diskstats.json"
+test_cases_file = "proc_diskstats.json"
 
 
 @dataclass
@@ -424,18 +422,8 @@ def make_ref_mountinfo_parsed_lines(
 def generate_proc_diskstats_metrics_test_cases(
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
-    testcases_root_dir: Optional[str] = lsvmi_testcases_root,
+    test_cases_root_dir: Optional[str] = lsvmi_test_cases_root_dir,
 ):
-    ts = time.time()
-
-    if testcases_root_dir not in {None, "", "-"}:
-        out_file = os.path.join(testcases_root_dir, testcases_file)
-        os.makedirs(os.path.dirname(out_file), exist_ok=True)
-        fp = open(out_file, "wt")
-    else:
-        out_file = None
-        fp = sys.stdout
-
     test_cases = []
     tc_num = 0
 
@@ -760,8 +748,6 @@ def generate_proc_diskstats_metrics_test_cases(
         )
         tc_num += 1
 
-    json.dump(list(map(asdict, test_cases)), fp=fp, indent=2)
-    fp.write("\n")
-    if out_file is not None:
-        fp.close()
-        print(f"{out_file} generated", file=sys.stderr)
+    save_test_cases(
+        test_cases, test_cases_file, test_cases_root_dir=test_cases_root_dir
+    )
