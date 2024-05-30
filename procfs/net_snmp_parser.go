@@ -226,9 +226,10 @@ var netSnmpIndexMap = map[string]map[string]int{
 // Values that are to be ignored will be mapped into a negative inddex.
 
 type NetSnmpLineInfo struct {
-	// Line prefix, inclusive of `:', discovered during the 1st pass, it will be
-	// used for sanity checks in all subsequent passes:
-	prefix []byte
+	// Raw line, it will be used to determine changes:
+	line []byte
+	// Prefix end, inclusive of `:', used for sanity check for data line:
+	prefixLen int
 	// Mapping the variable position within the line 0..N-1 -> index0, index1,
 	// ..., index(N-1), where N = number of variables
 	indexMap []int
@@ -237,12 +238,14 @@ type NetSnmpLineInfo struct {
 type NetSnmp struct {
 	// Parsed values:
 	Values []uint32
+
 	// Whether the info changed during the parse or not; a nil value indicates
-	// no change:
+	// no change, != nil the reason for change:
 	InfoChanged []byte
 
 	// File path:
 	path string
+
 	// Line info, used for parsing; the index below is (line# - 1) / 2:
 	lineInfo []*NetSnmpLineInfo
 }
@@ -271,10 +274,10 @@ func (netSnmp *NetSnmp) UpdateInfo(from *NetSnmp) {
 	netSnmp.lineInfo = make([]*NetSnmpLineInfo, len(from.lineInfo))
 	for i, lineInfo := range from.lineInfo {
 		newLineInfo := &NetSnmpLineInfo{
-			prefix:   make([]byte, len(lineInfo.prefix)),
-			indexMap: make([]int, len(lineInfo.indexMap)),
+			line:      bytes.Clone(lineInfo.line),
+			prefixLen: lineInfo.prefixLen,
+			indexMap:  make([]int, len(lineInfo.indexMap)),
 		}
-		copy(newLineInfo.prefix, lineInfo.prefix)
 		copy(newLineInfo.indexMap, lineInfo.indexMap)
 		netSnmp.lineInfo[i] = newLineInfo
 	}
@@ -303,10 +306,10 @@ func buildSnmpLineInfo(line []byte) (*NetSnmpLineInfo, error) {
 	}
 	proto := strings.TrimSpace(string(line[:prefixLen-1]))
 	lineInfo := &NetSnmpLineInfo{
-		prefix:   make([]byte, prefixLen),
-		indexMap: make([]int, len(variables)),
+		line:      bytes.Clone(line),
+		prefixLen: prefixLen,
+		indexMap:  make([]int, len(variables)),
 	}
-	copy(lineInfo.prefix, line[:prefixLen])
 	for i := 0; i < len(lineInfo.indexMap); i++ {
 		lineInfo.indexMap[i] = -1 // i.e. assume un-mapped
 	}
@@ -334,71 +337,77 @@ func (netSnmp *NetSnmp) Parse() error {
 		netSnmp.InfoChanged = nil
 	}
 
-	infoLineStart, infoLineEnd, infoIndex := 0, 0, 0
-	for lineNum, pos := 1, 0; pos < l; lineNum++ {
-		// Odd line# are for line info, remember the start:end indexes in case
-		// the line needs to be parsed:
-		if lineNum&1 == 1 {
-			infoLineStart, infoLineEnd = pos, pos
-			for ; infoLineEnd < l && buf[infoLineEnd] != '\n'; infoLineEnd++ {
-			}
-			pos = infoLineEnd + 1
-			infoIndex = lineNum >> 1
-			continue
-		}
-
-		// Even lines, parse data; additionally parse the indo line as needed:
+	infoIndex := 0
+	var lineInfo *NetSnmpLineInfo
+	for pos, lineNum := 0, 1; pos < l; lineNum++ {
 		lineStart, eol := pos, false
-		var lineInfo *NetSnmpLineInfo = nil
-		if infoIndex < len(netSnmp.lineInfo) {
-			lineInfo = netSnmp.lineInfo[infoIndex]
-			// Validate prefix:
-			expectPrefix := lineInfo.prefix
-			prefixPos, expectPrefixLen := 0, len(expectPrefix)
-			for ; pos < l && prefixPos < expectPrefixLen && buf[pos] == expectPrefix[prefixPos]; pos++ {
-				prefixPos++
-			}
-			if prefixPos != expectPrefixLen {
-				// The layout of the file has changed, the info must be parsed again:
-				lineInfo = nil
-				pos = lineStart
-				if netSnmp.InfoChanged == nil {
-					netSnmp.InfoChanged = []byte(fmt.Sprintf(
-						"%s:%d: %q: unexpected prefix, want %q, will rebuild info",
-						netSnmp.path, lineNum, getCurrentLine(buf, lineStart), expectPrefix,
-					))
-				}
-			}
-		}
-		if lineInfo == nil {
-			// 1st time prefix:
-			lineInfo, err = buildSnmpLineInfo(buf[infoLineStart:infoLineEnd])
-			if err != nil {
-				return fmt.Errorf(
-					"%s:%d: %q: %v",
-					netSnmp.path, lineNum-1, string(buf[infoLineStart:infoLineEnd]), err,
-				)
-			}
+
+		// Odd line# are for parsing info; if the latter was already determined
+		// in a previous pass, run a sanity check on it to make sure it hasn't
+		// changed (IcmpMsg is dynamic, it may appear later). If it has changed
+		// or if it wasn't parsed before, parse it now.
+		if lineNum&1 == 1 {
+			infoIndex = lineNum >> 1
+
+			var expectedLine []byte = nil
+			expectedInfoLineLen := 0
 			if infoIndex < len(netSnmp.lineInfo) {
-				netSnmp.lineInfo[infoIndex] = lineInfo
+				lineInfo = netSnmp.lineInfo[infoIndex]
+				expectedLine = lineInfo.line
+				expectedInfoLineLen = len(expectedLine)
 			} else {
+				lineInfo = nil
+			}
+
+			lineEnd := pos
+			for i := 0; lineEnd < l; lineEnd++ {
+				if c := buf[lineEnd]; c == '\n' {
+					break
+				} else if i < expectedInfoLineLen && c != expectedLine[i] {
+					expectedInfoLineLen = 0
+				}
+				i++
+			}
+			if lineEnd-lineStart != expectedInfoLineLen {
+				expectedInfoLineLen = 0
+			}
+
+			if expectedInfoLineLen == 0 {
+				if lineInfo != nil {
+					netSnmp.InfoChanged = []byte(fmt.Sprintf(
+						"%s:%d: %q: unexpected line, want %q, will rebuild info",
+						netSnmp.path, lineNum, string(buf[lineStart:lineEnd]), expectedLine,
+					))
+					netSnmp.lineInfo = netSnmp.lineInfo[:infoIndex]
+				}
+				lineInfo, err = buildSnmpLineInfo(buf[lineStart:lineEnd])
+				if err != nil {
+					return fmt.Errorf(
+						"%s:%d: %q: %v",
+						netSnmp.path, lineNum-1, string(buf[lineStart:lineEnd]), err,
+					)
+				}
 				netSnmp.lineInfo = append(netSnmp.lineInfo, lineInfo)
 			}
 
-			// Re-verify the prefix:
-			expectPrefix := lineInfo.prefix
-			prefixPos, expectPrefixLen := 0, len(expectPrefix)
-			for ; pos < l && prefixPos < expectPrefixLen && buf[pos] == expectPrefix[prefixPos]; pos++ {
-				prefixPos++
-			}
-			if prefixPos != expectPrefixLen {
-				return fmt.Errorf(
-					"%s:%d: %q: unexpected prefix, want %q",
-					netSnmp.path, lineNum, getCurrentLine(buf, lineStart), expectPrefix,
-				)
-			}
+			pos = lineEnd + 1
+			continue
 		}
 
+		// Even lines, parse data:
+
+		// Validate prefix:
+		expectPrefix := lineInfo.line[:lineInfo.prefixLen]
+		prefixPos, expectPrefixLen := 0, len(expectPrefix)
+		for ; pos < l && prefixPos < expectPrefixLen && buf[pos] == expectPrefix[prefixPos]; pos++ {
+			prefixPos++
+		}
+		if prefixPos != expectPrefixLen {
+			return fmt.Errorf(
+				"%s:%d: %q: unexpected prefix, want %q, will rebuild info",
+				netSnmp.path, lineNum, getCurrentLine(buf, lineStart), expectPrefix,
+			)
+		}
 		valueIndexMap := lineInfo.indexMap
 		lineValueIndex, lineExpectedNumVals := 0, len(valueIndexMap)
 		for !eol && pos < l && lineValueIndex < lineExpectedNumVals {
