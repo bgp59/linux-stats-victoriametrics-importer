@@ -27,8 +27,8 @@ type ProcNetSnmpMetricsTestCase struct {
 	WantZeroDelta                    []bool
 }
 
-var procNetSnmpMetricsTestcasesFile = path.Join(
-	"..", testutils.LsvmiTestcasesSubdir,
+var procNetSnmpMetricsTestCasesFile = path.Join(
+	"..", testutils.LsvmiTestCasesSubdir,
 	"proc_net_snmp.json",
 )
 
@@ -112,13 +112,13 @@ func testProcNetSnmpMetrics(tc *ProcNetSnmpMetricsTestCase, t *testing.T) {
 }
 
 func TestProcNetSnmpMetrics(t *testing.T) {
-	t.Logf("Loading testcases from %q ...", procNetSnmpMetricsTestcasesFile)
-	testcases := make([]*ProcNetSnmpMetricsTestCase, 0)
-	err := testutils.LoadJsonFile(procNetSnmpMetricsTestcasesFile, &testcases)
+	t.Logf("Loading test cases from %q ...", procNetSnmpMetricsTestCasesFile)
+	testCases := make([]*ProcNetSnmpMetricsTestCase, 0)
+	err := testutils.LoadJsonFile(procNetSnmpMetricsTestCasesFile, &testCases)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, tc := range testcases {
+	for _, tc := range testCases {
 		t.Run(
 			tc.Name,
 			func(t *testing.T) { testProcNetSnmpMetrics(tc, t) },

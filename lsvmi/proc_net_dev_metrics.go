@@ -38,6 +38,8 @@ const (
 	PROC_NET_DEV_TX_CARRIER_DELTA_METRIC    = "proc_net_dev_tx_carrier_delta"
 	PROC_NET_DEV_TX_COMPRESSED_DELTA_METRIC = "proc_net_dev_tx_compressed_delta"
 
+	PROC_NET_DEV_PRESENCE_METRIC = "proc_net_dev_present"
+
 	PROC_NET_DEV_LABEL_NAME = "dev"
 
 	// Interval since last generation, i.e. the interval underlying the deltas.
@@ -95,36 +97,52 @@ func DefaultProcNetDevMetricsConfig() *ProcNetDevMetricsConfig {
 	}
 }
 
+// Per dev info, grouped together to ensure a single lookup:
+type ProcNetDevInfo struct {
+	// Delta metrics cache, indexed by procfs.NET_DEV_...:
+	deltaMetrics [][]byte
+
+	// Presence metric:
+	presentMetric []byte
+
+	// Cycle#:
+	cycleNum int
+
+	// Delta/rate metrics are generated with skip-zero-after-zero rule, i.e. if
+	// the current and previous deltas are both zero, then the current metric is
+	// skipped, save for full cycles. Keep track of zero deltas, indexed by
+	// procfs.NET_DEV_...:
+	zeroDelta []bool
+}
+
 type ProcNetDevMetrics struct {
 	// id/task_id:
 	id string
+
 	// Scan interval:
 	interval time.Duration
+
+	// Full metric factor:
+	fullMetricsFactor int
+
 	// Dual storage for parsed stats used as previous, current:
 	procNetDev [2]*procfs.NetDev
 	// Timestamp when the stats were collected:
 	procNetDevTs [2]time.Time
 	// Index for current stats, toggled after each use:
 	currIndex int
-	// Current cycle#:
-	cycleNum int
-	// Full metric factor:
-	fullMetricsFactor int
 
-	// Delta/rate metrics are generated with skip-zero-after-zero rule, i.e.
-	// if the current and previous deltas are both zero, then the current metric
-	// is skipped, save for full cycles. Keep track of zero deltas,
-	// indexed by device and procfs.NET_DEV_...:
-	zeroDeltaMap map[string][]bool
-
-	// Metrics cache, indexed by device and procfs.NET_DEV_...:
-	deltaMetricsCache map[string][][]byte
+	// Device info, indexed by device:
+	devInfoMap map[string]*ProcNetDevInfo
 
 	// Interval metric:
 	intervalMetric []byte
 
 	// A buffer for the timestamp suffix:
 	tsSuffixBuf *bytes.Buffer
+
+	// The total number of metrics, evaluated every time there is a change:
+	totalMetricsCount int
 
 	// The following are needed for testing only. Left to their default values,
 	// the usual objects will be used.
@@ -158,9 +176,8 @@ func NewProcNetDevMetrics(cfg any) (*ProcNetDevMetrics, error) {
 	procNetDevMetrics := &ProcNetDevMetrics{
 		id:                PROC_NET_DEV_METRICS_ID,
 		interval:          interval,
-		zeroDeltaMap:      make(map[string][]bool),
-		deltaMetricsCache: make(map[string][][]byte),
 		fullMetricsFactor: procNetDevMetricsCfg.FullMetricsFactor,
+		devInfoMap:        make(map[string]*ProcNetDevInfo),
 		tsSuffixBuf:       &bytes.Buffer{},
 	}
 
@@ -170,7 +187,7 @@ func NewProcNetDevMetrics(cfg any) (*ProcNetDevMetrics, error) {
 	return procNetDevMetrics, nil
 }
 
-func (pndm *ProcNetDevMetrics) updateDeltaMetricsCache(dev string) {
+func (pndm *ProcNetDevMetrics) updateDevInfo(dev string) {
 	instance, hostname := GlobalInstance, GlobalHostname
 	if pndm.instance != "" {
 		instance = pndm.instance
@@ -189,8 +206,18 @@ func (pndm *ProcNetDevMetrics) updateDeltaMetricsCache(dev string) {
 			PROC_NET_DEV_LABEL_NAME, dev,
 		))
 	}
-	pndm.deltaMetricsCache[dev] = deltaMetrics
-
+	pndm.devInfoMap[dev] = &ProcNetDevInfo{
+		deltaMetrics: deltaMetrics,
+		presentMetric: []byte(fmt.Sprintf(
+			`%s{%s="%s",%s="%s",%s="%s"} `, // N.B. the space before the value is included!
+			PROC_NET_DEV_PRESENCE_METRIC,
+			INSTANCE_LABEL_NAME, instance,
+			HOSTNAME_LABEL_NAME, hostname,
+			PROC_NET_DEV_LABEL_NAME, dev,
+		)),
+		cycleNum:  initialCycleNum.Get(pndm.fullMetricsFactor),
+		zeroDelta: make([]bool, procfs.NET_DEV_NUM_STATS),
+	}
 }
 
 func (pndm *ProcNetDevMetrics) updateMetricsCache() {
@@ -211,84 +238,100 @@ func (pndm *ProcNetDevMetrics) updateMetricsCache() {
 }
 
 func (pndm *ProcNetDevMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
-	actualMetricsCount := 0
 	currProcNetDev, prevProcNetDev := pndm.procNetDev[pndm.currIndex], pndm.procNetDev[1-pndm.currIndex]
-	if prevProcNetDev != nil {
-		currTs, prevTs := pndm.procNetDevTs[pndm.currIndex], pndm.procNetDevTs[1-pndm.currIndex]
-		pndm.tsSuffixBuf.Reset()
-		fmt.Fprintf(
-			pndm.tsSuffixBuf, " %d\n", currTs.UnixMilli(),
-		)
-		promTs := pndm.tsSuffixBuf.Bytes()
-
-		fullMetrics := pndm.cycleNum == 0
-		deltaSec := currTs.Sub(prevTs).Seconds()
-		for dev, currDevStats := range currProcNetDev.DevStats {
-			prevDevStats := prevProcNetDev.DevStats[dev]
-			if prevDevStats == nil {
-				continue
-			}
-			deltaMetrics := pndm.deltaMetricsCache[dev]
-			if deltaMetrics == nil {
-				pndm.updateDeltaMetricsCache(dev)
-				deltaMetrics = pndm.deltaMetricsCache[dev]
-			}
-			zeroDelta := pndm.zeroDeltaMap[dev]
-			if zeroDelta == nil {
-				zeroDelta = make([]bool, procfs.NET_DEV_NUM_STATS)
-				pndm.zeroDeltaMap[dev] = zeroDelta
-			}
-
-			for index, metric := range deltaMetrics {
-				val := currDevStats[index] - prevDevStats[index]
-				if val != 0 || fullMetrics || !zeroDelta[index] {
-					buf.Write(metric)
-					rate := procNetDevIndexRate[index]
-					if rate != nil {
-						buf.WriteString(strconv.FormatFloat(
-							float64(val)/deltaSec*rate.factor, 'f', rate.prec, 64,
-						))
-					} else {
-						buf.WriteString(strconv.FormatUint(val, 10))
-					}
-					buf.Write(promTs)
-					actualMetricsCount++
-				}
-				zeroDelta[index] = val == 0
-			}
-		}
-
-		// Network devices may be created/enabled dynamically. Check and delete zero
-		// flags as needed.
-		if len(pndm.zeroDeltaMap) > len(currProcNetDev.DevStats) {
-			for dev := range pndm.zeroDeltaMap {
-				if _, ok := currProcNetDev.DevStats[dev]; !ok {
-					delete(pndm.zeroDeltaMap, dev)
-				}
-			}
-		}
-
-		if pndm.intervalMetric == nil {
-			pndm.updateMetricsCache()
-		}
-		buf.Write(pndm.intervalMetric)
-		buf.WriteString(strconv.FormatFloat(deltaSec, 'f', 6, 64))
-		buf.Write(promTs)
-		actualMetricsCount++
-	}
-
-	// The total number of metrics:
-	//		delta metrics#: number of dev * number of counters
-	//		interval metric#: 1
-	totalMetricsCount := len(currProcNetDev.DevStats)*procfs.NET_DEV_NUM_STATS + 1
-
-	// Toggle the buffers, update the collection time and the cycle#:
+	currTs, prevTs := pndm.procNetDevTs[pndm.currIndex], pndm.procNetDevTs[1-pndm.currIndex]
 	pndm.currIndex = 1 - pndm.currIndex
-	if pndm.cycleNum++; pndm.cycleNum >= pndm.fullMetricsFactor {
-		pndm.cycleNum = 0
+
+	// All metrics are delta, a previous state is required:
+	if prevProcNetDev == nil {
+		return 0, 0
 	}
 
-	return actualMetricsCount, totalMetricsCount
+	actualMetricsCount := 0
+	pndm.tsSuffixBuf.Reset()
+	fmt.Fprintf(
+		pndm.tsSuffixBuf, " %d\n", currTs.UnixMilli(),
+	)
+	promTs := pndm.tsSuffixBuf.Bytes()
+	deltaSec := currTs.Sub(prevTs).Seconds()
+	evalTotalMetricsCount := false
+	for dev, currDevStats := range currProcNetDev.DevStats {
+		prevDevStats := prevProcNetDev.DevStats[dev]
+		if prevDevStats == nil {
+			continue
+		}
+
+		devInfo := pndm.devInfoMap[dev]
+		fullMetrics := devInfo == nil || devInfo.cycleNum == 0
+		if devInfo == nil {
+			pndm.updateDevInfo(dev)
+			devInfo = pndm.devInfoMap[dev]
+			evalTotalMetricsCount = true
+		}
+		deltaMetrics := devInfo.deltaMetrics
+		zeroDelta := devInfo.zeroDelta
+
+		for index, metric := range deltaMetrics {
+			val := currDevStats[index] - prevDevStats[index]
+			if val != 0 || fullMetrics || !zeroDelta[index] {
+				buf.Write(metric)
+				rate := procNetDevIndexRate[index]
+				if rate != nil {
+					buf.WriteString(strconv.FormatFloat(
+						float64(val)/deltaSec*rate.factor, 'f', rate.prec, 64,
+					))
+				} else {
+					buf.WriteString(strconv.FormatUint(val, 10))
+				}
+				buf.Write(promTs)
+				actualMetricsCount++
+			}
+			zeroDelta[index] = val == 0
+		}
+
+		if fullMetrics {
+			buf.Write(devInfo.presentMetric)
+			buf.WriteByte('1')
+			buf.Write(promTs)
+			actualMetricsCount++
+		}
+
+		if devInfo.cycleNum++; devInfo.cycleNum >= pndm.fullMetricsFactor {
+			devInfo.cycleNum = 0
+		}
+	}
+
+	// Network devices may be created/enabled dynamically, remove out of
+	// scope ones:
+	if len(pndm.devInfoMap) > len(currProcNetDev.DevStats) {
+		evalTotalMetricsCount = true
+		for dev, devInfo := range pndm.devInfoMap {
+			if _, ok := currProcNetDev.DevStats[dev]; !ok {
+				buf.Write(devInfo.presentMetric)
+				buf.WriteByte('0')
+				buf.Write(promTs)
+				actualMetricsCount++
+				delete(pndm.devInfoMap, dev)
+			}
+		}
+	}
+
+	if pndm.intervalMetric == nil {
+		pndm.updateMetricsCache()
+	}
+	buf.Write(pndm.intervalMetric)
+	buf.WriteString(strconv.FormatFloat(deltaSec, 'f', 6, 64))
+	buf.Write(promTs)
+	actualMetricsCount++
+
+	if evalTotalMetricsCount {
+		// The total number of metrics:
+		//		delta metrics#: (number of dev) * (number of counters + 1 (presence))
+		//		interval metric#: 1
+		pndm.totalMetricsCount = len(currProcNetDev.DevStats)*(procfs.NET_DEV_NUM_STATS+1) + 1
+	}
+
+	return actualMetricsCount, pndm.totalMetricsCount
 }
 
 // Satisfy the TaskActivity interface:
@@ -326,12 +369,15 @@ func (pndm *ProcNetDevMetrics) Execute() bool {
 
 	buf := metricsQueue.GetBuf()
 	actualMetricsCount, totalMetricsCount := pndm.generateMetrics(buf)
-	byteCount := buf.Len()
-	metricsQueue.QueueBuf(buf)
-
-	GlobalMetricsGeneratorStatsContainer.Update(
-		pndm.id, uint64(actualMetricsCount), uint64(totalMetricsCount), uint64(byteCount),
-	)
+	if totalMetricsCount > 0 {
+		byteCount := buf.Len()
+		metricsQueue.QueueBuf(buf)
+		GlobalMetricsGeneratorStatsContainer.Update(
+			pndm.id, uint64(actualMetricsCount), uint64(totalMetricsCount), uint64(byteCount),
+		)
+	} else {
+		metricsQueue.ReturnBuf(buf)
+	}
 
 	return true
 }

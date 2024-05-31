@@ -28,7 +28,7 @@ var mountinfoIndexName = []string{
 	"MOUNTINFO_SUPER_OPTIONS",
 }
 
-var mountinfoTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "mountinfo")
+var mountinfoTestDataDir = path.Join(PROCFS_TESTDATA_ROOT, "mountinfo")
 
 func testMountinfoParser(tc *MountinfoTestCase, t *testing.T) {
 	t.Logf(`
@@ -101,7 +101,7 @@ func TestMountinfoParser(t *testing.T) {
 	for _, tc := range []*MountinfoTestCase{
 		{
 			name:       "field_mapping",
-			procfsRoot: path.Join(mountinfoTestdataDir, "field_mapping"),
+			procfsRoot: path.Join(mountinfoTestDataDir, "field_mapping"),
 			wantParsedLines: [][]string{
 				{"10", "1", "11:0", "/root200", "/mount_point200", "mount,options=200", "value200:tag200", "-", "fstype200", "dev200", "super,options=200"},
 				{"20", "1", "21:0", "/root210", "/mount_point210", "mount,options=210", "", "-", "fstype20", "dev20", "super,options=210"},

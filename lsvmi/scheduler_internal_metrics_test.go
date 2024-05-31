@@ -16,8 +16,8 @@ type SchedulerInternalMetricsTestCase struct {
 	CurrStats, PrevStats SchedulerStats
 }
 
-var schedulerInternalMetricsTestcasesFile = path.Join(
-	"..", testutils.LsvmiTestcasesSubdir,
+var schedulerInternalMetricsTestCasesFile = path.Join(
+	"..", testutils.LsvmiTestCasesSubdir,
 	"internal_metrics", "scheduler.json",
 )
 
@@ -80,13 +80,13 @@ func testSchedulerInternalMetrics(tc *SchedulerInternalMetricsTestCase, t *testi
 }
 
 func TestSchedulerInternalMetrics(t *testing.T) {
-	t.Logf("Loading testcases from %q ...", schedulerInternalMetricsTestcasesFile)
-	testcases := make([]*SchedulerInternalMetricsTestCase, 0)
-	err := testutils.LoadJsonFile(schedulerInternalMetricsTestcasesFile, &testcases)
+	t.Logf("Loading test cases from %q ...", schedulerInternalMetricsTestCasesFile)
+	testCases := make([]*SchedulerInternalMetricsTestCase, 0)
+	err := testutils.LoadJsonFile(schedulerInternalMetricsTestCasesFile, &testCases)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, tc := range testcases {
+	for _, tc := range testCases {
 		t.Run(
 			tc.Name,
 			func(t *testing.T) { testSchedulerInternalMetrics(tc, t) },

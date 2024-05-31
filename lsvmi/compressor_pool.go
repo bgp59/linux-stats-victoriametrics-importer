@@ -274,6 +274,10 @@ func (pool *CompressorPool) GetBuf() *bytes.Buffer {
 	return pool.bufPool.GetBuf()
 }
 
+func (pool *CompressorPool) ReturnBuf(buf *bytes.Buffer) {
+	pool.bufPool.ReturnBuf(buf)
+}
+
 func (pool *CompressorPool) QueueBuf(b *bytes.Buffer) {
 	pool.metricsQueue <- b
 }

@@ -2,11 +2,9 @@
 
 # Generate test cases for lsvmi/proc_net_dev_metrics_test.go
 
-import json
-import os
-import sys
 import time
 from copy import deepcopy
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
 import procfs
@@ -17,6 +15,8 @@ from . import (
     HOSTNAME_LABEL_NAME,
     INSTANCE_LABEL_NAME,
     lsvmi_test_cases_root_dir,
+    save_test_cases,
+    uint64_delta,
 )
 
 DEFAULT_PROC_NET_DEV_INTERVAL_SEC = 1
@@ -43,7 +43,10 @@ PROC_NET_DEV_TX_COLLS_DELTA_METRIC = "proc_net_dev_tx_colls_delta"
 PROC_NET_DEV_TX_CARRIER_DELTA_METRIC = "proc_net_dev_tx_carrier_delta"
 PROC_NET_DEV_TX_COMPRESSED_DELTA_METRIC = "proc_net_dev_tx_compressed_delta"
 
+PROC_NET_DEV_PRESENCE_METRIC = "proc_net_dev_present"
+
 PROC_NET_DEV_LABEL_NAME = "dev"
+
 PROC_NET_DEV_INTERVAL_METRIC_NAME = "proc_net_dev_metrics_delta_sec"
 
 test_cases_file = "proc_net_dev.json"
@@ -77,12 +80,38 @@ PROC_NET_DEV_RATE_FACTOR = 0
 PROC_NET_DEV_RATE_PREC = 1
 
 
+@dataclass
+class ProcNetDevInfoTestData:
+    CycleNum: int = 0
+    ZeroDelta: List[bool] = field(
+        default_factory=lambda: [False] * procfs.NET_DEV_NUM_STATS
+    )
+
+
+@dataclass
+class ProcNetDevMetricsTestCase:
+    Name: Optional[str] = None
+    Description: Optional[str] = None
+    Instance: str = DEFAULT_TEST_INSTANCE
+    Hostname: str = DEFAULT_TEST_HOSTNAME
+    CurrProcNetDev: Optional[procfs.NetDev] = None
+    PrevProcNetDev: Optional[procfs.NetDev] = None
+    CurrPromTs: int = 0
+    PrevPromTs: int = 0
+    FullMetricsFactor: int = DEFAULT_PROC_NET_DEV_FULL_METRICS_FACTOR
+    DevInfoMap: Optional[Dict[str, ProcNetDevInfoTestData]] = None
+    WantMetricsCount: int = 0
+    WantMetrics: Optional[List[str]] = None
+    ReportExtra: bool = True
+    WantZeroDeltaMap: Optional[Dict[str, List[bool]]] = None
+
+
 def generate_proc_net_dev_metrics(
     curr_proc_net_dev: procfs.NetDev,
     prev_proc_net_dev: procfs.NetDev,
     curr_prom_ts: int,
     interval: Optional[float] = DEFAULT_PROC_NET_DEV_INTERVAL_SEC,
-    zero_delta_map: Optional[ZeroDeltaMap] = None,
+    dev_info_map: Optional[Dict[str, ProcNetDevInfoTestData]] = None,
     full_metrics: bool = False,
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
@@ -90,20 +119,22 @@ def generate_proc_net_dev_metrics(
     metrics = []
     new_zero_delta_map = {}
 
-    for dev, curr_net_dev_stats in curr_proc_net_dev["DevStats"].items():
-        prev_net_dev_stats = prev_proc_net_dev["DevStats"].get(dev)
+    for dev, curr_net_dev_stats in curr_proc_net_dev.DevStats.items():
+        prev_net_dev_stats = prev_proc_net_dev.DevStats.get(dev)
         if prev_net_dev_stats is None:
             continue
-        new_zero_delta_map[dev] = [False] * procfs.NET_DEV_NUM_STATS
-        zero_delta = zero_delta_map.get(dev)
+        dev_info = dev_info_map.get(dev) if dev_info_map is not None else None
+        full_metrics = dev_info is None or dev_info.CycleNum == 0
+        new_zero_delta = [False] * procfs.NET_DEV_NUM_STATS
         for index, curr_val in enumerate(curr_net_dev_stats):
-            val = curr_val - prev_net_dev_stats[index]
-            new_zero_delta_map[dev][index] = val == 0
-            if val != 0 or full_metrics or zero_delta is None or not zero_delta[index]:
+            delta = uint64_delta(curr_val, prev_net_dev_stats[index])
+            if delta != 0 or full_metrics or not dev_info.ZeroDelta[index]:
                 rate = proc_net_dev_index_rate.get(index)
                 if rate is not None:
-                    val = val / interval * rate[PROC_NET_DEV_RATE_FACTOR]
-                    val = f"{val:.{rate[PROC_NET_DEV_RATE_PREC]}f}"
+                    delta = delta / interval * rate[PROC_NET_DEV_RATE_FACTOR]
+                    val = f"{delta:.{rate[PROC_NET_DEV_RATE_PREC]}f}"
+                else:
+                    val = delta
                 metrics.append(
                     f"{proc_net_dev_index_delta_metric_name_map[index]}{{"
                     + ",".join(
@@ -115,6 +146,36 @@ def generate_proc_net_dev_metrics(
                     )
                     + f"}} {val} {curr_prom_ts}"
                 )
+            new_zero_delta[index] = delta == 0
+        new_zero_delta_map[dev] = new_zero_delta
+        if full_metrics:
+            metrics.append(
+                f"{PROC_NET_DEV_PRESENCE_METRIC}{{"
+                + ",".join(
+                    [
+                        f'{INSTANCE_LABEL_NAME}="{instance}"',
+                        f'{HOSTNAME_LABEL_NAME}="{hostname}"',
+                        f'{PROC_NET_DEV_LABEL_NAME}="{dev}"',
+                    ]
+                )
+                + f"}} 1 {curr_prom_ts}"
+            )
+
+    if dev_info_map is not None:
+        for dev in dev_info_map:
+            if dev not in curr_proc_net_dev.DevStats:
+                metrics.append(
+                    f"{PROC_NET_DEV_PRESENCE_METRIC}{{"
+                    + ",".join(
+                        [
+                            f'{INSTANCE_LABEL_NAME}="{instance}"',
+                            f'{HOSTNAME_LABEL_NAME}="{hostname}"',
+                            f'{PROC_NET_DEV_LABEL_NAME}="{dev}"',
+                        ]
+                    )
+                    + f"}} 0 {curr_prom_ts}"
+                )
+
     metrics.append(
         f"{PROC_NET_DEV_INTERVAL_METRIC_NAME}{{"
         + ",".join(
@@ -134,12 +195,12 @@ def generate_proc_net_dev_metrics_test_case(
     curr_proc_net_dev: procfs.NetDev,
     prev_proc_net_dev: procfs.NetDev,
     ts: Optional[float] = None,
-    cycle_num: int = 0,
     full_metrics_factor: int = DEFAULT_PROC_NET_DEV_FULL_METRICS_FACTOR,
     interval: Optional[float] = DEFAULT_PROC_NET_DEV_INTERVAL_SEC,
-    zero_delta_map: Optional[ZeroDeltaMap] = None,
+    dev_info_map: Optional[Dict[str, ProcNetDevInfoTestData]] = None,
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
+    description: Optional[str] = None,
 ) -> Dict:
     if ts is None:
         ts = time.time()
@@ -150,27 +211,34 @@ def generate_proc_net_dev_metrics_test_case(
         prev_proc_net_dev,
         curr_prom_ts,
         interval=interval,
-        zero_delta_map=zero_delta_map,
-        full_metrics=(cycle_num == 0),
+        dev_info_map=dev_info_map,
         hostname=hostname,
         instance=instance,
     )
-    return {
-        "Name": name,
-        "Instance": instance,
-        "Hostname": hostname,
-        "CurrProcNetDev": curr_proc_net_dev,
-        "PrevProcNetDev": prev_proc_net_dev,
-        "CurrPromTs": curr_prom_ts,
-        "PrevPromTs": prev_prom_ts,
-        "CycleNum": cycle_num,
-        "FullMetricsFactor": full_metrics_factor,
-        "ZeroDeltaMap": zero_delta_map,
-        "WantMetricsCount": len(metrics),
-        "WantMetrics": metrics,
-        "ReportExtra": True,
-        "WantZeroDeltaMap": want_zero_delta_map,
-    }
+    return ProcNetDevMetricsTestCase(
+        Name=name,
+        Description=description,
+        Instance=instance,
+        Hostname=hostname,
+        CurrProcNetDev=curr_proc_net_dev,
+        PrevProcNetDev=prev_proc_net_dev,
+        CurrPromTs=curr_prom_ts,
+        PrevPromTs=prev_prom_ts,
+        FullMetricsFactor=full_metrics_factor,
+        DevInfoMap=dev_info_map,
+        WantMetricsCount=len(metrics),
+        WantMetrics=metrics,
+        ReportExtra=True,
+        WantZeroDeltaMap=want_zero_delta_map,
+    )
+
+
+def make_ref_proc_net_dev(num_dev: int = 2) -> procfs.NetDev:
+    dev_stats = {}
+    for i in range(num_dev):
+        base = (i + 1) * 10 * procfs.NET_DEV_NUM_STATS
+        dev_stats[f"dev{i}"] = [base + j for j in range(procfs.NET_DEV_NUM_STATS)]
+    return procfs.NetDev(DevStats=dev_stats)
 
 
 def generate_proc_net_dev_metrics_test_cases(
@@ -178,115 +246,261 @@ def generate_proc_net_dev_metrics_test_cases(
     hostname: str = DEFAULT_TEST_HOSTNAME,
     test_cases_root_dir: Optional[str] = lsvmi_test_cases_root_dir,
 ):
-    ts = time.time()
-
-    if test_cases_root_dir not in {None, "", "-"}:
-        out_file = os.path.join(test_cases_root_dir, test_cases_file)
-        os.makedirs(os.path.dirname(out_file), exist_ok=True)
-        fp = open(out_file, "wt")
-    else:
-        out_file = None
-        fp = sys.stdout
-
-    proc_net_dev_ref = {"DevStats": {}}
     num_dev = 2
-    for n in range(num_dev):
-        base = (n + 1) * 10000
-        proc_net_dev_ref["DevStats"][f"dev{n}"] = [
-            base + j for j in range(procfs.NET_DEV_NUM_STATS)
-        ]
+    proc_net_dev_ref = make_ref_proc_net_dev(num_dev=num_dev)
+    max_val = max(map(max, proc_net_dev_ref.DevStats.values()))
+
+    ts = time.time()
 
     test_cases = []
     tc_num = 0
 
-    zero_delta_map_false = {}
-    zero_delta_map_true = {}
-    for dev in proc_net_dev_ref["DevStats"]:
-        zero_delta_map_false[dev] = [False] * procfs.NET_DEV_NUM_STATS
-        zero_delta_map_true[dev] = [True] * procfs.NET_DEV_NUM_STATS
+    name = "all_new"
+    curr_proc_net_dev = proc_net_dev_ref
+    prev_proc_net_dev = deepcopy(proc_net_dev_ref)
+    for i, dev_stats in enumerate(prev_proc_net_dev.DevStats.values()):
+        for j in range(len(dev_stats)):
+            dev_stats[j] = uint64_delta(
+                dev_stats[j],
+                (i + 1) * max_val + j,
+            )
+    test_cases.append(
+        generate_proc_net_dev_metrics_test_case(
+            f"{name}/{tc_num:04d}",
+            curr_proc_net_dev,
+            prev_proc_net_dev,
+            ts=ts,
+            instance=instance,
+            hostname=hostname,
+        )
+    )
+    tc_num += 1
 
-    # No change:
-    for cycle_num in [0, 1]:
-        for zero_delta_map in [zero_delta_map_false, zero_delta_map_true]:
+    name = "all_change"
+    curr_proc_net_dev = deepcopy(proc_net_dev_ref)
+    prev_proc_net_dev = deepcopy(proc_net_dev_ref)
+    for zero_delta in [True, False]:
+        for cycle_num in [0, 1]:
             test_cases.append(
                 generate_proc_net_dev_metrics_test_case(
-                    f"{tc_num:04d}",
-                    proc_net_dev_ref,
-                    proc_net_dev_ref,
+                    f"{name}/{tc_num:04d}",
+                    curr_proc_net_dev,
+                    prev_proc_net_dev,
                     ts=ts,
-                    cycle_num=cycle_num,
-                    zero_delta_map=zero_delta_map,
+                    dev_info_map={
+                        dev: ProcNetDevInfoTestData(
+                            CycleNum=cycle_num,
+                            ZeroDelta=[zero_delta] * procfs.NET_DEV_NUM_STATS,
+                        )
+                        for dev in curr_proc_net_dev.DevStats
+                    },
                     instance=instance,
                     hostname=hostname,
+                    description=f"zero_delta={zero_delta},cycle_num={cycle_num}",
                 )
             )
             tc_num += 1
 
-    # One change at a time:
-    for cycle_num in [0, 1]:
-        for zero_delta_map in [zero_delta_map_false, zero_delta_map_true]:
-            for dev in proc_net_dev_ref["DevStats"]:
-                for index in range(procfs.NET_DEV_NUM_STATS):
-                    curr_proc_net_dev = deepcopy(proc_net_dev_ref)
-                    curr_proc_net_dev["DevStats"][dev][index] += 10000 * (index + 1)
+    name = "no_change"
+    curr_proc_net_dev = deepcopy(proc_net_dev_ref)
+    for zero_delta in [True, False]:
+        for cycle_num in [0, 1]:
+            test_cases.append(
+                generate_proc_net_dev_metrics_test_case(
+                    f"{name}/{tc_num:04d}",
+                    curr_proc_net_dev,
+                    curr_proc_net_dev,
+                    ts=ts,
+                    dev_info_map={
+                        dev: ProcNetDevInfoTestData(
+                            CycleNum=cycle_num,
+                            ZeroDelta=[zero_delta] * procfs.NET_DEV_NUM_STATS,
+                        )
+                        for dev in curr_proc_net_dev.DevStats
+                    },
+                    instance=instance,
+                    hostname=hostname,
+                    description=f"zero_delta={zero_delta},cycle_num={cycle_num}",
+                )
+            )
+            tc_num += 1
+
+    name = "one_change"
+    curr_proc_net_dev = deepcopy(proc_net_dev_ref)
+    for zero_delta in [True, False]:
+        for cycle_num in [0, 1]:
+            for n, dev in enumerate(curr_proc_net_dev.DevStats):
+                for i in range(procfs.NET_DEV_NUM_STATS):
+                    prev_proc_net_dev = deepcopy(proc_net_dev_ref)
+                    prev_proc_net_dev.DevStats[dev][j] = uint64_delta(
+                        prev_proc_net_dev.DevStats[dev][i],
+                        (n + 1) * max_val + i,
+                    )
                     test_cases.append(
                         generate_proc_net_dev_metrics_test_case(
-                            f"{tc_num:04d}",
+                            f"{name}/{tc_num:04d}",
                             curr_proc_net_dev,
-                            proc_net_dev_ref,
+                            prev_proc_net_dev,
                             ts=ts,
-                            cycle_num=cycle_num,
-                            zero_delta_map=zero_delta_map,
+                            dev_info_map={
+                                dev: ProcNetDevInfoTestData(
+                                    CycleNum=cycle_num,
+                                    ZeroDelta=[zero_delta] * procfs.NET_DEV_NUM_STATS,
+                                )
+                                for dev in curr_proc_net_dev.DevStats
+                            },
                             instance=instance,
                             hostname=hostname,
+                            description=f"zero_delta={zero_delta},cycle_num={cycle_num},dev={dev},i={i}",
                         )
                     )
                     tc_num += 1
 
-    # New dev:
-    for cycle_num in [0, 1]:
-        for zero_delta_map in [zero_delta_map_false, zero_delta_map_true]:
-            for dev in proc_net_dev_ref["DevStats"]:
-                prev_proc_net_dev = deepcopy(proc_net_dev_ref)
-                del prev_proc_net_dev["DevStats"][dev]
-                zero_delta_map = deepcopy(zero_delta_map)
-                del zero_delta_map[dev]
-                test_cases.append(
-                    generate_proc_net_dev_metrics_test_case(
-                        f"{tc_num:04d}",
-                        proc_net_dev_ref,
-                        prev_proc_net_dev,
-                        ts=ts,
-                        cycle_num=cycle_num,
-                        zero_delta_map=zero_delta_map,
-                        instance=instance,
-                        hostname=hostname,
+    name = "new_dev"
+    curr_proc_net_dev = deepcopy(proc_net_dev_ref)
+    for new_dev in curr_proc_net_dev.DevStats:
+        for prev_present in [False, True]:
+            prev_proc_net_dev = deepcopy(curr_proc_net_dev)
+            if not prev_present:
+                del prev_proc_net_dev.DevStats[new_dev]
+            for zero_delta in [True, False]:
+                for cycle_num in [0, 1]:
+                    test_cases.append(
+                        generate_proc_net_dev_metrics_test_case(
+                            f"{name}/{tc_num:04d}",
+                            curr_proc_net_dev,
+                            prev_proc_net_dev,
+                            ts=ts,
+                            dev_info_map={
+                                dev: ProcNetDevInfoTestData(
+                                    CycleNum=cycle_num,
+                                    ZeroDelta=[zero_delta] * procfs.NET_DEV_NUM_STATS,
+                                )
+                                for dev in curr_proc_net_dev.DevStats
+                                if dev != new_dev
+                            },
+                            instance=instance,
+                            hostname=hostname,
+                            description=f"zero_delta={zero_delta},cycle_num={cycle_num},new_dev={new_dev},prev_present={prev_present}",
+                        )
                     )
-                )
-                tc_num += 1
+                    tc_num += 1
 
-    # Removed dev:
-    for cycle_num in [0, 1]:
-        for zero_delta_map in [zero_delta_map_false, zero_delta_map_true]:
-            for dev in proc_net_dev_ref["DevStats"]:
-                curr_proc_net_dev = deepcopy(proc_net_dev_ref)
-                del curr_proc_net_dev["DevStats"][dev]
-                test_cases.append(
-                    generate_proc_net_dev_metrics_test_case(
-                        f"{tc_num:04d}",
-                        curr_proc_net_dev,
-                        proc_net_dev_ref,
-                        ts=ts,
-                        cycle_num=cycle_num,
-                        zero_delta_map=zero_delta_map,
-                        instance=instance,
-                        hostname=hostname,
+    name = "remove_dev"
+    prev_proc_net_dev = deepcopy(proc_net_dev_ref)
+    for rm_dev in prev_proc_net_dev.DevStats:
+        curr_proc_net_dev = deepcopy(prev_proc_net_dev)
+        del curr_proc_net_dev.DevStats[rm_dev]
+        for prev_present in [False, True]:
+            for zero_delta in [True, False]:
+                for cycle_num in [0, 1]:
+                    test_cases.append(
+                        generate_proc_net_dev_metrics_test_case(
+                            f"{name}/{tc_num:04d}",
+                            curr_proc_net_dev,
+                            prev_proc_net_dev,
+                            ts=ts,
+                            dev_info_map={
+                                dev: ProcNetDevInfoTestData(
+                                    CycleNum=cycle_num,
+                                    ZeroDelta=[zero_delta] * procfs.NET_DEV_NUM_STATS,
+                                )
+                                for dev in prev_proc_net_dev.DevStats
+                                if dev != rm_dev or prev_present
+                            },
+                            instance=instance,
+                            hostname=hostname,
+                            description=f"zero_delta={zero_delta},cycle_num={cycle_num},rm_dev={rm_dev},prev_present={prev_present}",
+                        )
                     )
-                )
-                tc_num += 1
+                    tc_num += 1
 
-    json.dump(test_cases, fp=fp, indent=2)
-    fp.write("\n")
-    if out_file is not None:
-        fp.close()
-        print(f"{out_file} generated", file=sys.stderr)
+    # zero_delta_map_false = {}
+    # zero_delta_map_true = {}
+    # for dev in proc_net_dev_ref.DevStats:
+    #     zero_delta_map_false[dev] = [False] * procfs.NET_DEV_NUM_STATS
+    #     zero_delta_map_true[dev] = [True] * procfs.NET_DEV_NUM_STATS
+
+    # # No change:
+    # for cycle_num in [0, 1]:
+    #     for zero_delta_map in [zero_delta_map_false, zero_delta_map_true]:
+    #         test_cases.append(
+    #             generate_proc_net_dev_metrics_test_case(
+    #                 f"{tc_num:04d}",
+    #                 proc_net_dev_ref,
+    #                 proc_net_dev_ref,
+    #                 ts=ts,
+    #                 cycle_num=cycle_num,
+    #                 zero_delta_map=zero_delta_map,
+    #                 instance=instance,
+    #                 hostname=hostname,
+    #             )
+    #         )
+    #         tc_num += 1
+
+    # # One change at a time:
+    # for cycle_num in [0, 1]:
+    #     for zero_delta_map in [zero_delta_map_false, zero_delta_map_true]:
+    #         for dev in proc_net_dev_ref.DevStats:
+    #             for index in range(procfs.NET_DEV_NUM_STATS):
+    #                 curr_proc_net_dev = deepcopy(proc_net_dev_ref)
+    #                 curr_proc_net_dev.DevStats[dev][index] += 10000 * (index + 1)
+    #                 test_cases.append(
+    #                     generate_proc_net_dev_metrics_test_case(
+    #                         f"{tc_num:04d}",
+    #                         curr_proc_net_dev,
+    #                         proc_net_dev_ref,
+    #                         ts=ts,
+    #                         cycle_num=cycle_num,
+    #                         zero_delta_map=zero_delta_map,
+    #                         instance=instance,
+    #                         hostname=hostname,
+    #                     )
+    #                 )
+    #                 tc_num += 1
+
+    # # New dev:
+    # for cycle_num in [0, 1]:
+    #     for zero_delta_map in [zero_delta_map_false, zero_delta_map_true]:
+    #         for dev in proc_net_dev_ref.DevStats:
+    #             prev_proc_net_dev = deepcopy(proc_net_dev_ref)
+    #             del prev_proc_net_dev.DevStats[dev]
+    #             zero_delta_map = deepcopy(zero_delta_map)
+    #             del zero_delta_map[dev]
+    #             test_cases.append(
+    #                 generate_proc_net_dev_metrics_test_case(
+    #                     f"{tc_num:04d}",
+    #                     proc_net_dev_ref,
+    #                     prev_proc_net_dev,
+    #                     ts=ts,
+    #                     cycle_num=cycle_num,
+    #                     zero_delta_map=zero_delta_map,
+    #                     instance=instance,
+    #                     hostname=hostname,
+    #                 )
+    #             )
+    #             tc_num += 1
+
+    # # Removed dev:
+    # for cycle_num in [0, 1]:
+    #     for zero_delta_map in [zero_delta_map_false, zero_delta_map_true]:
+    #         for dev in proc_net_dev_ref.DevStats:
+    #             curr_proc_net_dev = deepcopy(proc_net_dev_ref)
+    #             del curr_proc_net_dev.DevStats[dev]
+    #             test_cases.append(
+    #                 generate_proc_net_dev_metrics_test_case(
+    #                     f"{tc_num:04d}",
+    #                     curr_proc_net_dev,
+    #                     proc_net_dev_ref,
+    #                     ts=ts,
+    #                     cycle_num=cycle_num,
+    #                     zero_delta_map=zero_delta_map,
+    #                     instance=instance,
+    #                     hostname=hostname,
+    #                 )
+    #             )
+    #             tc_num += 1
+
+    save_test_cases(
+        test_cases, test_cases_file, test_cases_root_dir=test_cases_root_dir
+    )

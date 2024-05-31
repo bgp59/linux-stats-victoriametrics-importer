@@ -3,9 +3,9 @@
 package testutils
 
 var (
-	TestdataSubdir       = "testdata"
-	LsvmiTestdataSubdir  = "testdata/lsvmi"
-	LsvmiTestcasesSubdir = "testdata/lsvmi/testcases"
+	TestDataSubdir       = "testdata"
+	LsvmiTestDataSubdir  = "testdata/lsvmi"
+	LsvmiTestCasesSubdir = "testdata/lsvmi/testCases"
 	LsvmiProcfsSubdir    = "testdata/lsvmi/procfs"
-	ProcsTestdataSubdir  = "testdata/procfs"
+	ProcsTestDataSubdir  = "testdata/procfs"
 )

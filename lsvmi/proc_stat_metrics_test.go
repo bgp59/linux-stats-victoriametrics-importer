@@ -37,8 +37,8 @@ type ProcStatMetricsTestCase struct {
 	TimeSinceBtime                   float64
 }
 
-var procStatMetricsTestcasesFile = path.Join(
-	"..", testutils.LsvmiTestcasesSubdir,
+var procStatMetricsTestCasesFile = path.Join(
+	"..", testutils.LsvmiTestCasesSubdir,
 	"proc_stat.json",
 )
 
@@ -155,13 +155,13 @@ func testProcStatMetrics(tc *ProcStatMetricsTestCase, t *testing.T) {
 }
 
 func TestProcStatMetrics(t *testing.T) {
-	t.Logf("Loading testcases from %q ...", procStatMetricsTestcasesFile)
-	testcases := make([]*ProcStatMetricsTestCase, 0)
-	err := testutils.LoadJsonFile(procStatMetricsTestcasesFile, &testcases)
+	t.Logf("Loading test cases from %q ...", procStatMetricsTestCasesFile)
+	testCases := make([]*ProcStatMetricsTestCase, 0)
+	err := testutils.LoadJsonFile(procStatMetricsTestCasesFile, &testCases)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, tc := range testcases {
+	for _, tc := range testCases {
 		t.Run(
 			tc.Name,
 			func(t *testing.T) { testProcStatMetrics(tc, t) },

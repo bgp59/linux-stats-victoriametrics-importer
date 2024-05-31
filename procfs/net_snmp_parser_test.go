@@ -16,7 +16,7 @@ type NetSnmpTestCase struct {
 	wantInfoChanged bool
 }
 
-var netSnmpTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "net", "snmp")
+var netSnmpTestDataDir = path.Join(PROCFS_TESTDATA_ROOT, "net", "snmp")
 
 var netSnmpIndexName = []string{
 	"NET_SNMP_IP_FORWARDING",
@@ -180,7 +180,7 @@ primeProcfsRoot=%q
 }
 
 func TestNetSnmpParser(t *testing.T) {
-	netSnmpTestReference := NewNetSnmp(path.Join(netSnmpTestdataDir, "reference"))
+	netSnmpTestReference := NewNetSnmp(path.Join(netSnmpTestDataDir, "reference"))
 	err := netSnmpTestReference.Parse()
 	if err != nil {
 		t.Fatal(err)
@@ -188,7 +188,7 @@ func TestNetSnmpParser(t *testing.T) {
 	for _, tc := range []*NetSnmpTestCase{
 		{
 			name:       "field_mapping",
-			procfsRoot: path.Join(netSnmpTestdataDir, "field_mapping"),
+			procfsRoot: path.Join(netSnmpTestDataDir, "field_mapping"),
 			wantNetSnmp: &NetSnmp{
 				Values: []uint32{
 					1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018,
@@ -202,8 +202,8 @@ func TestNetSnmpParser(t *testing.T) {
 		},
 		{
 			name:            "reuse",
-			procfsRoot:      path.Join(netSnmpTestdataDir, "field_mapping"),
-			primeProcfsRoot: path.Join(netSnmpTestdataDir, "reference"),
+			procfsRoot:      path.Join(netSnmpTestDataDir, "field_mapping"),
+			primeProcfsRoot: path.Join(netSnmpTestDataDir, "reference"),
 			wantNetSnmp: &NetSnmp{
 				Values: []uint32{
 					1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018,
@@ -217,8 +217,8 @@ func TestNetSnmpParser(t *testing.T) {
 		},
 		{
 			name:            "new_info",
-			procfsRoot:      path.Join(netSnmpTestdataDir, "field_mapping"),
-			primeProcfsRoot: path.Join(netSnmpTestdataDir, "no_icmp_msg"),
+			procfsRoot:      path.Join(netSnmpTestDataDir, "field_mapping"),
+			primeProcfsRoot: path.Join(netSnmpTestDataDir, "no_icmp_msg"),
 			wantNetSnmp: &NetSnmp{
 				Values: []uint32{
 					1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018,
@@ -233,8 +233,8 @@ func TestNetSnmpParser(t *testing.T) {
 		},
 		{
 			name:            "partial_new_info",
-			procfsRoot:      path.Join(netSnmpTestdataDir, "field_mapping"),
-			primeProcfsRoot: path.Join(netSnmpTestdataDir, "partial_icmp_msg"),
+			procfsRoot:      path.Join(netSnmpTestDataDir, "field_mapping"),
+			primeProcfsRoot: path.Join(netSnmpTestDataDir, "partial_icmp_msg"),
 			wantNetSnmp: &NetSnmp{
 				Values: []uint32{
 					1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018,

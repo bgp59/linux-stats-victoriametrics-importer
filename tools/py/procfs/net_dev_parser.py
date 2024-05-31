@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 
-from typing import Dict, List, Literal
+from dataclasses import dataclass
+from typing import Dict, List, Optional
 
 # JSON serialize-able NetDev, matching profcs/net_dev_parser.go:
 
@@ -22,6 +23,7 @@ NET_DEV_TX_CARRIER = 14
 NET_DEV_TX_COMPRESSED = 15
 NET_DEV_NUM_STATS = 16
 
-NetDevStats = Dict[str, List[int]]
 
-NetDev = Dict[Literal["DevStats"], NetDevStats]
+@dataclass
+class NetDev:
+    DevStats: Optional[Dict[str, List[int]]] = None

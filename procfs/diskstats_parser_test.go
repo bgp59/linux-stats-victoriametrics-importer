@@ -36,7 +36,7 @@ var diskstatsIndexName = []string{
 	"DISKSTATS_FLUSH_MILLISEC",
 }
 
-var diskstatsTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "diskstats")
+var diskstatsTestDataDir = path.Join(PROCFS_TESTDATA_ROOT, "diskstats")
 
 func testDiskstatsParser(tc *DiskstatsTestCase, t *testing.T) {
 	t.Logf(`
@@ -133,7 +133,7 @@ func TestDiskstatsParser(t *testing.T) {
 	for _, tc := range []*DiskstatsTestCase{
 		&DiskstatsTestCase{
 			name:       "field_mapping",
-			procfsRoot: path.Join(diskstatsTestdataDir, "field_mapping"),
+			procfsRoot: path.Join(diskstatsTestDataDir, "field_mapping"),
 			wantDiskstats: &Diskstats{
 				DevInfoMap: map[string]*DiskstatsDevInfo{
 					"0:0": &DiskstatsDevInfo{
@@ -150,7 +150,7 @@ func TestDiskstatsParser(t *testing.T) {
 		},
 		&DiskstatsTestCase{
 			name:       "reuse",
-			procfsRoot: path.Join(diskstatsTestdataDir, "field_mapping"),
+			procfsRoot: path.Join(diskstatsTestDataDir, "field_mapping"),
 			primeDiskstats: &Diskstats{
 				DevInfoMap: map[string]*DiskstatsDevInfo{
 					"0:0": &DiskstatsDevInfo{
@@ -183,7 +183,7 @@ func TestDiskstatsParser(t *testing.T) {
 		},
 		&DiskstatsTestCase{
 			name:       "remove_dev",
-			procfsRoot: path.Join(diskstatsTestdataDir, "field_mapping"),
+			procfsRoot: path.Join(diskstatsTestDataDir, "field_mapping"),
 			primeDiskstats: &Diskstats{
 				DevInfoMap: map[string]*DiskstatsDevInfo{
 					"0:0": &DiskstatsDevInfo{
@@ -221,7 +221,7 @@ func TestDiskstatsParser(t *testing.T) {
 		},
 		&DiskstatsTestCase{
 			name:       "jiffies",
-			procfsRoot: path.Join(diskstatsTestdataDir, "field_mapping"),
+			procfsRoot: path.Join(diskstatsTestDataDir, "field_mapping"),
 			primeDiskstats: &Diskstats{
 				DevInfoMap: map[string]*DiskstatsDevInfo{
 					"0:0": &DiskstatsDevInfo{

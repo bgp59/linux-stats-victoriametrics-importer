@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-var pidStatTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "pid_stat")
+var pidStatTestDataDir = path.Join(PROCFS_TESTDATA_ROOT, "pid_stat")
 
 var pidStatByteSliceFieldsIndexName = []string{
 	"PID_STAT_COMM",
@@ -117,7 +117,7 @@ func TestPidStatParser(t *testing.T) {
 	for _, tc := range []*PidStatTestCase{
 		{
 			name:       "field_mapping",
-			procfsRoot: pidStatTestdataDir,
+			procfsRoot: pidStatTestDataDir,
 			pid:        1000,
 			tid:        PID_STAT_PID_ONLY_TID,
 			wantByteSliceFields: map[int]string{
@@ -149,7 +149,7 @@ func TestPidStatParser(t *testing.T) {
 		},
 		{
 			name:       "reuse",
-			procfsRoot: pidStatTestdataDir,
+			procfsRoot: pidStatTestDataDir,
 			pid:        1000,
 			tid:        PID_STAT_PID_ONLY_TID,
 			wantByteSliceFields: map[int]string{
@@ -181,7 +181,7 @@ func TestPidStatParser(t *testing.T) {
 		},
 		{
 			name:       "real_life",
-			procfsRoot: pidStatTestdataDir,
+			procfsRoot: pidStatTestDataDir,
 			pid:        468,
 			tid:        486,
 			primePid:   1000,
@@ -215,7 +215,7 @@ func TestPidStatParser(t *testing.T) {
 		},
 		{
 			name:       "comm_too_long",
-			procfsRoot: pidStatTestdataDir,
+			procfsRoot: pidStatTestDataDir,
 			pid:        1001,
 			tid:        PID_STAT_PID_ONLY_TID,
 			wantByteSliceFields: map[int]string{
@@ -247,7 +247,7 @@ func TestPidStatParser(t *testing.T) {
 		},
 		{
 			name:       "comm_utf8",
-			procfsRoot: pidStatTestdataDir,
+			procfsRoot: pidStatTestDataDir,
 			pid:        1002,
 			tid:        PID_STAT_PID_ONLY_TID,
 			wantByteSliceFields: map[int]string{
@@ -279,28 +279,28 @@ func TestPidStatParser(t *testing.T) {
 		},
 		{
 			name:       "comm_missing_open_par",
-			procfsRoot: pidStatTestdataDir,
+			procfsRoot: pidStatTestDataDir,
 			pid:        10000,
 			tid:        PID_STAT_PID_ONLY_TID,
 			wantError:  fmt.Errorf("cannot locate '('"),
 		},
 		{
 			name:       "comm_missing_close_par",
-			procfsRoot: pidStatTestdataDir,
+			procfsRoot: pidStatTestDataDir,
 			pid:        10001,
 			tid:        PID_STAT_PID_ONLY_TID,
 			wantError:  fmt.Errorf("cannot locate ')'"),
 		},
 		{
 			name:       "conversion_error",
-			procfsRoot: pidStatTestdataDir,
+			procfsRoot: pidStatTestDataDir,
 			pid:        10002,
 			tid:        PID_STAT_PID_ONLY_TID,
 			wantError:  fmt.Errorf(`field# 10: "_1000": invalid numerical value`),
 		},
 		{
 			name:       "not_enough_fields",
-			procfsRoot: pidStatTestdataDir,
+			procfsRoot: pidStatTestDataDir,
 			pid:        10003,
 			tid:        PID_STAT_PID_ONLY_TID,
 			wantError:  fmt.Errorf("not enough fields: want: %d, got: %d", PID_STAT_MAX_FIELD_NUM, PID_STAT_MAX_FIELD_NUM-1),

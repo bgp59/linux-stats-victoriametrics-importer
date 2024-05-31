@@ -66,6 +66,10 @@ func (mq *StdoutMetricsQueue) GetBuf() *bytes.Buffer {
 	return mq.bufPool.GetBuf()
 }
 
+func (mq *StdoutMetricsQueue) ReturnBuf(buf *bytes.Buffer) {
+	mq.bufPool.ReturnBuf(buf)
+}
+
 func (mq *StdoutMetricsQueue) QueueBuf(buf *bytes.Buffer) {
 	mq.metricsQueue <- buf
 }

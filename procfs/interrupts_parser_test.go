@@ -27,7 +27,7 @@ type InterruptsTestCase struct {
 	wantError       error
 }
 
-var interruptsTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "interrupts")
+var interruptsTestDataDir = path.Join(PROCFS_TESTDATA_ROOT, "interrupts")
 
 func cmpCpuList(
 	wantCpuList, gotCpuList []int,
@@ -424,7 +424,7 @@ func TestInterruptsParser(t *testing.T) {
 	for _, tc := range []*InterruptsTestCase{
 		{
 			name:       "field_mapping",
-			procfsRoot: path.Join(interruptsTestdataDir, "field_mapping"),
+			procfsRoot: path.Join(interruptsTestDataDir, "field_mapping"),
 			wantInterrupts: &Interrupts{
 				Counters: map[string][]uint64{
 					"0":           {0, 1},
@@ -465,7 +465,7 @@ func TestInterruptsParser(t *testing.T) {
 		},
 		{
 			name:       "remove_irq",
-			procfsRoot: path.Join(interruptsTestdataDir, "field_mapping"),
+			procfsRoot: path.Join(interruptsTestDataDir, "field_mapping"),
 			primeInterrupts: &Interrupts{
 				Counters: map[string][]uint64{
 					"0":           {0, 1},
@@ -562,7 +562,7 @@ func TestInterruptsParser(t *testing.T) {
 		},
 		{
 			name:       "remove_cpu",
-			procfsRoot: path.Join(interruptsTestdataDir, "remove_cpu"),
+			procfsRoot: path.Join(interruptsTestDataDir, "remove_cpu"),
 			primeInterrupts: &Interrupts{
 				Counters: map[string][]uint64{
 					"0":           {20, 21},

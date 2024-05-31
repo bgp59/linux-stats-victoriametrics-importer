@@ -15,7 +15,7 @@ type SoftirqsTestCase struct {
 	wantError     error
 }
 
-var softirqsTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "softirqs")
+var softirqsTestDataDir = path.Join(PROCFS_TESTDATA_ROOT, "softirqs")
 
 func testSoftirqsParser(tc *SoftirqsTestCase, t *testing.T) {
 	t.Logf(`
@@ -156,7 +156,7 @@ func TestSoftirqsParser(t *testing.T) {
 	for _, tc := range []*SoftirqsTestCase{
 		{
 			name:       "field_mapping",
-			procfsRoot: path.Join(softirqsTestdataDir, "field_mapping"),
+			procfsRoot: path.Join(softirqsTestDataDir, "field_mapping"),
 			wantSoftirqs: &Softirqs{
 				CpuList: nil,
 				Counters: map[string][]uint64{
@@ -171,7 +171,7 @@ func TestSoftirqsParser(t *testing.T) {
 		},
 		{
 			name:       "remove_irq",
-			procfsRoot: path.Join(softirqsTestdataDir, "field_mapping"),
+			procfsRoot: path.Join(softirqsTestDataDir, "field_mapping"),
 			primeSoftirqs: &Softirqs{
 				CpuList: nil,
 				Counters: map[string][]uint64{
@@ -205,7 +205,7 @@ func TestSoftirqsParser(t *testing.T) {
 		},
 		{
 			name:       "remove_cpu",
-			procfsRoot: path.Join(softirqsTestdataDir, "remove_cpu"),
+			procfsRoot: path.Join(softirqsTestDataDir, "remove_cpu"),
 			primeSoftirqs: &Softirqs{
 				CpuList: nil,
 				Counters: map[string][]uint64{

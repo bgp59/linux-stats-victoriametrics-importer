@@ -51,8 +51,8 @@ type ProcDiskstatsMetricsTestCase struct {
 	WantZeroDeltaMap                     map[string][]bool
 }
 
-var procDiskstatsMetricsTestcasesFile = path.Join(
-	"..", testutils.LsvmiTestcasesSubdir,
+var procDiskstatsMetricsTestCasesFile = path.Join(
+	"..", testutils.LsvmiTestCasesSubdir,
 	"proc_diskstats.json",
 )
 
@@ -375,13 +375,13 @@ func TestProcMountinfoMetricsCacheUpdate(t *testing.T) {
 }
 
 func TestProcDiskstatsMetrics(t *testing.T) {
-	t.Logf("Loading testcases from %q ...", procDiskstatsMetricsTestcasesFile)
-	testcases := make([]*ProcDiskstatsMetricsTestCase, 0)
-	err := testutils.LoadJsonFile(procDiskstatsMetricsTestcasesFile, &testcases)
+	t.Logf("Loading test cases from %q ...", procDiskstatsMetricsTestCasesFile)
+	testCases := make([]*ProcDiskstatsMetricsTestCase, 0)
+	err := testutils.LoadJsonFile(procDiskstatsMetricsTestCasesFile, &testCases)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, tc := range testcases {
+	for _, tc := range testCases {
 		t.Run(
 			tc.Name,
 			func(t *testing.T) { testProcDiskstatsMetrics(tc, t) },

@@ -15,7 +15,7 @@ type NetSnmp6TestCase struct {
 	wantError       error
 }
 
-var netSnmp6TestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "net", "snmp6")
+var netSnmp6TestDataDir = path.Join(PROCFS_TESTDATA_ROOT, "net", "snmp6")
 
 var netSnmp6IndexName = []string{
 	"NET_SNMP6_IP6_IN_RECEIVES",
@@ -170,7 +170,7 @@ func TestNetSnmp6Parser(t *testing.T) {
 	for _, tc := range []*NetSnmp6TestCase{
 		&NetSnmp6TestCase{
 			name:       "field_mapping",
-			procfsRoot: path.Join(netSnmp6TestdataDir, "field_mapping"),
+			procfsRoot: path.Join(netSnmp6TestDataDir, "field_mapping"),
 			wantNetSnmp6: &NetSnmp6{
 				Values: []uint64{
 					10000000000001, 10000000000002, 10000000000003, 10000000000004,
@@ -200,8 +200,8 @@ func TestNetSnmp6Parser(t *testing.T) {
 		},
 		&NetSnmp6TestCase{
 			name:            "reuse",
-			procfsRoot:      path.Join(netSnmp6TestdataDir, "field_mapping"),
-			primeProcfsRoot: path.Join(netSnmp6TestdataDir, "reference"),
+			procfsRoot:      path.Join(netSnmp6TestDataDir, "field_mapping"),
+			primeProcfsRoot: path.Join(netSnmp6TestDataDir, "reference"),
 			wantNetSnmp6: &NetSnmp6{
 				Values: []uint64{
 					10000000000001, 10000000000002, 10000000000003, 10000000000004,

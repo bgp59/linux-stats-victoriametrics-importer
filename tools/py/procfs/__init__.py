@@ -64,7 +64,6 @@ from .net_dev_parser import (
     NET_DEV_TX_FIFO,
     NET_DEV_TX_PACKETS,
     NetDev,
-    NetDevStats,
 )
 from .net_snmp6_parser import (
     NET_SNMP6_ICMP6_IN_CSUM_ERRORS,

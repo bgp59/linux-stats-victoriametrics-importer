@@ -48,6 +48,7 @@ type CommonMetricsGeneratorConfig struct {
 
 type MetricsQueue interface {
 	GetBuf() *bytes.Buffer
+	ReturnBuf(b *bytes.Buffer)
 	QueueBuf(b *bytes.Buffer)
 	GetTargetSize() int
 }

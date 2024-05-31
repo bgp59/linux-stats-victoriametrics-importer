@@ -15,7 +15,7 @@ type NetDevTestCase struct {
 	wantError   error
 }
 
-var netDevTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "net", "dev")
+var netDevTestDataDir = path.Join(PROCFS_TESTDATA_ROOT, "net", "dev")
 
 var netDevStatName = []string{
 	"NET_DEV_RX_BYTES",
@@ -129,7 +129,7 @@ func TestNetDevParser(t *testing.T) {
 	for _, tc := range []*NetDevTestCase{
 		&NetDevTestCase{
 			name:       "field_mapping",
-			procfsRoot: path.Join(netDevTestdataDir, "field_mapping"),
+			procfsRoot: path.Join(netDevTestDataDir, "field_mapping"),
 			wantNetDev: &NetDev{
 				DevStats: map[string][]uint64{
 					"lo":   {1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1},
@@ -139,7 +139,7 @@ func TestNetDevParser(t *testing.T) {
 		},
 		&NetDevTestCase{
 			name:       "reuse",
-			procfsRoot: path.Join(netDevTestdataDir, "field_mapping"),
+			procfsRoot: path.Join(netDevTestDataDir, "field_mapping"),
 			primeNetDev: &NetDev{
 				DevStats: map[string][]uint64{
 					"lo":   make([]uint64, NET_DEV_NUM_STATS),
@@ -158,7 +158,7 @@ func TestNetDevParser(t *testing.T) {
 		},
 		&NetDevTestCase{
 			name:       "remove_dev",
-			procfsRoot: path.Join(netDevTestdataDir, "field_mapping"),
+			procfsRoot: path.Join(netDevTestDataDir, "field_mapping"),
 			primeNetDev: &NetDev{
 				DevStats: map[string][]uint64{
 					"lo":     make([]uint64, NET_DEV_NUM_STATS),
@@ -177,7 +177,7 @@ func TestNetDevParser(t *testing.T) {
 		},
 		&NetDevTestCase{
 			name:       "whitespaces",
-			procfsRoot: path.Join(netDevTestdataDir, "whitespaces"),
+			procfsRoot: path.Join(netDevTestDataDir, "whitespaces"),
 			wantNetDev: &NetDev{
 				DevStats: map[string][]uint64{
 					"dev1": {1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1},

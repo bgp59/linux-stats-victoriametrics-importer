@@ -13,28 +13,36 @@ import (
 	"github.com/eparparita/linux-stats-victoriametrics-importer/procfs"
 )
 
+type ProcNetDevInfoTestData struct {
+	CycleNum  int
+	ZeroDelta []bool
+}
+
 type ProcNetDevMetricsTestCase struct {
 	Name                           string
+	Description                    string
 	Instance                       string
 	Hostname                       string
 	CurrProcNetDev, PrevProcNetDev *procfs.NetDev
 	CurrPromTs, PrevPromTs         int64
-	CycleNum, FullMetricsFactor    int
-	ZeroDeltaMap                   map[string][]bool
+	FullMetricsFactor              int
+	DevInfoMap                     map[string]*ProcNetDevInfoTestData
 	WantMetricsCount               int
 	WantMetrics                    []string
 	ReportExtra                    bool
 	WantZeroDeltaMap               map[string][]bool
 }
 
-var procNetDevMetricsTestcasesFile = path.Join(
-	"..", testutils.LsvmiTestcasesSubdir,
+var procNetDevMetricsTestCasesFile = path.Join(
+	"..", testutils.LsvmiTestCasesSubdir,
 	"proc_net_dev.json",
 )
 
 func testProcNetDevMetrics(tc *ProcNetDevMetricsTestCase, t *testing.T) {
 	tlc := testutils.NewTestLogCollect(t, Log, nil)
 	defer tlc.RestoreLog()
+
+	t.Logf("Description: %s", tc.Description)
 
 	procNetDevMetrics, err := NewProcNetDevMetrics(nil)
 	if err != nil {
@@ -47,12 +55,12 @@ func testProcNetDevMetrics(tc *ProcNetDevMetricsTestCase, t *testing.T) {
 	procNetDevMetrics.procNetDevTs[currIndex] = time.UnixMilli(tc.CurrPromTs)
 	procNetDevMetrics.procNetDev[1-currIndex] = tc.PrevProcNetDev
 	procNetDevMetrics.procNetDevTs[1-currIndex] = time.UnixMilli(tc.PrevPromTs)
-	procNetDevMetrics.cycleNum = tc.CycleNum
-	procNetDevMetrics.fullMetricsFactor = tc.FullMetricsFactor
-	for dev, zeroDeltaMap := range tc.ZeroDeltaMap {
-		procNetDevMetrics.zeroDeltaMap[dev] = make([]bool, procfs.NET_DEV_NUM_STATS)
-		copy(procNetDevMetrics.zeroDeltaMap[dev], zeroDeltaMap)
+	for dev, devInfo := range tc.DevInfoMap {
+		procNetDevMetrics.updateDevInfo(dev)
+		procNetDevMetrics.devInfoMap[dev].cycleNum = devInfo.CycleNum
+		copy(procNetDevMetrics.devInfoMap[dev].zeroDelta, devInfo.ZeroDelta)
 	}
+	procNetDevMetrics.fullMetricsFactor = tc.FullMetricsFactor
 
 	wantCurrIndex := 1 - currIndex
 	testMetricsQueue := testutils.NewTestMetricsQueue(0)
@@ -66,32 +74,41 @@ func testProcNetDevMetrics(tc *ProcNetDevMetricsTestCase, t *testing.T) {
 	if wantCurrIndex != gotCurrIndex {
 		fmt.Fprintf(
 			errBuf,
-			"\ncurrIndex: want: %d, got: %d",
+			"\n.currIndex: want: %d, got: %d",
 			wantCurrIndex, gotCurrIndex,
 		)
 	}
 
 	if tc.WantZeroDeltaMap != nil {
-		for dev, wantZeroDeltaMap := range tc.WantZeroDeltaMap {
-			gotZeroDeltaMap := procNetDevMetrics.zeroDeltaMap[dev]
-			if gotZeroDeltaMap == nil {
-				fmt.Fprintf(errBuf, "\nZeroDeltaMap: missing dev %s", dev)
+		for dev, wantZeroDelta := range tc.WantZeroDeltaMap {
+			devInfo := procNetDevMetrics.devInfoMap[dev]
+			if devInfo == nil {
+				fmt.Fprintf(errBuf, "\n.devInfo: missing dev %q", dev)
 				continue
 			}
-			for index, wantVal := range wantZeroDeltaMap {
-				gotVal := gotZeroDeltaMap[index]
+			gotZeroDelta := devInfo.zeroDelta
+			if len(wantZeroDelta) != len(gotZeroDelta) {
+				fmt.Fprintf(
+					errBuf,
+					"\n.devInfo[%q].zeroDelta len: want: %d, got: %d",
+					dev, len(wantZeroDelta), len(gotZeroDelta),
+				)
+				continue
+			}
+			for index, wantVal := range wantZeroDelta {
+				gotVal := gotZeroDelta[index]
 				if wantVal != gotVal {
 					fmt.Fprintf(
 						errBuf,
-						"\nZeroDeltaMap[%s][%d]: want: %v, got: %v",
+						"\n.devInfo[%q].zeroDelta[%d]: want: %v, got: %v",
 						dev, index, wantVal, gotVal,
 					)
 				}
 			}
 		}
-		for dev := range procNetDevMetrics.zeroDeltaMap {
+		for dev := range procNetDevMetrics.devInfoMap {
 			if tc.WantZeroDeltaMap[dev] == nil {
-				fmt.Fprintf(errBuf, "\nZeroDeltaMap: unexpected dev %s", dev)
+				fmt.Fprintf(errBuf, "\n.devInfoMap: unexpected dev %q", dev)
 			}
 		}
 	}
@@ -112,13 +129,13 @@ func testProcNetDevMetrics(tc *ProcNetDevMetricsTestCase, t *testing.T) {
 }
 
 func TestProcNetDevMetrics(t *testing.T) {
-	t.Logf("Loading testcases from %q ...", procNetDevMetricsTestcasesFile)
-	testcases := make([]*ProcNetDevMetricsTestCase, 0)
-	err := testutils.LoadJsonFile(procNetDevMetricsTestcasesFile, &testcases)
+	t.Logf("Loading test cases from %q ...", procNetDevMetricsTestCasesFile)
+	testCases := make([]*ProcNetDevMetricsTestCase, 0)
+	err := testutils.LoadJsonFile(procNetDevMetricsTestCasesFile, &testCases)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, tc := range testcases {
+	for _, tc := range testCases {
 		t.Run(
 			tc.Name,
 			func(t *testing.T) { testProcNetDevMetrics(tc, t) },

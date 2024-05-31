@@ -15,8 +15,8 @@ type HttpEndpointPoolInternalMetricsTestCase struct {
 	CurrStats, PrevStats *HttpEndpointPoolStats
 }
 
-var httpEndpointPoolInternalMetricsTestcasesFile = path.Join(
-	"..", testutils.LsvmiTestcasesSubdir,
+var httpEndpointPoolInternalMetricsTestCasesFile = path.Join(
+	"..", testutils.LsvmiTestCasesSubdir,
 	"internal_metrics", "http_endpoint_pool.json",
 )
 
@@ -79,13 +79,13 @@ func testHttpEndpointPoolInternalMetrics(tc *HttpEndpointPoolInternalMetricsTest
 }
 
 func TestHttpEndpointPoolInternalMetrics(t *testing.T) {
-	t.Logf("Loading testcases from %q ...", httpEndpointPoolInternalMetricsTestcasesFile)
-	testcases := make([]*HttpEndpointPoolInternalMetricsTestCase, 0)
-	err := testutils.LoadJsonFile(httpEndpointPoolInternalMetricsTestcasesFile, &testcases)
+	t.Logf("Loading test cases from %q ...", httpEndpointPoolInternalMetricsTestCasesFile)
+	testCases := make([]*HttpEndpointPoolInternalMetricsTestCase, 0)
+	err := testutils.LoadJsonFile(httpEndpointPoolInternalMetricsTestCasesFile, &testCases)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, tc := range testcases {
+	for _, tc := range testCases {
 		t.Run(
 			tc.Name,
 			func(t *testing.T) { testHttpEndpointPoolInternalMetrics(tc, t) },

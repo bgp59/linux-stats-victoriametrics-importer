@@ -45,8 +45,8 @@ type ProcSoftirqsMetricsTestCase struct {
 	WantZeroDeltaMap                   map[string][]bool
 }
 
-var procSoftirqsMetricsTestcasesFile = path.Join(
-	"..", testutils.LsvmiTestcasesSubdir,
+var procSoftirqsMetricsTestCasesFile = path.Join(
+	"..", testutils.LsvmiTestCasesSubdir,
 	"proc_softirqs.json",
 )
 
@@ -235,13 +235,13 @@ func testProcSoftirqsMetrics(tc *ProcSoftirqsMetricsTestCase, t *testing.T) {
 }
 
 func TestProcSoftirqsMetrics(t *testing.T) {
-	t.Logf("Loading testcases from %q ...", procSoftirqsMetricsTestcasesFile)
-	testcases := make([]*ProcSoftirqsMetricsTestCase, 0)
-	err := testutils.LoadJsonFile(procSoftirqsMetricsTestcasesFile, &testcases)
+	t.Logf("Loading test cases from %q ...", procSoftirqsMetricsTestCasesFile)
+	testCases := make([]*ProcSoftirqsMetricsTestCase, 0)
+	err := testutils.LoadJsonFile(procSoftirqsMetricsTestCasesFile, &testCases)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, tc := range testcases {
+	for _, tc := range testCases {
 		t.Run(
 			tc.Name,
 			func(t *testing.T) { testProcSoftirqsMetrics(tc, t) },

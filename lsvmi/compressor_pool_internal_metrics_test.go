@@ -16,8 +16,8 @@ type CompressorPoolInternalMetricsTestCase struct {
 	CurrStats, PrevStats CompressorPoolStats
 }
 
-var compressorPoolInternalMetricsTestcasesFile = path.Join(
-	"..", testutils.LsvmiTestcasesSubdir,
+var compressorPoolInternalMetricsTestCasesFile = path.Join(
+	"..", testutils.LsvmiTestCasesSubdir,
 	"internal_metrics", "compressor_pool.json",
 )
 
@@ -80,13 +80,13 @@ func testCompressorPoolInternalMetrics(tc *CompressorPoolInternalMetricsTestCase
 }
 
 func TestCompressorPoolInternalMetrics(t *testing.T) {
-	t.Logf("Loading testcases from %q ...", compressorPoolInternalMetricsTestcasesFile)
-	testcases := make([]*CompressorPoolInternalMetricsTestCase, 0)
-	err := testutils.LoadJsonFile(compressorPoolInternalMetricsTestcasesFile, &testcases)
+	t.Logf("Loading test cases from %q ...", compressorPoolInternalMetricsTestCasesFile)
+	testCases := make([]*CompressorPoolInternalMetricsTestCase, 0)
+	err := testutils.LoadJsonFile(compressorPoolInternalMetricsTestCasesFile, &testCases)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, tc := range testcases {
+	for _, tc := range testCases {
 		t.Run(
 			tc.Name,
 			func(t *testing.T) { testCompressorPoolInternalMetrics(tc, t) },

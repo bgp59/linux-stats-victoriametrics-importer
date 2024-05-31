@@ -17,7 +17,7 @@ type StatTestCase struct {
 	wantError  error
 }
 
-var statTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "stat")
+var statTestDataDir = path.Join(PROCFS_TESTDATA_ROOT, "stat")
 
 var statCpuStatsIndexNameMap = []string{
 	"STAT_CPU_USER_TICKS",
@@ -135,7 +135,7 @@ func TestStatParser(t *testing.T) {
 	for _, tc := range []*StatTestCase{
 		{
 			name:       "field_mapping",
-			procfsRoot: path.Join(statTestdataDir, "field_mapping"),
+			procfsRoot: path.Join(statTestDataDir, "field_mapping"),
 			wantStat: &Stat{
 				Cpu: map[int][]uint64{
 					STAT_CPU_ALL: {0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
@@ -147,7 +147,7 @@ func TestStatParser(t *testing.T) {
 		},
 		{
 			name:       "missing_cpu",
-			procfsRoot: path.Join(statTestdataDir, "missing_cpu"),
+			procfsRoot: path.Join(statTestDataDir, "missing_cpu"),
 			wantStat: &Stat{
 				Cpu: map[int][]uint64{
 					STAT_CPU_ALL: {0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
@@ -159,7 +159,7 @@ func TestStatParser(t *testing.T) {
 		},
 		{
 			name:       "missing_cpu_primed",
-			procfsRoot: path.Join(statTestdataDir, "missing_cpu"),
+			procfsRoot: path.Join(statTestDataDir, "missing_cpu"),
 			primeStat: &Stat{
 				Cpu: map[int][]uint64{
 					STAT_CPU_ALL: {10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 11},

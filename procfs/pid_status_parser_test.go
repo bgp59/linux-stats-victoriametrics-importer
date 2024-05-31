@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-var pidStatusTestdataDir = path.Join(PROCFS_TESTDATA_ROOT, "pid_status")
+var pidStatusTestDataDir = path.Join(PROCFS_TESTDATA_ROOT, "pid_status")
 
 type PidStatusTestCase struct {
 	name                     string
@@ -145,7 +145,7 @@ func TestPidStatusParser(t *testing.T) {
 	for _, tc := range []*PidStatusTestCase{
 		{
 			name:       "field_mapping",
-			procfsRoot: pidStatusTestdataDir,
+			procfsRoot: pidStatusTestDataDir,
 			pid:        1000,
 			tid:        PID_STAT_PID_ONLY_TID,
 			wantByteSliceFieldValues: map[int]string{
@@ -203,7 +203,7 @@ func TestPidStatusParser(t *testing.T) {
 		},
 		{
 			name:       "empty_fields",
-			procfsRoot: pidStatusTestdataDir,
+			procfsRoot: pidStatusTestDataDir,
 			pid:        1001,
 			tid:        PID_STAT_PID_ONLY_TID,
 			wantByteSliceFieldValues: map[int]string{
@@ -261,7 +261,7 @@ func TestPidStatusParser(t *testing.T) {
 		},
 		{
 			name:       "real_life",
-			procfsRoot: pidStatusTestdataDir,
+			procfsRoot: pidStatusTestDataDir,
 			pid:        468,
 			tid:        486,
 			primePid:   1000,
@@ -321,7 +321,7 @@ func TestPidStatusParser(t *testing.T) {
 		},
 		{
 			name:       "real_life_missing_fields",
-			procfsRoot: pidStatusTestdataDir,
+			procfsRoot: pidStatusTestDataDir,
 			pid:        98,
 			tid:        PID_STAT_PID_ONLY_TID,
 			primePid:   1000,
