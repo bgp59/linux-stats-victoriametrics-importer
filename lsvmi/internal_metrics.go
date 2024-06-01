@@ -7,15 +7,27 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+
+	"github.com/eparparita/linux-stats-victoriametrics-importer/internal/utils"
 )
 
 // Generate internal metrics:
 const (
-	INTERNAL_METRICS_CONFIG_INTERVAL_DEFAULT = "5s"
+	INTERNAL_METRICS_CONFIG_INTERVAL_DEFAULT          = "5s"
+	INTERNAL_METRICS_CONFIG_OS_METRICS_FACTOR_DEFAULT = 12
 
 	// Heartbeat metric:
 	LSVMI_UPTIME_METRIC_NAME = "lsvmi_uptime_sec"
 	LSVMI_VERSION_LABEL_NAME = "version"
+
+	// OS metrics:
+	OS_INFO_METRIC   = "os_info"
+	OS_BTIME_METRIC  = "os_btime_sec"
+	OS_UPTIME_METRIC = "os_uptime_sec"
+
+	OS_INFO_NAME_LABEL    = "name"
+	OS_INFO_RELEASE_LABEL = "release"
+	OS_INFO_VERSION_LABEL = "version"
 
 	// Interval since last generation, i.e. the interval underlying the deltas.
 	// Normally this should be close to scan interval, but this the actual
@@ -28,14 +40,28 @@ const (
 
 var internalMetricsLog = NewCompLogger(INTERNAL_METRICS_ID)
 
+// The following LinuxOSRelease keys will be used as labels in OS info metrics:
+var OsInfoLinuxOSReleaseKeys = []string{
+	"ID",
+	"NAME",
+	"PRETTY_NAME",
+	"VERSION",
+	"VERSION_CODENAME",
+	"VERSION_ID",
+}
+
 type InternalMetricsConfig struct {
 	// How often to generate the metrics in time.ParseDuration() format:
 	Interval string `yaml:"interval"`
+
+	// OS metrics are generated every N cycles:
+	OsMetricsFactor int `yaml:"os_metrics_factor"`
 }
 
 func DefaultInternalMetricsConfig() *InternalMetricsConfig {
 	return &InternalMetricsConfig{
-		Interval: INTERNAL_METRICS_CONFIG_INTERVAL_DEFAULT,
+		Interval:        INTERNAL_METRICS_CONFIG_INTERVAL_DEFAULT,
+		OsMetricsFactor: INTERNAL_METRICS_CONFIG_OS_METRICS_FACTOR_DEFAULT,
 	}
 }
 
@@ -49,6 +75,14 @@ type InternalMetrics struct {
 
 	// Cache heartbeat metric:
 	uptimeMetric []byte
+
+	// Cache OS metrics:
+	osInfoMetric   []byte
+	osBtimeMetric  []byte
+	osUptimeMetric []byte
+	// OS metrics are generated every so often:
+	osCycleNum      int
+	osMetricsFactor int
 
 	// Cache interval metric:
 	intervalMetric []byte
@@ -116,6 +150,7 @@ func NewInternalMetrics(cfg any) (*InternalMetrics, error) {
 	internalMetrics := &InternalMetrics{
 		id:                          INTERNAL_METRICS_ID,
 		interval:                    interval,
+		osMetricsFactor:             internalMetricsCfg.OsMetricsFactor,
 		prevTs:                      now,
 		metricsGenStats:             make(MetricsGeneratorStats),
 		metricsGenStatsMetricsCache: make(map[string][][]byte),
@@ -129,6 +164,7 @@ func NewInternalMetrics(cfg any) (*InternalMetrics, error) {
 	internalMetrics.osMetrics = NewOsInternalMetrics(internalMetrics)
 	internalMetricsLog.Infof("id=%s", internalMetrics.id)
 	internalMetricsLog.Infof("interval=%s", internalMetrics.interval)
+	internalMetricsLog.Infof("os_metrics_factor=%d", internalMetrics.osMetricsFactor)
 	return internalMetrics, nil
 }
 
@@ -217,7 +253,8 @@ func (internalMetrics *InternalMetrics) Execute() bool {
 
 	uptimeMetric := internalMetrics.uptimeMetric
 	if uptimeMetric == nil {
-		uptimeMetric = internalMetrics.updateUptimeMetric()
+		internalMetrics.updateUptimeMetric()
+		uptimeMetric = internalMetrics.uptimeMetric
 	}
 	buf.Write(uptimeMetric)
 	buf.WriteString(strconv.FormatFloat(ts.Sub(internalMetrics.startTs).Seconds(), 'f', 6, 64))
@@ -258,6 +295,26 @@ func (internalMetrics *InternalMetrics) Execute() bool {
 			buf.Write(tsSuffix)
 			metricsCount++
 		}
+	}
+
+	// OS Metrics:
+	noOsMetrics := internalMetrics.osInfoMetric == nil
+	if noOsMetrics {
+		internalMetrics.updateOsMetrics()
+	}
+	if noOsMetrics || internalMetrics.osCycleNum == 0 {
+		buf.Write(internalMetrics.osInfoMetric)
+		buf.Write(tsSuffix)
+		buf.Write(internalMetrics.osBtimeMetric)
+		buf.Write(tsSuffix)
+		metricsCount += 2
+	}
+	buf.Write(internalMetrics.osUptimeMetric)
+	buf.WriteString(strconv.FormatFloat(time.Since(utils.OSBtime).Seconds(), 'f', 0, 64))
+	buf.Write(tsSuffix)
+	metricsCount++
+	if internalMetrics.osCycleNum++; internalMetrics.osCycleNum >= internalMetrics.osMetricsFactor {
+		internalMetrics.osCycleNum = 0
 	}
 
 	// Update by hand own generator metrics; this is required since the number
@@ -306,7 +363,7 @@ func (internalMetrics *InternalMetrics) Execute() bool {
 	return true
 }
 
-func (internalMetrics *InternalMetrics) updateUptimeMetric() []byte {
+func (internalMetrics *InternalMetrics) updateUptimeMetric() {
 	instance, hostname := GlobalInstance, GlobalHostname
 	if internalMetrics.instance != "" {
 		instance = internalMetrics.instance
@@ -321,7 +378,57 @@ func (internalMetrics *InternalMetrics) updateUptimeMetric() []byte {
 		HOSTNAME_LABEL_NAME, hostname,
 		LSVMI_VERSION_LABEL_NAME, LsvmiVersion,
 	))
-	return internalMetrics.uptimeMetric
+}
+
+func (internalMetrics *InternalMetrics) updateOsMetrics() {
+	instance, hostname := GlobalInstance, GlobalHostname
+	if internalMetrics.instance != "" {
+		instance = internalMetrics.instance
+	}
+	if internalMetrics.hostname != "" {
+		hostname = internalMetrics.hostname
+	}
+
+	buf := &bytes.Buffer{}
+	fmt.Fprintf(
+		buf,
+		`%s{%s="%s",%s="%s",%s="%s",%s="%s"`,
+		OS_INFO_METRIC,
+		INSTANCE_LABEL_NAME, instance,
+		HOSTNAME_LABEL_NAME, hostname,
+		OS_INFO_NAME_LABEL, utils.OSName,
+		OS_INFO_RELEASE_LABEL, utils.OSRelease,
+	)
+	fmt.Fprintf(buf, `,%s="`, OS_INFO_VERSION_LABEL)
+	for i, v := range utils.OSReleaseVer {
+		if i > 0 {
+			fmt.Fprintf(buf, `.`)
+		}
+		fmt.Fprintf(buf, `%d`, v)
+	}
+	fmt.Fprintf(buf, `"`)
+	for _, key := range OsInfoLinuxOSReleaseKeys {
+		fmt.Fprintf(buf, `,%s="%s"`, key, utils.LinuxOsRelease[key])
+	}
+	fmt.Fprintf(buf, `} 1`) // N.B. value included
+	internalMetrics.osInfoMetric = bytes.Clone(buf.Bytes())
+
+	internalMetrics.osBtimeMetric = []byte(fmt.Sprintf(
+		`%s{%s="%s",%s="%s"} %d`, // N.B. value included
+		OS_BTIME_METRIC,
+		INSTANCE_LABEL_NAME, instance,
+		HOSTNAME_LABEL_NAME, hostname,
+		utils.OSBtime.Unix(),
+	))
+
+	internalMetrics.osUptimeMetric = []byte(fmt.Sprintf(
+		`%s{%s="%s",%s="%s"} `, // N.B. space before value included
+		OS_UPTIME_METRIC,
+		INSTANCE_LABEL_NAME, instance,
+		HOSTNAME_LABEL_NAME, hostname,
+	))
+
+	internalMetrics.osCycleNum = initialCycleNum.Get(internalMetrics.osMetricsFactor)
 }
 
 func (internalMetrics *InternalMetrics) updateIntervalMetric() []byte {

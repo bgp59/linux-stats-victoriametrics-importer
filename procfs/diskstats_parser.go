@@ -109,7 +109,7 @@ func NewDiskstats(procfsRoot string) *Diskstats {
 		fieldsInJiffies: diskstatsFieldsInJiffies,
 	}
 
-	if utils.OSName == "linux" && len(utils.OSReleaseVer) > 0 && utils.OSReleaseVer[0] >= 5 {
+	if utils.OSNameNorm == "linux" && len(utils.OSReleaseVer) > 0 && utils.OSReleaseVer[0] >= 5 {
 		newDiskstats.jiffiesToMillisec = uint32(utils.LinuxClktckSec * 1000.)
 	}
 

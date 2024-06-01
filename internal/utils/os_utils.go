@@ -9,20 +9,25 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tklauser/go-sysconf"
-
 	"golang.org/x/sys/unix"
+)
+
+const (
+	DEFAULT_LINUX_CLKTCK = 100
 )
 
 var (
 	OSName         string
+	OSNameNorm     string
 	OSRelease      string
 	OSReleaseVer   []int
-	LinuxClktck    int64 = 100
-	LinuxClktckSec float64
+	OSBtime        = getOsBtime()
+	LinuxClktck    = int64(DEFAULT_LINUX_CLKTCK)
+	LinuxClktckSec = 1. / float64(LinuxClktck)
+	LinuxOsRelease = make(map[string]string)
 )
 
-func init() {
+func setUnameOSInfo() error {
 	zeroSuffixBufToString := func(buf []byte) string {
 		i := bytes.IndexByte(buf, 0)
 		if i < 0 {
@@ -34,11 +39,11 @@ func init() {
 	uname := unix.Utsname{}
 	err := unix.Uname(&uname)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "unix.Uname(): %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("unix.Uname(): %v", err)
 	}
 
-	OSName = strings.ToLower(zeroSuffixBufToString(uname.Sysname[:]))
+	OSName = zeroSuffixBufToString(uname.Sysname[:])
+	OSNameNorm = strings.ToLower(OSName)
 
 	OSRelease = zeroSuffixBufToString(uname.Release[:])
 	semVerStr := strings.Split(OSRelease, ".")
@@ -47,31 +52,37 @@ func init() {
 		OSReleaseVer[i], err = strconv.Atoi(v)
 		if err != nil {
 			if i < len(semVerStr)-1 {
-				fmt.Fprintf(os.Stderr, "error parsing OS OSRelease %q: %v", OSRelease, err)
-				os.Exit(1)
+				return fmt.Errorf("error parsing OS OSRelease %q: %v", OSRelease, err)
 			}
 			// Maybe it is maj.min.rel<something>
 			OSReleaseVer[i] = -1
 			_, err = fmt.Sscanf(v, "%d", &OSReleaseVer[i])
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "error parsing OS OSRelease %q: %v", OSRelease, err)
-				os.Exit(1)
-
+				return fmt.Errorf("error parsing OS OSRelease %q: %v", OSRelease, err)
 			}
 			if OSReleaseVer[i] < 0 {
-				fmt.Fprintf(os.Stderr, "error parsing OS OSRelease %q", OSRelease)
-				os.Exit(1)
+				return fmt.Errorf("error parsing OS OSRelease %q", OSRelease)
 			}
 		}
 	}
+	return nil
+}
 
-	if OSName == "linux" {
-		clktck, err := sysconf.Sysconf(sysconf.SC_CLK_TCK)
-		if err == nil {
-			LinuxClktck = clktck
-		} else {
-			fmt.Fprintf(os.Stderr, "Sysconf(SC_CLK_TCK): %v, using %d", err, LinuxClktck)
-		}
+func init() {
+	if err := setUnameOSInfo(); err != nil {
+		fmt.Fprintf(os.Stderr, "setUnameOSInfo(): %v\n", err)
 	}
-	LinuxClktckSec = 1. / float64(LinuxClktck)
+
+	if clktck, err := getClktckSec(); err == nil {
+		LinuxClktck = clktck
+		LinuxClktckSec = 1. / float64(LinuxClktck)
+	} else {
+		fmt.Fprintf(os.Stderr, "getClktckSec(): %v, using %d\n", err, LinuxClktck)
+	}
+
+	if linuxOsRelease, err := getLinuxOsRelease(); err == nil {
+		LinuxOsRelease = linuxOsRelease
+	} else {
+		fmt.Fprintf(os.Stderr, "linuxOsRelease(): %v\n", err)
+	}
 }

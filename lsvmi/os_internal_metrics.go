@@ -42,9 +42,9 @@ type OsInternalMetrics struct {
 }
 
 func NewOsInternalMetrics(internalMetrics *InternalMetrics) *OsInternalMetrics {
-	if utils.OSName != "linux" {
+	if utils.OSNameNorm != "linux" {
 		internalMetricsLog.Warnf(
-			"OS internal metrics not supported for %q", utils.OSName,
+			"OS internal metrics not supported for %q", utils.OSNameNorm,
 		)
 		return nil
 	}
