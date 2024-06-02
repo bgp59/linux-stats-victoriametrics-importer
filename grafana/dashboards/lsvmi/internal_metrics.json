@@ -61,7 +61,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -69,30 +70,50 @@
                   }
                 ]
               },
-              "unit": "dtdhms"
+              "unit": "string"
             },
             "overrides": [
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Time"
+                  "options": "Agent Uptime"
                 },
                 "properties": [
                   {
+                    "id": "unit",
+                    "value": "dtdhms"
+                  },
+                  {
                     "id": "custom.width",
-                    "value": 170
+                    "value": 126
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Hostname"
+                  "options": "Host Uptime"
                 },
                 "properties": [
                   {
-                    "id": "custom.minWidth",
-                    "value": 250
+                    "id": "unit",
+                    "value": "dtdhms"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 111
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Host Boot Time"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "dateTimeAsIso"
                   }
                 ]
               },
@@ -104,31 +125,79 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 80
+                    "value": 78
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Version"
+                  "options": "OS Name"
                 },
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 80
+                    "value": 89
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Uptime"
+                  "options": "OS Version"
                 },
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 100
+                    "value": 93
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Sys Name"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 93
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Sys Ver"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 77
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Time"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 166
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Sys Version"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 103
                   }
                 ]
               }
@@ -163,41 +232,92 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "lsvmi_uptime_sec{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+              "expr": "lsvmi_uptime_sec\n* on (instance, hostname) group_right()\nos_info",
               "format": "table",
               "instant": true,
               "interval": "",
               "legendFormat": "__auto",
               "range": false,
-              "refId": "A"
+              "refId": "lsvmi_uptime_sec"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "os_uptime_sec\n* on (instance, hostname) group_right()\nos_info",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "os_uptime_sec"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "os_btime_sec * 1000\n* on (instance, hostname) group_right()\nos_info",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "os_btime_sec"
             }
           ],
           "title": "Agents",
           "transformations": [
             {
+              "id": "merge",
+              "options": {}
+            },
+            {
               "id": "organize",
               "options": {
                 "excludeByName": {
-                  "Value": false,
-                  "__name__": true
+                  "ID": true,
+                  "PRETTY_NAME": true,
+                  "VERSION": true,
+                  "VERSION_CODENAME": true,
+                  "VERSION_ID": false,
+                  "sys_release": true
                 },
                 "indexByName": {
+                  "ID": 3,
+                  "NAME": 4,
+                  "PRETTY_NAME": 5,
                   "Time": 0,
-                  "Value": 5,
-                  "__name__": 1,
-                  "hostname": 2,
-                  "instance": 3,
-                  "version": 4
+                  "VERSION": 6,
+                  "VERSION_CODENAME": 7,
+                  "VERSION_ID": 8,
+                  "Value #lsvmi_uptime_sec": 12,
+                  "Value #os_btime_sec": 14,
+                  "Value #os_uptime_sec": 13,
+                  "hostname": 1,
+                  "instance": 2,
+                  "sys_name": 9,
+                  "sys_release": 10,
+                  "sys_version": 11
                 },
                 "renameByName": {
-                  "Time": "",
-                  "Value": "Uptime",
-                  "__name__": "",
+                  "NAME": "OS Name",
+                  "VERSION": "OS Version",
+                  "VERSION_ID": "OS Version",
+                  "Value #lsvmi_uptime_sec": "Agent Uptime",
+                  "Value #os_btime_sec": "Host Boot Time",
+                  "Value #os_uptime_sec": "Host Uptime",
                   "hostname": "Hostname",
-                  "inst": "Instance",
                   "instance": "Instance",
-                  "node": "Hostname",
-                  "version": "Version"
+                  "os_name": "",
+                  "sys_name": "Sys Name",
+                  "sys_release": "",
+                  "sys_version": "Sys Version"
                 }
               }
             }
@@ -250,7 +370,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -260,32 +381,7 @@
               },
               "unit": "s"
             },
-            "overrides": [
-              {
-                "__systemRef": "hideSeriesFrom",
-                "matcher": {
-                  "id": "byNames",
-                  "options": {
-                    "mode": "exclude",
-                    "names": [
-                      "3e8cffb25d22/lsvmi"
-                    ],
-                    "prefix": "All except:",
-                    "readOnly": true
-                  }
-                },
-                "properties": [
-                  {
-                    "id": "custom.hideFrom",
-                    "value": {
-                      "legend": false,
-                      "tooltip": false,
-                      "viz": true
-                    }
-                  }
-                ]
-              }
-            ]
+            "overrides": []
           },
           "gridPos": {
             "h": 6,
@@ -371,7 +467,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -479,8 +576,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -574,8 +670,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -668,8 +763,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -763,8 +857,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -858,8 +951,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -953,8 +1045,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1062,8 +1153,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1156,8 +1246,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1251,8 +1340,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1345,8 +1433,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1439,8 +1526,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1535,8 +1621,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1631,8 +1716,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1753,8 +1837,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1946,8 +2029,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2041,8 +2123,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2159,8 +2240,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2254,8 +2334,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2388,8 +2467,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2481,8 +2559,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2574,8 +2651,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2668,8 +2744,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2761,8 +2836,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2855,8 +2929,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2963,8 +3036,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3083,8 +3155,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3189,8 +3260,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3283,8 +3353,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3378,8 +3447,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3486,8 +3554,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3593,8 +3660,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3689,8 +3755,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3952,12 +4017,28 @@
         "type": "query"
       },
       {
+        "current": {
+          "selected": true,
+          "text": "5s",
+          "value": "5s"
+        },
         "description": "Should match the internal metrics sample interval.",
         "hide": 2,
         "name": "interval",
         "query": "5s",
         "skipUrlSync": false,
         "type": "constant"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "filters": [],
+        "hide": 0,
+        "name": "Filters",
+        "skipUrlSync": false,
+        "type": "adhoc"
       }
     ]
   },
@@ -3969,6 +4050,6 @@
   "timezone": "",
   "title": "internal_metrics",
   "uid": "internal_metrics",
-  "version": 69,
+  "version": 74,
   "weekStart": ""
 }

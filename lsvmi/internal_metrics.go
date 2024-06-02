@@ -25,9 +25,9 @@ const (
 	OS_BTIME_METRIC  = "os_btime_sec"
 	OS_UPTIME_METRIC = "os_uptime_sec"
 
-	OS_INFO_NAME_LABEL    = "name"
-	OS_INFO_RELEASE_LABEL = "release"
-	OS_INFO_VERSION_LABEL = "version"
+	OS_INFO_NAME_LABEL    = "sys_name"
+	OS_INFO_RELEASE_LABEL = "sys_release"
+	OS_INFO_VERSION_LABEL = "sys_version"
 
 	// Interval since last generation, i.e. the interval underlying the deltas.
 	// Normally this should be close to scan interval, but this the actual
