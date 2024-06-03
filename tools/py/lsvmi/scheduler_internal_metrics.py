@@ -26,7 +26,7 @@ from .internal_metrics import (
     TC_REPORT_EXTRA_FIELD,
     TC_WANT_METRICS_COUNT_FIELD,
     TC_WANT_METRICS_FIELD,
-    testcases_sub_dir,
+    test_cases_sub_dir,
 )
 
 TASK_STATS_TASK_ID_LABEL_NAME = "task_id"
@@ -158,7 +158,9 @@ def generate_scheduler_internal_metrics_test_cases(
     ts = time.time()
 
     if test_cases_root_dir not in {None, "", "-"}:
-        out_file = os.path.join(test_cases_root_dir, testcases_sub_dir, test_cases_file)
+        out_file = os.path.join(
+            test_cases_root_dir, test_cases_sub_dir, test_cases_file
+        )
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
         fp = open(out_file, "wt")
     else:

@@ -6,6 +6,7 @@ import "time"
 
 type InternalMetricsTestCase struct {
 	Name             string
+	Description      string
 	Instance         string
 	Hostname         string
 	PromTs           int64

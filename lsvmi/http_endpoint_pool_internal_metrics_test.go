@@ -37,6 +37,8 @@ func testHttpEndpointPoolInternalMetrics(tc *HttpEndpointPoolInternalMetricsTest
 	tlc := testutils.NewTestLogCollect(t, Log, nil)
 	defer tlc.RestoreLog()
 
+	t.Logf("Description: %s", tc.Description)
+
 	internalMetrics, err := newTestHttpEndpointPoolInternalMetrics(tc)
 	if err != nil {
 		t.Fatal(err)

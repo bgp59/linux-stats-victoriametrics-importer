@@ -1,21 +1,25 @@
 #! /usr/bin/env python3
 
 # Testcase generators for internal metrics:
+from dataclasses import dataclass
+from typing import List, Optional
 
-# InternaMetricsTestCase fields:
-TC_NAME_FIELD = "Name"
-TC_INSTANCE_FIELD = "Instance"
-TC_HOSTNAME_FIELD = "Hostname"
-TC_PROM_TS_FIELD = "PromTs"
-TC_FULL_CYCLE_FIELD = "FullCycle"
-TC_WANT_METRICS_COUNT_FIELD = "WantMetricsCount"
-TC_WANT_METRICS_FIELD = "WantMetrics"
-TC_REPORT_EXTRA_FIELD = "ReportExtra"
-# ... InternaMetricsTestCase fields:
-TC_CURR_STATS_FIELD = "CurrStats"
-TC_PREV_STATS_FIELD = "PrevStats"
+from . import DEFAULT_TEST_HOSTNAME, DEFAULT_TEST_INSTANCE
 
-testcases_sub_dir = "internal_metrics"
+
+@dataclass
+class InternalMetricsTestCase:
+    Name: Optional[str] = None
+    Description: Optional[str] = None
+    Instance: str = DEFAULT_TEST_INSTANCE
+    Hostname: str = DEFAULT_TEST_HOSTNAME
+    PromTs: int = 0
+    WantMetricsCount: int = 0
+    WantMetrics: Optional[List[str]] = None
+    ReportExtra: bool = True
+
+
+test_cases_sub_dir = "internal_metrics"
 
 from .compressor_pool_internal_metrics import (
     generate_compressor_pool_internal_metrics_test_cases,
@@ -23,10 +27,11 @@ from .compressor_pool_internal_metrics import (
 from .http_endpoint_pool_internal_metrics import (
     generate_http_endpoint_pool_internal_metrics_test_cases,
 )
-from .scheduler_internal_metrics import generate_scheduler_internal_metrics_test_cases
+
+# from .scheduler_internal_metrics import generate_scheduler_internal_metrics_test_cases
 
 generators = {
     "compressor_pool": generate_compressor_pool_internal_metrics_test_cases,
     "http_endpoint_pool": generate_http_endpoint_pool_internal_metrics_test_cases,
-    "scheduler": generate_scheduler_internal_metrics_test_cases,
+    # "scheduler": generate_scheduler_internal_metrics_test_cases,
 }
