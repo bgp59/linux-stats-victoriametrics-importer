@@ -2,12 +2,11 @@
 
 # Generate test cases for lsvmi/scheduler_internal_metrics_test.go
 
-import json
 import os
-import sys
 import time
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Union
+from dataclasses import dataclass
+from typing import List, Optional
 
 from . import (
     DEFAULT_TEST_HOSTNAME,
@@ -15,43 +14,49 @@ from . import (
     HOSTNAME_LABEL_NAME,
     INSTANCE_LABEL_NAME,
     lsvmi_test_cases_root_dir,
+    save_test_cases,
+    uint64_delta,
 )
-from .internal_metrics import (
-    TC_CURR_STATS_FIELD,
-    TC_HOSTNAME_FIELD,
-    TC_INSTANCE_FIELD,
-    TC_NAME_FIELD,
-    TC_PREV_STATS_FIELD,
-    TC_PROM_TS_FIELD,
-    TC_REPORT_EXTRA_FIELD,
-    TC_WANT_METRICS_COUNT_FIELD,
-    TC_WANT_METRICS_FIELD,
-    test_cases_sub_dir,
+from .internal_metrics import InternalMetricsTestCase, test_cases_sub_dir
+from .scheduler_stats import (
+    TASK_STATS_DEADLINE_HACK_COUNT,
+    TASK_STATS_DELAYED_COUNT,
+    TASK_STATS_EXECUTED_COUNT,
+    TASK_STATS_OVERRUN_COUNT,
+    TASK_STATS_SCHEDULED_COUNT,
+    TASK_STATS_UINT64_LEN,
+    SchedulerStats,
+    TaskStats,
 )
+
+TASK_STATS_SCHEDULED_DELTA_METRIC = "lsvmi_task_scheduled_delta"
+TASK_STATS_DELAYED_DELTA_METRIC = "lsvmi_task_delayed_delta"
+TASK_STATS_OVERRUN_DELTA_METRIC = "lsvmi_task_overrun_delta"
+TASK_STATS_EXECUTED_DELTA_METRIC = "lsvmi_task_executed_delta"
+TASK_STATS_DEADLINE_HACK_DELTA_METRIC = "lsvmi_task_deadline_hack_delta"
+TASK_STATS_INTERVAL_AVG_RUNTIME_METRIC = "lsvmi_task_interval_avg_runtime_sec"
 
 TASK_STATS_TASK_ID_LABEL_NAME = "task_id"
 
-TaskStats = Dict[str, Union[List[int], List[float]]]
-SchedulerStats = Dict[str, TaskStats]
-
-UINT64_STATS_FIELD = "Uint64Stats"
-TASK_STATS_EXECUTED_COUNT_INDEX = 3
-
-RUNTIME_TOTAL_FIELD = "RuntimeTotal"
 # time.Duration unit is the nano-second
 GO_TIME_MICROSECOND = 1_000
 GO_TIME_MILLISECOND = 1_000_000
 GO_TIME_SECOND = 1_000_000_000
 
-task_stats_uint64_delta_metric_names = {
-    0: "lsvmi_task_scheduled_delta",
-    1: "lsvmi_task_delayed_delta",
-    2: "lsvmi_task_overrun_delta",
-    3: "lsvmi_task_executed_delta",
-    4: "lsvmi_task_deadline_hack_delta",
-}
 
-task_stats_interval_avg_runtime_metric = "lsvmi_task_interval_avg_runtime_sec"
+@dataclass
+class SchedulerInternalMetricsTestCase(InternalMetricsTestCase):
+    CurrStats: Optional[SchedulerStats] = None
+    PrevStats: Optional[SchedulerStats] = None
+
+
+task_stats_uint64_delta_metric_names = {
+    TASK_STATS_SCHEDULED_COUNT: TASK_STATS_SCHEDULED_DELTA_METRIC,
+    TASK_STATS_DELAYED_COUNT: TASK_STATS_DELAYED_DELTA_METRIC,
+    TASK_STATS_OVERRUN_COUNT: TASK_STATS_OVERRUN_DELTA_METRIC,
+    TASK_STATS_EXECUTED_COUNT: TASK_STATS_EXECUTED_DELTA_METRIC,
+    TASK_STATS_DEADLINE_HACK_COUNT: TASK_STATS_DEADLINE_HACK_DELTA_METRIC,
+}
 
 test_cases_file = "scheduler.json"
 
@@ -68,14 +73,13 @@ def generate_task_stats_metrics(
         ts = time.time()
     promTs = str(int(ts * 1000))
     metrics = []
-    executed_delta = None
     for i, name in task_stats_uint64_delta_metric_names.items():
         if name is None:
             continue
-        val = curr_task_stats[UINT64_STATS_FIELD][i]
+        val = curr_task_stats.Uint64Stats[i]
         if prev_task_stats is not None:
-            val -= prev_task_stats[UINT64_STATS_FIELD][i]
-        if i == TASK_STATS_EXECUTED_COUNT_INDEX:
+            val -= prev_task_stats.Uint64Stats[i]
+        if i == TASK_STATS_EXECUTED_COUNT:
             executed_delta = val
         metrics.append(
             f"{name}{{"
@@ -88,18 +92,21 @@ def generate_task_stats_metrics(
             )
             + f"}} {val} {promTs}"
         )
-    if executed_delta is None:
-        val = curr_task_stats[UINT64_STATS_FIELD][TASK_STATS_EXECUTED_COUNT_INDEX]
-        if prev_task_stats is not None:
-            val -= prev_task_stats[UINT64_STATS_FIELD][TASK_STATS_EXECUTED_COUNT_INDEX]
-    interval_runtime_average = 0
+    executed_delta = curr_task_stats.Uint64Stats[TASK_STATS_EXECUTED_COUNT]
+    if prev_task_stats is not None:
+        executed_delta = uint64_delta(
+            executed_delta,
+            prev_task_stats.Uint64Stats[TASK_STATS_EXECUTED_COUNT],
+        )
     if executed_delta > 0:
-        runtime_delta = curr_task_stats[RUNTIME_TOTAL_FIELD]
+        runtime_delta = curr_task_stats.RuntimeTotal
         if prev_task_stats is not None:
-            runtime_delta -= prev_task_stats[RUNTIME_TOTAL_FIELD]
+            runtime_delta -= prev_task_stats.RuntimeTotal
         interval_runtime_average = runtime_delta / GO_TIME_SECOND / executed_delta
+    else:
+        interval_runtime_average = 0
     metrics.append(
-        f"{task_stats_interval_avg_runtime_metric}{{"
+        f"{TASK_STATS_INTERVAL_AVG_RUNTIME_METRIC}{{"
         + ",".join(
             [
                 f'{INSTANCE_LABEL_NAME}="{instance}"',
@@ -118,9 +125,9 @@ def generate_scheduler_internal_metrics_test_case(
     prev_stats: Optional[SchedulerStats] = None,
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
-    report_extra: bool = True,
     ts: Optional[float] = None,
-) -> Dict[str, Any]:
+    description: Optional[str] = None,
+) -> SchedulerInternalMetricsTestCase:
     if ts is None:
         ts = time.time()
     prom_ts = int(ts * 1000)
@@ -137,17 +144,30 @@ def generate_scheduler_internal_metrics_test_case(
                 ts=ts,
             )
         )
-    return {
-        TC_NAME_FIELD: name,
-        TC_INSTANCE_FIELD: instance,
-        TC_HOSTNAME_FIELD: hostname,
-        TC_PROM_TS_FIELD: prom_ts,
-        TC_WANT_METRICS_COUNT_FIELD: len(metrics),
-        TC_WANT_METRICS_FIELD: metrics,
-        TC_REPORT_EXTRA_FIELD: report_extra,
-        TC_CURR_STATS_FIELD: curr_stats,
-        TC_PREV_STATS_FIELD: prev_stats,
-    }
+    return SchedulerInternalMetricsTestCase(
+        Name=name,
+        Description=description,
+        Instance=instance,
+        Hostname=hostname,
+        PromTs=prom_ts,
+        WantMetricsCount=len(metrics),
+        WantMetrics=metrics,
+        ReportExtra=True,
+        CurrStats=curr_stats,
+        PrevStats=prev_stats,
+    )
+
+
+def make_ref_scheduler_stats(num_tasks: int = 2) -> SchedulerStats:
+    stats = {}
+    for i in range(num_tasks):
+        stats[f"task{i}"] = TaskStats(
+            Uint64Stats=[
+                2 * TASK_STATS_UINT64_LEN * i + j for j in range(TASK_STATS_UINT64_LEN)
+            ],
+            RuntimeTotal=(i + 1) * 100 * GO_TIME_MILLISECOND,
+        )
+    return stats
 
 
 def generate_scheduler_internal_metrics_test_cases(
@@ -157,33 +177,16 @@ def generate_scheduler_internal_metrics_test_cases(
 ):
     ts = time.time()
 
-    if test_cases_root_dir not in {None, "", "-"}:
-        out_file = os.path.join(
-            test_cases_root_dir, test_cases_sub_dir, test_cases_file
-        )
-        os.makedirs(os.path.dirname(out_file), exist_ok=True)
-        fp = open(out_file, "wt")
-    else:
-        out_file = None
-        fp = sys.stdout
-
-    stats_ref = {
-        "taskA": {
-            UINT64_STATS_FIELD: [0, 1, 2, 3, 4],
-            RUNTIME_TOTAL_FIELD: 100 * GO_TIME_MILLISECOND,
-        },
-        "taskB": {
-            UINT64_STATS_FIELD: [10, 11, 12, 13, 14],
-            RUNTIME_TOTAL_FIELD: 200 * GO_TIME_MILLISECOND,
-        },
-    }
+    num_tasks = 2
+    stats_ref = make_ref_scheduler_stats(num_tasks=num_tasks)
 
     test_cases = []
     tc_num = 0
 
+    name = "no_prev"
     test_cases.append(
         generate_scheduler_internal_metrics_test_case(
-            f"{tc_num:04d}",
+            f"{name}/{tc_num:04d}",
             stats_ref,
             instance=instance,
             hostname=hostname,
@@ -192,16 +195,17 @@ def generate_scheduler_internal_metrics_test_cases(
     )
     tc_num += 1
 
+    name = "all_change"
     curr_stats = deepcopy(stats_ref)
     k = 0
-    for task_id in curr_stats:
+    for task_stats in curr_stats.values():
         k += 1
-        for i in range(len(curr_stats[task_id][UINT64_STATS_FIELD])):
-            curr_stats[task_id][UINT64_STATS_FIELD][i] += 100 * k + i
-        curr_stats[task_id][RUNTIME_TOTAL_FIELD] += 1 * GO_TIME_SECOND
+        for i in range(TASK_STATS_UINT64_LEN):
+            task_stats.Uint64Stats[i] += 100 * k + i
+        task_stats.RuntimeTotal += 1 * GO_TIME_SECOND
     test_cases.append(
         generate_scheduler_internal_metrics_test_case(
-            f"{tc_num:04d}",
+            f"{name}/{tc_num:04d}",
             curr_stats,
             prev_stats=stats_ref,
             instance=instance,
@@ -211,24 +215,29 @@ def generate_scheduler_internal_metrics_test_cases(
     )
     tc_num += 1
 
-    prev_stats = deepcopy(stats_ref)
-    for task_id in list(prev_stats):
-        del prev_stats[task_id]
-        break
-    test_cases.append(
-        generate_scheduler_internal_metrics_test_case(
-            f"{tc_num:04d}",
-            stats_ref,
-            prev_stats=prev_stats,
-            instance=instance,
-            hostname=hostname,
-            ts=ts,
+    name = "new_task"
+    curr_stats = stats_ref
+    for new_task_id in curr_stats:
+        prev_stats = deepcopy(stats_ref)
+        del prev_stats[new_task_id]
+        test_cases.append(
+            generate_scheduler_internal_metrics_test_case(
+                f"{tc_num:04d}",
+                stats_ref,
+                prev_stats=prev_stats,
+                instance=instance,
+                hostname=hostname,
+                ts=ts,
+                description=f"new_task_id={new_task_id}",
+            )
         )
-    )
-    tc_num += 1
+        tc_num += 1
 
-    json.dump(test_cases, fp=fp, indent=2)
-    fp.write("\n")
-    if out_file is not None:
-        fp.close()
-        print(f"{out_file} generated", file=sys.stderr)
+    save_test_cases(
+        test_cases,
+        test_cases_file=test_cases_file,
+        test_cases_root_dir=os.path.join(
+            lsvmi_test_cases_root_dir,
+            test_cases_sub_dir,
+        ),
+    )

@@ -38,6 +38,8 @@ func testSchedulerInternalMetrics(tc *SchedulerInternalMetricsTestCase, t *testi
 	tlc := testutils.NewTestLogCollect(t, Log, nil)
 	defer tlc.RestoreLog()
 
+	t.Logf("Description: %s", tc.Description)
+
 	internalMetrics, err := newTestSchedulerInternalMetrics(tc)
 	if err != nil {
 		t.Fatal(err)

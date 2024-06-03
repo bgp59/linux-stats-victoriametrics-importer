@@ -27,11 +27,10 @@ from .compressor_pool_internal_metrics import (
 from .http_endpoint_pool_internal_metrics import (
     generate_http_endpoint_pool_internal_metrics_test_cases,
 )
-
-# from .scheduler_internal_metrics import generate_scheduler_internal_metrics_test_cases
+from .scheduler_internal_metrics import generate_scheduler_internal_metrics_test_cases
 
 generators = {
     "compressor_pool": generate_compressor_pool_internal_metrics_test_cases,
     "http_endpoint_pool": generate_http_endpoint_pool_internal_metrics_test_cases,
-    # "scheduler": generate_scheduler_internal_metrics_test_cases,
+    "scheduler": generate_scheduler_internal_metrics_test_cases,
 }

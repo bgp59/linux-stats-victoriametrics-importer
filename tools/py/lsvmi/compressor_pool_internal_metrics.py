@@ -16,7 +16,7 @@ from . import (
     lsvmi_test_cases_root_dir,
     save_test_cases,
 )
-from .compressor_stats import (
+from .compressor_pool_stats import (
     COMPRESSOR_STATS_COMPRESSION_FACTOR,
     COMPRESSOR_STATS_FLOAT64_LEN,
     COMPRESSOR_STATS_READ_BYTE_COUNT,
