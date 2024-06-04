@@ -17,13 +17,13 @@ import (
 // this process:
 
 const (
-	LSVMI_OS_VSIZE_METRIC       = "lsvmi_os_vsize"
-	LSVMI_OS_RSS_METRIC         = "lsvmi_os_rss"
-	LSVMI_OS_PCPU_METRIC        = "lsvmi_os_pcpu"
-	LSVMI_OS_NUM_THREADS_METRIC = "lsvmi_os_num_threads"
+	LSVMI_PROC_VSIZE_METRIC       = "lsvmi_proc_vsize"
+	LSVMI_PROC_RSS_METRIC         = "lsvmi_proc_rss"
+	LSVMI_PROC_PCPU_METRIC        = "lsvmi_proc_pcpu"
+	LSVMI_PROC_NUM_THREADS_METRIC = "lsvmi_proc_num_threads"
 )
 
-type OsInternalMetrics struct {
+type ProcessInternalMetrics struct {
 	// Internal metrics, for common values:
 	internalMetrics *InternalMetrics
 	// Dual storage for snapping the stats, used as current, previous, toggled
@@ -41,7 +41,7 @@ type OsInternalMetrics struct {
 	vszMetric, rssMetric, pcpuMetric, numThreadsMetric []byte
 }
 
-func NewOsInternalMetrics(internalMetrics *InternalMetrics) *OsInternalMetrics {
+func NewProcessInternalMetrics(internalMetrics *InternalMetrics) *ProcessInternalMetrics {
 	if utils.OSNameNorm != "linux" {
 		internalMetricsLog.Warnf(
 			"OS internal metrics not supported for %q", utils.OSNameNorm,
@@ -49,72 +49,72 @@ func NewOsInternalMetrics(internalMetrics *InternalMetrics) *OsInternalMetrics {
 		return nil
 	}
 
-	return &OsInternalMetrics{
+	return &ProcessInternalMetrics{
 		internalMetrics: internalMetrics,
 		pid:             os.Getpid(),
 		pagesize:        uint64(os.Getpagesize()),
 	}
 }
 
-func (osim *OsInternalMetrics) SnapStats() {
-	pidStat := osim.pidStat[osim.currIndex]
+func (pim *ProcessInternalMetrics) SnapStats() {
+	pidStat := pim.pidStat[pim.currIndex]
 	if pidStat == nil {
 		procfsRoot := GlobalProcfsRoot
-		if osim.internalMetrics.procfsRoot != "" {
-			procfsRoot = osim.internalMetrics.procfsRoot
+		if pim.internalMetrics.procfsRoot != "" {
+			procfsRoot = pim.internalMetrics.procfsRoot
 		}
-		pidStat = procfs.NewPidStat(procfsRoot, osim.pid, procfs.PID_STAT_PID_ONLY_TID)
-		osim.pidStat[osim.currIndex] = pidStat
+		pidStat = procfs.NewPidStat(procfsRoot, pim.pid, procfs.PID_STAT_PID_ONLY_TID)
+		pim.pidStat[pim.currIndex] = pidStat
 	}
 	err := pidStat.Parse(nil)
 	statsTs := time.Now()
 	if err != nil {
-		internalMetricsLog.Warnf("pidStat.Parse(pid=%d): %v", osim.pid, err)
-		osim.pidStat[osim.currIndex] = nil
+		internalMetricsLog.Warnf("pidStat.Parse(pid=%d): %v", pim.pid, err)
+		pim.pidStat[pim.currIndex] = nil
 	}
-	osim.statsTs[osim.currIndex] = statsTs
+	pim.statsTs[pim.currIndex] = statsTs
 }
 
-func (osim *OsInternalMetrics) updateMetricsCache() {
+func (pim *ProcessInternalMetrics) updateMetricsCache() {
 	instance, hostname := GlobalInstance, GlobalHostname
-	if osim.internalMetrics.instance != "" {
-		instance = osim.internalMetrics.instance
+	if pim.internalMetrics.instance != "" {
+		instance = pim.internalMetrics.instance
 	}
-	if osim.internalMetrics.hostname != "" {
-		hostname = osim.internalMetrics.hostname
+	if pim.internalMetrics.hostname != "" {
+		hostname = pim.internalMetrics.hostname
 	}
-	osim.vszMetric = []byte(fmt.Sprintf(
+	pim.vszMetric = []byte(fmt.Sprintf(
 		`%s{%s="%s",%s="%s"} `, // N.B. include the whitespace separating the metric from value
-		LSVMI_OS_VSIZE_METRIC,
+		LSVMI_PROC_VSIZE_METRIC,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 	))
-	osim.rssMetric = []byte(fmt.Sprintf(
+	pim.rssMetric = []byte(fmt.Sprintf(
 		`%s{%s="%s",%s="%s"} `, // N.B. include the whitespace separating the metric from value
-		LSVMI_OS_RSS_METRIC,
+		LSVMI_PROC_RSS_METRIC,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 	))
-	osim.pcpuMetric = []byte(fmt.Sprintf(
+	pim.pcpuMetric = []byte(fmt.Sprintf(
 		`%s{%s="%s",%s="%s"} `, // N.B. include the whitespace separating the metric from value
-		LSVMI_OS_PCPU_METRIC,
+		LSVMI_PROC_PCPU_METRIC,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 	))
-	osim.numThreadsMetric = []byte(fmt.Sprintf(
+	pim.numThreadsMetric = []byte(fmt.Sprintf(
 		`%s{%s="%s",%s="%s"} `, // N.B. include the whitespace separating the metric from value
-		LSVMI_OS_NUM_THREADS_METRIC,
+		LSVMI_PROC_NUM_THREADS_METRIC,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 	))
 
 }
 
-func (osim *OsInternalMetrics) generateMetrics(
+func (pim *ProcessInternalMetrics) generateMetrics(
 	buf *bytes.Buffer, tsSuffix []byte,
 ) int {
 
-	currPidStat, prevPidStat := osim.pidStat[osim.currIndex], osim.pidStat[1-osim.currIndex]
+	currPidStat, prevPidStat := pim.pidStat[pim.currIndex], pim.pidStat[1-pim.currIndex]
 	if currPidStat == nil {
 		// Cannot generate metrics since stats couldn't be collected:
 		return 0
@@ -122,38 +122,38 @@ func (osim *OsInternalMetrics) generateMetrics(
 
 	if tsSuffix == nil {
 		// This should happen only during unit testing:
-		tsSuffix = osim.internalMetrics.getTsSuffix()
+		tsSuffix = pim.internalMetrics.getTsSuffix()
 	}
 
-	if osim.vszMetric == nil {
+	if pim.vszMetric == nil {
 		// This will update all metrics:
-		osim.updateMetricsCache()
+		pim.updateMetricsCache()
 	}
 
 	metricsCount := 0
 
-	buf.Write(osim.vszMetric)
+	buf.Write(pim.vszMetric)
 	buf.Write(currPidStat.ByteSliceFields[procfs.PID_STAT_VSIZE])
 	buf.Write(tsSuffix)
 	metricsCount++
 
-	buf.Write(osim.rssMetric)
+	buf.Write(pim.rssMetric)
 	rss := uint64(0)
 	for _, c := range currPidStat.ByteSliceFields[procfs.PID_STAT_RSS] {
 		rss = (rss << 3) + (rss << 1) + uint64(c-'0')
 	}
-	rss *= osim.pagesize
+	rss *= pim.pagesize
 	buf.WriteString(strconv.FormatUint(rss, 10))
 	buf.Write(tsSuffix)
 	metricsCount++
 
-	buf.Write(osim.numThreadsMetric)
+	buf.Write(pim.numThreadsMetric)
 	buf.Write(currPidStat.ByteSliceFields[procfs.PID_STAT_NUM_THREADS])
 	buf.Write(tsSuffix)
 	metricsCount++
 
 	if prevPidStat != nil {
-		dTime := osim.statsTs[osim.currIndex].Sub(osim.statsTs[1-osim.currIndex]).Seconds()
+		dTime := pim.statsTs[pim.currIndex].Sub(pim.statsTs[1-pim.currIndex]).Seconds()
 		dTimeCpu := float64(
 			currPidStat.NumericFields[procfs.PID_STAT_UTIME]+
 				currPidStat.NumericFields[procfs.PID_STAT_STIME]-
@@ -161,14 +161,14 @@ func (osim *OsInternalMetrics) generateMetrics(
 				prevPidStat.NumericFields[procfs.PID_STAT_STIME]) *
 			utils.LinuxClktckSec
 		pcpu := dTimeCpu / dTime * 100
-		buf.Write(osim.pcpuMetric)
+		buf.Write(pim.pcpuMetric)
 		buf.WriteString(strconv.FormatFloat(pcpu, 'f', 1, 64))
 		buf.Write(tsSuffix)
 		metricsCount++
 	}
 
 	// Flip the stats storage:
-	osim.currIndex = 1 - osim.currIndex
+	pim.currIndex = 1 - pim.currIndex
 
 	return metricsCount
 }

@@ -61,8 +61,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -370,8 +369,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -467,8 +465,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3036,7 +3033,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3155,7 +3153,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3260,7 +3259,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3353,7 +3353,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3447,7 +3448,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3554,7 +3556,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3592,7 +3595,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "lsvmi_os_vsize{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+              "expr": "lsvmi_proc_vsize{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
               "interval": "${interval}",
               "legendFormat": "vzise({{hostname}}/{{instance}})",
               "range": true,
@@ -3604,7 +3607,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "lsvmi_os_rss{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+              "expr": "lsvmi_proc_rss{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "rss({{hostname}}/{{instance}})",
@@ -3660,7 +3663,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3698,7 +3702,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "lsvmi_os_pcpu{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+              "expr": "lsvmi_proc_pcpu{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
               "interval": "${interval}",
               "legendFormat": "{{hostname}}/{{instance}}",
               "range": true,
@@ -3755,7 +3759,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3793,7 +3798,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "lsvmi_os_num_threads{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+              "expr": "lsvmi_proc_num_threads{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
               "interval": "${interval}",
               "legendFormat": "{{hostname}}/{{instance}}",
               "range": true,
@@ -3804,7 +3809,7 @@
           "type": "timeseries"
         }
       ],
-      "title": "OS Process Metrics",
+      "title": "Process Metrics",
       "type": "row"
     }
   ],
@@ -4028,17 +4033,6 @@
         "query": "5s",
         "skipUrlSync": false,
         "type": "constant"
-      },
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${datasource}"
-        },
-        "filters": [],
-        "hide": 0,
-        "name": "Filters",
-        "skipUrlSync": false,
-        "type": "adhoc"
       }
     ]
   },
@@ -4050,6 +4044,6 @@
   "timezone": "",
   "title": "internal_metrics",
   "uid": "internal_metrics",
-  "version": 74,
+  "version": 76,
   "weekStart": ""
 }
