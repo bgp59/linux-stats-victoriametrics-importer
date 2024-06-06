@@ -125,13 +125,12 @@ func (qs *QdiscStats) Update() error {
 
 	scanNum := qs.scanNum + 1
 	for _, msg := range msgs {
+		var qiKey QdiscInfoKey
 		if len(msg.Data) < 20 {
 			return fmt.Errorf("short message, len=%d < 20", len(msg.Data))
 		}
-		qiKey := QdiscInfoKey{
-			IfIndex: nlenc.Uint32(msg.Data[4:8]),
-			Handle:  nlenc.Uint32(msg.Data[8:12]),
-		}
+		qiKey.IfIndex = nlenc.Uint32(msg.Data[4:8])
+		qiKey.Handle = nlenc.Uint32(msg.Data[8:12])
 		qi := qs.Info[qiKey]
 		if qi == nil {
 			qi = &QdiscInfo{}
@@ -203,5 +202,6 @@ func (qs *QdiscStats) Update() error {
 		}
 	}
 
+	qs.scanNum = scanNum
 	return nil
 }
