@@ -13,13 +13,13 @@ var log2 = lsvmi.NewCompLogger("Comp2")
 
 func main() {
 	flag.Parse()
-	err := lsvmi.LoadLsvmiConfigFromArgs()
+	cfg, err := lsvmi.LoadLsvmiConfigFromArgs()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	err = lsvmi.SetLogger(lsvmi.LsvmiCfg)
+	err = lsvmi.SetLogger(cfg)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
