@@ -12,9 +12,15 @@ import (
 )
 
 type QdiscMetricsInfoTestData struct {
+	QdiscInfoKey    qdisc.QdiscInfoKey
 	Uint32ZeroDelta []bool
 	Uint64ZeroDelta []bool
 	CycleNum        int
+}
+
+type QdiscInfoTestData struct {
+	QdiscInfoKey qdisc.QdiscInfoKey
+	QdiscInfo    *qdisc.QdiscInfo
 }
 
 type QdiscMetricsTestCase struct {
@@ -22,14 +28,14 @@ type QdiscMetricsTestCase struct {
 	Description                    string
 	Instance                       string
 	Hostname                       string
-	CurrQdiscStats, PrevQdiscStats *qdisc.QdiscStats
+	CurrQdiscStats, PrevQdiscStats []QdiscInfoTestData
 	CurrPromTs, PrevPromTs         int64
-	QdiscMetricsInfo               map[qdisc.QdiscInfoKey]*QdiscMetricsInfoTestData
+	QdiscMetricsInfo               []QdiscMetricsInfoTestData
 	FullMetricsFactor              int
 	WantMetricsCount               int
 	WantMetrics                    []string
 	ReportExtra                    bool
-	WantQdiscMetricsInfo           map[qdisc.QdiscInfoKey]*QdiscMetricsInfoTestData
+	WantQdiscMetricsInfo           []QdiscMetricsInfoTestData
 }
 
 var qdiscMetricsTestCasesFile = path.Join(
@@ -50,21 +56,40 @@ func testQdiscMetrics(tc *QdiscMetricsTestCase, t *testing.T) {
 	qdiscMetrics.instance = tc.Instance
 	qdiscMetrics.hostname = tc.Hostname
 	currIndex := qdiscMetrics.currIndex
-	qdiscMetrics.qdiscStats[currIndex] = tc.CurrQdiscStats
+
+	prevQdiscStats := qdisc.NewQdiscStats()
+	outOfscopeQiKeys := make(map[qdisc.QdiscInfoKey]bool)
+	for _, qiTD := range tc.PrevQdiscStats {
+		qiKey := qiTD.QdiscInfoKey
+		prevQdiscStats.Info[qiKey] = qiTD.QdiscInfo
+		outOfscopeQiKeys[qiKey] = true
+	}
+
+	currQdiscStats := prevQdiscStats.Clone()
+	for _, qiTD := range tc.CurrQdiscStats {
+		qiKey := qiTD.QdiscInfoKey
+		currQdiscStats.Info[qiKey] = qiTD.QdiscInfo
+		delete(outOfscopeQiKeys, qiKey)
+	}
+	for qiKey := range outOfscopeQiKeys {
+		delete(currQdiscStats.Info, qiKey)
+	}
+
+	qdiscMetrics.qdiscStats[currIndex] = currQdiscStats
+	qdiscMetrics.qdiscStats[1-currIndex] = prevQdiscStats
 	qdiscMetrics.qdiscStatsTs[currIndex] = time.UnixMilli(tc.CurrPromTs)
-	qdiscMetrics.qdiscStats[1-currIndex] = tc.PrevQdiscStats
 	qdiscMetrics.qdiscStatsTs[1-currIndex] = time.UnixMilli(tc.PrevPromTs)
 	qdiscMetrics.fullMetricsFactor = tc.FullMetricsFactor
 
 	if tc.QdiscMetricsInfo != nil {
-		for qiKey, qi := range qdiscMetrics.qdiscStats[currIndex].Info {
-			qimTd := tc.QdiscMetricsInfo[qiKey]
-			if qimTd != nil {
+		for _, qmidTD := range tc.QdiscMetricsInfo {
+			qiKey := qmidTD.QdiscInfoKey
+			if qi := qdiscMetrics.qdiscStats[currIndex].Info[qiKey]; qi != nil {
 				qdiscMetrics.updateQdiscMetricsInfo(qiKey, qi)
 				qim := qdiscMetrics.qdiscMetricsInfoMap[qiKey]
-				copy(qim.uint32ZeroDelta, qimTd.Uint32ZeroDelta)
-				copy(qim.uint64ZeroDelta, qimTd.Uint64ZeroDelta)
-				qim.cycleNum = qimTd.CycleNum
+				copy(qim.uint32ZeroDelta, qmidTD.Uint32ZeroDelta)
+				copy(qim.uint64ZeroDelta, qmidTD.Uint64ZeroDelta)
+				qim.cycleNum = qmidTD.CycleNum
 			}
 		}
 	}
@@ -87,7 +112,8 @@ func testQdiscMetrics(tc *QdiscMetricsTestCase, t *testing.T) {
 	}
 
 	if tc.WantQdiscMetricsInfo != nil {
-		for qiKey, wantQimTD := range tc.WantQdiscMetricsInfo {
+		for _, wantQimTD := range tc.WantQdiscMetricsInfo {
+			qiKey := wantQimTD.QdiscInfoKey
 			gotQim := qdiscMetrics.qdiscMetricsInfoMap[qiKey]
 			if gotQim == nil {
 				fmt.Fprintf(
