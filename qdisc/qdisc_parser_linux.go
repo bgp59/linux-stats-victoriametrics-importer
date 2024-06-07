@@ -10,7 +10,6 @@ package qdisc
 import (
 	"errors"
 	"fmt"
-	"math"
 	"net"
 	"syscall"
 	"time"
@@ -77,53 +76,73 @@ func (qi *QdiscInfo) parseTCAStats2(attr netlink.Attribute) error {
 	return nil
 }
 
-func (qs *QdiscStats) ifIndexToNameRefreshNoLock() error {
+func (qs *QdiscStats) ifIndexToNameCacheRefresh() error {
 	ifas, err := net.Interfaces()
 	if err != nil {
 		return err
 	}
-	if qs.ifIndexToNameCache == nil {
-		qs.ifIndexToNameCache = make(map[uint32]string)
+	qsShared := qs.shared
+
+	if qsShared.ifIndexToNameCache == nil {
+		qsShared.ifIndexToNameCache = make(map[uint32]string)
 	}
 	for _, ifa := range ifas {
-		qs.ifIndexToNameCache[uint32(ifa.Index)] = ifa.Name
+		qsShared.ifIndexToNameCache[uint32(ifa.Index)] = ifa.Name
 	}
-	qs.ifIndexToNameCacheLastRefresh = time.Now()
+	qsShared.ifIndexToNameCacheLastRefresh = time.Now()
 	return nil
 }
 
 func (qs *QdiscStats) Update() error {
-	const familyRoute = 0
+	qsShared := qs.shared
+	if qsShared.netConn == nil {
+		const familyRoute = 0
 
-	c, err := netlink.Dial(familyRoute, nil)
-	if err != nil {
-		return fmt.Errorf("failed to dial netlink: %v", err)
+		c, err := netlink.Dial(familyRoute, nil)
+		if err != nil {
+			return fmt.Errorf("failed to dial netlink: %v", err)
+		}
+
+		if err := c.SetOption(netlink.GetStrictCheck, true); err != nil {
+			// silently accept ENOPROTOOPT errors when kernel is not > 4.20
+			if !errors.Is(err, syscall.ENOPROTOOPT) {
+				return fmt.Errorf("unexpected error trying to set option NETLINK_GET_STRICT_CHK: %v", err)
+			}
+		}
+		qsShared.netConn = c
 	}
 
-	if err := c.SetOption(netlink.GetStrictCheck, true); err != nil {
-		// silently accept ENOPROTOOPT errors when kernel is not > 4.20
-		if !errors.Is(err, syscall.ENOPROTOOPT) {
-			return fmt.Errorf("unexpected error trying to set option NETLINK_GET_STRICT_CHK: %v", err)
+	if qsShared.netReqMessage == nil {
+		qsShared.netReqMessage = &netlink.Message{
+			Header: netlink.Header{
+				Flags: netlink.Request | netlink.Dump,
+				Type:  38, // RTM_GETQDISC
+			},
+			Data: make([]byte, 20),
 		}
 	}
 
-	defer c.Close()
-
-	req := netlink.Message{
-		Header: netlink.Header{
-			Flags: netlink.Request | netlink.Dump,
-			Type:  38, // RTM_GETQDISC
-		},
-		Data: make([]byte, 20),
-	}
-
-	// Perform a request, receive replies, and validate the replies
-	msgs, err := c.Execute(req)
+	// Perform a request, receive replies, and validate the replies:
+	c := qsShared.netConn.(*netlink.Conn)
+	msgs, err := c.Execute(*(qsShared.netReqMessage.(*netlink.Message)))
 	if err != nil {
-		return fmt.Errorf("failed to execute request: %v", err)
+		c.Close()
+		qsShared.netConn = nil
+		return fmt.Errorf("failed to execute netlink request: %v", err)
 	}
 
-	scanNum := qs.scanNum + 1
+	scanNum := *qsShared.scanNum + 1
+
+	ifIndexToNameCacheRefreshed := false
+	if qsShared.ifIndexToNameCache == nil ||
+		time.Since(qsShared.ifIndexToNameCacheLastRefresh) >= IF_INDEX_TO_NAME_CACHE_REFRESH_INTERVAL {
+		err = qs.ifIndexToNameCacheRefresh()
+		if err != nil {
+			return err
+		}
+		ifIndexToNameCacheRefreshed = true
+	}
+
 	for _, msg := range msgs {
 		var qiKey QdiscInfoKey
 		if len(msg.Data) < 20 {
@@ -133,15 +152,26 @@ func (qs *QdiscStats) Update() error {
 		qiKey.Handle = nlenc.Uint32(msg.Data[8:12])
 		qi := qs.Info[qiKey]
 		if qi == nil {
-			qi = &QdiscInfo{}
+			ifName := qsShared.ifIndexToNameCache[qiKey.IfIndex]
+			if ifName == "" && !ifIndexToNameCacheRefreshed {
+				err = qs.ifIndexToNameCacheRefresh()
+				if err != nil {
+					return err
+				}
+			}
+			qi = &QdiscInfo{
+				IfName: ifName,
+			}
 			qs.Info[qiKey] = qi
+		} else if ifIndexToNameCacheRefreshed {
+			// Verify every so often (at refresh time, that is), that the name
+			// of the interface hasn't changed:
+			if ifName := qsShared.ifIndexToNameCache[qiKey.IfIndex]; qi.IfName != ifName {
+				qi.IfName = ifName
+			}
 		}
 		qi.Uint32[QDISC_HANDLE] = qiKey.Handle
-		parent := nlenc.Uint32(msg.Data[12:16])
-		if parent == math.MaxUint32 {
-			parent = 0
-		}
-		qi.Uint32[QDISC_PARENT] = parent
+		qi.Uint32[QDISC_PARENT] = nlenc.Uint32(msg.Data[12:16])
 
 		// The first 20 bytes are taken by tcmsg:
 		attrs, err := netlink.UnmarshalAttributes(msg.Data[20:])
@@ -171,37 +201,16 @@ func (qs *QdiscStats) Update() error {
 		qi.scanNum = scanNum
 	}
 
-	// Resolve names and remove out-of-scope handles:
-	qs.ifIndexToNameCacheLock.Lock()
-	defer qs.ifIndexToNameCacheLock.Unlock()
-
-	ifIndexToNameCacheRefreshed := false
-	if qs.ifIndexToNameCache == nil ||
-		time.Since(qs.ifIndexToNameCacheLastRefresh) >= IF_INDEX_TO_NAME_CACHE_REFRESH_INTERVAL {
-		err = qs.ifIndexToNameRefreshNoLock()
-		if err != nil {
-			return err
-		}
-		ifIndexToNameCacheRefreshed = true
-	}
-	for qiKey, qi := range qs.Info {
-		if qi.scanNum != scanNum {
-			delete(qs.Info, qiKey)
-			continue
-		}
-		if qi.IfName == "" {
-			ifName := qs.ifIndexToNameCache[qiKey.IfIndex]
-			if ifName == "" && !ifIndexToNameCacheRefreshed {
-				err = qs.ifIndexToNameRefreshNoLock()
-				if err != nil {
-					return err
-				}
-				ifIndexToNameCacheRefreshed = true
+	// Remove out-of-scope qdiscs as needed:
+	if len(msgs) != len(qs.Info) {
+		for qiKey, qi := range qs.Info {
+			if qi.scanNum != scanNum {
+				delete(qs.Info, qiKey)
+				continue
 			}
-			qi.IfName = qs.ifIndexToNameCache[qiKey.IfIndex]
 		}
 	}
 
-	qs.scanNum = scanNum
+	*qsShared.scanNum = scanNum
 	return nil
 }

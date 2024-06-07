@@ -6,7 +6,6 @@
 package qdisc
 
 import (
-	"sync"
 	"time"
 )
 
@@ -55,22 +54,57 @@ type QdiscInfo struct {
 	scanNum int
 }
 
-type QdiscStats struct {
-	// Map info by (ifIndex, handle), since it is unique:
-	Info map[QdiscInfoKey]*QdiscInfo
-	// Scan number used to identify out of scope handles; incremented w/ every
-	// call, handles that have scan#(I/F) != scan#, will be removed:
-	scanNum int
+// QdiscStats object will be used for metrics generation as a current, previous
+// tandem. The following information will be shared by both members; normally
+// the access should be protected by a lock but since only one member is used at
+// a time, the lock can be skipped.
+type QdiscStatsShared struct {
+	// Scan number used to identify out of scope qdiscs; incremented w/ every
+	// call, qdiscs that have scan#(I/F) != scan#, will be removed:
+	scanNum *int
+
 	// Interface index -> name cache, refreshed periodically or every time there
 	// is a miss:
 	ifIndexToNameCache            map[uint32]string
 	ifIndexToNameCacheLastRefresh time.Time
-	ifIndexToNameCacheLock        *sync.Mutex
+
+	// Netlink connection and request, however since the package that defines it
+	// may be OS specific, use an unspecified type here:
+	netConn       any
+	netReqMessage any
+}
+
+type QdiscStats struct {
+	// Map info by (ifIndex, handle), since it is unique:
+	Info map[QdiscInfoKey]*QdiscInfo
+
+	// Shared info:
+	shared *QdiscStatsShared
 }
 
 func NewQdiscStats() *QdiscStats {
 	return &QdiscStats{
-		Info:                   make(map[QdiscInfoKey]*QdiscInfo),
-		ifIndexToNameCacheLock: &sync.Mutex{},
+		Info: make(map[QdiscInfoKey]*QdiscInfo),
+		shared: &QdiscStatsShared{
+			ifIndexToNameCache: make(map[uint32]string),
+			scanNum:            new(int),
+		},
 	}
+}
+
+func (qs *QdiscStats) Clone() *QdiscStats {
+	newQs := &QdiscStats{
+		Info:   make(map[QdiscInfoKey]*QdiscInfo),
+		shared: qs.shared,
+	}
+
+	for qiKei, qi := range qs.Info {
+		newQs.Info[qiKei] = &QdiscInfo{
+			IfName:  qi.IfName,
+			Kind:    qi.Kind,
+			scanNum: qi.scanNum,
+		}
+	}
+
+	return newQs
 }

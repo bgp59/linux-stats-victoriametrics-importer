@@ -42,6 +42,7 @@ type LsvmiConfig struct {
 	ProcNetSnmp6MetricsConfig   *ProcNetSnmp6MetricsConfig   `yaml:"proc_net_snmp6_metrics_config"`
 	ProcDiskstatsMetricsConfig  *ProcDiskstatsMetricsConfig  `yaml:"proc_diskstats_metrics_config"`
 	StatfsMetricsConfig         *StatfsMetricsConfig         `yaml:"statfs_metrics_config"`
+	QdiscMetricsConfig          *QdiscMetricsConfig          `yaml:"qdisc_metrics_config"`
 	InternalMetricsConfig       *InternalMetricsConfig       `yaml:"internal_metrics_config"`
 	SchedulerConfig             *SchedulerConfig             `yaml:"scheduler_config"`
 	CompressorPoolConfig        *CompressorPoolConfig        `yaml:"compressor_pool_config"`
@@ -115,6 +116,7 @@ func DefaultLsvmiConfig() *LsvmiConfig {
 		ProcNetSnmp6MetricsConfig:   DefaultProcNetSnmp6MetricsConfig(),
 		ProcDiskstatsMetricsConfig:  DefaultProcDiskstatsMetricsConfig(),
 		StatfsMetricsConfig:         DefaultStatfsMetricsConfig(),
+		QdiscMetricsConfig:          DefaultQdiscMetricsConfig(),
 		InternalMetricsConfig:       DefaultInternalMetricsConfig(),
 		SchedulerConfig:             DefaultSchedulerConfig(),
 		CompressorPoolConfig:        DefaultCompressorPoolConfig(),

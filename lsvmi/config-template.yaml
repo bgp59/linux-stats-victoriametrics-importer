@@ -117,6 +117,13 @@ statfs_metrics_config:
   ]
 
 ###############################################
+# qdisc (tc -s qdisc show) Metrics 
+###############################################
+qdisc_metrics_config:
+  interval: 1s
+  full_metrics_factor: 15
+
+###############################################
 # Scheduler
 ###############################################
 scheduler_config:
