@@ -27,13 +27,13 @@ var qdiscInfoUint64IndexNameMap = map[int]string{
 }
 
 func main() {
-	fmt.Printf("QdiscAvail: %v\n", qdisc.QdiscAvail)
+	fmt.Printf("QdiscAvailable: %v\n", qdisc.QdiscAvailable)
 
 	qs := qdisc.NewQdiscStats()
 
 	for k := 1; k <= 2; k++ {
 		start := time.Now()
-		err := qs.Update()
+		err := qs.Parse()
 		callDuration := time.Since(start)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "qs.Update(): %v\n", err)

@@ -5,6 +5,7 @@ package lsvmi
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/eparparita/linux-stats-victoriametrics-importer/qdisc"
@@ -66,6 +67,13 @@ var qdiscUint64IndexToDeltaMetricNameMap = map[int]string{
 	qdisc.QDISC_FLOWSPLIMIT: QDISC_FLOWSPLIMIT_DELTA_METRIC,
 }
 
+var qdiscUint64IndexToMetricNameMap = map[int]string{}
+
+var qdiscMetricsCount = (len(qdiscUint32IndexToDeltaMetricNameMap) +
+	len(qdiscUint32IndexToMetricNameMap) +
+	len(qdiscUint64IndexToDeltaMetricNameMap) +
+	len(qdiscUint64IndexToMetricNameMap))
+
 // Certain values are used to generate rates:
 type QdiscRate struct {
 	factor float64 // dVal/dTime * factor
@@ -102,6 +110,7 @@ type QdiscMetricsInfo struct {
 	uint32DeltaMetrics map[int][]byte
 	uint32Metrics      map[int][]byte
 	uint64DeltaMetrics map[int][]byte
+	uint64Metrics      map[int][]byte
 	presenceMetric     []byte
 
 	// Delta metrics are skipped for zero-after-zero, keep track of previous
@@ -125,7 +134,7 @@ type QdiscMetrics struct {
 	// Dual storage for parsed stats used as previous, current:
 	qdiscStats [2]*qdisc.QdiscStats
 	// Timestamp when the stats were collected:
-	qdiscDevTs [2]time.Time
+	qdiscStatsTs [2]time.Time
 	// Index for current stats, toggled after each use:
 	currIndex int
 
@@ -170,7 +179,7 @@ func NewQdiscMetrics(cfg any) (*QdiscMetrics, error) {
 		return nil, err
 	}
 	qdiscMetrics := &QdiscMetrics{
-		id:                  PROC_NET_DEV_METRICS_ID,
+		id:                  QDISC_METRICS_ID,
 		interval:            interval,
 		fullMetricsFactor:   qdiscMetricsCfg.FullMetricsFactor,
 		qdiscMetricsInfoMap: make(map[qdisc.QdiscInfoKey]*QdiscMetricsInfo),
@@ -183,7 +192,7 @@ func NewQdiscMetrics(cfg any) (*QdiscMetrics, error) {
 	return qdiscMetrics, nil
 }
 
-func (qm *QdiscMetrics) updateQdiscMetricsInfo(qiKey qdisc.QdiscInfoKey, qi qdisc.QdiscInfo) {
+func (qm *QdiscMetrics) updateQdiscMetricsInfo(qiKey qdisc.QdiscInfoKey, qi *qdisc.QdiscInfo) {
 	instance, hostname := GlobalInstance, GlobalHostname
 	if qm.instance != "" {
 		instance = qm.instance
@@ -204,13 +213,14 @@ func (qm *QdiscMetrics) updateQdiscMetricsInfo(qiKey qdisc.QdiscInfoKey, qi qdis
 	handle := qi.Uint32[qdisc.QDISC_HANDLE]
 	parent := qi.Uint32[qdisc.QDISC_PARENT]
 
+	qdisc_min_mask := (uint32(1) << qdisc.QDISC_MIN_NUM_BITS) - 1
 	commonLabels := fmt.Sprintf(
 		`%s="%s",%s="%s",%s="%s",%s="%04x:%04x",%s="%04x:%04x",%s="%s"`,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 		QDISC_KIND_LABEL_NAME, qi.Kind,
-		QDISC_HANDLE_LABEL_NAME, (handle >> 16), (handle & 0xfff),
-		QDISC_PARENT_LABEL_NAME, (parent >> 16), (parent & 0xfff),
+		QDISC_HANDLE_LABEL_NAME, (handle >> qdisc.QDISC_MAJ_NUM_BITS), (handle & qdisc_min_mask),
+		QDISC_PARENT_LABEL_NAME, (parent >> qdisc.QDISC_MAJ_NUM_BITS), (parent & qdisc_min_mask),
 		QDISC_IF_LABEL_NAME, qi.IfName,
 	)
 
@@ -226,14 +236,14 @@ func (qm *QdiscMetrics) updateQdiscMetricsInfo(qiKey qdisc.QdiscInfoKey, qi qdis
 			name, commonLabels,
 		))
 	}
-	for i, name := range qdiscUint32IndexToDeltaMetricNameMap {
-		qmi.uint32DeltaMetrics[i] = []byte(fmt.Sprintf(
+	for i, name := range qdiscUint64IndexToDeltaMetricNameMap {
+		qmi.uint64DeltaMetrics[i] = []byte(fmt.Sprintf(
 			`%s{%s} `, // N.B. include space before value
 			name, commonLabels,
 		))
 	}
-	for i, name := range qdiscUint64IndexToDeltaMetricNameMap {
-		qmi.uint64DeltaMetrics[i] = []byte(fmt.Sprintf(
+	for i, name := range qdiscUint64IndexToMetricNameMap {
+		qmi.uint64Metrics[i] = []byte(fmt.Sprintf(
 			`%s{%s} `, // N.B. include space before value
 			name, commonLabels,
 		))
@@ -243,4 +253,234 @@ func (qm *QdiscMetrics) updateQdiscMetricsInfo(qiKey qdisc.QdiscInfoKey, qi qdis
 		`%s{%s} `, // N.B. include space before value
 		QDISC_PRESENCE_METRIC, commonLabels,
 	))
+
+	qm.qdiscMetricsInfoMap[qiKey] = qmi
+}
+
+func (qm *QdiscMetrics) updateIntervalMetric() {
+	instance, hostname := GlobalInstance, GlobalHostname
+	if qm.instance != "" {
+		instance = qm.instance
+	}
+	if qm.hostname != "" {
+		hostname = qm.hostname
+	}
+
+	qm.intervalMetric = []byte(fmt.Sprintf(
+		`%s{%s="%s",%s="%s"} `, // N.B. include space before value
+		QDISC_INTERVAL_METRIC_NAME,
+		INSTANCE_LABEL_NAME, instance,
+		HOSTNAME_LABEL_NAME, hostname,
+	))
+}
+
+func (qm *QdiscMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
+	currQdiscStats, prevQdiscStats := qm.qdiscStats[qm.currIndex], qm.qdiscStats[1-qm.currIndex]
+	currTs, prevTs := qm.qdiscStatsTs[qm.currIndex], qm.qdiscStatsTs[1-qm.currIndex]
+	qm.currIndex = 1 - qm.currIndex
+
+	// Since most metrics are delta, a previous state is required:
+	if prevQdiscStats == nil {
+		return 0, 0
+	}
+
+	actualMetricsCount := 0
+	qm.tsSuffixBuf.Reset()
+	fmt.Fprintf(
+		qm.tsSuffixBuf, " %d\n", currTs.UnixMilli(),
+	)
+	promTs := qm.tsSuffixBuf.Bytes()
+	deltaSec := currTs.Sub(prevTs).Seconds()
+	evalTotalMetricsCount := qm.totalMetricsCount == 0
+
+	for qiKey, currQi := range currQdiscStats.Info {
+		prevQi := prevQdiscStats.Info[qiKey]
+		if prevQi == nil {
+			continue
+		}
+
+		qdiscMetricsInfo := qm.qdiscMetricsInfoMap[qiKey]
+		// Sanity check that no info has changed for this since the previous
+		// parse; if it did then the metrics will have to be regenerated:
+		if qdiscMetricsInfo != nil && (currQi.IfName != prevQi.IfName ||
+			currQi.Kind != prevQi.Kind ||
+			currQi.Uint32[qdisc.QDISC_PARENT] != prevQi.Uint32[qdisc.QDISC_PARENT]) {
+			// Clear the prev presence metric:
+			buf.Write(qdiscMetricsInfo.presenceMetric)
+			buf.WriteByte('0')
+			buf.Write(promTs)
+			actualMetricsCount++
+			// Force regeneration:
+			qdiscMetricsInfo = nil
+		}
+		fullMetrics := qdiscMetricsInfo == nil || qdiscMetricsInfo.cycleNum == 0
+		if qdiscMetricsInfo == nil {
+			qm.updateQdiscMetricsInfo(qiKey, currQi)
+			qdiscMetricsInfo = qm.qdiscMetricsInfoMap[qiKey]
+		}
+
+		for index, metric := range qdiscMetricsInfo.uint32DeltaMetrics {
+			val := currQi.Uint32[index] - prevQi.Uint32[index]
+			if fullMetrics || val > 0 || !qdiscMetricsInfo.uint32ZeroDelta[index] {
+				buf.Write(metric)
+				if rate := qdiscUint32IndexRate[index]; rate != nil {
+					buf.WriteString(strconv.FormatFloat(
+						float64(val)/deltaSec*rate.factor, 'f', rate.prec, 64,
+					))
+				} else {
+					buf.WriteString(strconv.FormatUint(uint64(val), 10))
+				}
+				buf.Write(promTs)
+				actualMetricsCount++
+			}
+			qdiscMetricsInfo.uint32ZeroDelta[index] = val == 0
+		}
+		for index, metric := range qdiscMetricsInfo.uint32Metrics {
+			val := currQi.Uint32[index]
+			if fullMetrics || val != prevQi.Uint32[index] {
+				buf.Write(metric)
+				buf.WriteString(strconv.FormatUint(uint64(val), 10))
+				buf.Write(promTs)
+				actualMetricsCount++
+			}
+		}
+
+		for index, metric := range qdiscMetricsInfo.uint64DeltaMetrics {
+			val := currQi.Uint64[index] - prevQi.Uint64[index]
+			if fullMetrics || val > 0 || !qdiscMetricsInfo.uint64ZeroDelta[index] {
+				buf.Write(metric)
+				if rate := qdiscUint64IndexRate[index]; rate != nil {
+					buf.WriteString(strconv.FormatFloat(
+						float64(val)/deltaSec*rate.factor, 'f', rate.prec, 64,
+					))
+				} else {
+					buf.WriteString(strconv.FormatUint(val, 10))
+				}
+				buf.Write(promTs)
+				actualMetricsCount++
+			}
+			qdiscMetricsInfo.uint64ZeroDelta[index] = val == 0
+		}
+		for index, metric := range qdiscMetricsInfo.uint64Metrics {
+			val := currQi.Uint64[index]
+			if fullMetrics || val != prevQi.Uint64[index] {
+				buf.Write(metric)
+				buf.WriteString(strconv.FormatUint(val, 10))
+				buf.Write(promTs)
+				actualMetricsCount++
+			}
+		}
+
+		if fullMetrics {
+			buf.Write(qdiscMetricsInfo.presenceMetric)
+			buf.WriteByte('1')
+			buf.Write(promTs)
+			actualMetricsCount++
+		}
+
+		if qdiscMetricsInfo.cycleNum++; qdiscMetricsInfo.cycleNum >= qm.fullMetricsFactor {
+			qdiscMetricsInfo.cycleNum = 0
+		}
+
+	}
+
+	// Clear out-of-scope qdiscs as needed:
+	if len(qm.qdiscMetricsInfoMap) != len(currQdiscStats.Info) {
+		for qiKey, qdiscMetricsInfo := range qm.qdiscMetricsInfoMap {
+			if currQdiscStats.Info[qiKey] == nil {
+				// Clear the prev presence metric:
+				buf.Write(qdiscMetricsInfo.presenceMetric)
+				buf.WriteByte('0')
+				buf.Write(promTs)
+				actualMetricsCount++
+
+				delete(qm.qdiscMetricsInfoMap, qiKey)
+			}
+		}
+	}
+
+	if qm.intervalMetric == nil {
+		qm.updateIntervalMetric()
+	}
+	buf.Write(qm.intervalMetric)
+	buf.WriteString(strconv.FormatFloat(deltaSec, 'f', 6, 64))
+	buf.Write(promTs)
+	actualMetricsCount++
+
+	if evalTotalMetricsCount {
+		// The total number of metrics:
+		//		qdisc metrics#: (number of qdisc) * (number of counters + 1 (presence))
+		//		interval metric#: 1
+		qm.totalMetricsCount = len(currQdiscStats.Info)*(qdiscMetricsCount+1) + 1
+	}
+
+	return actualMetricsCount, qm.totalMetricsCount
+}
+
+// Satisfy the TaskActivity interface:
+func (qm *QdiscMetrics) Execute() bool {
+	timeNowFn := time.Now
+	if qm.timeNowFn != nil {
+		timeNowFn = qm.timeNowFn
+	}
+
+	metricsQueue := GlobalMetricsQueue
+	if qm.metricsQueue != nil {
+		metricsQueue = qm.metricsQueue
+	}
+
+	currQdiscStats := qm.qdiscStats[qm.currIndex]
+	if currQdiscStats == nil {
+		prevQdiscStats := qm.qdiscStats[1-qm.currIndex]
+		if prevQdiscStats != nil {
+			currQdiscStats = prevQdiscStats.Clone()
+		} else {
+			currQdiscStats = qdisc.NewQdiscStats()
+		}
+		qm.qdiscStats[qm.currIndex] = currQdiscStats
+	}
+	err := currQdiscStats.Parse()
+	if err != nil {
+		qdiscMetricsLog.Warnf("%v: qdisc metrics will be disabled", err)
+		return false
+	}
+	qm.qdiscStatsTs[qm.currIndex] = timeNowFn()
+
+	buf := metricsQueue.GetBuf()
+	actualMetricsCount, totalMetricsCount := qm.generateMetrics(buf)
+	if totalMetricsCount > 0 {
+		byteCount := buf.Len()
+		metricsQueue.QueueBuf(buf)
+		GlobalMetricsGeneratorStatsContainer.Update(
+			qm.id, uint64(actualMetricsCount), uint64(totalMetricsCount), uint64(byteCount),
+		)
+	} else {
+		metricsQueue.ReturnBuf(buf)
+	}
+
+	return true
+}
+
+// Define and register the task builder:
+func QdiscMetricsTaskBuilder(cfg *LsvmiConfig) ([]*Task, error) {
+	qm, err := NewQdiscMetrics(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if qm.interval <= 0 {
+		qdiscMetricsLog.Infof(
+			"interval=%s, metrics disabled", qm.interval,
+		)
+		return nil, nil
+	}
+	tasks := []*Task{
+		NewTask(qm.id, qm.interval, qm),
+	}
+	return tasks, nil
+}
+
+func init() {
+	if qdisc.QdiscAvailable {
+		TaskBuilders.Register(QdiscMetricsTaskBuilder)
+	}
 }

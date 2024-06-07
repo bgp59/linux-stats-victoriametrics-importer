@@ -36,8 +36,12 @@ const (
 )
 
 const (
+	// maj:min split:
+	QDISC_MAJ_NUM_BITS = 16
+	QDISC_MIN_NUM_BITS = 32 - QDISC_MAJ_NUM_BITS
+
 	// How often to refresh the Interface index -> name cache:
-	IF_INDEX_TO_NAME_CACHE_REFRESH_INTERVAL = 60 * time.Second
+	QDISC_IF_INDEX_TO_NAME_CACHE_REFRESH_INTERVAL = 60 * time.Second
 )
 
 type QdiscInfoKey struct {

@@ -7,8 +7,8 @@ import (
 	"runtime"
 )
 
-var QdiscAvail = false
+var QdiscAvailable = false
 
-func (qs *QdiscStats) Update() error {
+func (qs *QdiscStats) Parse() error {
 	return fmt.Errorf("qdisc not supported for GOOS=%s", runtime.GOOS)
 }

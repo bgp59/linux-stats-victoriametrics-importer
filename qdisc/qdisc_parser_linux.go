@@ -41,7 +41,7 @@ const (
 	// __TCA_STATS_MAX
 )
 
-var QdiscAvail = true
+var QdiscAvailable = true
 
 func (qi *QdiscInfo) parseTCAStats(attr netlink.Attribute) error {
 	qi.Uint64[QDISC_BYTES] = nlenc.Uint64(attr.Data[0:8])
@@ -93,7 +93,7 @@ func (qs *QdiscStats) ifIndexToNameCacheRefresh() error {
 	return nil
 }
 
-func (qs *QdiscStats) Update() error {
+func (qs *QdiscStats) Parse() error {
 	qsShared := qs.shared
 	if qsShared.netConn == nil {
 		const familyRoute = 0
@@ -135,7 +135,7 @@ func (qs *QdiscStats) Update() error {
 
 	ifIndexToNameCacheRefreshed := false
 	if qsShared.ifIndexToNameCache == nil ||
-		time.Since(qsShared.ifIndexToNameCacheLastRefresh) >= IF_INDEX_TO_NAME_CACHE_REFRESH_INTERVAL {
+		time.Since(qsShared.ifIndexToNameCacheLastRefresh) >= QDISC_IF_INDEX_TO_NAME_CACHE_REFRESH_INTERVAL {
 		err = qs.ifIndexToNameCacheRefresh()
 		if err != nil {
 			return err
