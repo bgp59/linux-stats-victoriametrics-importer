@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/eparparita/linux-stats-victoriametrics-importer/qdisc"
+	"github.com/emypar/linux-stats-victoriametrics-importer/qdisc"
 )
 
 var qdiscInfoUint32IndexNameMap = map[int]string{

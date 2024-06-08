@@ -3,7 +3,7 @@ package benchmarks
 import (
 	"testing"
 
-	"github.com/eparparita/linux-stats-victoriametrics-importer/procfs"
+	"github.com/emypar/linux-stats-victoriametrics-importer/procfs"
 
 	// Reference for performance comparison:
 	prom_procfs "github.com/prometheus/procfs"
@@ -44,7 +44,7 @@ func BenchmarkNetSnmpParserProm(b *testing.B) {
 
 // goos: darwin
 // goarch: amd64
-// pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
+// pkg: github.com/emypar/linux-stats-victoriametrics-importer/benchmarks
 // cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
 // BenchmarkNetSnmpParserIO   	   46872	     23890 ns/op	     136 B/op	       3 allocs/op
 // BenchmarkNetSnmpParser     	   49552	     24751 ns/op	     160 B/op	       4 allocs/op
@@ -63,7 +63,7 @@ func BenchmarkNetSnmpFileRead(b *testing.B) {
 
 // goos: darwin
 // goarch: amd64
-// pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
+// pkg: github.com/emypar/linux-stats-victoriametrics-importer/benchmarks
 // cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
 // BenchmarkNetSnmpFileRead/BENCH_FILE_READ         			   49275	     24469 ns/op	     136 B/op	       3 allocs/op
 // BenchmarkNetSnmpFileRead/BENCH_FILE_SCAN_BYTES              	   45414	     26200 ns/op	    4232 B/op	       4 allocs/op

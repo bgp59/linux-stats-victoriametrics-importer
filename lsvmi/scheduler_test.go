@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/eparparita/linux-stats-victoriametrics-importer/internal/testutils"
+	"github.com/emypar/linux-stats-victoriametrics-importer/internal/testutils"
 )
 
 type SchedulerExecuteTestCase struct {

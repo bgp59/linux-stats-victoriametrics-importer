@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/eparparita/linux-stats-victoriametrics-importer/internal/testutils"
-	"github.com/eparparita/linux-stats-victoriametrics-importer/qdisc"
+	"github.com/emypar/linux-stats-victoriametrics-importer/internal/testutils"
+	"github.com/emypar/linux-stats-victoriametrics-importer/qdisc"
 )
 
 type QdiscMetricsInfoTestData struct {

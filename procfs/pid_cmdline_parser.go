@@ -7,7 +7,7 @@ import (
 	"path"
 	"strconv"
 
-	"github.com/eparparita/linux-stats-victoriametrics-importer/internal/utils"
+	"github.com/emypar/linux-stats-victoriametrics-importer/internal/utils"
 )
 
 // The parsed cmdline will be used as a Prometheus label value, which is a

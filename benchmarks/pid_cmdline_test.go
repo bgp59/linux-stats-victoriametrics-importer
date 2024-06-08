@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/eparparita/linux-stats-victoriametrics-importer/procfs"
+	"github.com/emypar/linux-stats-victoriametrics-importer/procfs"
 )
 
 var (
@@ -45,7 +45,7 @@ func BenchmarkPidCmdlineParser(b *testing.B) {
 
 // goos: darwin
 // goarch: amd64
-// pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
+// pkg: github.com/emypar/linux-stats-victoriametrics-importer/benchmarks
 // cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
 // BenchmarkPidCmdlineParserIO 	 					   71112	     16463 ns/op	     152 B/op	       3 allocs/op
 // BenchmarkPidCmdlineParser/retBuf=false         	   75175	     16509 ns/op	     176 B/op	       4 allocs/op

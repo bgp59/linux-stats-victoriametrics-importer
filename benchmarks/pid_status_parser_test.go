@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/eparparita/linux-stats-victoriametrics-importer/procfs"
+	"github.com/emypar/linux-stats-victoriametrics-importer/procfs"
 
 	// Reference for performance comparison:
 	prom_procfs "github.com/prometheus/procfs"
@@ -119,7 +119,7 @@ func BenchmarkPidStatusParserProm(b *testing.B) {
 
 // goos: darwin
 // goarch: amd64
-// pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
+// pkg: github.com/emypar/linux-stats-victoriametrics-importer/benchmarks
 // cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
 // BenchmarkPidStatusParserIO   	   69513	     16988 ns/op	     152 B/op	       3 allocs/op
 // BenchmarkPidStatusParser     	   59361	     19700 ns/op	     176 B/op	       4 allocs/op
@@ -227,7 +227,7 @@ func BenchmarkPidStatusAllParserProm(b *testing.B) {
 
 // goos: darwin
 // goarch: amd64
-// pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
+// pkg: github.com/emypar/linux-stats-victoriametrics-importer/benchmarks
 // cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
 // BenchmarkPidStatusAllParserIO/NFiles=241         	     265	   4986784 ns/op	   35229 B/op	     723 allocs/op
 // BenchmarkPidStatusAllParser/NPidTid=241          	     217	   5776543 ns/op	   43204 B/op	    1149 allocs/op
@@ -249,7 +249,7 @@ func BenchmarkPidStatusFileRead(b *testing.B) {
 
 // goos: darwin
 // goarch: amd64
-// pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
+// pkg: github.com/emypar/linux-stats-victoriametrics-importer/benchmarks
 // cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
 // BenchmarkPidStatusFileRead/BENCH_FILE_READ         	   			   70216	     17076 ns/op	     152 B/op	       3 allocs/op
 // BenchmarkPidStatusFileRead/BENCH_FILE_READ_SCAN_BYTES         	   62594	     19468 ns/op	    4248 B/op	       4 allocs/op

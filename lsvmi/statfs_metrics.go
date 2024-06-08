@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/eparparita/linux-stats-victoriametrics-importer/procfs"
+	"github.com/emypar/linux-stats-victoriametrics-importer/procfs"
 )
 
 const (

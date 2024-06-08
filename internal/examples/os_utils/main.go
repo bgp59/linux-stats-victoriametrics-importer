@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/eparparita/linux-stats-victoriametrics-importer/internal/utils"
+	"github.com/emypar/linux-stats-victoriametrics-importer/internal/utils"
 )
 
 func main() {

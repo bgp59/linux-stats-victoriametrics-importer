@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/eparparita/linux-stats-victoriametrics-importer/lsvmi"
+	"github.com/emypar/linux-stats-victoriametrics-importer/lsvmi"
 )
 
 var log1 = lsvmi.NewCompLogger("Comp1")

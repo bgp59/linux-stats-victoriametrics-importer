@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/eparparita/linux-stats-victoriametrics-importer/internal/utils"
-	"github.com/eparparita/linux-stats-victoriametrics-importer/procfs"
+	"github.com/emypar/linux-stats-victoriametrics-importer/internal/utils"
+	"github.com/emypar/linux-stats-victoriametrics-importer/procfs"
 )
 
 // Generate basic process metrics such as memory and CPU utilization for for

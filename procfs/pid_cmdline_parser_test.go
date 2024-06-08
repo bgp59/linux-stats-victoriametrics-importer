@@ -5,7 +5,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/eparparita/linux-stats-victoriametrics-importer/internal/utils"
+	"github.com/emypar/linux-stats-victoriametrics-importer/internal/utils"
 )
 
 type PidCmdlineTestCase struct {

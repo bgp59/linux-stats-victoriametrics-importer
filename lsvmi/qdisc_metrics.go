@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/eparparita/linux-stats-victoriametrics-importer/qdisc"
+	"github.com/emypar/linux-stats-victoriametrics-importer/qdisc"
 )
 
 const (

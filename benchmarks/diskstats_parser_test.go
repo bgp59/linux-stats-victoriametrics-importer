@@ -3,7 +3,7 @@ package benchmarks
 import (
 	"testing"
 
-	"github.com/eparparita/linux-stats-victoriametrics-importer/procfs"
+	"github.com/emypar/linux-stats-victoriametrics-importer/procfs"
 
 	// Reference for performance comparison:
 	prom_procfs_blockdevice "github.com/prometheus/procfs/blockdevice"
@@ -39,7 +39,7 @@ func BenchmarkDiskstatsParserProm(b *testing.B) {
 
 // goos: darwin
 // goarch: amd64
-// pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
+// pkg: github.com/emypar/linux-stats-victoriametrics-importer/benchmarks
 // cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
 // BenchmarkDiskstatsParserIO   	   71402	     17087 ns/op	     152 B/op	       3 allocs/op
 // BenchmarkDiskstatsParser     	   58149	     21128 ns/op	     336 B/op	      38 allocs/op
@@ -58,7 +58,7 @@ func BenchmarkDiskstatsFileRead(b *testing.B) {
 
 // goos: darwin
 // goarch: amd64
-// pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
+// pkg: github.com/emypar/linux-stats-victoriametrics-importer/benchmarks
 // cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
 // BenchmarkDiskstatsFileRead/BENCH_FILE_READ         	   			   70636	     16880 ns/op	     152 B/op	       3 allocs/op
 // BenchmarkDiskstatsFileRead/BENCH_FILE_SCAN_BYTES              	   66147	     18475 ns/op	    4248 B/op	       4 allocs/op

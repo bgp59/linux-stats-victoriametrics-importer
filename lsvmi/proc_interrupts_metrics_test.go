@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/eparparita/linux-stats-victoriametrics-importer/internal/testutils"
-	"github.com/eparparita/linux-stats-victoriametrics-importer/procfs"
+	"github.com/emypar/linux-stats-victoriametrics-importer/internal/testutils"
+	"github.com/emypar/linux-stats-victoriametrics-importer/procfs"
 )
 
 type ProcInterruptsUpdateCpuListTestCase struct {

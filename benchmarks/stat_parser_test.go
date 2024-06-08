@@ -5,7 +5,7 @@ package benchmarks
 import (
 	"testing"
 
-	"github.com/eparparita/linux-stats-victoriametrics-importer/procfs"
+	"github.com/emypar/linux-stats-victoriametrics-importer/procfs"
 
 	// Reference for performance comparison:
 	prom_procfs "github.com/prometheus/procfs"
@@ -41,7 +41,7 @@ func BenchmarkStatParserProm(b *testing.B) {
 
 // goos: darwin
 // goarch: amd64
-// pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
+// pkg: github.com/emypar/linux-stats-victoriametrics-importer/benchmarks
 // cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
 // BenchmarkStatParserIO   	   73706	     16417 ns/op	     136 B/op	       3 allocs/op
 // BenchmarkStatParser     	   67137	     18738 ns/op	     160 B/op	       4 allocs/op

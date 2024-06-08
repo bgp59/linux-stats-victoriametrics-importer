@@ -7,7 +7,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/eparparita/linux-stats-victoriametrics-importer/internal/testutils"
+	"github.com/emypar/linux-stats-victoriametrics-importer/internal/testutils"
 )
 
 type HttpEndpointPoolInternalMetricsTestCase struct {

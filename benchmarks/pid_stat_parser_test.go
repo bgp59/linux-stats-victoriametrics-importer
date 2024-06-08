@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/eparparita/linux-stats-victoriametrics-importer/procfs"
+	"github.com/emypar/linux-stats-victoriametrics-importer/procfs"
 
 	// Reference for performance comparison:
 	prom_procfs "github.com/prometheus/procfs"
@@ -119,7 +119,7 @@ func BenchmarkPidStatParserProm(b *testing.B) {
 
 // goos: darwin
 // goarch: amd64
-// pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
+// pkg: github.com/emypar/linux-stats-victoriametrics-importer/benchmarks
 // cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
 // BenchmarkPidStatParserIO   	   69865	     16900 ns/op	     152 B/op	       3 allocs/op
 // BenchmarkPidStatParser     	   66681	     17642 ns/op	     152 B/op	       3 allocs/op
@@ -227,7 +227,7 @@ func BenchmarkPidStatAllParserProm(b *testing.B) {
 
 // goos: darwin
 // goarch: amd64
-// pkg: github.com/eparparita/linux-stats-victoriametrics-importer/benchmarks
+// pkg: github.com/emypar/linux-stats-victoriametrics-importer/benchmarks
 // cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
 // BenchmarkPidStatAllParserIO/NFiles=241         	     265	   4287871 ns/op	   35229 B/op	     723 allocs/op
 // BenchmarkPidStatAllParser/NPidTid=241          	     278	   4358144 ns/op	   35229 B/op	     723 allocs/op
