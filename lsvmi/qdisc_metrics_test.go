@@ -18,7 +18,7 @@ type QdiscMetricsInfoTestData struct {
 	CycleNum        int
 }
 
-type QdiscInfoTestData struct {
+type QdiscStatsTestData struct {
 	QdiscInfoKey qdisc.QdiscInfoKey
 	QdiscInfo    *qdisc.QdiscInfo
 }
@@ -28,7 +28,7 @@ type QdiscMetricsTestCase struct {
 	Description                    string
 	Instance                       string
 	Hostname                       string
-	CurrQdiscStats, PrevQdiscStats []QdiscInfoTestData
+	CurrQdiscStats, PrevQdiscStats []QdiscStatsTestData
 	CurrPromTs, PrevPromTs         int64
 	QdiscMetricsInfo               []QdiscMetricsInfoTestData
 	FullMetricsFactor              int

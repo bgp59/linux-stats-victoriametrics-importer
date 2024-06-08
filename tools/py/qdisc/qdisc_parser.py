@@ -32,6 +32,9 @@ class QdiscInfoKey:
     IfIndex: int = 0
     Handle: int = 0
 
+    def __hash__(self) -> int:
+        return (self.IfIndex << 32) + self.Handle
+
 
 @dataclass
 class QdiscInfo:

@@ -88,6 +88,8 @@ var qdiscUint64IndexRate = [qdisc.QDISK_UINT64_NUM_STATS]*QdiscRate{
 
 var qdiscMetricsLog = NewCompLogger(QDISC_METRICS_ID)
 
+var qdiscMajMinFmt = fmt.Sprintf(`%%0%dx:%%0%dx`, (qdisc.QDISC_MAJ_NUM_BITS+3)/4, (qdisc.QDISC_MIN_NUM_BITS+3)/4)
+
 type QdiscMetricsConfig struct {
 	// How often to generate the metrics in time.ParseDuration() format:
 	Interval string `yaml:"interval"`
@@ -192,6 +194,11 @@ func NewQdiscMetrics(cfg any) (*QdiscMetrics, error) {
 	return qdiscMetrics, nil
 }
 
+func qdiscMajMinLabelVal(val uint32) string {
+	const qdisc_min_mask = (uint32(1) << qdisc.QDISC_MIN_NUM_BITS) - 1
+	return fmt.Sprintf(qdiscMajMinFmt, (val >> qdisc.QDISC_MIN_NUM_BITS), (val & qdisc_min_mask))
+}
+
 func (qm *QdiscMetrics) updateQdiscMetricsInfo(qiKey qdisc.QdiscInfoKey, qi *qdisc.QdiscInfo) {
 	instance, hostname := GlobalInstance, GlobalHostname
 	if qm.instance != "" {
@@ -210,17 +217,13 @@ func (qm *QdiscMetrics) updateQdiscMetricsInfo(qiKey qdisc.QdiscInfoKey, qi *qdi
 		cycleNum:           initialCycleNum.Get(qm.fullMetricsFactor),
 	}
 
-	handle := qi.Uint32[qdisc.QDISC_HANDLE]
-	parent := qi.Uint32[qdisc.QDISC_PARENT]
-
-	qdisc_min_mask := (uint32(1) << qdisc.QDISC_MIN_NUM_BITS) - 1
 	commonLabels := fmt.Sprintf(
-		`%s="%s",%s="%s",%s="%s",%s="%04x:%04x",%s="%04x:%04x",%s="%s"`,
+		`%s="%s",%s="%s",%s="%s",%s="%s",%s="%s",%s="%s"`,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 		QDISC_KIND_LABEL_NAME, qi.Kind,
-		QDISC_HANDLE_LABEL_NAME, (handle >> qdisc.QDISC_MAJ_NUM_BITS), (handle & qdisc_min_mask),
-		QDISC_PARENT_LABEL_NAME, (parent >> qdisc.QDISC_MAJ_NUM_BITS), (parent & qdisc_min_mask),
+		QDISC_HANDLE_LABEL_NAME, qdiscMajMinLabelVal(qi.Uint32[qdisc.QDISC_HANDLE]),
+		QDISC_PARENT_LABEL_NAME, qdiscMajMinLabelVal(qi.Uint32[qdisc.QDISC_PARENT]),
 		QDISC_IF_LABEL_NAME, qi.IfName,
 	)
 
