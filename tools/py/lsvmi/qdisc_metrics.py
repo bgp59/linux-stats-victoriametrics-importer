@@ -5,7 +5,7 @@
 import time
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import Generator, List, Optional, Tuple
 
 from qdisc import qdisc_parser as qdisc
 
@@ -75,6 +75,8 @@ qdisc_uint64_index_rate = {
 QDISC_RATE_FACTOR = 0
 QDISC_RATE_PREC = 1
 
+parent_handle_index = {qdisc.QDISC_PARENT, qdisc.QDISC_HANDLE}
+
 
 @dataclass
 class QdiscMetricsInfoTestData:
@@ -89,7 +91,7 @@ class QdiscMetricsInfoTestData:
 
 
 @dataclass
-class QdiscStatsTestData:
+class QdiscStatsInfoTestData:
     QdiscInfoKey: qdisc.QdiscInfoKey
     QdiscInfo: qdisc.QdiscInfo
 
@@ -100,8 +102,8 @@ class QdiscMetricsTestCase:
     Description: Optional[str] = None
     Instance: str = DEFAULT_TEST_INSTANCE
     Hostname: str = DEFAULT_TEST_HOSTNAME
-    CurrQdiscStats: Optional[List[QdiscStatsTestData]] = None
-    PrevQdiscStats: Optional[List[QdiscStatsTestData]] = None
+    CurrQdiscStats: Optional[List[QdiscStatsInfoTestData]] = None
+    PrevQdiscStats: Optional[List[QdiscStatsInfoTestData]] = None
     CurrPromTs: int = 0
     PrevPromTs: int = 0
     QdiscMetricsInfo: Optional[List[QdiscMetricsInfoTestData]] = None
@@ -125,8 +127,8 @@ def format_qdisc_maj_min_label_val(val: int) -> str:
 
 
 def generate_qdisc_metrics(
-    curr_qdisc_stats: QdiscStatsTestData,
-    prev_qdisc_stats: QdiscStatsTestData,
+    curr_qdisc_stats: List[QdiscStatsInfoTestData],
+    prev_qdisc_stats: List[QdiscStatsInfoTestData],
     curr_prom_ts: int,
     interval: Optional[float] = DEFAULT_QDISC_INTERVAL_SEC,
     qdisc_metrics_info: Optional[List[QdiscMetricsInfoTestData]] = None,
@@ -137,7 +139,7 @@ def generate_qdisc_metrics(
     want_qdisc_metrics_info = []
 
     prev_qdisc_stats_map = {
-        qs_td.QdiscInfoKey: qs_td.QdiscInfo for qs_td in prev_qdisc_stats
+        qsi_td.QdiscInfoKey: qsi_td.QdiscInfo for qsi_td in prev_qdisc_stats
     }
     qdisc_metrics_info_map = (
         {qmi_td.QdiscInfoKey: qmi_td for qmi_td in qdisc_metrics_info}
@@ -187,26 +189,30 @@ def generate_qdisc_metrics(
         full_metrics = qmi is None or qmi.CycleNum == 0
         want_qmi = QdiscMetricsInfoTestData(QdiscInfoKey=qi_key)
         for i, name in qdisc_uint32_index_to_delta_metric_name_map.items():
-            val = uint32_delta(curr_qi.Uint32[i], prev_qi.Uint32[i])
-            if val > 0 or full_metrics or not qmi.Uint32ZeroDelta[i]:
+            delta = uint32_delta(curr_qi.Uint32[i], prev_qi.Uint32[i])
+            if delta != 0 or full_metrics or not qmi.Uint32ZeroDelta[i]:
                 rate = qdisc_uint32_index_rate.get(i)
                 if rate is not None:
-                    val = f"{val * rate[QDISC_RATE_FACTOR] / interval:.{rate[QDISC_RATE_PREC]}f}"
+                    val = f"{delta * rate[QDISC_RATE_FACTOR] / interval:.{rate[QDISC_RATE_PREC]}f}"
+                else:
+                    val = delta
                 metrics.append(f"{name}{{{common_labels}}} {val} {curr_prom_ts}")
-            want_qmi.Uint32ZeroDelta[i] = val == 0
+            want_qmi.Uint32ZeroDelta[i] = delta == 0
         for i, name in qdisc_uint32_index_to_metric_name_map.items():
             val = curr_qi.Uint32[i]
             if val != prev_qi.Uint32[i] or full_metrics:
                 metrics.append(f"{name}{{{common_labels}}} {val} {curr_prom_ts}")
 
         for i, name in qdisc_uint64_index_to_delta_metric_name_map.items():
-            val = uint64_delta(curr_qi.Uint64[i], prev_qi.Uint64[i])
-            if val > 0 or full_metrics or not qmi.Uint64ZeroDelta[i]:
+            delta = uint64_delta(curr_qi.Uint64[i], prev_qi.Uint64[i])
+            if delta != 0 or full_metrics or not qmi.Uint64ZeroDelta[i]:
                 rate = qdisc_uint64_index_rate.get(i)
                 if rate is not None:
-                    val = f"{val * rate[QDISC_RATE_FACTOR] / interval:.{rate[QDISC_RATE_PREC]}f}"
+                    val = f"{delta * rate[QDISC_RATE_FACTOR] / interval:.{rate[QDISC_RATE_PREC]}f}"
+                else:
+                    val = delta
                 metrics.append(f"{name}{{{common_labels}}} {val} {curr_prom_ts}")
-            want_qmi.Uint64ZeroDelta[i] = val == 0
+            want_qmi.Uint64ZeroDelta[i] = delta == 0
         for i, name in qdisc_uint64_index_to_metric_name_map.items():
             val = curr_qi.Uint64[i]
             if val != prev_qi.Uint64[i] or full_metrics:
@@ -233,8 +239,8 @@ def generate_qdisc_metrics(
 
 def generate_qdisc_metrics_test_case(
     name: str,
-    curr_qdisc_stats: QdiscStatsTestData,
-    prev_qdisc_stats: QdiscStatsTestData,
+    curr_qdisc_stats: List[QdiscStatsInfoTestData],
+    prev_qdisc_stats: List[QdiscStatsInfoTestData],
     ts: Optional[float] = None,
     interval: Optional[float] = DEFAULT_QDISC_INTERVAL_SEC,
     qdisc_metrics_info: Optional[List[QdiscMetricsInfoTestData]] = None,
@@ -274,8 +280,8 @@ def generate_qdisc_metrics_test_case(
 
 def make_ref_qdisc_stats(
     num_if: int = 2, num_qdisc_per_if: int = 2
-) -> QdiscStatsTestData:
-    qs_td = []
+) -> List[QdiscStatsInfoTestData]:
+    qsi_td = []
     maj_mask = (1 << qdisc.QDISC_MAJ_NUM_BITS) - 1
     min_mask = (1 << qdisc.QDISC_MIN_NUM_BITS) - 1
     for if_index in range(num_if):
@@ -293,8 +299,8 @@ def make_ref_qdisc_stats(
                 (20 + if_index) * qdisc.QDISK_UINT64_NUM_STATS + k
                 for k in range(qdisc.QDISK_UINT64_NUM_STATS)
             ]
-            qs_td.append(
-                QdiscStatsTestData(
+            qsi_td.append(
+                QdiscStatsInfoTestData(
                     QdiscInfoKey=qdisc.QdiscInfoKey(
                         IfIndex=if_index,
                         Handle=handle,
@@ -307,7 +313,51 @@ def make_ref_qdisc_stats(
                     ),
                 )
             )
-    return qs_td
+    return qsi_td
+
+
+def make_prev_qdisc_stats_iter(
+    curr_disc_stats: List[QdiscStatsInfoTestData],
+) -> Generator:
+    max_uint32_val = max(max(qsi_td.QdiscInfo.Uint32) for qsi_td in curr_disc_stats)
+    max_uint64_val = max(max(qsi_td.QdiscInfo.Uint64) for qsi_td in curr_disc_stats)
+    for i, curr_qsi_td in enumerate(curr_disc_stats):
+        for j, val in enumerate(curr_qsi_td.QdiscInfo.Uint32):
+            if j in parent_handle_index:
+                continue
+            prev_qdisc_stats = deepcopy(curr_disc_stats)
+            prev_qsi_td = prev_qdisc_stats[i]
+            prev_qsi_td.QdiscInfo.Uint32[j] = uint32_delta(
+                val, (i + 1) * max_uint32_val + 7 * j
+            )
+            yield prev_qdisc_stats, i, j, None
+        for j, val in enumerate(curr_qsi_td.QdiscInfo.Uint64):
+            prev_qdisc_stats = deepcopy(curr_disc_stats)
+            prev_qsi_td = prev_qdisc_stats[i]
+            prev_qsi_td.QdiscInfo.Uint64[j] = uint64_delta(
+                val, (i + 1) * max_uint64_val + 7 * j
+            )
+            yield prev_qdisc_stats, i, None, j
+
+
+def make_prev_qdisc_stats(
+    curr_disc_stats: List[QdiscStatsInfoTestData],
+) -> List[QdiscStatsInfoTestData]:
+    max_uint32_val = max(max(qsi_td.QdiscInfo.Uint32) for qsi_td in curr_disc_stats)
+    max_uint64_val = max(max(qsi_td.QdiscInfo.Uint64) for qsi_td in curr_disc_stats)
+    prev_qdisc_stats = deepcopy(curr_disc_stats)
+    for i, prev_qsi_td in enumerate(prev_qdisc_stats):
+        for j, val in enumerate(prev_qsi_td.QdiscInfo.Uint32):
+            if j in parent_handle_index:
+                continue
+            prev_qsi_td.QdiscInfo.Uint32[j] = uint32_delta(
+                val, (i + 1) * max_uint32_val + 7 * j
+            )
+        for j, val in enumerate(prev_qsi_td.QdiscInfo.Uint64):
+            prev_qsi_td.QdiscInfo.Uint64[j] = uint64_delta(
+                val, (i + 1) * max_uint64_val + 7 * j
+            )
+    return prev_qdisc_stats
 
 
 def generate_qdisc_metrics_test_cases(
@@ -321,27 +371,13 @@ def generate_qdisc_metrics_test_cases(
     qdisc_stats_ref = make_ref_qdisc_stats(
         num_if=num_if, num_qdisc_per_if=num_qdisc_per_if
     )
-    max_uint32_val = max(max(qs_td.QdiscInfo.Uint32) for qs_td in qdisc_stats_ref)
-    max_uint64_val = max(max(qs_td.QdiscInfo.Uint64) for qs_td in qdisc_stats_ref)
-    parent_handle_index = {qdisc.QDISC_PARENT, qdisc.QDISC_HANDLE}
 
     test_cases = []
     tc_num = 0
 
     name = "all_new"
     curr_qdisc_stats = qdisc_stats_ref
-    prev_qdisc_stats = deepcopy(curr_qdisc_stats)
-    for i, qs_td in enumerate(prev_qdisc_stats):
-        for j, val in enumerate(qs_td.QdiscInfo.Uint32):
-            if j in parent_handle_index:
-                continue
-            qs_td.QdiscInfo.Uint32[j] = uint32_delta(
-                val, (i + 1) * max_uint32_val + 7 * j
-            )
-        for j, val in enumerate(qs_td.QdiscInfo.Uint64):
-            qs_td.QdiscInfo.Uint64[j] = uint64_delta(
-                val, (i + 1) * max_uint64_val + 7 * j
-            )
+    prev_qdisc_stats = make_prev_qdisc_stats(curr_qdisc_stats)
     test_cases.append(
         generate_qdisc_metrics_test_case(
             name=f"{name}/{tc_num:04d}",
@@ -353,6 +389,163 @@ def generate_qdisc_metrics_test_cases(
         )
     )
     tc_num += 1
+
+    name = "all_change"
+    for zero_delta in [False, True]:
+        for cycle_num in [0, 1]:
+            qdisc_metrics_info = [
+                QdiscMetricsInfoTestData(
+                    QdiscInfoKey=qsi_td.QdiscInfoKey,
+                    Uint32ZeroDelta=[zero_delta] * qdisc.QDISK_UINT32_NUM_STATS,
+                    Uint64ZeroDelta=[zero_delta] * qdisc.QDISK_UINT64_NUM_STATS,
+                    CycleNum=cycle_num,
+                )
+                for qsi_td in curr_qdisc_stats
+            ]
+            test_cases.append(
+                generate_qdisc_metrics_test_case(
+                    name=f"{name}/{tc_num:04d}",
+                    curr_qdisc_stats=curr_qdisc_stats,
+                    prev_qdisc_stats=prev_qdisc_stats,
+                    qdisc_metrics_info=qdisc_metrics_info,
+                    ts=ts,
+                    instance=instance,
+                    hostname=hostname,
+                    description=f"zero_delta={zero_delta},cycle_num={cycle_num}",
+                )
+            )
+            tc_num += 1
+
+    name = "one_change"
+    curr_qdisc_stats = qdisc_stats_ref
+    for prev_qdisc_stats, i, uint32_i, uint64_i in make_prev_qdisc_stats_iter(
+        curr_qdisc_stats
+    ):
+        for zero_delta in [False, True]:
+            for cycle_num in [0, 1]:
+                qdisc_metrics_info = [
+                    QdiscMetricsInfoTestData(
+                        QdiscInfoKey=qsi_td.QdiscInfoKey,
+                        Uint32ZeroDelta=[zero_delta] * qdisc.QDISK_UINT32_NUM_STATS,
+                        Uint64ZeroDelta=[zero_delta] * qdisc.QDISK_UINT64_NUM_STATS,
+                        CycleNum=cycle_num,
+                    )
+                    for qsi_td in curr_qdisc_stats
+                ]
+                test_cases.append(
+                    generate_qdisc_metrics_test_case(
+                        name=f"{name}/{tc_num:04d}",
+                        curr_qdisc_stats=curr_qdisc_stats,
+                        prev_qdisc_stats=prev_qdisc_stats,
+                        qdisc_metrics_info=qdisc_metrics_info,
+                        ts=ts,
+                        instance=instance,
+                        hostname=hostname,
+                        description=f"zero_delta={zero_delta},cycle_num={cycle_num},i={i}, .Uint32[{uint32_i}], .Uint64[{uint64_i}]",
+                    )
+                )
+                tc_num += 1
+
+    name = "no_change"
+    curr_qdisc_stats = qdisc_stats_ref
+    for zero_delta in [False, True]:
+        for cycle_num in [0, 1]:
+            qdisc_metrics_info = [
+                QdiscMetricsInfoTestData(
+                    QdiscInfoKey=qsi_td.QdiscInfoKey,
+                    Uint32ZeroDelta=[zero_delta] * qdisc.QDISK_UINT32_NUM_STATS,
+                    Uint64ZeroDelta=[zero_delta] * qdisc.QDISK_UINT64_NUM_STATS,
+                    CycleNum=cycle_num,
+                )
+                for qsi_td in curr_qdisc_stats
+            ]
+            test_cases.append(
+                generate_qdisc_metrics_test_case(
+                    name=f"{name}/{tc_num:04d}",
+                    curr_qdisc_stats=curr_qdisc_stats,
+                    prev_qdisc_stats=curr_qdisc_stats,
+                    qdisc_metrics_info=qdisc_metrics_info,
+                    ts=ts,
+                    instance=instance,
+                    hostname=hostname,
+                    description=f"zero_delta={zero_delta},cycle_num={cycle_num}",
+                )
+            )
+            tc_num += 1
+
+    name = "new_qdisc_no_prev"
+    curr_qdisc_stats = qdisc_stats_ref
+    for zero_delta in [False, True]:
+        for cycle_num in [0, 1]:
+            for have_qmi in [False, True]:
+                for i in range(len(curr_qdisc_stats)):
+                    prev_qdisc_stats = deepcopy(curr_qdisc_stats)
+                    del prev_qdisc_stats[i]
+                    qdisc_metrics_info = (
+                        [
+                            QdiscMetricsInfoTestData(
+                                QdiscInfoKey=qsi_td.QdiscInfoKey,
+                                Uint32ZeroDelta=[zero_delta]
+                                * qdisc.QDISK_UINT32_NUM_STATS,
+                                Uint64ZeroDelta=[zero_delta]
+                                * qdisc.QDISK_UINT64_NUM_STATS,
+                                CycleNum=cycle_num,
+                            )
+                            for qsi_td in prev_qdisc_stats
+                        ]
+                        if have_qmi
+                        else None
+                    )
+                    test_cases.append(
+                        generate_qdisc_metrics_test_case(
+                            name=f"{name}/{tc_num:04d}",
+                            curr_qdisc_stats=curr_qdisc_stats,
+                            prev_qdisc_stats=prev_qdisc_stats,
+                            qdisc_metrics_info=qdisc_metrics_info,
+                            ts=ts,
+                            instance=instance,
+                            hostname=hostname,
+                            description=f"zero_delta={zero_delta},cycle_num={cycle_num},have_qmi={have_qmi}",
+                        )
+                    )
+                    tc_num += 1
+
+    name = "new_qdisc_prev"
+    curr_qdisc_stats = qdisc_stats_ref
+    prev_qdisc_stats = make_prev_qdisc_stats(curr_qdisc_stats)
+    for zero_delta in [False, True]:
+        for cycle_num in [0, 1]:
+            for have_qmi in [False, True]:
+                for i in range(len(curr_qdisc_stats)):
+                    qdisc_metrics_info = (
+                        [
+                            QdiscMetricsInfoTestData(
+                                QdiscInfoKey=qsi_td.QdiscInfoKey,
+                                Uint32ZeroDelta=[zero_delta]
+                                * qdisc.QDISK_UINT32_NUM_STATS,
+                                Uint64ZeroDelta=[zero_delta]
+                                * qdisc.QDISK_UINT64_NUM_STATS,
+                                CycleNum=cycle_num,
+                            )
+                            for k, qsi_td in enumerate(prev_qdisc_stats)
+                            if k != i
+                        ]
+                        if have_qmi
+                        else None
+                    )
+                    test_cases.append(
+                        generate_qdisc_metrics_test_case(
+                            name=f"{name}/{tc_num:04d}",
+                            curr_qdisc_stats=curr_qdisc_stats,
+                            prev_qdisc_stats=prev_qdisc_stats,
+                            qdisc_metrics_info=qdisc_metrics_info,
+                            ts=ts,
+                            instance=instance,
+                            hostname=hostname,
+                            description=f"zero_delta={zero_delta},cycle_num={cycle_num},have_qmi={have_qmi}",
+                        )
+                    )
+                    tc_num += 1
 
     save_test_cases(
         test_cases, test_cases_file, test_cases_root_dir=test_cases_root_dir

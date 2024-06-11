@@ -18,7 +18,7 @@ type QdiscMetricsInfoTestData struct {
 	CycleNum        int
 }
 
-type QdiscStatsTestData struct {
+type QdiscStatsInfoTestData struct {
 	QdiscInfoKey qdisc.QdiscInfoKey
 	QdiscInfo    *qdisc.QdiscInfo
 }
@@ -28,7 +28,7 @@ type QdiscMetricsTestCase struct {
 	Description                    string
 	Instance                       string
 	Hostname                       string
-	CurrQdiscStats, PrevQdiscStats []QdiscStatsTestData
+	CurrQdiscStats, PrevQdiscStats []QdiscStatsInfoTestData
 	CurrPromTs, PrevPromTs         int64
 	QdiscMetricsInfo               []QdiscMetricsInfoTestData
 	FullMetricsFactor              int
@@ -87,8 +87,12 @@ func testQdiscMetrics(tc *QdiscMetricsTestCase, t *testing.T) {
 			if qi := qdiscMetrics.qdiscStats[currIndex].Info[qiKey]; qi != nil {
 				qdiscMetrics.updateQdiscMetricsInfo(qiKey, qi)
 				qim := qdiscMetrics.qdiscMetricsInfoMap[qiKey]
-				copy(qim.uint32ZeroDelta, qmidTD.Uint32ZeroDelta)
-				copy(qim.uint64ZeroDelta, qmidTD.Uint64ZeroDelta)
+				for i := range qdiscUint32IndexToDeltaMetricNameMap {
+					qim.uint32ZeroDelta[i] = qmidTD.Uint32ZeroDelta[i]
+				}
+				for i := range qdiscUint64IndexToDeltaMetricNameMap {
+					qim.uint64ZeroDelta[i] = qmidTD.Uint64ZeroDelta[i]
+				}
 				qim.cycleNum = qmidTD.CycleNum
 			}
 		}
@@ -118,21 +122,21 @@ func testQdiscMetrics(tc *QdiscMetricsTestCase, t *testing.T) {
 			if gotQim == nil {
 				fmt.Fprintf(
 					errBuf,
-					"\n.qdiscMetricsInfoMap[%v]: missing",
-					qiKey,
+					"\n.qdiscMetricsInfoMap[%s]: missing",
+					&qiKey,
 				)
 				continue
 			}
 			testutils.CompareSlices(
 				wantQimTD.Uint32ZeroDelta,
 				gotQim.uint32ZeroDelta,
-				fmt.Sprintf(".qdiscMetricsInfoMap[%v].uint32ZeroDelta", qiKey),
+				fmt.Sprintf(".qdiscMetricsInfoMap[%s].uint32ZeroDelta", &qiKey),
 				errBuf,
 			)
 			testutils.CompareSlices(
 				wantQimTD.Uint64ZeroDelta,
 				gotQim.uint64ZeroDelta,
-				fmt.Sprintf(".qdiscMetricsInfoMap[%v].uint64ZeroDelta", qiKey),
+				fmt.Sprintf(".qdiscMetricsInfoMap[%s].uint64ZeroDelta", &qiKey),
 				errBuf,
 			)
 		}

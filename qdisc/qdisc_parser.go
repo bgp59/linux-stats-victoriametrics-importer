@@ -6,6 +6,7 @@
 package qdisc
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -44,9 +45,26 @@ const (
 	QDISC_IF_INDEX_TO_NAME_CACHE_REFRESH_INTERVAL = 60 * time.Second
 )
 
+type QdiscMajMin uint32
+
+var qdiscMajMinFmt = fmt.Sprintf(`%%0%dx:%%0%dx`, (QDISC_MAJ_NUM_BITS+3)/4, (QDISC_MIN_NUM_BITS+3)/4)
+
+func (majMin QdiscMajMin) String() string {
+	const qdiscMinMask = (uint32(1) << QDISC_MIN_NUM_BITS) - 1
+	return fmt.Sprintf(qdiscMajMinFmt, (uint32(majMin) >> QDISC_MIN_NUM_BITS), (uint32(majMin) & qdiscMinMask))
+}
+
 type QdiscInfoKey struct {
 	IfIndex uint32
 	Handle  uint32
+}
+
+func (qiKey *QdiscInfoKey) String() string {
+	return fmt.Sprintf(
+		`QdiscInfoKey{IfIndex=%d, Handle=%d (%s)}`,
+		qiKey.IfIndex,
+		qiKey.Handle, QdiscMajMin(qiKey.Handle),
+	)
 }
 
 type QdiscInfo struct {
