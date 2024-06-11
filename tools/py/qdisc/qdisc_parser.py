@@ -27,10 +27,22 @@ QDISC_MAJ_NUM_BITS = 16
 QDISC_MIN_NUM_BITS = 32 - QDISC_MAJ_NUM_BITS
 
 
+def format_maj_min(val: int) -> str:
+    return ":".join(
+        [
+            f"{val >> QDISC_MIN_NUM_BITS:0{(QDISC_MAJ_NUM_BITS + 3)//4}x}",
+            f"{val & ((1 << QDISC_MIN_NUM_BITS) - 1):0{(QDISC_MIN_NUM_BITS + 3)//4}x}",
+        ]
+    )
+
+
 @dataclass
 class QdiscInfoKey:
     IfIndex: int = 0
     Handle: int = 0
+
+    def __str__(self) -> str:
+        return f"QdiscInfoKey(IfIndex={self.IfIndex}, Handle={self.Handle} ({format_maj_min(self.Handle)}))"
 
     def __hash__(self) -> int:
         return (self.IfIndex << 32) + self.Handle

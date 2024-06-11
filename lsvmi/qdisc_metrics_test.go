@@ -84,7 +84,7 @@ func testQdiscMetrics(tc *QdiscMetricsTestCase, t *testing.T) {
 	if tc.QdiscMetricsInfo != nil {
 		for _, qmidTD := range tc.QdiscMetricsInfo {
 			qiKey := qmidTD.QdiscInfoKey
-			if qi := qdiscMetrics.qdiscStats[currIndex].Info[qiKey]; qi != nil {
+			if qi := qdiscMetrics.qdiscStats[1-currIndex].Info[qiKey]; qi != nil {
 				qdiscMetrics.updateQdiscMetricsInfo(qiKey, qi)
 				qim := qdiscMetrics.qdiscMetricsInfoMap[qiKey]
 				for i := range qdiscUint32IndexToDeltaMetricNameMap {
