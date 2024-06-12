@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# Testcase generators for internal metrics:
+# Test case generators for internal metrics:
 from dataclasses import dataclass
 from typing import List, Optional
 
