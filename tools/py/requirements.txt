@@ -2,4 +2,5 @@ autoflake
 black
 isort
 requests
+tabulate
 
