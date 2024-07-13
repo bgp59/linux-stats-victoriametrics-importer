@@ -22,7 +22,7 @@ const (
 	PID_LIST_CACHE_ALL_ENABLED = PID_LIST_CACHE_PID_ENABLED | PID_LIST_CACHE_TID_ENABLED
 )
 
-type PidTidPair struct {
+type PidTid struct {
 	Pid, Tid int
 }
 
@@ -46,7 +46,7 @@ type PidListCache struct {
 	flags uint32
 
 	// The actual lists, indexed by the number of partitions:
-	pidLists [][]PidTidPair
+	pidLists [][]PidTid
 
 	// The root of the file system; typically /proc:
 	procfsRoot string
@@ -55,7 +55,7 @@ type PidListCache struct {
 	lock sync.Mutex
 }
 
-func NewPidListCache(nPart int, validFor time.Duration, procfsRoot string, flags uint32) *PidListCache {
+func NewPidListCache(procfsRoot string, nPart int, validFor time.Duration, flags uint32) *PidListCache {
 	if nPart < 1 {
 		nPart = 1
 	}
@@ -107,9 +107,9 @@ func (c *PidListCache) Refresh(lockAcquired bool) error {
 	}
 
 	if c.pidLists == nil {
-		c.pidLists = make([][]PidTidPair, c.nPart)
+		c.pidLists = make([][]PidTid, c.nPart)
 		for i := 0; i < c.nPart; i++ {
-			c.pidLists[i] = make([]PidTidPair, 0)
+			c.pidLists[i] = make([]PidTid, 0)
 		}
 	} else {
 		for i := 0; i < c.nPart; i++ {
@@ -145,7 +145,7 @@ func (c *PidListCache) Refresh(lockAcquired bool) error {
 			} else {
 				part = pid % nPart
 			}
-			c.pidLists[part] = append(c.pidLists[part], PidTidPair{pid, PID_STAT_PID_ONLY_TID})
+			c.pidLists[part] = append(c.pidLists[part], PidTid{pid, PID_STAT_PID_ONLY_TID})
 			numEntries += 1
 		}
 		if isTidEnabled {
@@ -166,7 +166,7 @@ func (c *PidListCache) Refresh(lockAcquired bool) error {
 				} else {
 					part = tid % c.nPart
 				}
-				c.pidLists[part] = append(c.pidLists[part], PidTidPair{pid, tid})
+				c.pidLists[part] = append(c.pidLists[part], PidTid{pid, tid})
 				numEntries += 1
 			}
 		}
@@ -175,7 +175,7 @@ func (c *PidListCache) Refresh(lockAcquired bool) error {
 	return nil
 }
 
-func (c *PidListCache) GetPidTidList(part int, into []PidTidPair) ([]PidTidPair, error) {
+func (c *PidListCache) GetPidTidList(part int, into []PidTid) ([]PidTid, error) {
 	if part < 0 || part >= c.nPart {
 		return nil, nil
 	}
@@ -189,7 +189,7 @@ func (c *PidListCache) GetPidTidList(part int, into []PidTidPair) ([]PidTidPair,
 	}
 	pidListLen := len(c.pidLists[part])
 	if into == nil || cap(into) < pidListLen {
-		into = make([]PidTidPair, pidListLen)
+		into = make([]PidTid, pidListLen)
 	} else {
 		into = into[:pidListLen]
 	}

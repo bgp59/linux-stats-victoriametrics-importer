@@ -12,9 +12,10 @@ import (
 const PID_LIST_TEST_VALID_DURATION = time.Second
 
 type PidListTestCase struct {
-	ProcfsRoot string
-	flags      uint32
-	PidTidList [][2]int
+	ProcfsRoot  string
+	Flags       uint32
+	NPart       int
+	PidTidLists [][]PidTid
 }
 
 var pidListTestCaseFile = path.Join(
@@ -22,70 +23,51 @@ var pidListTestCaseFile = path.Join(
 	"pid_list_test_case.json",
 )
 
-func testPidListCache(
-	t *testing.T,
-	nPart int,
-	tc *PidListTestCase,
-) {
-
-	pidListCache := NewPidListCache(nPart, PID_LIST_TEST_VALID_DURATION, tc.ProcfsRoot, tc.flags)
-	for part := 0; part < nPart; part++ {
-		want := make(map[PidTidPair]bool)
-		for _, pidTidArray := range tc.PidTidList {
-			pidTid := PidTidPair{pidTidArray[0], pidTidArray[1]}
-			if (pidListCache.IsEnabledFor(PID_LIST_CACHE_PID_ENABLED) &&
-				pidTid.Tid == 0 && (pidTid.Pid%nPart == part)) ||
-				(pidListCache.IsEnabledFor(PID_LIST_CACHE_TID_ENABLED) &&
-					pidTid.Tid > 0 && pidTid.Tid%nPart == part) {
-				want[pidTid] = true
-			}
+func testPidListCache(tc *PidListTestCase, t *testing.T) {
+	pidListCache := NewPidListCache(tc.ProcfsRoot, tc.NPart, PID_LIST_TEST_VALID_DURATION, tc.Flags)
+	for nPart, pidTidList := range tc.PidTidLists {
+		want := make(map[PidTid]bool)
+		for _, pidTid := range pidTidList {
+			want[pidTid] = true
 		}
-
-		pidList, err := pidListCache.GetPidTidList(part, nil)
+		pidTidList, err := pidListCache.GetPidTidList(nPart, nil)
 		if err != nil {
 			t.Error(err)
 		}
-		if pidList == nil {
-			t.Errorf("%s: no list for  part %d", t.Name(), part)
+		if pidTidList == nil {
+			t.Errorf("%s: no list for  part %d", t.Name(), nPart)
 		}
-		for _, pidTid := range pidList {
+
+		for _, pidTid := range pidTidList {
 			_, exists := want[pidTid]
 			if exists {
 				delete(want, pidTid)
 			} else {
-				t.Errorf("%s: unexpected pidTid %v for part %d", t.Name(), pidTid, part)
+				t.Errorf("%s: unexpected pidTid %v for part %d", t.Name(), pidTid, nPart)
 			}
 		}
 		for pidTid, _ := range want {
-			t.Errorf("%s: missing pidTid %v for part %d", t.Name(), pidTid, part)
+			t.Errorf("%s: missing pidTid %v for part %d", t.Name(), pidTid, nPart)
 		}
 	}
 }
 
 func TestPidListCache(t *testing.T) {
-	tc := PidListTestCase{}
-	err := testutils.LoadJsonFile(pidListTestCaseFile, &tc)
+	testCases := make([]*PidListTestCase, 0)
+	err := testutils.LoadJsonFile(pidListTestCaseFile, &testCases)
 
 	if err != nil {
 		t.Fatal(err)
 	}
-	for nPart := 1; nPart <= 16; nPart++ {
-		flags_list := []uint32{
-			0,
-			PID_LIST_CACHE_PID_ENABLED,
-			PID_LIST_CACHE_TID_ENABLED,
-			PID_LIST_CACHE_ALL_ENABLED | PID_LIST_CACHE_TID_ENABLED,
-		}
-		for _, flags := range flags_list {
-			tc.flags = flags
-			pidEnabled := tc.flags&PID_LIST_CACHE_PID_ENABLED > 0
-			tidEnabled := tc.flags&PID_LIST_CACHE_TID_ENABLED > 0
-			t.Run(
-				fmt.Sprintf("nPart=%d,pidEnabled=%v,tidEnabled=%v", nPart, pidEnabled, tidEnabled),
-				func(t *testing.T) {
-					testPidListCache(t, nPart, &tc)
-				},
-			)
-		}
+	for _, tc := range testCases {
+		t.Run(
+			fmt.Sprintf(
+				"nPart=%d,pidEnabled=%v,tidEnabled=%v",
+				tc.NPart,
+				tc.Flags&PID_LIST_CACHE_PID_ENABLED > 0,
+				tc.Flags&PID_LIST_CACHE_TID_ENABLED > 0,
+			),
+			func(t *testing.T) { testPidListCache(tc, t) },
+		)
 	}
 }

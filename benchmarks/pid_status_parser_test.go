@@ -19,12 +19,12 @@ import (
 var pidStatusTestProcfsRoot = LSVMI_TESTDATA_PROCFS_ROOT
 var pidStatusTestPid, pidStatusTestTid int = 468, 486
 
-var testPidStatusPidTidList []PidTidPair
+var testPidStatusPidTidList []PidTid
 var testPidStatusFilePathList []string
 var testPidStatusList []*procfs.PidStatus
 var testPidStatusLock = &sync.Mutex{}
 
-func getTestPidStatusPidTidListNoLock() ([]PidTidPair, error) {
+func getTestPidStatusPidTidListNoLock() ([]PidTid, error) {
 	if testPidStatusPidTidList == nil {
 		pidTidList, err := getPidTidList(pidStatusTestProcfsRoot, false)
 		if err != nil {
@@ -35,7 +35,7 @@ func getTestPidStatusPidTidListNoLock() ([]PidTidPair, error) {
 	return testPidStatusPidTidList, nil
 }
 
-func getTestPidStatusPidTidList() ([]PidTidPair, error) {
+func getTestPidStatusPidTidList() ([]PidTid, error) {
 	testPidStatusLock.Lock()
 	defer testPidStatusLock.Unlock()
 	return getTestPidStatusPidTidListNoLock()
@@ -184,7 +184,7 @@ func BenchmarkPidStatusAllParser(b *testing.B) {
 	)
 }
 
-func benchmarkPidStatusAllParserProm(fs prom_procfs.FS, pidTidList []PidTidPair, b *testing.B) {
+func benchmarkPidStatusAllParserProm(fs prom_procfs.FS, pidTidList []PidTid, b *testing.B) {
 	var (
 		proc prom_procfs.Proc
 		err  error

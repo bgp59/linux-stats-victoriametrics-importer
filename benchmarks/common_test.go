@@ -25,7 +25,7 @@ const (
 	BENCH_FILE_SCAN_TEXT
 )
 
-type PidTidPair [2]int
+type PidTid [2]int
 
 var benchFileReadOpMap = map[int]string{
 	BENCH_FILE_READ:            "BENCH_FILE_READ",
@@ -81,24 +81,24 @@ func benchmarkFileRead(fPath string, op int, b *testing.B) {
 	}
 }
 
-func getPidTidList(procfsRoot string, pidOnly bool) ([]PidTidPair, error) {
+func getPidTidList(procfsRoot string, pidOnly bool) ([]PidTid, error) {
 	dirEntries, err := os.ReadDir(procfsRoot)
 	if err != nil {
 		return nil, err
 	}
-	pidTidList := make([]PidTidPair, 0)
+	pidTidList := make([]PidTid, 0)
 	for _, dirEntry := range dirEntries {
 		name := dirEntry.Name()
 		pid, err := strconv.Atoi(name)
 		if err == nil && pid > 0 {
-			pidTidList = append(pidTidList, PidTidPair{pid, procfs.PID_STAT_PID_ONLY_TID})
+			pidTidList = append(pidTidList, PidTid{pid, procfs.PID_STAT_PID_ONLY_TID})
 			if !pidOnly {
 				dirEntries, err := os.ReadDir(path.Join(procfsRoot, name, "task"))
 				if err == nil {
 					for _, dirEntry := range dirEntries {
 						tid, err := strconv.Atoi(dirEntry.Name())
 						if err == nil && tid > 0 {
-							pidTidList = append(pidTidList, PidTidPair{pid, tid})
+							pidTidList = append(pidTidList, PidTid{pid, tid})
 						}
 					}
 				}
