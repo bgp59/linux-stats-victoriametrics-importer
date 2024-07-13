@@ -36,7 +36,7 @@ import (
 // - numerical: used for calculations, e.g. voluntary_ctxt_switches
 // As-is data comes in 3 flavors:
 //   - single value              					// Umask:	0022
-//   - single value + unit (a parallel [][]byte)	// VmPeak:	  222400 kB <- umnit
+//   - single value + unit (a parallel [][]byte)	// VmPeak:	  222400 kB <- unit
 //   - list											// Uid:	104	104	104	104
 
 // Parsed data types:

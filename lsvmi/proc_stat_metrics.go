@@ -1,6 +1,4 @@
-// // go:build exclude
-
-// Metrics based on /proc/procStat
+// Metrics based on /proc/stat
 
 package lsvmi
 

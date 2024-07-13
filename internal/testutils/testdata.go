@@ -7,5 +7,5 @@ var (
 	LsvmiTestDataSubdir  = "testdata/lsvmi"
 	LsvmiTestCasesSubdir = "testdata/lsvmi/testcases"
 	LsvmiProcfsSubdir    = "testdata/lsvmi/procfs"
-	ProcsTestDataSubdir  = "testdata/procfs"
+	ProcfsTestDataSubdir = "testdata/procfs"
 )
