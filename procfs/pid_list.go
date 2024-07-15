@@ -53,6 +53,9 @@ type PidListCache struct {
 
 	// Lock protection:
 	lock sync.Mutex
+
+	// Refresh count (mainly for testing):
+	refreshCount uint64
 }
 
 func NewPidListCache(procfsRoot string, nPart int, validFor time.Duration, flags uint32) *PidListCache {
@@ -90,10 +93,6 @@ func getDirNames(dir string) ([]string, error) {
 		return nil, err
 	}
 	return names, err
-}
-
-func (c *PidListCache) RetrievedTime() time.Time {
-	return c.retrievedTime
 }
 
 func (c *PidListCache) IsEnabledFor(flags uint32) bool {
@@ -172,6 +171,7 @@ func (c *PidListCache) Refresh(lockAcquired bool) error {
 		}
 	}
 	c.retrievedTime = time.Now()
+	c.refreshCount += 1
 	return nil
 }
 
@@ -195,4 +195,17 @@ func (c *PidListCache) GetPidTidList(part int, into []PidTid) ([]PidTid, error) 
 	}
 	copy(into, c.pidLists[part])
 	return into, nil
+}
+
+// Mainly useful for testing:
+func (c *PidListCache) Invalidate() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.retrievedTime = time.Now().Add(-2 * c.validFor) // this should force a refresh at the next call
+}
+
+func (c *PidListCache) GetRefreshCount() uint64 {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	return c.refreshCount
 }
