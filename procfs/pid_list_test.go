@@ -18,7 +18,7 @@ type PidListTestCase struct {
 }
 
 var pidListTestCaseFile = path.Join(
-	"..", testutils.ProcfsTestDataSubdir,
+	"..", testutils.ProcfsTestCasesSubdir,
 	"pid_list_test_case.json",
 )
 

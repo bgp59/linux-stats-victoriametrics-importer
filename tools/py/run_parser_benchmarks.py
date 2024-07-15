@@ -9,7 +9,7 @@ import sys
 
 from tabulate import tabulate
 
-from testutils import benchmarks_dir
+from testutils import benchmarks_root_dir
 
 # Indexes in result:
 # BenchmarkDiskstatsParserIO   	   68028	     17242 ns/op	     152 B/op	       3 allocs/op
@@ -57,7 +57,7 @@ if __name__ == "__main__":
                 "-bench",
                 f"^Benchmark{parser}Parser",
             ],
-            cwd=benchmarks_dir,
+            cwd=benchmarks_root_dir,
             check=False,
             capture_output=True,
             encoding="utf-8",

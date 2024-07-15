@@ -6,10 +6,10 @@ import sys
 from dataclasses import asdict, dataclass
 from typing import List, Optional
 
-from testutils import go_module_root, lsvmi_procfs_root, procfs_testdata_root
+from testutils import go_module_root, procfs_proc_root_dir, procfs_test_cases_root_dir
 
 tc_procfs_root = os.path.relpath(
-    lsvmi_procfs_root, os.path.join(go_module_root, "procfs")
+    procfs_proc_root_dir, os.path.join(go_module_root, "procfs")
 )
 
 # Should match ../../procfs/pid_list.go
@@ -25,7 +25,9 @@ class PidTid:
 
 
 # Should match ../../procfs/pid_list_test.go
-pidListTestCaseFile = os.path.join(procfs_testdata_root, "pid_list_test_case.json")
+pidListTestCaseFile = os.path.join(
+    procfs_test_cases_root_dir, "pid_list_test_case.json"
+)
 
 
 @dataclass
@@ -38,7 +40,7 @@ class PidListTestCase:
 
 if __name__ == "__main__":
     pid_tid_list = []
-    for p in os.listdir(lsvmi_procfs_root):
+    for p in os.listdir(procfs_proc_root_dir):
         try:
             pid = int(p)
             if pid == 0:
@@ -46,7 +48,7 @@ if __name__ == "__main__":
             pid_tid_list.append(PidTid(pid, PID_STAT_PID_ONLY_TID))
         except ValueError:
             continue
-        for t in os.listdir(os.path.join(lsvmi_procfs_root, p, "task")):
+        for t in os.listdir(os.path.join(procfs_proc_root_dir, p, "task")):
             try:
                 tid = int(t)
                 pid_tid_list.append(PidTid(pid, tid))

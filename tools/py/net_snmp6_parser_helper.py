@@ -9,9 +9,9 @@ import argparse
 import os
 import re
 
-from testutils import go_module_root, lsvmi_procfs_root
+from testutils import go_module_root, procfs_proc_root_dir
 
-default_net_snmp6_file = os.path.join(lsvmi_procfs_root, "net", "snmp6")
+default_net_snmp6_file = os.path.join(procfs_proc_root_dir, "net", "snmp6")
 
 index_prefix = "NET_SNMP6_"
 num_values = f"{index_prefix}NUM_VALUES"

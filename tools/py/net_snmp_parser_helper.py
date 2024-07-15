@@ -9,9 +9,9 @@ import argparse
 import os
 import re
 
-from testutils import go_module_root, lsvmi_procfs_root
+from testutils import go_module_root, procfs_proc_root_dir
 
-default_net_snmp_file = os.path.join(lsvmi_procfs_root, "net", "snmp")
+default_net_snmp_file = os.path.join(procfs_proc_root_dir, "net", "snmp")
 
 index_prefix = "NET_SNMP_"
 map_variable_name = "netSnmpIndexMap"
