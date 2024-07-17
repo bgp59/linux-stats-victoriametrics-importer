@@ -23,8 +23,8 @@ import (
 // Notes:
 //  1. Each component will have its specific configuration, which may be
 //     defined elsewhere, for instance in the files(s) providing the implementation.
-// 2. The object will be loaded from a YAML file, therefore all configuration
-//    parameters should be public and they should have tag annotations.
+//  2. The object will be loaded from a YAML file, therefore all configuration
+//     parameters should be public and they should have tag annotations.
 
 const (
 	GLOBAL_CONFIG_INSTANCE_DEFAULT           = "lsvmi"
