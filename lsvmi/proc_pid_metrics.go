@@ -185,11 +185,6 @@ type ProcPidMetricsIndexFmt struct {
 	fmt   string
 }
 
-type ProcPidMetricsIndexBytes struct {
-	i int
-	b []byte
-}
-
 // The main pid metrics data structure; there are NumPartitions (above)
 // instances.
 
@@ -253,6 +248,9 @@ type ProcPidMetrics struct {
 	pidStatusPidOnlyMemoryMetricFmt []*ProcPidMetricsIndexFmt
 	pidStatusPidTidMemoryMetricFmt  []*ProcPidMetricsIndexFmt
 	pidStatusCtxMetricFmt           []*ProcPidMetricsIndexFmt
+
+	// PidCmdline metric format:
+	pidCmdlineMetricFmt string
 
 	// A buffer for the timestamp:
 	tsBuf *bytes.Buffer
@@ -471,6 +469,8 @@ func (pm *ProcPidMetrics) updateMetricsCache() {
 			pm.buildMetricFmt(PROC_PID_STATUS_NONVOLUNTARY_CTXT_SWITCHES_METRIC, "%d"),
 		},
 	}
+
+	pm.pidCmdlineMetricFmt = pm.buildMetricFmt(PROC_PID_CMDLINE_METRIC, "%c", PROC_PID_CMDLINE_LABEL_NAME)
 }
 
 func (pm *ProcPidMetrics) initPidTidMetricsInfo(pidTid procfs.PidTid) *ProcPidTidMetricsInfo {
@@ -794,6 +794,16 @@ func (pm *ProcPidMetrics) generateMetrics(
 			)
 			actualMetricsCount++
 		}
+	}
+
+	if fullMetrics {
+		fmt.Fprintf(
+			buf,
+			pm.pidCmdlineMetricFmt,
+			pm.pidCmdline.Cmdline.Bytes(),
+			'1',
+			ts,
+		)
 	}
 
 	return actualMetricsCount
