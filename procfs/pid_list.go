@@ -52,7 +52,7 @@ type PidListCache struct {
 	procfsRoot string
 
 	// Lock protection:
-	lock sync.Mutex
+	lock *sync.Mutex
 
 	// Refresh count (mainly for testing):
 	refreshCount uint64
@@ -79,6 +79,7 @@ func NewPidListCache(procfsRoot string, nPart int, validFor time.Duration, flags
 		validFor:      validFor,
 		flags:         flags,
 		procfsRoot:    procfsRoot,
+		lock:          &sync.Mutex{},
 	}
 }
 
