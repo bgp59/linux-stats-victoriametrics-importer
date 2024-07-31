@@ -145,6 +145,14 @@ var pidStatusLineHandlingMap = map[string]*PidStatusLineHandling{
 
 var pidStatusReadFileBufPool = ReadFileBufPool16k
 
+func PidStatusNameToIndex(name string) int {
+	lh, ok := pidStatusLineHandlingMap[name]
+	if ok {
+		return lh.index
+	}
+	return -1
+}
+
 func PidStatusPath(procfsRoot string, pid, tid int) string {
 	if tid == PID_STAT_PID_ONLY_TID {
 		return path.Join(procfsRoot, strconv.Itoa(pid), "status")

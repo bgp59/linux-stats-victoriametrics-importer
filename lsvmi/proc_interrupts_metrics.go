@@ -36,7 +36,7 @@ const (
 	// Interval since last generation, i.e. the interval underlying the deltas.
 	// Normally this should be close to scan interval, but this is the actual
 	// value, rather than the desired one:
-	PROC_INTERRUPTS_INTERVAL_METRIC_NAME = "proc_interrupts_metrics_delta_sec"
+	PROC_INTERRUPTS_INTERVAL_METRIC = "proc_interrupts_metrics_delta_sec"
 )
 
 var procInterruptsMetricsLog = NewCompLogger(PROC_INTERRUPTS_METRICS_ID)
@@ -258,7 +258,7 @@ func (pim *ProcInterruptsMetrics) updateIntervalMetricsCache() {
 	}
 	pim.intervalMetric = []byte(fmt.Sprintf(
 		`%s{%s="%s",%s="%s"} `, // N.B. include space before val
-		PROC_INTERRUPTS_INTERVAL_METRIC_NAME,
+		PROC_INTERRUPTS_INTERVAL_METRIC,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 	))

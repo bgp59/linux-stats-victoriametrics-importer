@@ -44,7 +44,7 @@ QDISC_HANDLE_LABEL_NAME = "handle"
 QDISC_PARENT_LABEL_NAME = "parent"
 QDISC_IF_LABEL_NAME = "if"  # interface
 
-QDISC_INTERVAL_METRIC_NAME = "qdisc_metrics_delta_sec"
+QDISC_INTERVAL_METRIC = "qdisc_metrics_delta_sec"
 
 qdisc_uint32_index_to_delta_metric_name_map = {
     qdisc.QDISC_PACKETS: QDISC_PACKETS_DELTA_METRIC,
@@ -231,7 +231,7 @@ def generate_qdisc_metrics(
                 )
 
     metrics.append(
-        f"{QDISC_INTERVAL_METRIC_NAME}{{"
+        f"{QDISC_INTERVAL_METRIC}{{"
         + ",".join(
             [
                 f'{INSTANCE_LABEL_NAME}="{instance}"',

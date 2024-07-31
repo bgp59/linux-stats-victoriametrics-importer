@@ -17,7 +17,7 @@ const (
 	INTERNAL_METRICS_CONFIG_OS_METRICS_FACTOR_DEFAULT = 12
 
 	// Heartbeat metric:
-	LSVMI_UPTIME_METRIC_NAME = "lsvmi_uptime_sec"
+	LSVMI_UPTIME_METRIC      = "lsvmi_uptime_sec"
 	LSVMI_VERSION_LABEL_NAME = "version"
 
 	// OS metrics:
@@ -32,7 +32,7 @@ const (
 	// Interval since last generation, i.e. the interval underlying the deltas.
 	// Normally this should be close to scan interval, but this the actual
 	// value, rather than the desired one:
-	LSVMI_INTERNAL_METRICS_INTERVAL_METRIC_NAME = "lsvmi_internal_metrics_delta_sec"
+	LSVMI_INTERNAL_METRICS_INTERVAL_METRIC = "lsvmi_internal_metrics_delta_sec"
 
 	// This generator id:
 	INTERNAL_METRICS_ID = "internal_metrics"
@@ -373,7 +373,7 @@ func (internalMetrics *InternalMetrics) updateUptimeMetric() {
 	}
 	internalMetrics.uptimeMetric = []byte(fmt.Sprintf(
 		`%s{%s="%s",%s="%s",%s="%s"} `, // N.B. whitespace before value!
-		LSVMI_UPTIME_METRIC_NAME,
+		LSVMI_UPTIME_METRIC,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 		LSVMI_VERSION_LABEL_NAME, LsvmiVersion,
@@ -441,7 +441,7 @@ func (internalMetrics *InternalMetrics) updateIntervalMetric() []byte {
 	}
 	internalMetrics.intervalMetric = []byte(fmt.Sprintf(
 		`%s{%s="%s",%s="%s"} `, // N.B. whitespace before value!
-		LSVMI_INTERNAL_METRICS_INTERVAL_METRIC_NAME,
+		LSVMI_INTERNAL_METRICS_INTERVAL_METRIC,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 	))

@@ -66,7 +66,7 @@ PROC_STAT_PROCS_RUNNING_COUNT_METRIC = "proc_stat_procs_running_count"
 PROC_STAT_PROCS_BLOCKED_COUNT_METRIC = "proc_stat_procs_blocked_count"
 
 # Actual interval since last generation:
-PROC_STAT_INTERVAL_METRIC_NAME = "proc_stat_metrics_delta_sec"
+PROC_STAT_INTERVAL_METRIC = "proc_stat_metrics_delta_sec"
 
 
 @dataclass
@@ -294,7 +294,7 @@ def generate_proc_stat_metrics(
 
     # Interval:
     metrics.append(
-        f"{PROC_STAT_INTERVAL_METRIC_NAME}{{"
+        f"{PROC_STAT_INTERVAL_METRIC}{{"
         + ",".join(
             [
                 f'{INSTANCE_LABEL_NAME}="{instance}"',

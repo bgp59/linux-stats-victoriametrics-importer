@@ -43,7 +43,7 @@ const (
 	// Interval since last generation, i.e. the interval underlying the deltas.
 	// Normally this should be close to scan interval, but this is the actual
 	// value, rather than the desired one:
-	QDISC_INTERVAL_METRIC_NAME = "qdisc_metrics_delta_sec"
+	QDISC_INTERVAL_METRIC = "qdisc_metrics_delta_sec"
 )
 
 // Map uint32/64 indexes into metrics, if they are not present below then the
@@ -264,7 +264,7 @@ func (qm *QdiscMetrics) updateIntervalMetric() {
 
 	qm.intervalMetric = []byte(fmt.Sprintf(
 		`%s{%s="%s",%s="%s"} `, // N.B. include space before value
-		QDISC_INTERVAL_METRIC_NAME,
+		QDISC_INTERVAL_METRIC,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 	))

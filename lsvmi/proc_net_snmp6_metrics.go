@@ -112,7 +112,7 @@ const (
 	// Interval since last generation, i.e. the interval underlying the deltas.
 	// Normally this should be close to scan interval, but this is the actual
 	// value, rather than the desired one:
-	PROC_NET_SNMP6_INTERVAL_METRIC_NAME = "proc_net_snmp6_metrics_delta_sec"
+	PROC_NET_SNMP6_INTERVAL_METRIC = "proc_net_snmp6_metrics_delta_sec"
 )
 
 // Certain values are used to generate rates:
@@ -366,7 +366,7 @@ func (pnsm6 *ProcNetSnmp6Metrics) updateIntervalMetricsCache() {
 	}
 	pnsm6.intervalMetric = []byte(fmt.Sprintf(
 		`%s{%s="%s",%s="%s"} `, // N.B. include space before val
-		PROC_NET_SNMP6_INTERVAL_METRIC_NAME,
+		PROC_NET_SNMP6_INTERVAL_METRIC,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 	))

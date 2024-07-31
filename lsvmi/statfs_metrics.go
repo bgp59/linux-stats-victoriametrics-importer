@@ -42,7 +42,7 @@ const (
 	STATFS_MOUNT_FS_LABEL_NAME      = "fs"
 	STATFS_MOUNT_FS_TYPE_LABEL_NAME = "fs_type"
 
-	STATFS_INTERVAL_METRIC_NAME = "statfs_metrics_delta_sec"
+	STATFS_INTERVAL_METRIC = "statfs_metrics_delta_sec"
 )
 
 const (
@@ -355,7 +355,7 @@ func (sfsm *StatfsMetrics) updateIntervalMetricsCache() {
 
 	sfsm.intervalMetric = []byte(fmt.Sprintf(
 		`%s{%s="%s",%s="%s"} `, // N.B. include space before val
-		STATFS_INTERVAL_METRIC_NAME,
+		STATFS_INTERVAL_METRIC,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 	))

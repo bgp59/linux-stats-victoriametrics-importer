@@ -32,7 +32,7 @@ PROC_SOFTIRQS_CPU_LABEL_NAME = "cpu"
 PROC_SOFTIRQS_INFO_METRIC = "proc_softirqs_info"
 PROC_SOFTIRQS_INFO_IRQ_LABEL_NAME = PROC_SOFTIRQS_IRQ_LABEL_NAME
 
-PROC_SOFTIRQS_INTERVAL_METRIC_NAME = "proc_softirqs_metrics_delta_sec"
+PROC_SOFTIRQS_INTERVAL_METRIC = "proc_softirqs_metrics_delta_sec"
 
 ZeroDeltaType = List[bool]
 ZeroDeltaMapType = Dict[str, ZeroDeltaType]
@@ -238,7 +238,7 @@ def generate_proc_softirqs_metrics(
             metrics.append(f"{irq_data.InfoMetric}0 {curr_prom_ts}")
 
     metrics.append(
-        f"{PROC_SOFTIRQS_INTERVAL_METRIC_NAME}{{"
+        f"{PROC_SOFTIRQS_INTERVAL_METRIC}{{"
         + ",".join(
             [
                 f'{INSTANCE_LABEL_NAME}="{instance}"',

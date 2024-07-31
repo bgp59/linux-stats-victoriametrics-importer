@@ -34,7 +34,7 @@ PROC_INTERRUPTS_INFO_CONTROLLER_LABEL_NAME = "controller"
 PROC_INTERRUPTS_INFO_HW_INTERRUPT_LABEL_NAME = "hw_interrupt"
 PROC_INTERRUPTS_INFO_DEV_LABEL_NAME = PROC_INTERRUPTS_IRQ_DEV_LABEL_NAME
 
-PROC_INTERRUPTS_INTERVAL_METRIC_NAME = "proc_interrupts_metrics_delta_sec"
+PROC_INTERRUPTS_INTERVAL_METRIC = "proc_interrupts_metrics_delta_sec"
 
 
 ZeroDeltaMapType = Dict[str, List[bool]]
@@ -259,7 +259,7 @@ def generate_proc_interrupts_metrics(
             metrics.append(f"{irq_data.InfoMetric}0 {curr_prom_ts}")
 
     metrics.append(
-        f"{PROC_INTERRUPTS_INTERVAL_METRIC_NAME}{{"
+        f"{PROC_INTERRUPTS_INTERVAL_METRIC}{{"
         + ",".join(
             [
                 f'{INSTANCE_LABEL_NAME}="{instance}"',

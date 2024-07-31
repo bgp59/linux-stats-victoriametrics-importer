@@ -45,7 +45,7 @@ const (
 	// Interval since last generation, i.e. the interval underlying the deltas.
 	// Normally this should be close to scan interval, but this is the actual
 	// value, rather than the desired one:
-	PROC_NET_DEV_INTERVAL_METRIC_NAME = "proc_net_dev_metrics_delta_sec"
+	PROC_NET_DEV_INTERVAL_METRIC = "proc_net_dev_metrics_delta_sec"
 )
 
 // Map stats index (see procfs/net_dev_parser.go) into metrics names:
@@ -230,7 +230,7 @@ func (pndm *ProcNetDevMetrics) updateMetricsCache() {
 	}
 	pndm.intervalMetric = []byte(fmt.Sprintf(
 		`%s{%s="%s",%s="%s"} `, // N.B. include space before val
-		PROC_NET_DEV_INTERVAL_METRIC_NAME,
+		PROC_NET_DEV_INTERVAL_METRIC,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 	))

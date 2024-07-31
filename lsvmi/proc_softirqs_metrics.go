@@ -33,7 +33,7 @@ const (
 	// Interval since last generation, i.e. the interval underlying the deltas.
 	// Normally this should be close to scan interval, but this is the actual
 	// value, rather than the desired one:
-	PROC_SOFTIRQS_INTERVAL_METRIC_NAME = "proc_softirqs_metrics_delta_sec"
+	PROC_SOFTIRQS_INTERVAL_METRIC = "proc_softirqs_metrics_delta_sec"
 )
 
 var procSoftirqsMetricsLog = NewCompLogger(PROC_SOFTIRQS_METRICS_ID)
@@ -248,7 +248,7 @@ func (psirqm *ProcSoftirqsMetrics) updateIntervalMetricsCache() {
 	}
 	psirqm.intervalMetric = []byte(fmt.Sprintf(
 		`%s{%s="%s",%s="%s"} `, // N.B. include space before val
-		PROC_SOFTIRQS_INTERVAL_METRIC_NAME,
+		PROC_SOFTIRQS_INTERVAL_METRIC,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 	))

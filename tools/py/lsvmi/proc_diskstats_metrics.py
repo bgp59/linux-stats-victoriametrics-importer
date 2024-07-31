@@ -70,7 +70,7 @@ PROC_MOUNTINFO_MOUNT_POINT_LABEL_NAME = "mount_point"
 PROC_MOUNTINFO_FS_TYPE_LABEL_NAME = "fs_type"
 PROC_MOUNTINFO_MOUNT_SOURCE_LABEL_NAME = "source"
 
-PROC_DISKSTATS_INTERVAL_METRIC_NAME = "proc_diskstats_metrics_delta_sec"
+PROC_DISKSTATS_INTERVAL_METRIC = "proc_diskstats_metrics_delta_sec"
 
 procDiskstatsIndexPctMetric = {
     procfs.DISKSTATS_READ_MILLISEC: (100.0 / 1000.0, 2),
@@ -300,7 +300,7 @@ def generate_proc_diskstats_metrics(
             metrics.append(f"{metric}1 {curr_prom_ts}")
 
     metrics.append(
-        f"{PROC_DISKSTATS_INTERVAL_METRIC_NAME}{{"
+        f"{PROC_DISKSTATS_INTERVAL_METRIC}{{"
         + f'{INSTANCE_LABEL_NAME}="{instance}",{HOSTNAME_LABEL_NAME}="{hostname}"'
         + f"}} {interval:.06f} {curr_prom_ts}"
     )

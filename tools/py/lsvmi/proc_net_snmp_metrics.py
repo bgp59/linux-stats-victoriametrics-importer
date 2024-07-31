@@ -148,7 +148,7 @@ PROC_NET_SNMP_UDPLITE_IGNORED_MULTI_DELTA_METRIC = (
 )
 PROC_NET_SNMP_UDPLITE_MEM_ERRORS_DELTA_METRIC = "proc_net_snmp_udplite_mem_errors_delta"
 
-PROC_NET_SNMP_INTERVAL_METRIC_NAME = "proc_net_snmp_metrics_delta_sec"
+PROC_NET_SNMP_INTERVAL_METRIC = "proc_net_snmp_metrics_delta_sec"
 
 PROC_NET_SNMP_CYCLE_COUNTER_EXP = 4
 PROC_NET_SNMP_CYCLE_COUNTER_NUM = 1 << PROC_NET_SNMP_CYCLE_COUNTER_EXP
@@ -327,7 +327,7 @@ def generate_proc_net_snmp_metrics(
 
     if prev_proc_net_snmp is not None:
         metrics.append(
-            f"{PROC_NET_SNMP_INTERVAL_METRIC_NAME}{{"
+            f"{PROC_NET_SNMP_INTERVAL_METRIC}{{"
             + ",".join(
                 [
                     f'{INSTANCE_LABEL_NAME}="{instance}"',

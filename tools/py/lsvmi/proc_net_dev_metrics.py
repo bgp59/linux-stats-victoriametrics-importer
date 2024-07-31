@@ -47,7 +47,7 @@ PROC_NET_DEV_PRESENCE_METRIC = "proc_net_dev_present"
 
 PROC_NET_DEV_LABEL_NAME = "dev"
 
-PROC_NET_DEV_INTERVAL_METRIC_NAME = "proc_net_dev_metrics_delta_sec"
+PROC_NET_DEV_INTERVAL_METRIC = "proc_net_dev_metrics_delta_sec"
 
 test_cases_file = "proc_net_dev.json"
 
@@ -177,7 +177,7 @@ def generate_proc_net_dev_metrics(
                 )
 
     metrics.append(
-        f"{PROC_NET_DEV_INTERVAL_METRIC_NAME}{{"
+        f"{PROC_NET_DEV_INTERVAL_METRIC}{{"
         + ",".join(
             [
                 f'{INSTANCE_LABEL_NAME}="{instance}"',

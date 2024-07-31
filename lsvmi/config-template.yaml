@@ -83,6 +83,44 @@ proc_diskstats_metrics_config:
   mountinfo_pid: 0
 
 ###############################################
+# /proc/PID and /proc/PID/task/TID Metrics
+###############################################
+proc_pid_metrics_config:
+  interval: 1s
+  full_metrics_factor: 15
+  # Whether to scan threads (/proc/PID/task/TID) and include thread metrics:
+  thread_metrics: true
+  # The number of partitions used to divide the process list; each partition
+	# will generate a task and each task will run in a separate worker. A negative
+	# value signifies the same value as the number of workers.
+  num_partitions: -1
+  # Whether to generate metrics based on /proc/PID/status or not.
+	use_pid_status: true
+	# The list of the memory related fields in /proc/PID/status to use, as per
+	# https://www.kernel.org/doc/Documentation/filesystems/proc.rst (see "Contents
+	# of the status fields", "VmPeak" thru "HugetlbPages"). If left undefined then
+	# all fields will be used.
+	pid_status_mem_list: [
+    # "VmPeak",
+    # "VmSize",
+    # "VmLck",
+    # "VmPin",
+    # "VmHWM",
+    # "VmRSS",
+    "RssAnon",
+    "RssFile",
+    "RssShmem",
+    "VmData",
+    "VmStk",
+    "VmExe",
+    # "VmLib",
+    # "VmPTE",
+    # "VmPMD",
+    "VmSwap",
+    # "HugetlbPages",
+  ]
+
+###############################################
 # Statfs (AKA Disk Free/df) Metrics 
 ###############################################
 statfs_metrics_config:
@@ -144,8 +182,7 @@ compressor_pool_config:
   # they are returned after they are compressed. The pool max size controls only
   # how many idle buffers are being kept around, since they are created as many
   # as requested but they are discarded if they exceed the value below. A value
-  # is too small leads to object churning and a value too large may waste
-  # memory.
+  # too small leads to object churning and a value too large may waste memory.
   buffer_pool_max_size: 64
   # Metrics queue size, it should be deep enough to accommodate metrics up to
   # send_buffer_timeout:

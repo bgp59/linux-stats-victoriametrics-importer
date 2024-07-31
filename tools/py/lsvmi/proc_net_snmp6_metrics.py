@@ -208,7 +208,7 @@ PROC_NET_SNMP6_UDPLITE6_MEM_ERRORS_DELTA_METRIC = (
     "proc_net_snmp6_udplite6_mem_errors_delta"
 )
 
-PROC_NET_SNMP6_INTERVAL_METRIC_NAME = "proc_net_snmp6_metrics_delta_sec"
+PROC_NET_SNMP6_INTERVAL_METRIC = "proc_net_snmp6_metrics_delta_sec"
 
 PROC_NET_SNMP6_CYCLE_COUNTER_EXP = 4
 PROC_NET_SNMP6_CYCLE_COUNTER_NUM = 1 << PROC_NET_SNMP6_CYCLE_COUNTER_EXP
@@ -384,7 +384,7 @@ def generate_proc_net_snmp6_metrics(
         new_zero_delta[i] = delta == 0
 
     metrics.append(
-        f"{PROC_NET_SNMP6_INTERVAL_METRIC_NAME}{{"
+        f"{PROC_NET_SNMP6_INTERVAL_METRIC}{{"
         + ",".join(
             [
                 f'{INSTANCE_LABEL_NAME}="{instance}"',
