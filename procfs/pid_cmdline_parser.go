@@ -42,7 +42,8 @@ func PidCmdlinePath(procfsRoot string, pid, tid int) string {
 }
 func NewPidCmdline(procfsRoot string, pid, tid int) *PidCmdline {
 	return &PidCmdline{
-		path: PidCmdlinePath(procfsRoot, pid, tid),
+		procfsRoot: procfsRoot,
+		path:       PidCmdlinePath(procfsRoot, pid, tid),
 	}
 }
 

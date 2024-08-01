@@ -21,11 +21,12 @@ import (
 )
 
 const (
-	PROC_PID_METRICS_CONFIG_INTERVAL_DEFAULT            = "1s"
-	PROC_PID_METRICS_CONFIG_FULL_METRICS_FACTOR_DEFAULT = 15
-	PROC_PID_METRICS_CONFIG_THREAD_METRICS_DEFAULT      = true
-	PROC_PID_METRICS_CONFIG_NUM_PART_DEFAULT            = -1
-	PROC_PID_METRICS_USE_PID_STATUS_DEFAULT             = true
+	PROC_PID_METRICS_CONFIG_INTERVAL_DEFAULT                      = "1s"
+	PROC_PID_METRICS_CONFIG_FULL_METRICS_FACTOR_DEFAULT           = 15
+	PROC_PID_METRICS_CONFIG_THREAD_METRICS_DEFAULT                = true
+	PROC_PID_METRICS_CONFIG_PID_LIST_CACHE_VALID_INTERVAL_DEFAULT = "900ms"
+	PROC_PID_METRICS_CONFIG_NUM_PART_DEFAULT                      = -1
+	PROC_PID_METRICS_USE_PID_STATUS_DEFAULT                       = true
 
 	// This generator id:
 	PROC_PID_METRICS_ID = "proc_pid_metrics"
@@ -146,28 +147,33 @@ type ProcPidMetricsConfig struct {
 	// the previous scan. However every N cycles the full set is generated. Use
 	// 0 to generate full metrics every cycle.
 	FullMetricsFactor int `yaml:"full_metrics_factor"`
-	// Whether to scan threads (/proc/PID/task/TID) and include thread metrics:
-	ThreadMetrics bool `yaml:"thread_metrics"`
+	// How long the PID/TID cached list (shared among goroutines) is valid
+	// before a new reading of /proc directory is required, in
+	// time.ParseDuration() format:
+	PidListCacheValidInterval string `yaml:"pid_list_cache_valid_interval"`
 	// The number of partitions used to divide the process list; each partition
 	// will generate a task and each task will run in a separate worker. A
 	// negative value signifies the same value as the number of workers.
 	NumPartitions int `yaml:"num_partitions"`
+	// Whether to scan threads (/proc/PID/task/TID) and include thread metrics:
+	ThreadMetrics bool `yaml:"thread_metrics"`
 	// Whether to generate metrics based on /proc/PID/status or not.
 	UsePidStatus bool `yaml:"use_pid_status"`
 	// The list of the memory related in /proc/PID/status to use, as per
 	// https://www.kernel.org/doc/Documentation/filesystems/proc.rst (see
 	// "Contents of the status fields", "VmPeak" thru "HugetlbPages"). An
 	// empty/nil list will cause all fields to be used.
-	PidStatusMemList []string `yaml:"pid_status_mem_list"`
+	PidStatusMemoryFields []string `yaml:"pid_status_memory_fields"`
 }
 
 func DefaultProcPidMetricsConfig() *ProcPidMetricsConfig {
 	return &ProcPidMetricsConfig{
-		Interval:          PROC_PID_METRICS_CONFIG_INTERVAL_DEFAULT,
-		FullMetricsFactor: PROC_PID_METRICS_CONFIG_FULL_METRICS_FACTOR_DEFAULT,
-		ThreadMetrics:     PROC_PID_METRICS_CONFIG_THREAD_METRICS_DEFAULT,
-		NumPartitions:     PROC_PID_METRICS_CONFIG_NUM_PART_DEFAULT,
-		UsePidStatus:      PROC_PID_METRICS_USE_PID_STATUS_DEFAULT,
+		Interval:                  PROC_PID_METRICS_CONFIG_INTERVAL_DEFAULT,
+		FullMetricsFactor:         PROC_PID_METRICS_CONFIG_FULL_METRICS_FACTOR_DEFAULT,
+		ThreadMetrics:             PROC_PID_METRICS_CONFIG_THREAD_METRICS_DEFAULT,
+		PidListCacheValidInterval: PROC_PID_METRICS_CONFIG_PID_LIST_CACHE_VALID_INTERVAL_DEFAULT,
+		NumPartitions:             PROC_PID_METRICS_CONFIG_NUM_PART_DEFAULT,
+		UsePidStatus:              PROC_PID_METRICS_USE_PID_STATUS_DEFAULT,
 	}
 }
 
@@ -226,9 +232,9 @@ type ProcPidMetrics struct {
 	// The list of PidStatus memory indexes used for metrics; if empty then they
 	// are all used. Note: it is implemented as a map for fast lookup (is-in
 	// function).
-	pidStatusMemIndex map[int]bool
+	pidStatusMemValIndex map[int]bool
 
-	// The pid_list cache, shared among ProcPidMetrics instances:
+	// The PidTid list cache, shared among ProcPidMetrics instances:
 	pidListCache *procfs.PidListCache
 	// The partition for the above:
 	nPart int
@@ -282,6 +288,12 @@ type ProcPidMetrics struct {
 	pidOnlyMetricCount int
 
 	// Generator specific metrics formats:
+	pidActiveCountMetricFmt string
+	pidTotalCountMetricFmt  string
+	intervalMetricFmt       string
+
+	// Timestamp for the previous generator specific metrics:
+	prevTs time.Time
 
 	// A buffer for the timestamp:
 	tsBuf *bytes.Buffer
@@ -293,7 +305,7 @@ type ProcPidMetrics struct {
 	metricsQueue       MetricsQueue
 	procfsRoot         string
 	linuxClktckSec     float64
-	osBtimeMilli       int64
+	boottimeMsec       int64
 }
 
 func NewProcProcPidMetrics(cfg any, nPart int, pidListCache *procfs.PidListCache) (*ProcPidMetrics, error) {
@@ -319,7 +331,7 @@ func NewProcProcPidMetrics(cfg any, nPart int, pidListCache *procfs.PidListCache
 	}
 
 	procPidMetrics := &ProcPidMetrics{
-		id:                fmt.Sprintf("%s/%d", PROC_PID_METRICS_ID, nPart),
+		id:                fmt.Sprintf("%s#%d", PROC_PID_METRICS_ID, nPart),
 		interval:          interval,
 		fullMetricsFactor: procPidMetricsConfig.FullMetricsFactor,
 		usePidStatus:      procPidMetricsConfig.UsePidStatus,
@@ -333,7 +345,7 @@ func NewProcProcPidMetrics(cfg any, nPart int, pidListCache *procfs.PidListCache
 		metricsQueue:      GlobalMetricsQueue,
 		procfsRoot:        GlobalProcfsRoot,
 		linuxClktckSec:    utils.LinuxClktckSec,
-		osBtimeMilli:      utils.OSBtime.UnixMilli(),
+		boottimeMsec:      utils.OSBtime.UnixMilli(),
 	}
 
 	procPidMetricsLog.Infof("id=%s", procPidMetrics.id)
@@ -342,17 +354,17 @@ func NewProcProcPidMetrics(cfg any, nPart int, pidListCache *procfs.PidListCache
 	procPidMetricsLog.Infof("use_pid_status=%v", procPidMetrics.usePidStatus)
 
 	if procPidMetrics.usePidStatus {
-		if len(procPidMetricsConfig.PidStatusMemList) > 0 {
-			procPidMetrics.pidStatusMemIndex = make(map[int]bool)
-			for _, name := range procPidMetricsConfig.PidStatusMemList {
+		if len(procPidMetricsConfig.PidStatusMemoryFields) > 0 {
+			procPidMetrics.pidStatusMemValIndex = make(map[int]bool)
+			for _, name := range procPidMetricsConfig.PidStatusMemoryFields {
 				index := procfs.PidStatusNameToIndex(name)
 				if index < 0 {
 					return nil, fmt.Errorf("%q: invalid pid status memory metric selector", name)
 				}
-				procPidMetrics.pidStatusMemIndex[index] = true
+				procPidMetrics.pidStatusMemValIndex[index] = true
 			}
 		}
-		procPidMetricsLog.Infof("pid_status_mem_list=%v", procPidMetricsConfig.PidStatusMemList)
+		procPidMetricsLog.Infof("pid_status_memory_fields=%v", procPidMetricsConfig.PidStatusMemoryFields)
 	}
 
 	return procPidMetrics, nil
@@ -540,7 +552,7 @@ func (pm *ProcPidMetrics) initMetricsCache() {
 			len(procPidStatusPidTidMetricMemoryIndex),
 		)
 		for _, indexFmt := range pidStatusMemoryFmt {
-			if len(pm.pidStatusMemIndex) > 0 && !pm.pidStatusMemIndex[indexFmt.index] {
+			if len(pm.pidStatusMemValIndex) > 0 && !pm.pidStatusMemValIndex[indexFmt.index] {
 				continue
 			}
 			if procPidStatusPidTidMetricMemoryIndex[indexFmt.index] {
@@ -569,6 +581,10 @@ func (pm *ProcPidMetrics) initMetricsCache() {
 	pm.pidCmdlineMetricFmt = pm.buildMetricFmt(PROC_PID_CMDLINE_METRIC, "%c", PROC_PID_CMDLINE_LABEL_NAME)
 	pm.pidOnlyMetricCount++
 
+	pm.pidActiveCountMetricFmt = pm.buildMetricFmt(PROC_PID_ACTIVE_COUNT_METRIC, "%d", PROC_PID_PART_LABEL_NAME)
+	pm.pidTotalCountMetricFmt = pm.buildMetricFmt(PROC_PID_TOTAL_COUNT_METRIC, "%d", PROC_PID_PART_LABEL_NAME)
+	pm.intervalMetricFmt = pm.buildMetricFmt(PROC_PID_INTERVAL_METRIC, "%.6f", PROC_PID_PART_LABEL_NAME)
+
 	pm.metricCacheInitialized = true
 }
 
@@ -578,20 +594,20 @@ func (pm *ProcPidMetrics) initPidTidMetricsInfo(pidTid procfs.PidTid) *ProcPidTi
 		pidTidLabels += fmt.Sprintf(`,%s="%d"`, PROC_PID_TID_LABEL_NAME, pidTid.Tid)
 	}
 
-	starttimeMsec, err := strconv.ParseFloat(string(pm.pidStat.ByteSliceFields[procfs.PID_STAT_STARTTIME]), 64)
+	starttimeTck, err := strconv.ParseFloat(string(pm.pidStat.ByteSliceFields[procfs.PID_STAT_STARTTIME]), 64)
 	if err != nil {
 		procPidMetricsLog.Warnf(
 			`PID: %d, TID: %d, starttime: %v`,
 			pidTid.Pid, pidTid.Tid, err,
 		)
-		starttimeMsec = PROC_PID_STARTTIME_FALLBACK_VALUE
+		starttimeTck = PROC_PID_STARTTIME_FALLBACK_VALUE
 	}
 
 	pidTidMetricsInfo := &ProcPidTidMetricsInfo{
 		pidStat:               procfs.NewPidStat(pm.procfsRoot, pidTid.Pid, pidTid.Tid),
 		pidStatus:             procfs.NewPidStatus(pm.procfsRoot, pidTid.Pid, pidTid.Tid),
 		pidTidLabels:          pidTidLabels,
-		starttimeMsec:         strconv.FormatInt(pm.osBtimeMilli+int64(starttimeMsec*pm.linuxClktckSec*1000.), 10),
+		starttimeMsec:         strconv.FormatInt(pm.boottimeMsec+int64(starttimeTck*pm.linuxClktckSec*1000.), 10),
 		pidStatFltZeroDelta:   make([]bool, 2),
 		pidStatusCtxZeroDelta: make([]bool, 2),
 	}
@@ -600,23 +616,22 @@ func (pm *ProcPidMetrics) initPidTidMetricsInfo(pidTid procfs.PidTid) *ProcPidTi
 }
 
 func (pm *ProcPidMetrics) generateMetrics(
-	pidTid procfs.PidTid,
+	pidTidMetricsInfo *ProcPidTidMetricsInfo,
+	hasPrev bool,
+	isPid bool,
 	fullMetrics bool,
 	currTs time.Time,
 	buf *bytes.Buffer,
 ) int {
 	actualMetricsCount := 0
 
-	pidTidMetricsInfo, hasPrev := pm.metricsInfo[pidTid]
-	if !hasPrev {
-		pidTidMetricsInfo = pm.initPidTidMetricsInfo(pidTid)
-	}
 	currPidStat, prevPidStat := pm.pidStat, pidTidMetricsInfo.pidStat
 	currPidStatus, prevPidStatus := pm.pidStatus, pidTidMetricsInfo.pidStatus
 
 	fmt.Fprintf(pm.tsBuf, "%d", currTs.UnixMilli())
 	ts := pm.tsBuf.Bytes()
 
+	pm.scanNum++
 	// PID + TID metrics:
 	if changed := hasPrev && !bytes.Equal(
 		prevPidStat.ByteSliceFields[procfs.PID_STAT_STATE],
@@ -655,18 +670,20 @@ func (pm *ProcPidMetrics) generateMetrics(
 	)
 	actualMetricsCount++
 
-	for _, indexFmt := range pm.pidStatusPidTidMemoryMetricFmt {
-		if fullMetrics || !hasPrev || !bytes.Equal(
-			prevPidStatus.ByteSliceFields[indexFmt.index],
-			currPidStatus.ByteSliceFields[indexFmt.index]) {
-			fmt.Fprintf(
-				buf,
-				indexFmt.fmt,
-				currPidStatus.ByteSliceFieldUnit[indexFmt.index],
-				currPidStatus.ByteSliceFields[indexFmt.index],
-				ts,
-			)
-			actualMetricsCount++
+	if pm.usePidStatus {
+		for _, indexFmt := range pm.pidStatusPidTidMemoryMetricFmt {
+			if fullMetrics || !hasPrev || !bytes.Equal(
+				prevPidStatus.ByteSliceFields[indexFmt.index],
+				currPidStatus.ByteSliceFields[indexFmt.index]) {
+				fmt.Fprintf(
+					buf,
+					indexFmt.fmt,
+					currPidStatus.ByteSliceFieldUnit[indexFmt.index],
+					currPidStatus.ByteSliceFields[indexFmt.index],
+					ts,
+				)
+				actualMetricsCount++
+			}
 		}
 	}
 
@@ -720,23 +737,25 @@ func (pm *ProcPidMetrics) generateMetrics(
 		)
 		actualMetricsCount++
 
-		for i, indexFmt := range pm.pidStatusCtxMetricFmt {
-			delta := currPidStatus.NumericFields[indexFmt.index] - prevPidStatus.NumericFields[indexFmt.index]
-			if delta != 0 || fullMetrics || !pidTidMetricsInfo.pidStatusCtxZeroDelta[i] {
-				fmt.Fprintf(
-					buf,
-					indexFmt.fmt,
-					pidTidMetricsInfo.pidTidLabels,
-					delta,
-					ts,
-				)
-				actualMetricsCount++
+		if pm.usePidStatus {
+			for i, indexFmt := range pm.pidStatusCtxMetricFmt {
+				delta := currPidStatus.NumericFields[indexFmt.index] - prevPidStatus.NumericFields[indexFmt.index]
+				if delta != 0 || fullMetrics || !pidTidMetricsInfo.pidStatusCtxZeroDelta[i] {
+					fmt.Fprintf(
+						buf,
+						indexFmt.fmt,
+						pidTidMetricsInfo.pidTidLabels,
+						delta,
+						ts,
+					)
+					actualMetricsCount++
+				}
+				pidTidMetricsInfo.pidStatusCtxZeroDelta[i] = delta == 0
 			}
-			pidTidMetricsInfo.pidStatusCtxZeroDelta[i] = delta == 0
 		}
 	}
 
-	if pidTid.Tid != procfs.PID_STAT_PID_ONLY_TID {
+	if !isPid {
 		return actualMetricsCount
 	}
 
@@ -820,7 +839,7 @@ func (pm *ProcPidMetrics) generateMetrics(
 		}
 	}
 
-	if hasPrev {
+	if pm.usePidStatus && hasPrev {
 		// Check for change:
 		changed := false
 		for _, index := range []int{
@@ -895,7 +914,6 @@ func (pm *ProcPidMetrics) generateMetrics(
 
 // Satisfy the TaskActivity interface:
 func (pm *ProcPidMetrics) Execute() bool {
-
 	pidTidList, err := pm.pidListCache.GetPidTidList(pm.nPart, pm.pidTidList)
 	if err != nil {
 		procPidMetricsLog.Errorf("GetPidTidList(part=%d): %v", pm.nPart, err)
@@ -903,52 +921,64 @@ func (pm *ProcPidMetrics) Execute() bool {
 	}
 	pm.pidTidList = pidTidList // to be reused next time
 
+	hasPrev := pm.metricCacheInitialized
 	if !pm.metricCacheInitialized {
 		pm.initMetricsCache()
 	}
 
-	allPidTidActualMetricsCount := 0
+	actualMetricsCount := 0
 	bufTargetSize := pm.metricsQueue.GetTargetSize()
 	fullMetrics := false
-	pidTidCount := 0
+	tidCount := 0
 	activePidTidCount := 0
+	byteCount := 0
 	var buf *bytes.Buffer
 	for _, pidTid := range pidTidList {
-		if pidTid.Tid == procfs.PID_STAT_PID_ONLY_TID {
+		isPid := pidTid.Tid == procfs.PID_STAT_PID_ONLY_TID
+		if isPid {
 			fullMetrics = pm.cycleNum[pidTid.Pid&PROC_PID_METRICS_CYCLE_NUM_MASK] == 0
 		} else {
 			fullMetrics = pm.cycleNum[pidTid.Tid&PROC_PID_METRICS_CYCLE_NUM_MASK] == 0
-			pidTidCount++
+			tidCount++
 		}
 
 		pidTidMetricsInfo, hasPrev := pm.metricsInfo[pidTid]
+		if pm.pidStat == nil || !hasPrev {
+			pm.pidStat = procfs.NewPidStat(pm.procfsRoot, pidTid.Pid, pidTid.Tid)
+			err = pm.pidStat.Parse(nil)
+		} else {
+			err = pm.pidStat.Parse(pidTidMetricsInfo.pidStat)
+		}
+		if err != nil {
+			procPidMetricsLog.Error(err)
+			continue
+		}
 		if !hasPrev {
 			pidTidMetricsInfo = pm.initPidTidMetricsInfo(pidTid)
 		}
-		if pm.pidStat == nil {
-			pm.pidStat = procfs.NewPidStat(pm.procfsRoot, 0, 0) // they will be overwritten
-		}
-		err = pm.pidStat.Parse(pidTidMetricsInfo.pidStat)
-		if err != nil {
-			procPidMetricsLog.Error(err)
-			continue
-		}
-		if !hasPrev ||
-			pm.pidStat.NumericFields[procfs.PID_STAT_UTIME] != pidTidMetricsInfo.pidStat.NumericFields[procfs.PID_STAT_UTIME] ||
-			pm.pidStat.NumericFields[procfs.PID_STAT_STIME] != pidTidMetricsInfo.pidStat.NumericFields[procfs.PID_STAT_STIME] {
+
+		// Check for active PID:
+		if currNF, prevNF := pm.pidStat.NumericFields, pidTidMetricsInfo.pidStat.NumericFields; !hasPrev ||
+			currNF[procfs.PID_STAT_UTIME] != prevNF[procfs.PID_STAT_UTIME] ||
+			currNF[procfs.PID_STAT_STIME] != prevNF[procfs.PID_STAT_STIME] {
 			activePidTidCount++
 		} else if !fullMetrics {
+			// Inactive, non full metrics cycle. Mark it as scanned but otherwise do nothing:
+			pidTidMetricsInfo.scanNum = pm.scanNum
+			pidTidMetricsInfo.prevTs = pm.timeNowFn()
 			continue
 		}
-		if pm.pidStatus == nil {
-			pm.pidStatus = procfs.NewPidStatus(pm.procfsRoot, 0, 0) // they will be overwritten
+		if pm.usePidStatus {
+			if pm.pidStatus == nil {
+				pm.pidStatus = procfs.NewPidStatus(pm.procfsRoot, 0, 0) // they will be overwritten
+			}
+			err = pm.pidStatus.Parse(pidTidMetricsInfo.pidStatus)
+			if err != nil {
+				procPidMetricsLog.Error(err)
+				continue
+			}
 		}
-		err = pm.pidStatus.Parse(pidTidMetricsInfo.pidStatus)
-		if err != nil {
-			procPidMetricsLog.Error(err)
-			continue
-		}
-		if fullMetrics {
+		if fullMetrics && isPid {
 			if pm.pidCmdline == nil {
 				pm.pidCmdline = procfs.NewPidCmdline(pm.procfsRoot, 0, 0) // they will be overwritten
 			}
@@ -958,23 +988,110 @@ func (pm *ProcPidMetrics) Execute() bool {
 				continue
 			}
 		}
+
 		currTs := pm.timeNowFn()
 		if buf == nil {
 			buf = pm.metricsQueue.GetBuf()
 		}
-		actualMetricsCount := pm.generateMetrics(pidTid, fullMetrics, currTs, buf)
-		allPidTidActualMetricsCount += actualMetricsCount
+		actualMetricsCount += pm.generateMetrics(pidTidMetricsInfo, hasPrev, isPid, fullMetrics, currTs, buf)
 		if buf.Len() > bufTargetSize {
+			byteCount += buf.Len()
 			pm.metricsQueue.QueueBuf(buf)
 			buf = nil
 		}
+
+		// Swap per PID/TID scanners w/ the metrics generator ones:
+		pidTidMetricsInfo.pidStat, pm.pidStat = pm.pidStat, pidTidMetricsInfo.pidStat
+		if pm.usePidStatus {
+			pidTidMetricsInfo.pidStatus, pm.pidStatus = pm.pidStatus, pidTidMetricsInfo.pidStatus
+		}
+		// Mark it as scanned:
+		pidTidMetricsInfo.prevTs = currTs
+		pidTidMetricsInfo.scanNum = pm.scanNum
 	}
 
-	n := len(pidTidList)
-	allPidTidTotalMetricsCount := pm.pidTidMetricCount*n + pm.pidOnlyMetricCount*(n-pidTidCount)
-
-	if buf != nil {
-		pm.metricsQueue.QueueBuf(buf)
+	// Generator specific metrics:
+	currTs := pm.timeNowFn()
+	fmt.Fprintf(pm.tsBuf, "%d", currTs.UnixMilli())
+	ts := pm.tsBuf.Bytes()
+	if buf == nil {
+		buf = pm.metricsQueue.GetBuf()
 	}
+	fmt.Fprintf(buf, pm.pidActiveCountMetricFmt, activePidTidCount, ts)
+	fmt.Fprintf(buf, pm.pidTotalCountMetricFmt, activePidTidCount, ts)
+	actualMetricsCount += 2
+	if hasPrev {
+		fmt.Fprintf(buf, pm.intervalMetricFmt, currTs.Sub(pm.prevTs).Seconds(), ts)
+		actualMetricsCount++
+	}
+	byteCount += buf.Len()
+	pm.metricsQueue.QueueBuf(buf)
+	pm.prevTs = currTs
+
+	// Generator stats:
+	pidTidCount := len(pidTidList)
+	totalMetricsCount := pm.pidTidMetricCount*pidTidCount + pm.pidOnlyMetricCount*(pidTidCount-tidCount) + 3
+	GlobalMetricsGeneratorStatsContainer.Update(
+		pm.id, uint64(actualMetricsCount), uint64(totalMetricsCount), uint64(byteCount),
+	)
+
+	// Clean up, as needed, out-of-scope PID/TID's from cache:
+	if len(pm.metricsInfo) != pidTidCount {
+		for pidTid, pidTidMetricsInfo := range pm.metricsInfo {
+			if pidTidMetricsInfo.scanNum != pm.scanNum {
+				delete(pm.metricsInfo, pidTid)
+			}
+		}
+	}
+
 	return true
+}
+
+// Define and register the task builder:
+func ProcPidMetricsTaskBuilder(cfg *LsvmiConfig) ([]*Task, error) {
+	procPidMetricsConfig := cfg.ProcPidMetricsConfig
+
+	interval, err := time.ParseDuration(procPidMetricsConfig.Interval)
+	if err != nil {
+		return nil, fmt.Errorf("interval: %v", err)
+	}
+
+	if interval <= 0 {
+		procPidMetricsLog.Info("proc PID metrics disabled")
+		return nil, nil
+	}
+
+	nPart := procPidMetricsConfig.NumPartitions
+	if nPart <= 0 {
+		nPart = GlobalScheduler.numWorkers
+	}
+	validFor, err := time.ParseDuration(procPidMetricsConfig.PidListCacheValidInterval)
+	if err != nil {
+		return nil, fmt.Errorf("pid_list_cache_valid_interval: %v", err)
+	}
+	flags := procfs.PID_LIST_CACHE_PID_ENABLED
+	if procPidMetricsConfig.ThreadMetrics {
+		flags |= procfs.PID_LIST_CACHE_TID_ENABLED
+	}
+	procPidMetricsLog.Infof(
+		"num_partitions=%d (config), %d (using)",
+		procPidMetricsConfig.NumPartitions,
+		nPart,
+	)
+	procPidMetricsLog.Infof("pid_list_cache_valid_interval=%s", validFor)
+	pidListCache := procfs.NewPidListCache(GlobalProcfsRoot, nPart, validFor, flags)
+
+	tasks := make([]*Task, nPart)
+	for i := 0; i < nPart; i++ {
+		pm, err := NewProcProcPidMetrics(procPidMetricsConfig, i, pidListCache)
+		if err != nil {
+			return nil, err
+		}
+		tasks[i] = NewTask(pm.id, pm.interval, pm)
+	}
+	return tasks, nil
+}
+
+func init() {
+	TaskBuilders.Register(ProcPidMetricsTaskBuilder)
 }

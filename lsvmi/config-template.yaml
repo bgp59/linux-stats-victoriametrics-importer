@@ -88,19 +88,22 @@ proc_diskstats_metrics_config:
 proc_pid_metrics_config:
   interval: 1s
   full_metrics_factor: 15
+  # How long the PID/TID cached list (shared among goroutines) is valid before a
+  # new reading of /proc directory is required, in time.ParseDuration() format:
+  pid_list_cache_valid_interval: "900ms"
+  # The number of partitions used to divide the process list; each partition
+  # will generate a task and each task will run in a separate worker. A negative
+  # value signifies the same value as the number of workers.
+  num_partitions: -1
   # Whether to scan threads (/proc/PID/task/TID) and include thread metrics:
   thread_metrics: true
-  # The number of partitions used to divide the process list; each partition
-	# will generate a task and each task will run in a separate worker. A negative
-	# value signifies the same value as the number of workers.
-  num_partitions: -1
   # Whether to generate metrics based on /proc/PID/status or not.
-	use_pid_status: true
-	# The list of the memory related fields in /proc/PID/status to use, as per
-	# https://www.kernel.org/doc/Documentation/filesystems/proc.rst (see "Contents
-	# of the status fields", "VmPeak" thru "HugetlbPages"). If left undefined then
-	# all fields will be used.
-	pid_status_mem_list: [
+  use_pid_status: true
+  # The list of the memory related fields in /proc/PID/status to use, as per
+  # https://www.kernel.org/doc/Documentation/filesystems/proc.rst (see "Contents
+  # of the status fields", "VmPeak" thru "HugetlbPages"). If left undefined then
+  # all fields will be used.
+  pid_status_memory_fields: [
     # "VmPeak",
     # "VmSize",
     # "VmLck",
