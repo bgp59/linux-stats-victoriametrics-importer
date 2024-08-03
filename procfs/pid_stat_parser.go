@@ -24,9 +24,9 @@ const (
 //   associated w/ the metric, e.g. priority
 // - numerical: used for calculations, e.g. utime/stime
 
-// Note about PID stats parsers:
+// Notes about PID stats parsers:
 //
-// The metrics generator for PID stats will maintain a cache of previous scan
+// 1. The metrics generator for PID stats will maintain a cache of previous scan
 // objects on a per thread basis + an extra scratch object for the current scan.
 // The flow is as follows:
 //   pull previous_pid_stat object from cache for the target PID, TID
@@ -36,6 +36,19 @@ const (
 //   becomes the new scratch object
 // Therefore, unlike other parsers, the parse method should provide the ability
 // to change the path without allocating new objects.
+//
+// 2. To assist with unit testing PID stats parsers will be defined as
+// interfaces which can be replaced by test objects returning test case data.
+
+type PidStatParser interface {
+	UpdatePath(procfsRoot string, pid, tid int)
+	Parse(usePathFrom PidStatParser) error
+	GetByteSliceFields() [][]byte
+	GetNumericFields() []uint64
+	GetPath() *string
+}
+
+type NewPidStatParser func(procfsRoot string, pid, tid int) PidStatParser
 
 // Parsed data types:
 const (
@@ -45,12 +58,13 @@ const (
 
 type PidStat struct {
 	// As-is fields:
-	ByteSliceFields [][]byte
+	byteSliceFields [][]byte
 	// Numeric fields:
-	NumericFields []uint64
-	// The path file to read as a pointer (see Note about PID stats parsers):
+	numericFields []uint64
+	// The path file to read as a pointer to make it efficient to copy it from
+	// another object (see Note about PID stats parsers):
 	path *string
-	// Buffer to read the content of the file, also backing storage for the ByteSliceFields:
+	// Buffer to read the content of the file, also backing storage for the byteSliceFields:
 	fBuf *bytes.Buffer
 }
 
@@ -189,20 +203,25 @@ func PidStatPath(procfsRoot string, pid, tid int) string {
 	}
 }
 
-func NewPidStat(procfsRoot string, pid, tid int) *PidStat {
+func NewPidStat(procfsRoot string, pid, tid int) PidStatParser {
 	fPath := PidStatPath(procfsRoot, pid, tid)
 	return &PidStat{
-		ByteSliceFields: make([][]byte, PID_STAT_BYTE_SLICE_NUM_FIELDS),
-		NumericFields:   make([]uint64, PID_STAT_ULONG_FIELD_NUM_FIELDS),
+		byteSliceFields: make([][]byte, PID_STAT_BYTE_SLICE_NUM_FIELDS),
+		numericFields:   make([]uint64, PID_STAT_ULONG_FIELD_NUM_FIELDS),
 		path:            &fPath,
 		fBuf:            &bytes.Buffer{},
 	}
 }
 
+func (pidStat *PidStat) UpdatePath(procfsRoot string, pid, tid int) {
+	fPath := PidStatPath(procfsRoot, pid, tid)
+	pidStat.path = &fPath
+}
+
 // Parse file and update the fields.
-func (pidStat *PidStat) Parse(usePathFrom *PidStat) error {
+func (pidStat *PidStat) Parse(usePathFrom PidStatParser) error {
 	if usePathFrom != nil {
-		pidStat.path = usePathFrom.path
+		pidStat.path = usePathFrom.GetPath()
 	}
 	file, err := os.Open(*pidStat.path)
 	if err != nil {
@@ -249,7 +268,7 @@ func (pidStat *PidStat) Parse(usePathFrom *PidStat) error {
 	}
 
 	fieldNum := 2
-	pidStat.ByteSliceFields[PID_STAT_COMM] = buf[commStart:commEnd]
+	pidStat.byteSliceFields[PID_STAT_COMM] = buf[commStart:commEnd]
 
 	for pos := commEnd + 1; pos < l && fieldNum < PID_STAT_MAX_FIELD_NUM; pos++ {
 		for ; pos < l && isWhitespaceNl[buf[pos]]; pos++ {
@@ -268,7 +287,7 @@ func (pidStat *PidStat) Parse(usePathFrom *PidStat) error {
 		index := fieldHandling.index
 		switch fieldHandling.dataType {
 		case PID_STAT_BYTES_DATA:
-			pidStat.ByteSliceFields[index] = buf[fieldStart:pos]
+			pidStat.byteSliceFields[index] = buf[fieldStart:pos]
 		case PID_STAT_ULONG_DATA:
 			val := uint64(0)
 			for i := fieldStart; i < pos; i++ {
@@ -281,7 +300,7 @@ func (pidStat *PidStat) Parse(usePathFrom *PidStat) error {
 					)
 				}
 			}
-			pidStat.NumericFields[index] = val
+			pidStat.numericFields[index] = val
 		}
 	}
 	// Sanity check:
@@ -292,4 +311,16 @@ func (pidStat *PidStat) Parse(usePathFrom *PidStat) error {
 		)
 	}
 	return nil
+}
+
+func (pidStat *PidStat) GetByteSliceFields() [][]byte {
+	return pidStat.byteSliceFields
+}
+
+func (pidStat *PidStat) GetNumericFields() []uint64 {
+	return pidStat.numericFields
+}
+
+func (pidStat *PidStat) GetPath() *string {
+	return pidStat.path
 }

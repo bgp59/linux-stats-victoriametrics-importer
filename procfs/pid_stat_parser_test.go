@@ -60,7 +60,7 @@ primeProcfsRoot=%q, primePid=%d, PrimeTid=%d
 		tc.primeProcfsRoot, tc.primePid, tc.primeTid,
 	)
 
-	var pidStat, usePathFrom *PidStat
+	var pidStat, usePathFrom PidStatParser
 	if tc.primePid > 0 {
 		primeProcfsRoot := tc.primeProcfsRoot
 		if primeProcfsRoot == "" {
@@ -80,15 +80,18 @@ primeProcfsRoot=%q, primePid=%d, PrimeTid=%d
 		t.Fatal(err)
 	}
 	if tc.wantError != nil {
-		wantError := fmt.Errorf("%s: %v", *pidStat.path, tc.wantError)
+		wantError := fmt.Errorf("%s: %v", *pidStat.GetPath(), tc.wantError)
 		if err == nil || wantError.Error() != err.Error() {
 			t.Fatalf("error: want: %v, got: %v", wantError, err)
 		}
 	}
+
 	diffBuf := &bytes.Buffer{}
+
 	if tc.wantByteSliceFields != nil {
+		gotByteSliceFields := pidStat.GetByteSliceFields()
 		for i, wantValue := range tc.wantByteSliceFields {
-			gotValue := string(pidStat.ByteSliceFields[i])
+			gotValue := string(gotByteSliceFields[i])
 			if wantValue != gotValue {
 				fmt.Fprintf(
 					diffBuf,
@@ -101,8 +104,9 @@ primeProcfsRoot=%q, primePid=%d, PrimeTid=%d
 		}
 	}
 	if tc.wantNumericFields != nil {
+		gotNumericFields := pidStat.GetNumericFields()
 		for i, wantValue := range tc.wantNumericFields {
-			gotValue := pidStat.NumericFields[i]
+			gotValue := gotNumericFields[i]
 			if wantValue != gotValue {
 				fmt.Fprintf(diffBuf, "\nfield[%s]: want: %d, got: %d", pidStatNumericFieldsIndexName[i], wantValue, gotValue)
 			}

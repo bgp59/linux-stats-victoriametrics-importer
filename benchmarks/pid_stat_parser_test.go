@@ -21,7 +21,7 @@ var pidStatTestPid, pidStatTestTid int = 468, 486
 
 var testPidStatPidTidList []PidTid
 var testPidStatFilePathList []string
-var testPidStatList []*procfs.PidStat
+var testPidStatList []procfs.PidStatParser
 var testPidStatLock = &sync.Mutex{}
 
 func getTestPidStatPidTidListNoLock() ([]PidTid, error) {
@@ -57,7 +57,7 @@ func getTestPidStatFilePathList() ([]string, error) {
 	return testPidStatFilePathList, nil
 }
 
-func getTestPidStatList() ([]*procfs.PidStat, error) {
+func getTestPidStatList() ([]procfs.PidStatParser, error) {
 	testPidStatLock.Lock()
 	defer testPidStatLock.Unlock()
 	if testPidStatList == nil {
@@ -65,7 +65,7 @@ func getTestPidStatList() ([]*procfs.PidStat, error) {
 		if err != nil {
 			return nil, err
 		}
-		testPidStatList = make([]*procfs.PidStat, len(pidTidList))
+		testPidStatList = make([]procfs.PidStatParser, len(pidTidList))
 		for i, pidTid := range pidTidList {
 			testPidStatList[i] = procfs.NewPidStat(pidStatTestProcfsRoot, pidTid[0], pidTid[1])
 		}
@@ -158,7 +158,7 @@ func BenchmarkPidStatAllParserIO(b *testing.B) {
 	)
 }
 
-func benchmarkPidStatAllParser(pidStatList []*procfs.PidStat, b *testing.B) {
+func benchmarkPidStatAllParser(pidStatList []procfs.PidStatParser, b *testing.B) {
 	pidStat := procfs.NewPidStat(pidStatTestProcfsRoot, pidStatTestPid, pidStatTestTid)
 
 	b.ResetTimer()
