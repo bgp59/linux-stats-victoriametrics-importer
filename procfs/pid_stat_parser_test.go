@@ -60,27 +60,24 @@ primeProcfsRoot=%q, primePid=%d, PrimeTid=%d
 		tc.primeProcfsRoot, tc.primePid, tc.primeTid,
 	)
 
-	var pidStat, usePathFrom PidStatParser
+	pidStat := NewPidStat()
 	if tc.primePid > 0 {
 		primeProcfsRoot := tc.primeProcfsRoot
 		if primeProcfsRoot == "" {
 			primeProcfsRoot = tc.procfsRoot
 		}
-		pidStat = NewPidStat(primeProcfsRoot, tc.primePid, tc.primeTid)
-		err := pidStat.Parse(nil)
+		err := pidStat.Parse(BuildPidTidPath(primeProcfsRoot, tc.primePid, tc.primeTid))
 		if err != nil {
 			t.Fatal(err)
 		}
-		usePathFrom = NewPidStat(tc.procfsRoot, tc.pid, tc.tid)
-	} else {
-		pidStat = NewPidStat(tc.procfsRoot, tc.pid, tc.tid)
 	}
-	err := pidStat.Parse(usePathFrom)
+	pidTidPath := BuildPidTidPath(tc.procfsRoot, tc.pid, tc.tid)
+	err := pidStat.Parse(pidTidPath)
 	if tc.wantError == nil && err != nil {
 		t.Fatal(err)
 	}
 	if tc.wantError != nil {
-		wantError := fmt.Errorf("%s: %v", *pidStat.GetPath(), tc.wantError)
+		wantError := fmt.Errorf("%s: %v", path.Join(pidTidPath, "stat"), tc.wantError)
 		if err == nil || wantError.Error() != err.Error() {
 			t.Fatalf("error: want: %v, got: %v", wantError, err)
 		}
@@ -123,7 +120,7 @@ func TestPidStatParser(t *testing.T) {
 			name:       "field_mapping",
 			procfsRoot: pidStatTestDataDir,
 			pid:        1000,
-			tid:        PID_STAT_PID_ONLY_TID,
+			tid:        PID_ONLY_TID,
 			wantByteSliceFields: map[int]string{
 				PID_STAT_COMM:        "comm",
 				PID_STAT_STATE:       "state",
@@ -155,7 +152,7 @@ func TestPidStatParser(t *testing.T) {
 			name:       "reuse",
 			procfsRoot: pidStatTestDataDir,
 			pid:        1000,
-			tid:        PID_STAT_PID_ONLY_TID,
+			tid:        PID_ONLY_TID,
 			wantByteSliceFields: map[int]string{
 				PID_STAT_COMM:        "comm",
 				PID_STAT_STATE:       "state",
@@ -189,7 +186,7 @@ func TestPidStatParser(t *testing.T) {
 			pid:        468,
 			tid:        486,
 			primePid:   1000,
-			primeTid:   PID_STAT_PID_ONLY_TID,
+			primeTid:   PID_ONLY_TID,
 			wantByteSliceFields: map[int]string{
 				PID_STAT_COMM:        "rs:main Q:Reg",
 				PID_STAT_STATE:       "S",
@@ -221,7 +218,7 @@ func TestPidStatParser(t *testing.T) {
 			name:       "comm_too_long",
 			procfsRoot: pidStatTestDataDir,
 			pid:        1001,
-			tid:        PID_STAT_PID_ONLY_TID,
+			tid:        PID_ONLY_TID,
 			wantByteSliceFields: map[int]string{
 				PID_STAT_COMM:        "command longer than sixteen bytes",
 				PID_STAT_STATE:       "state",
@@ -253,7 +250,7 @@ func TestPidStatParser(t *testing.T) {
 			name:       "comm_utf8",
 			procfsRoot: pidStatTestDataDir,
 			pid:        1002,
-			tid:        PID_STAT_PID_ONLY_TID,
+			tid:        PID_ONLY_TID,
 			wantByteSliceFields: map[int]string{
 				PID_STAT_COMM:        "Nǐ hǎo shìjiè 你好世界",
 				PID_STAT_STATE:       "state",
@@ -285,28 +282,28 @@ func TestPidStatParser(t *testing.T) {
 			name:       "comm_missing_open_par",
 			procfsRoot: pidStatTestDataDir,
 			pid:        10000,
-			tid:        PID_STAT_PID_ONLY_TID,
+			tid:        PID_ONLY_TID,
 			wantError:  fmt.Errorf("cannot locate '('"),
 		},
 		{
 			name:       "comm_missing_close_par",
 			procfsRoot: pidStatTestDataDir,
 			pid:        10001,
-			tid:        PID_STAT_PID_ONLY_TID,
+			tid:        PID_ONLY_TID,
 			wantError:  fmt.Errorf("cannot locate ')'"),
 		},
 		{
 			name:       "conversion_error",
 			procfsRoot: pidStatTestDataDir,
 			pid:        10002,
-			tid:        PID_STAT_PID_ONLY_TID,
+			tid:        PID_ONLY_TID,
 			wantError:  fmt.Errorf(`field# 10: "_1000": invalid numerical value`),
 		},
 		{
 			name:       "not_enough_fields",
 			procfsRoot: pidStatTestDataDir,
 			pid:        10003,
-			tid:        PID_STAT_PID_ONLY_TID,
+			tid:        PID_ONLY_TID,
 			wantError:  fmt.Errorf("not enough fields: want: %d, got: %d", PID_STAT_MAX_FIELD_NUM, PID_STAT_MAX_FIELD_NUM-1),
 		},
 	} {

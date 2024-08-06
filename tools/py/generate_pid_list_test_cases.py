@@ -15,7 +15,7 @@ tc_procfs_root = os.path.relpath(
 # Should match ../../procfs/pid_list.go
 PID_LIST_CACHE_PID_ENABLED = 1 << 0
 PID_LIST_CACHE_TID_ENABLED = 1 << 1
-PID_STAT_PID_ONLY_TID = 0
+PID_ONLY_TID = -1
 
 
 @dataclass
@@ -45,7 +45,7 @@ if __name__ == "__main__":
             pid = int(p)
             if pid == 0:
                 continue
-            pid_tid_list.append(PidTid(pid, PID_STAT_PID_ONLY_TID))
+            pid_tid_list.append(PidTid(pid, PID_ONLY_TID))
         except ValueError:
             continue
         for t in os.listdir(os.path.join(procfs_proc_root_dir, p, "task")):
@@ -65,7 +65,7 @@ if __name__ == "__main__":
             pid_tid_lists = [[] for _ in range(n_part)]
             for pid_tid in pid_tid_list:
                 part = None
-                if pid_tid.Tid == PID_STAT_PID_ONLY_TID:
+                if pid_tid.Tid == PID_ONLY_TID:
                     if flags & PID_LIST_CACHE_PID_ENABLED:
                         part = pid_tid.Pid % n_part
                 elif flags & PID_LIST_CACHE_TID_ENABLED:

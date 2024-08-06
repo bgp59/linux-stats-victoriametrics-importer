@@ -63,22 +63,20 @@ primeProcfsRoot=%q, primePid=%d, PrimeTid=%d
 		tc.primeProcfsRoot, tc.primePid, tc.primeTid,
 	)
 
-	var pidStatus, usePathFrom *PidStatus
+	pidStatus := NewPidStatus()
 	if tc.primePid > 0 {
 		primeProcfsRoot := tc.primeProcfsRoot
 		if primeProcfsRoot == "" {
 			primeProcfsRoot = tc.procfsRoot
 		}
-		pidStatus = NewPidStatus(primeProcfsRoot, tc.primePid, tc.primeTid)
-		err := pidStatus.Parse(nil)
+		err := pidStatus.Parse(BuildPidTidPath(primeProcfsRoot, tc.primePid, tc.primeTid))
 		if err != nil {
 			t.Fatal(err)
 		}
-		usePathFrom = NewPidStatus(tc.procfsRoot, tc.pid, tc.tid)
-	} else {
-		pidStatus = NewPidStatus(tc.procfsRoot, tc.pid, tc.tid)
 	}
-	err := pidStatus.Parse(usePathFrom)
+
+	pidTidPath := BuildPidTidPath(tc.procfsRoot, tc.pid, tc.tid)
+	err := pidStatus.Parse(pidTidPath)
 
 	if tc.wantError != nil {
 		if err == nil || tc.wantError.Error() != err.Error() {
@@ -93,9 +91,11 @@ primeProcfsRoot=%q, primePid=%d, PrimeTid=%d
 
 	diffBuf := &bytes.Buffer{}
 
+	gotByteSliceFields := pidStatus.GetByteSliceFields()
+	gotByteSliceFieldUnit := pidStatus.GetByteSliceFieldUnit()
 	for index := range tc.wantByteSliceFieldValues {
 		wantVal := tc.wantByteSliceFieldValues[index]
-		gotVal := string(pidStatus.ByteSliceFields[index])
+		gotVal := string(gotByteSliceFields[index])
 		if wantVal != gotVal {
 			fmt.Fprintf(
 				diffBuf,
@@ -106,10 +106,10 @@ primeProcfsRoot=%q, primePid=%d, PrimeTid=%d
 			)
 			continue
 		}
-		if pidStatus.ByteSliceFields[index] != nil {
+		if gotByteSliceFields[index] != nil {
 			// Check unit as well:
 			wantUnit := tc.wantByteSliceFieldUnit[index]
-			gotUnit := string(pidStatus.ByteSliceFieldUnit[index])
+			gotUnit := string(gotByteSliceFieldUnit[index])
 			if wantUnit != gotUnit {
 				fmt.Fprintf(
 					diffBuf,
@@ -122,9 +122,10 @@ primeProcfsRoot=%q, primePid=%d, PrimeTid=%d
 		}
 	}
 
+	gotNumericFields := pidStatus.GetNumericFields()
 	for index := range tc.wantNumericFields {
 		wantVal := tc.wantNumericFields[index]
-		gotVal := pidStatus.NumericFields[index]
+		gotVal := gotNumericFields[index]
 		if wantVal != gotVal {
 			fmt.Fprintf(
 				diffBuf,
@@ -147,7 +148,7 @@ func TestPidStatusParser(t *testing.T) {
 			name:       "field_mapping",
 			procfsRoot: pidStatusTestDataDir,
 			pid:        1000,
-			tid:        PID_STAT_PID_ONLY_TID,
+			tid:        PID_ONLY_TID,
 			wantByteSliceFieldValues: map[int]string{
 				PID_STATUS_UID:               "900,901,902,903",
 				PID_STATUS_GID:               "1000,1001,1002,1003",
@@ -205,7 +206,7 @@ func TestPidStatusParser(t *testing.T) {
 			name:       "empty_fields",
 			procfsRoot: pidStatusTestDataDir,
 			pid:        1001,
-			tid:        PID_STAT_PID_ONLY_TID,
+			tid:        PID_ONLY_TID,
 			wantByteSliceFieldValues: map[int]string{
 				PID_STATUS_UID:               "900,901,902,903",
 				PID_STATUS_GID:               "1000,1001,1002,1003",
@@ -265,7 +266,7 @@ func TestPidStatusParser(t *testing.T) {
 			pid:        468,
 			tid:        486,
 			primePid:   1000,
-			primeTid:   PID_STAT_PID_ONLY_TID,
+			primeTid:   PID_ONLY_TID,
 			wantByteSliceFieldValues: map[int]string{
 				PID_STATUS_UID:               "10400,10401,10402,10403",
 				PID_STATUS_GID:               "11100,11101,11102,11103",
@@ -323,9 +324,9 @@ func TestPidStatusParser(t *testing.T) {
 			name:       "real_life_missing_fields",
 			procfsRoot: pidStatusTestDataDir,
 			pid:        98,
-			tid:        PID_STAT_PID_ONLY_TID,
+			tid:        PID_ONLY_TID,
 			primePid:   1000,
-			primeTid:   PID_STAT_PID_ONLY_TID,
+			primeTid:   PID_ONLY_TID,
 			wantByteSliceFieldValues: map[int]string{
 				PID_STATUS_UID:               "0,0,0,0",
 				PID_STATUS_GID:               "0,0,0,0",

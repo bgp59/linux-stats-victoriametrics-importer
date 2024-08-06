@@ -34,7 +34,7 @@ type PidCmdline struct {
 var pidCmdlineReadFileBufPool = ReadFileBufPool64k
 
 func PidCmdlinePath(procfsRoot string, pid, tid int) string {
-	if tid == PID_STAT_PID_ONLY_TID {
+	if tid == PID_ONLY_TID {
 		return path.Join(procfsRoot, strconv.Itoa(pid), "cmdline")
 	} else {
 		return path.Join(procfsRoot, strconv.Itoa(pid), "task", strconv.Itoa(tid), "cmdline")
@@ -56,7 +56,7 @@ func (pidCmdline *PidCmdline) ReturnBuf() {
 
 func (pidCmdline *PidCmdline) Parse(pid, tid int) error {
 	if pid > 0 {
-		if tid == PID_STAT_PID_ONLY_TID {
+		if tid == PID_ONLY_TID {
 			pidCmdline.path = path.Join(pidCmdline.procfsRoot, strconv.Itoa(pid), "cmdline")
 		} else {
 			pidCmdline.path = path.Join(pidCmdline.procfsRoot, strconv.Itoa(pid), "task", strconv.Itoa(tid), "cmdline")

@@ -1,5 +1,4 @@
-// Benchmarks for /proc/pid/stat parser Invoke the parser and additionally
-// simulate real life usage; the parsed data will be printed to a bytes.Buffer.
+// Benchmarks for /proc/pid/stat parser
 
 package benchmarks
 
@@ -7,7 +6,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"sync"
+	"path"
 	"testing"
 
 	"github.com/emypar/linux-stats-victoriametrics-importer/procfs"
@@ -16,77 +15,28 @@ import (
 	prom_procfs "github.com/prometheus/procfs"
 )
 
-var pidStatTestProcfsRoot = LSVMI_TESTDATA_PROCFS_ROOT
-var pidStatTestPid, pidStatTestTid int = 468, 486
-
-var testPidStatPidTidList []PidTid
-var testPidStatFilePathList []string
-var testPidStatList []procfs.PidStatParser
-var testPidStatLock = &sync.Mutex{}
-
-func getTestPidStatPidTidListNoLock() ([]PidTid, error) {
-	if testPidStatPidTidList == nil {
-		pidTidList, err := getPidTidList(pidStatTestProcfsRoot, false)
-		if err != nil {
-			return nil, err
-		}
-		testPidStatPidTidList = pidTidList
-	}
-	return testPidStatPidTidList, nil
-}
-
-func getTestPidStatPidTidList() ([]PidTid, error) {
-	testPidStatLock.Lock()
-	defer testPidStatLock.Unlock()
-	return getTestPidStatPidTidListNoLock()
-}
-
-func getTestPidStatFilePathList() ([]string, error) {
-	testPidStatLock.Lock()
-	defer testPidStatLock.Unlock()
-	if testPidStatFilePathList == nil {
-		pidTidList, err := getTestPidStatPidTidListNoLock()
-		if err != nil {
-			return nil, err
-		}
-		testPidStatFilePathList = make([]string, len(pidTidList))
-		for i, pidTid := range pidTidList {
-			testPidStatFilePathList[i] = procfs.PidStatPath(pidStatTestProcfsRoot, pidTid[0], pidTid[1])
-		}
-	}
-	return testPidStatFilePathList, nil
-}
-
-func getTestPidStatList() ([]procfs.PidStatParser, error) {
-	testPidStatLock.Lock()
-	defer testPidStatLock.Unlock()
-	if testPidStatList == nil {
-		pidTidList, err := getTestPidStatPidTidListNoLock()
-		if err != nil {
-			return nil, err
-		}
-		testPidStatList = make([]procfs.PidStatParser, len(pidTidList))
-		for i, pidTid := range pidTidList {
-			testPidStatList[i] = procfs.NewPidStat(pidStatTestProcfsRoot, pidTid[0], pidTid[1])
-		}
-	}
-	return testPidStatList, nil
-}
+var (
+	benchPidStatParserProcfsRoot = LSVMI_TESTDATA_PROCFS_ROOT
+	benchPidStatParserPid        = BENCH_PID
+	benchPidStatParserTid        = BENCH_TID
+	benchPidStatParserPidTidPath = procfs.BuildPidTidPath(
+		benchPidStatParserProcfsRoot, benchPidStatParserPid, benchPidStatParserTid)
+	benchPidStatParserPidTidStatPath     = path.Join(benchPidStatParserPidTidPath, "stat")
+	benchPidStatParserPidTidList         = benchPidTidList
+	benchPidStatParserPidTidPathList     = benchPidTidPathList
+	benchPidStatParserPidTidStatPathList = buildPidTidStatPathList(benchPidStatParserPidTidPathList, "stat")
+)
 
 // Benchmark a single file:
 
 func BenchmarkPidStatParserIO(b *testing.B) {
-	benchmarkFileRead(
-		procfs.PidStatPath(pidStatTestProcfsRoot, pidStatTestPid, pidStatTestTid),
-		BENCH_FILE_READ,
-		b,
-	)
+	benchmarkFileRead(benchPidStatParserPidTidStatPath, BENCH_FILE_READ, b)
 }
 
 func BenchmarkPidStatParser(b *testing.B) {
-	pidStat := procfs.NewPidStat(pidStatTestProcfsRoot, pidStatTestPid, pidStatTestTid)
+	pidStat := procfs.NewPidStat()
 	for n := 0; n < b.N; n++ {
-		err := pidStat.Parse(nil)
+		err := pidStat.Parse(benchPidStatParserPidTidPath)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -95,15 +45,15 @@ func BenchmarkPidStatParser(b *testing.B) {
 
 func BenchmarkPidStatParserProm(b *testing.B) {
 	var proc prom_procfs.Proc
-	fs, err := prom_procfs.NewFS(pidStatTestProcfsRoot)
+	fs, err := prom_procfs.NewFS(benchPidStatParserProcfsRoot)
 	if err != nil {
 		b.Fatal(err)
 	}
 
-	if pidStatTestTid != 0 {
-		proc, err = fs.Thread(pidStatTestPid, pidStatTestTid)
+	if benchPidStatParserTid != 0 {
+		proc, err = fs.Thread(benchPidStatParserPid, benchPidStatParserTid)
 	} else {
-		proc, err = fs.Proc(pidStatTestPid)
+		proc, err = fs.Proc(benchPidStatParserPid)
 	}
 	if err != nil {
 		b.Fatal(err)
@@ -116,14 +66,6 @@ func BenchmarkPidStatParserProm(b *testing.B) {
 		}
 	}
 }
-
-// goos: darwin
-// goarch: amd64
-// pkg: github.com/emypar/linux-stats-victoriametrics-importer/benchmarks
-// cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
-// BenchmarkPidStatParserIO   	   69865	     16900 ns/op	     152 B/op	       3 allocs/op
-// BenchmarkPidStatParser     	   66681	     17642 ns/op	     152 B/op	       3 allocs/op
-// BenchmarkPidStatParserProm 	   45513	     26569 ns/op	    1336 B/op	      31 allocs/op
 
 // Benchmark all files (closer to real life situation):
 
@@ -148,39 +90,30 @@ func benchmarkPidStatAllParserIO(fPathList []string, b *testing.B) {
 }
 
 func BenchmarkPidStatAllParserIO(b *testing.B) {
-	fPathList, err := getTestPidStatFilePathList()
-	if err != nil {
-		b.Fatal(err)
-	}
 	b.Run(
-		fmt.Sprintf("NFiles=%d", len(fPathList)),
-		func(b *testing.B) { benchmarkPidStatAllParserIO(fPathList, b) },
+		fmt.Sprintf("NFiles=%d", len(benchPidStatParserPidTidStatPathList)),
+		func(b *testing.B) { benchmarkPidStatAllParserIO(benchPidStatParserPidTidStatPathList, b) },
 	)
 }
 
-func benchmarkPidStatAllParser(pidStatList []procfs.PidStatParser, b *testing.B) {
-	pidStat := procfs.NewPidStat(pidStatTestProcfsRoot, pidStatTestPid, pidStatTestTid)
+func benchmarkPidStatAllParser(pidTidPathList []string, b *testing.B) {
+	pidStat := procfs.NewPidStat()
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		for i := 0; i < len(pidStatList); i++ {
-			err := pidStat.Parse(pidStatList[i])
+		for _, pidTidPath := range pidTidPathList {
+			err := pidStat.Parse(pidTidPath)
 			if err != nil {
 				b.Fatal(err)
 			}
-			pidStatList[i], pidStat = pidStat, pidStatList[i]
 		}
 	}
 }
 
 func BenchmarkPidStatAllParser(b *testing.B) {
-	pidStatList, err := getTestPidStatList()
-	if err != nil {
-		b.Fatal(err)
-	}
 	b.Run(
-		fmt.Sprintf("NPidTid=%d", len(pidStatList)),
-		func(b *testing.B) { benchmarkPidStatAllParser(pidStatList, b) },
+		fmt.Sprintf("NPidTid=%d", len(benchPidStatParserPidTidPathList)),
+		func(b *testing.B) { benchmarkPidStatAllParser(benchPidStatParserPidTidPathList, b) },
 	)
 }
 
@@ -193,7 +126,7 @@ func benchmarkPidStatAllParserProm(fs prom_procfs.FS, pidTidList []PidTid, b *te
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		for _, pidTid := range pidTidList {
-			if pidTid[1] != 0 {
+			if pidTid[1] > 0 {
 				proc, err = fs.Thread(pidTid[0], pidTid[1])
 			} else {
 				proc, err = fs.Proc(pidTid[0])
@@ -210,25 +143,13 @@ func benchmarkPidStatAllParserProm(fs prom_procfs.FS, pidTidList []PidTid, b *te
 }
 
 func BenchmarkPidStatAllParserProm(b *testing.B) {
-	fs, err := prom_procfs.NewFS(pidStatTestProcfsRoot)
-	if err != nil {
-		b.Fatal(err)
-	}
-	pidTidList, err := getTestPidStatPidTidList()
+	fs, err := prom_procfs.NewFS(benchPidStatParserProcfsRoot)
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	b.Run(
-		fmt.Sprintf("NPidTid=%d", len(pidTidList)),
-		func(b *testing.B) { benchmarkPidStatAllParserProm(fs, pidTidList, b) },
+		fmt.Sprintf("NPidTid=%d", len(benchPidStatParserPidTidList)),
+		func(b *testing.B) { benchmarkPidStatAllParserProm(fs, benchPidStatParserPidTidList, b) },
 	)
 }
-
-// goos: darwin
-// goarch: amd64
-// pkg: github.com/emypar/linux-stats-victoriametrics-importer/benchmarks
-// cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
-// BenchmarkPidStatAllParserIO/NFiles=241         	     265	   4287871 ns/op	   35229 B/op	     723 allocs/op
-// BenchmarkPidStatAllParser/NPidTid=241          	     278	   4358144 ns/op	   35229 B/op	     723 allocs/op
-// BenchmarkPidStatAllParserProm/NPidTid=241      	     146	   8092249 ns/op	  381361 B/op	    7232 allocs/op

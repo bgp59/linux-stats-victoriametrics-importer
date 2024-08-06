@@ -11,7 +11,6 @@ package procfs
 import (
 	"os"
 	"path"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -96,48 +95,59 @@ func getDirNames(dir string) ([]string, error) {
 	return names, err
 }
 
-func (c *PidListCache) IsEnabledFor(flags uint32) bool {
-	return c.flags&flags > 0
+func (pidListCache *PidListCache) IsEnabledFor(flags uint32) bool {
+	return pidListCache.flags&flags > 0
 }
 
-func (c *PidListCache) Refresh(lockAcquired bool) error {
+func (pidListCache *PidListCache) Refresh(lockAcquired bool) error {
 	if !lockAcquired {
-		c.lock.Lock()
-		defer c.lock.Unlock()
+		pidListCache.lock.Lock()
+		defer pidListCache.lock.Unlock()
 	}
 
-	if c.pidLists == nil {
-		c.pidLists = make([][]PidTid, c.nPart)
-		for i := 0; i < c.nPart; i++ {
-			c.pidLists[i] = make([]PidTid, 0)
+	if pidListCache.pidLists == nil {
+		pidListCache.pidLists = make([][]PidTid, pidListCache.nPart)
+		for i := 0; i < pidListCache.nPart; i++ {
+			pidListCache.pidLists[i] = make([]PidTid, 0)
 		}
 	} else {
-		for i := 0; i < c.nPart; i++ {
-			c.pidLists[i] = c.pidLists[i][0:0]
+		for i := 0; i < pidListCache.nPart; i++ {
+			pidListCache.pidLists[i] = pidListCache.pidLists[i][0:0]
 		}
 	}
 
-	names, err := getDirNames(c.procfsRoot)
+	names, err := getDirNames(pidListCache.procfsRoot)
 	if err != nil {
 		return err
 	}
 
-	mask, nPart, useMask := c.mask, c.nPart, c.mask > 0
-	isPidEnabled := c.flags&PID_LIST_CACHE_PID_ENABLED > 0
-	isTidEnabled := c.flags&PID_LIST_CACHE_TID_ENABLED > 0
+	mask, nPart, useMask := pidListCache.mask, pidListCache.nPart, pidListCache.mask > 0
+	isPidEnabled := pidListCache.flags&PID_LIST_CACHE_PID_ENABLED > 0
+	isTidEnabled := pidListCache.flags&PID_LIST_CACHE_TID_ENABLED > 0
 	numEntries := 0
 	for _, name := range names {
-		var part int
+		var (
+			part     int
+			pid, tid int
+			pidTid   PidTid
+		)
 
-		pid64, err := strconv.ParseInt(name, 10, 64)
-		if err != nil {
+		// Convert to number by hand, hopefully it is faster that strconv.ParseInt:
+		pid = 0
+		for _, c := range name {
+			if d := int(c - '0'); 0 <= d && d <= 9 {
+				pid = (pid << 3) + (pid << 1) + d
+			} else {
+				pid = -1
+				break
+			}
+		}
+		if pid <= 0 {
 			continue
 		}
-		pid := int(pid64)
-		if pid == 0 {
-			// Not a real life scenario, however test data may have it:
-			continue
-		}
+
+		pidTid.Pid = pid
+		pidTid.Tid = PID_ONLY_TID
 
 		if isPidEnabled {
 			if useMask {
@@ -145,68 +155,76 @@ func (c *PidListCache) Refresh(lockAcquired bool) error {
 			} else {
 				part = pid % nPart
 			}
-			c.pidLists[part] = append(c.pidLists[part], PidTid{pid, PID_STAT_PID_ONLY_TID})
+			pidListCache.pidLists[part] = append(pidListCache.pidLists[part], pidTid)
 			numEntries += 1
 		}
 		if isTidEnabled {
 			// TID's belonging to PID:
-			names, err := getDirNames(path.Join(c.procfsRoot, name, "task"))
+			names, err := getDirNames(path.Join(pidListCache.procfsRoot, name, "task"))
 			if err != nil {
 				// Silently ignore, maybe the PID just went away:
 				continue
 			}
 			for _, name := range names {
-				tid64, err := strconv.ParseInt(name, 10, 64)
-				if err != nil {
+				tid = 0
+				for _, c := range name {
+					if d := int(c - '0'); 0 <= d && d <= 9 {
+						tid = (tid << 3) + (tid << 1) + d
+					} else {
+						tid = -1
+						break
+					}
+				}
+				if tid <= 0 {
 					continue
 				}
-				tid := int(tid64)
+				pidTid.Tid = tid
 				if useMask {
-					part = tid & c.mask
+					part = tid & pidListCache.mask
 				} else {
-					part = tid % c.nPart
+					part = tid % pidListCache.nPart
 				}
-				c.pidLists[part] = append(c.pidLists[part], PidTid{pid, tid})
+				pidListCache.pidLists[part] = append(pidListCache.pidLists[part], pidTid)
 				numEntries += 1
 			}
 		}
 	}
-	c.retrievedTime = time.Now()
-	c.refreshCount += 1
+	pidListCache.retrievedTime = time.Now()
+	pidListCache.refreshCount += 1
 	return nil
 }
 
-func (c *PidListCache) GetPidTidList(part int, into []PidTid) ([]PidTid, error) {
-	if part < 0 || part >= c.nPart {
+func (pidListCache *PidListCache) GetPidTidList(part int, into []PidTid) ([]PidTid, error) {
+	if part < 0 || part >= pidListCache.nPart {
 		return nil, nil
 	}
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if time.Since(c.retrievedTime) > c.validFor {
-		err := c.Refresh(true)
+	pidListCache.lock.Lock()
+	defer pidListCache.lock.Unlock()
+	if time.Since(pidListCache.retrievedTime) > pidListCache.validFor {
+		err := pidListCache.Refresh(true)
 		if err != nil {
 			return nil, err
 		}
 	}
-	pidListLen := len(c.pidLists[part])
+	pidListLen := len(pidListCache.pidLists[part])
 	if into == nil || cap(into) < pidListLen {
 		into = make([]PidTid, pidListLen)
 	} else {
 		into = into[:pidListLen]
 	}
-	copy(into, c.pidLists[part])
+	copy(into, pidListCache.pidLists[part])
 	return into, nil
 }
 
 // Mainly useful for testing:
-func (c *PidListCache) Invalidate() {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	c.retrievedTime = time.Now().Add(-2 * c.validFor) // this should force a refresh at the next call
+func (pidListCache *PidListCache) Invalidate() {
+	pidListCache.lock.Lock()
+	defer pidListCache.lock.Unlock()
+	pidListCache.retrievedTime = time.Now().Add(-2 * pidListCache.validFor) // this should force a refresh at the next call
 }
 
-func (c *PidListCache) GetRefreshCount() uint64 {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	return c.refreshCount
+func (pidListCache *PidListCache) GetRefreshCount() uint64 {
+	pidListCache.lock.Lock()
+	defer pidListCache.lock.Unlock()
+	return pidListCache.refreshCount
 }

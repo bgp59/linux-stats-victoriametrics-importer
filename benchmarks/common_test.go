@@ -15,6 +15,8 @@ import (
 
 const (
 	LSVMI_TESTDATA_PROCFS_ROOT = "../testdata/lsvmi/proc"
+	BENCH_PID                  = 468
+	BENCH_TID                  = 486
 )
 
 const (
@@ -91,7 +93,7 @@ func getPidTidList(procfsRoot string, pidOnly bool) ([]PidTid, error) {
 		name := dirEntry.Name()
 		pid, err := strconv.Atoi(name)
 		if err == nil && pid > 0 {
-			pidTidList = append(pidTidList, PidTid{pid, procfs.PID_STAT_PID_ONLY_TID})
+			pidTidList = append(pidTidList, PidTid{pid, procfs.PID_ONLY_TID})
 			if !pidOnly {
 				dirEntries, err := os.ReadDir(path.Join(procfsRoot, name, "task"))
 				if err == nil {
@@ -107,3 +109,54 @@ func getPidTidList(procfsRoot string, pidOnly bool) ([]PidTid, error) {
 	}
 	return pidTidList, nil
 }
+
+func buildPidTidLists(procfsRoot string, pidOnly bool) ([]PidTid, []string, error) {
+	dirEntries, err := os.ReadDir(procfsRoot)
+	if err != nil {
+		return nil, nil, err
+	}
+	pidTidList := make([]PidTid, 0)
+	pidTidPathList := make([]string, 0)
+	for _, dirEntry := range dirEntries {
+		name := dirEntry.Name()
+		pid, err := strconv.Atoi(name)
+		if err == nil && pid > 0 {
+			pidTidList = append(pidTidList, PidTid{pid, procfs.PID_ONLY_TID})
+			pidRoot := path.Join(procfsRoot, name)
+			pidTidPathList = append(pidTidPathList, pidRoot)
+			taskRoot := path.Join(pidRoot, "task")
+			if !pidOnly {
+				dirEntries, err := os.ReadDir(taskRoot)
+				if err == nil {
+					for _, dirEntry := range dirEntries {
+						name := dirEntry.Name()
+						tid, err := strconv.Atoi(name)
+						if err == nil && tid > 0 {
+							pidTidList = append(pidTidList, PidTid{pid, tid})
+							pidTidPathList = append(pidTidPathList, path.Join(taskRoot, name))
+						}
+					}
+				}
+			}
+		}
+	}
+	return pidTidList, pidTidPathList, nil
+}
+
+func buildPidTidStatPathList(pidTidPathList []string, statPath string) []string {
+	statPathList := make([]string, len(pidTidPathList))
+	for i, pidTidPath := range pidTidPathList {
+		statPathList[i] = path.Join(pidTidPath, statPath)
+	}
+	return statPathList
+}
+
+func initPidTidLists(procfsRoot string, pidOnly bool) ([]PidTid, []string) {
+	pidTidList, pidTidPathList, err := buildPidTidLists(procfsRoot, pidOnly)
+	if err != nil {
+		panic(err)
+	}
+	return pidTidList, pidTidPathList
+}
+
+var benchPidTidList, benchPidTidPathList = initPidTidLists(LSVMI_TESTDATA_PROCFS_ROOT, false)

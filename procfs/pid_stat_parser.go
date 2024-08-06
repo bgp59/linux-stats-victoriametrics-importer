@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strconv"
 )
 
 // "486 (rs:main Q:Reg) S 1 468 468 0 -1 1077936192 44 0 0 0 0 2 0 0 20 0 4 0 898 227737600 1340 18446744073709551615 94649719967744 94649720406605 140724805212720 0 0 0 2146171647 16781830 3227649 1 0 0 -1 0 0 0 0 0 0 94649720624720 94649720664912 94649728393216 140724805218000 140724805218029 140724805218029 140724805218277 0\n"
@@ -15,8 +14,6 @@ import (
 const (
 	// The max size of comm, defined in include/linux/sched.h:
 	TASK_COMM_LEN = 16
-	// Special TID to indicate that the stats are for PID only:
-	PID_STAT_PID_ONLY_TID = 0
 )
 
 // The data gleaned from this file is of two types, depending on its use case:
@@ -24,28 +21,10 @@ const (
 //   associated w/ the metric, e.g. priority
 // - numerical: used for calculations, e.g. utime/stime
 
-// Notes about PID stats parsers:
-//
-// 1. The metrics generator for PID stats will maintain a cache of previous scan
-// objects on a per thread basis + an extra scratch object for the current scan.
-// The flow is as follows:
-//   pull previous_pid_stat object from cache for the target PID, TID
-//   invoke parse method on scratch_pid_stat using the file path from previous_pid_stat
-//   compare scratch_pid_stat v. previous_pid_stat for deltas
-//   scratch_pid_stat becomes the new state in the cache and the freed previous_pid_stat
-//   becomes the new scratch object
-// Therefore, unlike other parsers, the parse method should provide the ability
-// to change the path without allocating new objects.
-//
-// 2. To assist with unit testing PID stats parsers will be defined as
-// interfaces which can be replaced by test objects returning test case data.
-
 type PidStatParser interface {
-	UpdatePath(procfsRoot string, pid, tid int)
-	Parse(usePathFrom PidStatParser) error
+	Parse(pidTidPath string) error
 	GetByteSliceFields() [][]byte
 	GetNumericFields() []uint64
-	GetPath() *string
 }
 
 type NewPidStatParser func(procfsRoot string, pid, tid int) PidStatParser
@@ -61,9 +40,6 @@ type PidStat struct {
 	byteSliceFields [][]byte
 	// Numeric fields:
 	numericFields []uint64
-	// The path file to read as a pointer to make it efficient to copy it from
-	// another object (see Note about PID stats parsers):
-	path *string
 	// Buffer to read the content of the file, also backing storage for the byteSliceFields:
 	fBuf *bytes.Buffer
 }
@@ -195,35 +171,18 @@ var pidStatFieldHandling = [PID_STAT_MAX_FIELD_NUM + 1]*PidStatFieldHandling{
 	// (52) exit_code  %d  (since Linux 3.5)  [PT]
 }
 
-func PidStatPath(procfsRoot string, pid, tid int) string {
-	if tid == PID_STAT_PID_ONLY_TID {
-		return path.Join(procfsRoot, strconv.Itoa(pid), "stat")
-	} else {
-		return path.Join(procfsRoot, strconv.Itoa(pid), "task", strconv.Itoa(tid), "stat")
-	}
-}
-
-func NewPidStat(procfsRoot string, pid, tid int) PidStatParser {
-	fPath := PidStatPath(procfsRoot, pid, tid)
+func NewPidStat() PidStatParser {
 	return &PidStat{
 		byteSliceFields: make([][]byte, PID_STAT_BYTE_SLICE_NUM_FIELDS),
 		numericFields:   make([]uint64, PID_STAT_ULONG_FIELD_NUM_FIELDS),
-		path:            &fPath,
 		fBuf:            &bytes.Buffer{},
 	}
 }
 
-func (pidStat *PidStat) UpdatePath(procfsRoot string, pid, tid int) {
-	fPath := PidStatPath(procfsRoot, pid, tid)
-	pidStat.path = &fPath
-}
-
 // Parse file and update the fields.
-func (pidStat *PidStat) Parse(usePathFrom PidStatParser) error {
-	if usePathFrom != nil {
-		pidStat.path = usePathFrom.GetPath()
-	}
-	file, err := os.Open(*pidStat.path)
+func (pidStat *PidStat) Parse(pidTidPath string) error {
+	pidStatPath := path.Join(pidTidPath, "stat")
+	file, err := os.Open(pidStatPath)
 	if err != nil {
 		return err
 	}
@@ -246,7 +205,7 @@ func (pidStat *PidStat) Parse(usePathFrom PidStatParser) error {
 		}
 	}
 	if commStart < 0 {
-		return fmt.Errorf("%s: cannot locate '('", *pidStat.path)
+		return fmt.Errorf("%s: cannot locate '('", pidStatPath)
 	}
 	// Locate ')' for comm end, it should be at most TASK_COMM_LEN after
 	// commStart:
@@ -263,7 +222,7 @@ func (pidStat *PidStat) Parse(usePathFrom PidStatParser) error {
 		for ; commEnd >= commStart && buf[commEnd] != ')'; commEnd-- {
 		}
 		if commEnd < commStart {
-			return fmt.Errorf("%s: cannot locate ')'", *pidStat.path)
+			return fmt.Errorf("%s: cannot locate ')'", pidStatPath)
 		}
 	}
 
@@ -296,7 +255,7 @@ func (pidStat *PidStat) Parse(usePathFrom PidStatParser) error {
 				} else {
 					return fmt.Errorf(
 						"%s: field# %d: %q: invalid numerical value",
-						*pidStat.path, fieldNum, string(buf[fieldStart:pos]),
+						pidStatPath, fieldNum, string(buf[fieldStart:pos]),
 					)
 				}
 			}
@@ -307,7 +266,7 @@ func (pidStat *PidStat) Parse(usePathFrom PidStatParser) error {
 	if fieldNum != PID_STAT_MAX_FIELD_NUM {
 		return fmt.Errorf(
 			"%s: not enough fields: want: %d, got: %d",
-			*pidStat.path, PID_STAT_MAX_FIELD_NUM, fieldNum,
+			pidStatPath, PID_STAT_MAX_FIELD_NUM, fieldNum,
 		)
 	}
 	return nil
@@ -319,8 +278,4 @@ func (pidStat *PidStat) GetByteSliceFields() [][]byte {
 
 func (pidStat *PidStat) GetNumericFields() []uint64 {
 	return pidStat.numericFields
-}
-
-func (pidStat *PidStat) GetPath() *string {
-	return pidStat.path
 }

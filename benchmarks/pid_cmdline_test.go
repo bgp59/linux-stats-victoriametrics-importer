@@ -10,7 +10,7 @@ import (
 var (
 	pidCmdlineProcfsRoot = LSVMI_TESTDATA_PROCFS_ROOT
 	pidCmdlineTestPid    = 586
-	pidCmdlineTestTid    = procfs.PID_STAT_PID_ONLY_TID
+	pidCmdlineTestTid    = procfs.PID_ONLY_TID
 )
 
 func BenchmarkPidCmdlineParserIO(b *testing.B) {

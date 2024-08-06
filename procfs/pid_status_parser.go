@@ -93,14 +93,11 @@ const (
 
 type PidStatus struct {
 	// As-is fields:
-	ByteSliceFields [][]byte
-	// ByteSliceFieldUnit:
-	ByteSliceFieldUnit [][]byte
+	byteSliceFields [][]byte
+	// byteSliceFieldUnit:
+	byteSliceFieldUnit [][]byte
 	// Numeric fields:
-	NumericFields []uint64
-	// The path file to read as a pointer (see "Note about PID stats parsers" in
-	// pid_stat_parser.go):
-	path *string
+	numericFields []uint64
 }
 
 type PidStatusLineHandling struct {
@@ -154,36 +151,32 @@ func PidStatusNameToIndex(name string) int {
 }
 
 func PidStatusPath(procfsRoot string, pid, tid int) string {
-	if tid == PID_STAT_PID_ONLY_TID {
+	if tid == PID_ONLY_TID {
 		return path.Join(procfsRoot, strconv.Itoa(pid), "status")
 	} else {
 		return path.Join(procfsRoot, strconv.Itoa(pid), "task", strconv.Itoa(tid), "status")
 	}
 }
 
-func NewPidStatus(procfsRoot string, pid, tid int) *PidStatus {
-	fPath := PidStatusPath(procfsRoot, pid, tid)
+func NewPidStatus() *PidStatus {
 	return &PidStatus{
-		ByteSliceFields:    make([][]byte, PID_STATUS_BYTE_SLICE_NUM_FIELDS),
-		ByteSliceFieldUnit: make([][]byte, PID_STATUS_BYTE_SLICE_NUM_FIELDS),
-		NumericFields:      make([]uint64, PID_STATUS_ULONG_NUM_FIELDS),
-		path:               &fPath,
+		byteSliceFields:    make([][]byte, PID_STATUS_BYTE_SLICE_NUM_FIELDS),
+		byteSliceFieldUnit: make([][]byte, PID_STATUS_BYTE_SLICE_NUM_FIELDS),
+		numericFields:      make([]uint64, PID_STATUS_ULONG_NUM_FIELDS),
 	}
 }
 
-func (pidStatus *PidStatus) Parse(usePathFrom *PidStatus) error {
-	if usePathFrom != nil {
-		pidStatus.path = usePathFrom.path
-	}
-	fBuf, err := pidStatusReadFileBufPool.ReadFile(*pidStatus.path)
+func (pidStatus *PidStatus) Parse(pidTidPath string) error {
+	pidStatusPath := path.Join(pidTidPath, "status")
+	fBuf, err := pidStatusReadFileBufPool.ReadFile(pidStatusPath)
 	defer pidStatusReadFileBufPool.ReturnBuf(fBuf)
 	if err != nil {
 		return err
 	}
 	buf, l := fBuf.Bytes(), fBuf.Len()
 
-	byteSliceFields, byteSliceFieldUnit := pidStatus.ByteSliceFields, pidStatus.ByteSliceFieldUnit
-	numericFields := pidStatus.NumericFields
+	byteSliceFields, byteSliceFieldUnit := pidStatus.byteSliceFields, pidStatus.byteSliceFieldUnit
+	numericFields := pidStatus.numericFields
 
 	pos, lineNum, eol := 0, 0, true
 	// Keep track of found fields; those not found should be cleared at the end:
@@ -220,7 +213,7 @@ func (pidStatus *PidStatus) Parse(usePathFrom *PidStatus) error {
 		if prefixEndPos <= prefixStartPos {
 			return fmt.Errorf(
 				"%s:%d: %q: `PREFIX:' not found",
-				*pidStatus.path, lineNum, getCurrentLine(buf, lineStartPos),
+				pidStatusPath, lineNum, getCurrentLine(buf, lineStartPos),
 			)
 		}
 		handling := pidStatusLineHandlingMap[string(buf[prefixStartPos:prefixEndPos])]
@@ -246,7 +239,7 @@ func (pidStatus *PidStatus) Parse(usePathFrom *PidStatus) error {
 				} else {
 					return fmt.Errorf(
 						"%s:%d: %q: `%c' invalid value for a digit",
-						*pidStatus.path, lineNum, getCurrentLine(buf, lineStartPos), c,
+						pidStatusPath, lineNum, getCurrentLine(buf, lineStartPos), c,
 					)
 				}
 			}
@@ -317,7 +310,7 @@ func (pidStatus *PidStatus) Parse(usePathFrom *PidStatus) error {
 				if unitLen == 0 {
 					return fmt.Errorf(
 						"%s:%d: %q: missing unit",
-						*pidStatus.path, lineNum, getCurrentLine(buf, lineStartPos),
+						pidStatusPath, lineNum, getCurrentLine(buf, lineStartPos),
 					)
 				}
 				byteSliceFieldUnit[fieldIndex] = make([]byte, unitLen)
@@ -329,7 +322,7 @@ func (pidStatus *PidStatus) Parse(usePathFrom *PidStatus) error {
 		if valueLen == 0 && !emptyValueOK {
 			return fmt.Errorf(
 				"%s:%d: %q: empty value(s)",
-				*pidStatus.path, lineNum, getCurrentLine(buf, lineStartPos),
+				pidStatusPath, lineNum, getCurrentLine(buf, lineStartPos),
 			)
 
 		}
@@ -352,4 +345,16 @@ func (pidStatus *PidStatus) Parse(usePathFrom *PidStatus) error {
 	}
 
 	return nil
+}
+
+func (pidStatus *PidStatus) GetByteSliceFields() [][]byte {
+	return pidStatus.byteSliceFields
+}
+
+func (pidStatus *PidStatus) GetByteSliceFieldUnit() [][]byte {
+	return pidStatus.byteSliceFieldUnit
+}
+
+func (pidStatus *PidStatus) GetNumericFields() []uint64 {
+	return pidStatus.numericFields
 }
