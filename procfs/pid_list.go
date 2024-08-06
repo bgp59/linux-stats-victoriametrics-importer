@@ -1,10 +1,10 @@
 // Return the list of PID, TID to scan
 
 // The task of scanning processes (PIDs) and threads (TIDs) may be divided upon
-// multiple goroutines. Rather than having each goroutine scan /proc,
-// maintaining a cache with the most recent scan with an expiration date. If
-// multiple goroutines ask for the relevant lists within the cache window then
-// the results may be re-used.
+// multiple goroutines. Rather than having each goroutine scan /proc, maintain a
+// cache with the most recent scan with an expiration date. If multiple
+// goroutines ask for the relevant lists within the cache window then the
+// results may be re-used.
 
 package procfs
 
@@ -35,7 +35,8 @@ type PidListCache struct {
 	// will be set to a negative number if disabled:
 	mask int
 
-	// The timestamp of the latest retrieval:
+	// Whether it was initialized once and the timestamp of the latest retrieval:
+	initialized   bool
 	retrievedTime time.Time
 
 	// How long a scan is valid:
@@ -44,7 +45,7 @@ type PidListCache struct {
 	// What is being cached:
 	flags uint32
 
-	// The actual lists, indexed by the number of partitions:
+	// The actual lists, indexed by the partition#:
 	pidLists [][]PidTid
 
 	// The root of the file system; typically /proc:
@@ -72,13 +73,12 @@ func NewPidListCache(procfsRoot string, nPart int, validFor time.Duration, flags
 	}
 
 	return &PidListCache{
-		nPart:         nPart,
-		mask:          mask,
-		retrievedTime: time.Now().Add(-2 * validFor), // this should force a refresh at the next call
-		validFor:      validFor,
-		flags:         flags,
-		procfsRoot:    procfsRoot,
-		lock:          &sync.Mutex{},
+		nPart:      nPart,
+		mask:       mask,
+		validFor:   validFor,
+		flags:      flags,
+		procfsRoot: procfsRoot,
+		lock:       &sync.Mutex{},
 	}
 }
 
@@ -132,9 +132,9 @@ func (pidListCache *PidListCache) Refresh(lockAcquired bool) error {
 			pidTid   PidTid
 		)
 
-		// Convert to number by hand, hopefully it is faster that strconv.ParseInt:
+		// Convert to number by hand, saving a nanosec or two:
 		pid = 0
-		for _, c := range name {
+		for _, c := range []byte(name) {
 			if d := int(c - '0'); 0 <= d && d <= 9 {
 				pid = (pid << 3) + (pid << 1) + d
 			} else {
@@ -167,7 +167,7 @@ func (pidListCache *PidListCache) Refresh(lockAcquired bool) error {
 			}
 			for _, name := range names {
 				tid = 0
-				for _, c := range name {
+				for _, c := range []byte(name) {
 					if d := int(c - '0'); 0 <= d && d <= 9 {
 						tid = (tid << 3) + (tid << 1) + d
 					} else {
@@ -189,6 +189,9 @@ func (pidListCache *PidListCache) Refresh(lockAcquired bool) error {
 			}
 		}
 	}
+	if !pidListCache.initialized {
+		pidListCache.initialized = true
+	}
 	pidListCache.retrievedTime = time.Now()
 	pidListCache.refreshCount += 1
 	return nil
@@ -200,7 +203,7 @@ func (pidListCache *PidListCache) GetPidTidList(part int, into []PidTid) ([]PidT
 	}
 	pidListCache.lock.Lock()
 	defer pidListCache.lock.Unlock()
-	if time.Since(pidListCache.retrievedTime) > pidListCache.validFor {
+	if !pidListCache.initialized || time.Since(pidListCache.retrievedTime) > pidListCache.validFor {
 		err := pidListCache.Refresh(true)
 		if err != nil {
 			return nil, err
@@ -220,7 +223,7 @@ func (pidListCache *PidListCache) GetPidTidList(part int, into []PidTid) ([]PidT
 func (pidListCache *PidListCache) Invalidate() {
 	pidListCache.lock.Lock()
 	defer pidListCache.lock.Unlock()
-	pidListCache.retrievedTime = time.Now().Add(-2 * pidListCache.validFor) // this should force a refresh at the next call
+	pidListCache.initialized = false
 }
 
 func (pidListCache *PidListCache) GetRefreshCount() uint64 {
