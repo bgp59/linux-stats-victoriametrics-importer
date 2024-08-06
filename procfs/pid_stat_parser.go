@@ -27,7 +27,7 @@ type PidStatParser interface {
 	GetNumericFields() []uint64
 }
 
-type NewPidStatParser func(procfsRoot string, pid, tid int) PidStatParser
+type NewPidStatParser func() PidStatParser
 
 // Parsed data types:
 const (

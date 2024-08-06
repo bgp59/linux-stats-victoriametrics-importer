@@ -5,7 +5,6 @@ package procfs
 import (
 	"bytes"
 	"path"
-	"strconv"
 
 	"github.com/emypar/linux-stats-victoriametrics-importer/internal/utils"
 )
@@ -20,49 +19,37 @@ var cmdlineByteConvert = [256][]byte{
 	'"':  []byte(`\"`),
 }
 
+type PidCmdlineParser interface {
+	Parse(pidTidPath string) error
+	GetCmdlineBytes() []byte
+	GetCmdlineString() string
+}
+
+type NewPidCmdlineParser func() PidCmdlineParser
+
 type PidCmdline struct {
 	// The buffer used to store the sanitized command line, if nil them it must
 	// be allocated from the pool:
-	Cmdline *bytes.Buffer
-	// Proc file system root, needed if pid, tid are changed at parse time:
-	procfsRoot string
-	// Path to the file:
-	path string
+	cmdline *bytes.Buffer
 }
 
 // The pool used for reading and sanitizing the command:
 var pidCmdlineReadFileBufPool = ReadFileBufPool64k
 
-func PidCmdlinePath(procfsRoot string, pid, tid int) string {
-	if tid == PID_ONLY_TID {
-		return path.Join(procfsRoot, strconv.Itoa(pid), "cmdline")
-	} else {
-		return path.Join(procfsRoot, strconv.Itoa(pid), "task", strconv.Itoa(tid), "cmdline")
-	}
-}
-func NewPidCmdline(procfsRoot string, pid, tid int) *PidCmdline {
-	return &PidCmdline{
-		procfsRoot: procfsRoot,
-		path:       PidCmdlinePath(procfsRoot, pid, tid),
-	}
+func NewPidCmdline() PidCmdlineParser {
+	return &PidCmdline{}
 }
 
 func (pidCmdline *PidCmdline) ReturnBuf() {
-	if pidCmdline.Cmdline != nil {
-		pidCmdlineReadFileBufPool.ReturnBuf(pidCmdline.Cmdline)
-		pidCmdline.Cmdline = nil
+	if pidCmdline.cmdline != nil {
+		pidCmdlineReadFileBufPool.ReturnBuf(pidCmdline.cmdline)
+		pidCmdline.cmdline = nil
 	}
 }
 
-func (pidCmdline *PidCmdline) Parse(pid, tid int) error {
-	if pid > 0 {
-		if tid == PID_ONLY_TID {
-			pidCmdline.path = path.Join(pidCmdline.procfsRoot, strconv.Itoa(pid), "cmdline")
-		} else {
-			pidCmdline.path = path.Join(pidCmdline.procfsRoot, strconv.Itoa(pid), "task", strconv.Itoa(tid), "cmdline")
-		}
-	}
-	fBuf, err := pidCmdlineReadFileBufPool.ReadFile(pidCmdline.path)
+func (pidCmdline *PidCmdline) Parse(pidTidPath string) error {
+	pidCmdlinePath := path.Join(pidTidPath, "cmdline")
+	fBuf, err := pidCmdlineReadFileBufPool.ReadFile(pidCmdlinePath)
 	defer pidCmdlineReadFileBufPool.ReturnBuf(fBuf)
 	truncated := (err == utils.ErrReadFileBufPotentialTruncation)
 	if err != nil && !truncated {
@@ -71,7 +58,7 @@ func (pidCmdline *PidCmdline) Parse(pid, tid int) error {
 
 	buf, l := fBuf.Bytes(), fBuf.Len()
 
-	// If truncation occurred then the last 3 UTF-8 characters will be replaced
+	// If truncation occurred then the last 1..3 UTF-8 characters will be replaced
 	// w/ `...':
 	if truncated {
 		// Locate the start of the rightmost UTF-8 char, at least 3 places away
@@ -93,10 +80,10 @@ func (pidCmdline *PidCmdline) Parse(pid, tid int) error {
 
 	// Build the parsed command line out of the read one, escaping single byte
 	// chars as needed:
-	cmdline := pidCmdline.Cmdline
+	cmdline := pidCmdline.cmdline
 	if cmdline == nil {
 		cmdline = pidCmdlineReadFileBufPool.GetBuf()
-		pidCmdline.Cmdline = cmdline
+		pidCmdline.cmdline = cmdline
 	} else {
 		cmdline.Reset()
 	}
@@ -123,4 +110,20 @@ func (pidCmdline *PidCmdline) Parse(pid, tid int) error {
 	}
 
 	return nil
+}
+
+func (pidCmdline *PidCmdline) GetCmdlineBytes() []byte {
+	if pidCmdline.cmdline != nil {
+		return pidCmdline.cmdline.Bytes()
+	} else {
+		return nil
+	}
+}
+
+func (pidCmdline *PidCmdline) GetCmdlineString() string {
+	if pidCmdline.cmdline != nil {
+		return pidCmdline.cmdline.String()
+	} else {
+		return ""
+	}
 }

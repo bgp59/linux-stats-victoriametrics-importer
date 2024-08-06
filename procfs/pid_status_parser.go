@@ -91,6 +91,15 @@ const (
 	PID_STATUS_LIST_DATA_SEP = ','
 )
 
+type PidStatusParser interface {
+	Parse(pidTidPath string) error
+	GetByteSliceFields() [][]byte
+	GetByteSliceFieldUnit() [][]byte
+	GetNumericFields() []uint64
+}
+
+type NewPidStatusParser func() PidStatusParser
+
 type PidStatus struct {
 	// As-is fields:
 	byteSliceFields [][]byte
@@ -158,7 +167,7 @@ func PidStatusPath(procfsRoot string, pid, tid int) string {
 	}
 }
 
-func NewPidStatus() *PidStatus {
+func NewPidStatus() PidStatusParser {
 	return &PidStatus{
 		byteSliceFields:    make([][]byte, PID_STATUS_BYTE_SLICE_NUM_FIELDS),
 		byteSliceFieldUnit: make([][]byte, PID_STATUS_BYTE_SLICE_NUM_FIELDS),

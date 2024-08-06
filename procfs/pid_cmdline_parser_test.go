@@ -38,14 +38,14 @@ poolReadSize=%d
 		defer func() { pidCmdlineReadFileBufPool = orgPidCmdlineReadFileBufPool }()
 	}
 
-	pidCmdline := NewPidCmdline(tc.procfsRoot, tc.pid, tc.tid)
+	pidTidPath := BuildPidTidPath(tc.procfsRoot, tc.pid, tc.tid)
 
 	if tc.cmdline != "" {
-		err := os.MkdirAll(path.Dir(pidCmdline.path), os.ModePerm)
+		err := os.MkdirAll(pidTidPath, os.ModePerm)
 		if err != nil {
 			t.Fatal(err)
 		}
-		file, err := os.Create(pidCmdline.path)
+		file, err := os.Create(path.Join(pidTidPath, "cmdline"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -56,7 +56,8 @@ poolReadSize=%d
 		file.Close()
 	}
 
-	err := pidCmdline.Parse(0, 0)
+	pidCmdline := NewPidCmdline()
+	err := pidCmdline.Parse(pidTidPath)
 	if tc.wantError == nil && err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +66,7 @@ poolReadSize=%d
 			t.Fatalf("error: want: %v, got: %v", tc.wantError, err)
 		}
 	}
-	gotCmdline := pidCmdline.Cmdline.String()
+	gotCmdline := pidCmdline.GetCmdlineString()
 	if tc.wantCmdline != gotCmdline {
 		t.Fatalf("cmdline: want: %q, got: %q", tc.wantCmdline, gotCmdline)
 	}
