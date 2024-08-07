@@ -28,7 +28,8 @@ type ProcessInternalMetrics struct {
 	internalMetrics *InternalMetrics
 	// Dual storage for snapping the stats, used as current, previous, toggled
 	// after every metrics generation:
-	pidStat [2]procfs.PidStatParser
+	pidStat    [2]procfs.PidStatParser
+	pidTidPath string
 	// When the stats were collected:
 	statsTs [2]time.Time
 	// The current index:
@@ -57,16 +58,19 @@ func NewProcessInternalMetrics(internalMetrics *InternalMetrics) *ProcessInterna
 }
 
 func (pim *ProcessInternalMetrics) SnapStats() {
-	pidStat := pim.pidStat[pim.currIndex]
-	if pidStat == nil {
+	if pim.pidTidPath == "" {
 		procfsRoot := GlobalProcfsRoot
 		if pim.internalMetrics.procfsRoot != "" {
 			procfsRoot = pim.internalMetrics.procfsRoot
 		}
-		pidStat = procfs.NewPidStat(procfsRoot, pim.pid, procfs.PID_STAT_PID_ONLY_TID)
+		pim.pidTidPath = procfs.BuildPidTidPath(procfsRoot, pim.pid, procfs.PID_ONLY_TID)
+	}
+	pidStat := pim.pidStat[pim.currIndex]
+	if pidStat == nil {
+		pidStat = procfs.NewPidStat()
 		pim.pidStat[pim.currIndex] = pidStat
 	}
-	err := pidStat.Parse(nil)
+	err := pidStat.Parse(pim.pidTidPath)
 	statsTs := time.Now()
 	if err != nil {
 		internalMetricsLog.Warnf("pidStat.Parse(pid=%d): %v", pim.pid, err)
