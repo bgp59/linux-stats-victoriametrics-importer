@@ -6,6 +6,8 @@ import (
 	"path"
 
 	"testing"
+
+	"github.com/emypar/linux-stats-victoriametrics-importer/internal/testutils"
 )
 
 var pidStatusTestDataDir = path.Join(PROCFS_TESTDATA_ROOT, "pid_status")
@@ -20,36 +22,6 @@ type PidStatusTestCase struct {
 	wantByteSliceFieldUnit   map[int]string
 	wantNumericFields        map[int]uint64
 	wantError                error
-}
-
-var pidStatusByteSliceFieldsIndexToName = []string{
-	"PID_STATUS_UID",
-	"PID_STATUS_GID",
-	"PID_STATUS_GROUPS",
-	"PID_STATUS_VM_PEAK",
-	"PID_STATUS_VM_SIZE",
-	"PID_STATUS_VM_LCK",
-	"PID_STATUS_VM_PIN",
-	"PID_STATUS_VM_HWM",
-	"PID_STATUS_VM_RSS",
-	"PID_STATUS_RSS_ANON",
-	"PID_STATUS_RSS_FILE",
-	"PID_STATUS_RSS_SHMEM",
-	"PID_STATUS_VM_DATA",
-	"PID_STATUS_VM_STK",
-	"PID_STATUS_VM_EXE",
-	"PID_STATUS_VM_LIB",
-	"PID_STATUS_VM_PTE",
-	"PID_STATUS_VM_PMD",
-	"PID_STATUS_VM_SWAP",
-	"PID_STATUS_HUGETLBPAGES",
-	"PID_STATUS_CPUS_ALLOWED_LIST",
-	"PID_STATUS_MEMS_ALLOWED_LIST",
-}
-
-var pidStatusNumericFieldsIndexToName = []string{
-	"PID_STATUS_VOLUNTARY_CTXT_SWITCHES",
-	"PID_STATUS_NONVOLUNTARY_CTXT_SWITCHES",
 }
 
 func testPidStatusParser(tc *PidStatusTestCase, t *testing.T) {
@@ -100,7 +72,7 @@ primeProcfsRoot=%q, primePid=%d, PrimeTid=%d
 			fmt.Fprintf(
 				diffBuf,
 				"\nBytesSliceFields[%s]: want: %q, got: %q",
-				pidStatusByteSliceFieldsIndexToName[index],
+				testutils.PidStatByteSliceFieldsIndexName[index],
 				wantVal,
 				gotVal,
 			)
@@ -114,7 +86,7 @@ primeProcfsRoot=%q, primePid=%d, PrimeTid=%d
 				fmt.Fprintf(
 					diffBuf,
 					"\nByteSliceFieldUnit[%s]: want: %q, got: %q",
-					pidStatusByteSliceFieldsIndexToName[index],
+					testutils.PidStatByteSliceFieldsIndexName[index],
 					wantUnit,
 					gotUnit,
 				)
@@ -130,7 +102,7 @@ primeProcfsRoot=%q, primePid=%d, PrimeTid=%d
 			fmt.Fprintf(
 				diffBuf,
 				"\nuNumericFields[%s]: want: %d, got: %d",
-				pidStatusNumericFieldsIndexToName[index],
+				testutils.PidStatNumericFieldsIndexName[index],
 				wantVal,
 				gotVal,
 			)

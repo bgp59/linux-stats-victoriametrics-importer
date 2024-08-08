@@ -6,37 +6,11 @@ import (
 	"path"
 
 	"testing"
+
+	"github.com/emypar/linux-stats-victoriametrics-importer/internal/testutils"
 )
 
 var pidStatTestDataDir = path.Join(PROCFS_TESTDATA_ROOT, "pid_stat")
-
-var pidStatByteSliceFieldsIndexName = []string{
-	"PID_STAT_COMM",
-	"PID_STAT_STATE",
-	"PID_STAT_PPID",
-	"PID_STAT_PGRP",
-	"PID_STAT_SESSION",
-	"PID_STAT_TTY_NR",
-	"PID_STAT_TPGID",
-	"PID_STAT_FLAGS",
-	"PID_STAT_PRIORITY",
-	"PID_STAT_NICE",
-	"PID_STAT_NUM_THREADS",
-	"PID_STAT_STARTTIME",
-	"PID_STAT_VSIZE",
-	"PID_STAT_RSS",
-	"PID_STAT_RSSLIM",
-	"PID_STAT_PROCESSOR",
-	"PID_STAT_RT_PRIORITY",
-	"PID_STAT_POLICY",
-}
-
-var pidStatNumericFieldsIndexName = []string{
-	"PID_STAT_MINFLT",
-	"PID_STAT_MAJFLT",
-	"PID_STAT_UTIME",
-	"PID_STAT_STIME",
-}
 
 type PidStatTestCase struct {
 	name                string
@@ -93,7 +67,7 @@ primeProcfsRoot=%q, primePid=%d, PrimeTid=%d
 				fmt.Fprintf(
 					diffBuf,
 					"\nfield[%s]: want: %q, got: %q",
-					pidStatByteSliceFieldsIndexName[i],
+					testutils.PidStatByteSliceFieldsIndexName[i],
 					wantValue,
 					gotValue,
 				)
@@ -105,7 +79,7 @@ primeProcfsRoot=%q, primePid=%d, PrimeTid=%d
 		for i, wantValue := range tc.wantNumericFields {
 			gotValue := gotNumericFields[i]
 			if wantValue != gotValue {
-				fmt.Fprintf(diffBuf, "\nfield[%s]: want: %d, got: %d", pidStatNumericFieldsIndexName[i], wantValue, gotValue)
+				fmt.Fprintf(diffBuf, "\nfield[%s]: want: %d, got: %d", testutils.PidStatNumericFieldsIndexName[i], wantValue, gotValue)
 			}
 		}
 	}

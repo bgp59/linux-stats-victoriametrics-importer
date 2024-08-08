@@ -379,9 +379,22 @@ func NewProcProcPidMetrics(cfg any, nPart int, pidListCache *procfs.PidListCache
 	return procPidMetrics, nil
 }
 
+func (pm *ProcPidMetrics) buildSpecificMetricFmt(metricName string, valFmt string, labelNames ...string) string {
+	metricFmt := fmt.Sprintf(
+		`%s{%s="%s",%s="%s",%s="%d"`,
+		metricName,
+		INSTANCE_LABEL_NAME, pm.instance, HOSTNAME_LABEL_NAME, pm.hostname, PROC_PID_PART_LABEL_NAME, pm.nPart,
+	)
+	for _, label := range labelNames {
+		metricFmt += fmt.Sprintf(`,%s="%%s"`, label)
+	}
+	metricFmt += fmt.Sprintf("} %s %%s\n", valFmt)
+	return metricFmt
+}
+
 func (pm *ProcPidMetrics) buildMetricFmt(metricName string, valFmt string, labelNames ...string) string {
 	metricFmt := fmt.Sprintf(
-		`%s{%s="%s",%s="%s"`,
+		`%s{%s="%s",%s="%s",%%s`,
 		metricName,
 		INSTANCE_LABEL_NAME, pm.instance, HOSTNAME_LABEL_NAME, pm.hostname,
 	)
@@ -402,7 +415,7 @@ func (pm *ProcPidMetrics) initMetricsCache() {
 	pm.pidTidMetricCount++
 
 	pm.pidStatInfoMetricFmt = pm.buildMetricFmt(
-		PROC_PID_STAT_STATE_METRIC,
+		PROC_PID_STAT_INFO_METRIC,
 		"%c",
 		PROC_PID_STAT_COMM_LABEL_NAME,
 		PROC_PID_STAT_PPID_LABEL_NAME,
@@ -590,9 +603,9 @@ func (pm *ProcPidMetrics) initMetricsCache() {
 	pm.pidCmdlineMetricFmt = pm.buildMetricFmt(PROC_PID_CMDLINE_METRIC, "%c", PROC_PID_CMDLINE_LABEL_NAME)
 	pm.pidOnlyMetricCount++
 
-	pm.pidActiveCountMetricFmt = pm.buildMetricFmt(PROC_PID_ACTIVE_COUNT_METRIC, "%d", PROC_PID_PART_LABEL_NAME)
-	pm.pidTotalCountMetricFmt = pm.buildMetricFmt(PROC_PID_TOTAL_COUNT_METRIC, "%d", PROC_PID_PART_LABEL_NAME)
-	pm.intervalMetricFmt = pm.buildMetricFmt(PROC_PID_INTERVAL_METRIC, "%.6f", PROC_PID_PART_LABEL_NAME)
+	pm.pidActiveCountMetricFmt = pm.buildSpecificMetricFmt(PROC_PID_ACTIVE_COUNT_METRIC, "%d")
+	pm.pidTotalCountMetricFmt = pm.buildSpecificMetricFmt(PROC_PID_TOTAL_COUNT_METRIC, "%d")
+	pm.intervalMetricFmt = pm.buildSpecificMetricFmt(PROC_PID_INTERVAL_METRIC, "%.6f")
 
 	pm.metricCacheInitialized = true
 }
@@ -681,9 +694,9 @@ func (pm *ProcPidMetrics) generateMetrics(
 			fmt.Fprintf(
 				buf,
 				pm.pidStatStateMetricFmt,
+				pidTidMetricsInfo.pidTidLabels,
 				pidTidMetricsInfo.starttimeMsec,
 				prevPidStatBSF[procfs.PID_STAT_STATE],
-				pidTidMetricsInfo.pidTidLabels,
 				'0',
 				ts,
 			)
@@ -692,9 +705,9 @@ func (pm *ProcPidMetrics) generateMetrics(
 		fmt.Fprintf(
 			buf,
 			pm.pidStatStateMetricFmt,
+			pidTidMetricsInfo.pidTidLabels,
 			pidTidMetricsInfo.starttimeMsec,
 			currPidStatBSF[procfs.PID_STAT_STATE],
-			pidTidMetricsInfo.pidTidLabels,
 			'1',
 			ts,
 		)
@@ -718,6 +731,7 @@ func (pm *ProcPidMetrics) generateMetrics(
 				fmt.Fprintf(
 					buf,
 					indexFmt.fmt,
+					pidTidMetricsInfo.pidTidLabels,
 					currPidStatusBSFU[indexFmt.index],
 					currPidStatusBSF[indexFmt.index],
 					ts,
@@ -828,6 +842,7 @@ func (pm *ProcPidMetrics) generateMetrics(
 				fmt.Fprintf(
 					buf,
 					pm.pidStatInfoMetricFmt,
+					pidTidMetricsInfo.pidTidLabels,
 					prevPidStatBSF[procfs.PID_STAT_COMM],
 					prevPidStatBSF[procfs.PID_STAT_PPID],
 					prevPidStatBSF[procfs.PID_STAT_PGRP],
@@ -847,6 +862,7 @@ func (pm *ProcPidMetrics) generateMetrics(
 			fmt.Fprintf(
 				buf,
 				pm.pidStatInfoMetricFmt,
+				pidTidMetricsInfo.pidTidLabels,
 				currPidStatBSF[procfs.PID_STAT_COMM],
 				currPidStatBSF[procfs.PID_STAT_PPID],
 				currPidStatBSF[procfs.PID_STAT_PGRP],
@@ -872,6 +888,7 @@ func (pm *ProcPidMetrics) generateMetrics(
 			fmt.Fprintf(
 				buf,
 				indexFmt.fmt,
+				pidTidMetricsInfo.pidTidLabels,
 				currPidStatBSF[indexFmt.index],
 				ts,
 			)
@@ -900,6 +917,7 @@ func (pm *ProcPidMetrics) generateMetrics(
 			fmt.Fprintf(
 				buf,
 				pm.pidStatusInfoMetricFmt,
+				pidTidMetricsInfo.pidTidLabels,
 				prevPidStatusBSF[procfs.PID_STATUS_UID],
 				prevPidStatusBSF[procfs.PID_STATUS_GID],
 				prevPidStatusBSF[procfs.PID_STATUS_GROUPS],
@@ -914,6 +932,7 @@ func (pm *ProcPidMetrics) generateMetrics(
 	fmt.Fprintf(
 		buf,
 		pm.pidStatusInfoMetricFmt,
+		pidTidMetricsInfo.pidTidLabels,
 		currPidStatusBSF[procfs.PID_STATUS_UID],
 		currPidStatusBSF[procfs.PID_STATUS_GID],
 		currPidStatusBSF[procfs.PID_STATUS_GROUPS],
@@ -931,6 +950,7 @@ func (pm *ProcPidMetrics) generateMetrics(
 			fmt.Fprintf(
 				buf,
 				indexFmt.fmt,
+				pidTidMetricsInfo.pidTidLabels,
 				currPidStatusBSFU[indexFmt.index],
 				currPidStatusBSF[indexFmt.index],
 				ts,
@@ -943,6 +963,7 @@ func (pm *ProcPidMetrics) generateMetrics(
 		fmt.Fprintf(
 			buf,
 			pm.pidCmdlineMetricFmt,
+			pidTidMetricsInfo.pidTidLabels,
 			pm.pidCmdline.GetCmdlineString(),
 			'1',
 			ts,
@@ -1092,7 +1113,7 @@ func (pm *ProcPidMetrics) Execute() bool {
 	fmt.Fprintf(buf, pm.pidTotalCountMetricFmt, activePidTidCount, ts)
 	actualMetricsCount += 2
 	if hasPrev {
-		fmt.Fprintf(buf, pm.intervalMetricFmt, currTs.Sub(pm.prevTs).Seconds(), ts)
+		fmt.Fprintf(buf, pm.intervalMetricFmt, pm.nPart, currTs.Sub(pm.prevTs).Seconds(), ts)
 		actualMetricsCount++
 	}
 	byteCount += buf.Len()
