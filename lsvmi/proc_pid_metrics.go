@@ -680,6 +680,7 @@ func (pm *ProcPidMetrics) generateMetrics(
 		}
 	}
 
+	pm.tsBuf.Reset()
 	fmt.Fprintf(pm.tsBuf, "%d", currTs.UnixMilli())
 	ts := pm.tsBuf.Bytes()
 
@@ -1104,6 +1105,7 @@ func (pm *ProcPidMetrics) Execute() bool {
 
 	// Generator specific metrics:
 	currTs := pm.timeNowFn()
+	pm.tsBuf.Reset()
 	fmt.Fprintf(pm.tsBuf, "%d", currTs.UnixMilli())
 	ts := pm.tsBuf.Bytes()
 	if buf == nil {
@@ -1113,7 +1115,7 @@ func (pm *ProcPidMetrics) Execute() bool {
 	fmt.Fprintf(buf, pm.pidTotalCountMetricFmt, activePidTidCount, ts)
 	actualMetricsCount += 2
 	if hasPrev {
-		fmt.Fprintf(buf, pm.intervalMetricFmt, pm.nPart, currTs.Sub(pm.prevTs).Seconds(), ts)
+		fmt.Fprintf(buf, pm.intervalMetricFmt, currTs.Sub(pm.prevTs).Seconds(), ts)
 		actualMetricsCount++
 	}
 	byteCount += buf.Len()
