@@ -10,20 +10,20 @@ import (
 	"github.com/emypar/linux-stats-victoriametrics-importer/internal/testutils"
 )
 
-type PidListTestCase struct {
+type PidTidListTestCase struct {
 	ProcfsRoot  string
 	Flags       uint32
 	NPart       int
 	PidTidLists [][]PidTid
 }
 
-var pidListTestCaseFile = path.Join(
+var pidTidListTestCaseFile = path.Join(
 	"..", testutils.ProcfsTestCasesSubdir,
-	"pid_list_test_case.json",
+	"pid_tid_list_test_case.json",
 )
 
-func testPidListCacheOnePart(
-	pidListCache *PidListCache,
+func testPidTidListCacheOnePart(
+	pidTidListCache PidTidListCacheIF,
 	nPart int,
 	pidTidList []PidTid,
 	wg *sync.WaitGroup,
@@ -35,7 +35,7 @@ func testPidListCacheOnePart(
 	for _, pidTid := range pidTidList {
 		want[pidTid] = true
 	}
-	pidTidList, err := pidListCache.GetPidTidList(nPart, nil)
+	pidTidList, err := pidTidListCache.GetPidTidList(nPart, nil)
 	if err != nil {
 		t.Error(err)
 		return
@@ -57,33 +57,33 @@ func testPidListCacheOnePart(
 	}
 }
 
-func testPidListCache(tc *PidListTestCase, t *testing.T) {
+func testPidTidListCache(tc *PidTidListTestCase, t *testing.T) {
 	// Use an absurdly large validFor to ensure that refresh will occur only as
 	// instructed:
 	validFor := time.Hour
-	pidListCache := NewPidListCache(tc.ProcfsRoot, tc.NPart, validFor, tc.Flags)
+	pidTidListCache := NewPidTidListCache(tc.ProcfsRoot, tc.NPart, validFor, tc.Flags)
 	wg := &sync.WaitGroup{}
 
 	// Run twice, to test reusability:
 	for k, forceRefresh := range []bool{false, true} {
 		if forceRefresh {
-			pidListCache.Invalidate()
+			pidTidListCache.Invalidate()
 		}
 		for nPart, pidTidList := range tc.PidTidLists {
 			wg.Add(1)
-			go testPidListCacheOnePart(pidListCache, nPart, pidTidList, wg, t)
+			go testPidTidListCacheOnePart(pidTidListCache, nPart, pidTidList, wg, t)
 		}
 		wg.Wait()
-		wantRefreshCount, gotRefreshCount := uint64(k+1), pidListCache.GetRefreshCount()
+		wantRefreshCount, gotRefreshCount := uint64(k+1), pidTidListCache.GetRefreshCount()
 		if wantRefreshCount != gotRefreshCount {
 			t.Errorf("refreshCount: want: %d, got: %d", wantRefreshCount, gotRefreshCount)
 		}
 	}
 }
 
-func TestPidListCache(t *testing.T) {
-	testCases := make([]*PidListTestCase, 0)
-	err := testutils.LoadJsonFile(pidListTestCaseFile, &testCases)
+func TestPidTidListCache(t *testing.T) {
+	testCases := make([]*PidTidListTestCase, 0)
+	err := testutils.LoadJsonFile(pidTidListTestCaseFile, &testCases)
 
 	if err != nil {
 		t.Fatal(err)
@@ -96,7 +96,7 @@ func TestPidListCache(t *testing.T) {
 				tc.Flags&PID_LIST_CACHE_PID_ENABLED != 0,
 				tc.Flags&PID_LIST_CACHE_TID_ENABLED != 0,
 			),
-			func(t *testing.T) { testPidListCache(tc, t) },
+			func(t *testing.T) { testPidTidListCache(tc, t) },
 		)
 	}
 }
