@@ -150,7 +150,7 @@ type ProcPidMetricsConfig struct {
 	// How long the PID, TID cached list (shared among goroutines) is valid
 	// before a new reading of /proc directory is required, in
 	// time.ParseDuration() format:
-	PidListCacheValidInterval string `yaml:"pid_list_cache_valid_interval"`
+	PidTidListCacheValidInterval string `yaml:"pid_list_cache_valid_interval"`
 	// The number of partitions used to divide the process list; each partition
 	// will generate a task and each task will run in a separate worker. A
 	// negative value signifies the same value as the number of workers.
@@ -168,12 +168,12 @@ type ProcPidMetricsConfig struct {
 
 func DefaultProcPidMetricsConfig() *ProcPidMetricsConfig {
 	return &ProcPidMetricsConfig{
-		Interval:                  PROC_PID_METRICS_CONFIG_INTERVAL_DEFAULT,
-		FullMetricsFactor:         PROC_PID_METRICS_CONFIG_FULL_METRICS_FACTOR_DEFAULT,
-		ThreadMetrics:             PROC_PID_METRICS_CONFIG_THREAD_METRICS_DEFAULT,
-		PidListCacheValidInterval: PROC_PID_METRICS_CONFIG_PID_LIST_CACHE_VALID_INTERVAL_DEFAULT,
-		NumPartitions:             PROC_PID_METRICS_CONFIG_NUM_PART_DEFAULT,
-		UsePidStatus:              PROC_PID_METRICS_USE_PID_STATUS_DEFAULT,
+		Interval:                     PROC_PID_METRICS_CONFIG_INTERVAL_DEFAULT,
+		FullMetricsFactor:            PROC_PID_METRICS_CONFIG_FULL_METRICS_FACTOR_DEFAULT,
+		ThreadMetrics:                PROC_PID_METRICS_CONFIG_THREAD_METRICS_DEFAULT,
+		PidTidListCacheValidInterval: PROC_PID_METRICS_CONFIG_PID_LIST_CACHE_VALID_INTERVAL_DEFAULT,
+		NumPartitions:                PROC_PID_METRICS_CONFIG_NUM_PART_DEFAULT,
+		UsePidStatus:                 PROC_PID_METRICS_USE_PID_STATUS_DEFAULT,
 	}
 }
 
@@ -238,7 +238,7 @@ type ProcPidMetrics struct {
 	pidStatusMemValIndex map[int]bool
 
 	// The PidTid list cache, shared among ProcPidMetrics instances:
-	pidListCache *procfs.PidListCache
+	pidTidListCache procfs.PidTidListCacheIF
 	// The partition for the above:
 	nPart int
 	// Destination storage for the above:
@@ -314,7 +314,7 @@ type ProcPidMetrics struct {
 	newPidCmdlineParser procfs.NewPidCmdlineParser
 }
 
-func NewProcProcPidMetrics(cfg any, nPart int, pidListCache *procfs.PidListCache) (*ProcPidMetrics, error) {
+func NewProcProcPidMetrics(cfg any, nPart int, pidTidListCache procfs.PidTidListCacheIF) (*ProcPidMetrics, error) {
 	var (
 		err                  error
 		procPidMetricsConfig *ProcPidMetricsConfig
@@ -341,7 +341,7 @@ func NewProcProcPidMetrics(cfg any, nPart int, pidListCache *procfs.PidListCache
 		interval:            interval,
 		fullMetricsFactor:   procPidMetricsConfig.FullMetricsFactor,
 		usePidStatus:        procPidMetricsConfig.UsePidStatus,
-		pidListCache:        pidListCache,
+		pidTidListCache:     pidTidListCache,
 		nPart:               nPart,
 		pidTidMetricsInfo:   make(map[procfs.PidTid]*ProcPidTidMetricsInfo),
 		tsBuf:               &bytes.Buffer{},
@@ -989,7 +989,7 @@ func (pm *ProcPidMetrics) Execute() bool {
 	}
 
 	// Get the current list of PID, TID to be handled by this generator:
-	pidTidList, err := pm.pidListCache.GetPidTidList(pm.nPart, pm.pidTidList)
+	pidTidList, err := pm.pidTidListCache.GetPidTidList(pm.nPart, pm.pidTidList)
 	if err != nil {
 		procPidMetricsLog.Errorf("GetPidTidList(part=%d): %v", pm.nPart, err)
 		return false
@@ -1168,7 +1168,7 @@ func ProcPidMetricsTaskBuilder(cfg *LsvmiConfig) ([]*Task, error) {
 	if nPart <= 0 {
 		nPart = GlobalScheduler.numWorkers
 	}
-	validFor, err := time.ParseDuration(procPidMetricsConfig.PidListCacheValidInterval)
+	validFor, err := time.ParseDuration(procPidMetricsConfig.PidTidListCacheValidInterval)
 	if err != nil {
 		return nil, fmt.Errorf("pid_list_cache_valid_interval: %v", err)
 	}
@@ -1182,11 +1182,11 @@ func ProcPidMetricsTaskBuilder(cfg *LsvmiConfig) ([]*Task, error) {
 		nPart,
 	)
 	procPidMetricsLog.Infof("pid_list_cache_valid_interval=%s", validFor)
-	pidListCache := procfs.NewPidListCache(GlobalProcfsRoot, nPart, validFor, flags)
+	pidTidListCache := procfs.NewPidTidListCache(GlobalProcfsRoot, nPart, validFor, flags)
 
 	tasks := make([]*Task, nPart)
 	for i := 0; i < nPart; i++ {
-		pm, err := NewProcProcPidMetrics(procPidMetricsConfig, i, pidListCache)
+		pm, err := NewProcProcPidMetrics(procPidMetricsConfig, i, pidTidListCache)
 		if err != nil {
 			return nil, err
 		}

@@ -25,13 +25,13 @@ class PidTid:
 
 
 # Should match ../../procfs/pid_list_test.go
-pidListTestCaseFile = os.path.join(
-    procfs_test_cases_root_dir, "pid_list_test_case.json"
+pidTidListTestCaseFile = os.path.join(
+    procfs_test_cases_root_dir, "pid_tid_list_test_case.json"
 )
 
 
 @dataclass
-class PidListTestCase:
+class PidTidListTestCase:
     ProcfsRoot: str = tc_procfs_root
     Flags: int = 0
     NPart: int = 0
@@ -72,9 +72,9 @@ if __name__ == "__main__":
                     part = pid_tid.Tid % n_part
                 if part is not None:
                     pid_tid_lists[part].append(pid_tid)
-            tc = PidListTestCase(Flags=flags, NPart=n_part, PidTidLists=pid_tid_lists)
+            tc = PidTidListTestCase(Flags=flags, NPart=n_part, PidTidLists=pid_tid_lists)
             test_cases.append(asdict(tc))
-    with open(pidListTestCaseFile, "wt") as f:
+    with open(pidTidListTestCaseFile, "wt") as f:
         json.dump(test_cases, f, indent=2)
         f.write("\n")
-    print(f"{pidListTestCaseFile} generated", file=sys.stderr)
+    print(f"{pidTidListTestCaseFile} generated", file=sys.stderr)
