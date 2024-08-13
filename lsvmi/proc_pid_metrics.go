@@ -670,12 +670,11 @@ func (pm *ProcPidMetrics) generateMetrics(
 
 	if pm.usePidStatus {
 		currPidStatus = pm.pidStatus
-		currPidStatusBSF = currPidStatus.GetByteSliceFields()
-		currPidStatusBSFU = currPidStatus.GetByteSliceFieldUnit()
+		currPidStatusBSF, currPidStatusBSFU = currPidStatus.GetByteSliceFieldsAndUnits()
 		currPidStatusNF = currPidStatus.GetNumericFields()
 		if hasPrev {
 			prevPidStatus = pidTidMetricsInfo.pidStatus
-			prevPidStatusBSF = prevPidStatus.GetByteSliceFields()
+			prevPidStatusBSF, _ = prevPidStatus.GetByteSliceFieldsAndUnits()
 			prevPidStatusNF = prevPidStatus.GetNumericFields()
 		}
 	}

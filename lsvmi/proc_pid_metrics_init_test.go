@@ -1,4 +1,4 @@
-// Tests for pid metrics
+// Tests for pid metrics formats
 
 package lsvmi
 
@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/emypar/linux-stats-victoriametrics-importer/internal/testutils"
+	"github.com/emypar/linux-stats-victoriametrics-importer/procfs"
 )
 
 type TestProcPidMetricsFmtTestCase struct {
@@ -15,7 +16,7 @@ type TestProcPidMetricsFmtTestCase struct {
 	wantMetric string
 }
 
-func TestProcPidMetricsInitPidStatMetricsCache(t *testing.T) {
+func TestProcPidMetricsInitPidStatMetricFmt(t *testing.T) {
 	tlc := testutils.NewTestLogCollect(t, Log, nil)
 	defer tlc.RestoreLog()
 
@@ -96,7 +97,7 @@ func TestProcPidMetricsInitPidStatMetricsCache(t *testing.T) {
 	}
 }
 
-func TestProcPidMetricsInitPidStatusMetricsCache(t *testing.T) {
+func TestProcPidMetricsInitPidStatusMetricFmt(t *testing.T) {
 	tlc := testutils.NewTestLogCollect(t, Log, nil)
 	defer tlc.RestoreLog()
 
@@ -223,7 +224,7 @@ func TestProcPidMetricsInitPidStatusMetricsCache(t *testing.T) {
 	}
 }
 
-func TestProcPidMetricsInitSpecificMetricsCache(t *testing.T) {
+func TestProcPidMetricsInitSpecificMetricFmt(t *testing.T) {
 	tlc := testutils.NewTestLogCollect(t, Log, nil)
 	defer tlc.RestoreLog()
 
@@ -262,5 +263,58 @@ func TestProcPidMetricsInitSpecificMetricsCache(t *testing.T) {
 		} else {
 			t.Log(tc.wantMetric)
 		}
+	}
+}
+
+func TestProcPidMetricsInitPidTidMetricsInfo(t *testing.T) {
+	tlc := testutils.NewTestLogCollect(t, Log, nil)
+	defer tlc.RestoreLog()
+
+	pm, err := NewProcProcPidMetrics(nil, 0, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pm.instance = "INSTANCE"
+	pm.hostname = "HOSTNAME"
+	pm.procfsRoot = "PROCFS"
+
+	tcd := &TestPidParsersTestCaseData{}
+	pm.newPidStatParser = tcd.NewPidStat
+	pm.newPidStatusParser = tcd.NewPidStatus
+	pm.usePidStatus = true
+	pm.boottimeMsec = 9_800_000
+	pm.linuxClktckSec = .01
+
+	pidStatByteSliceFields := make([]string, procfs.PID_STAT_BYTE_SLICE_NUM_FIELDS)
+	pidStatByteSliceFields[procfs.PID_STAT_STARTTIME] = "1234"
+	pm.pidStat = &TestPidStat{
+		parseResult: &TestPidStatPayload{
+			ByteSliceFields: pidStatByteSliceFields,
+		},
+	}
+
+	pidTidPath := "PID_TID_PATH"
+	pidTidMetricsInfo := pm.initPidTidMetricsInfo(procfs.PidTid{Pid: 100, Tid: 101}, pidTidPath)
+
+	wantPidTidPath, gotPidTidPath := pidTidPath, pidTidMetricsInfo.pidTidPath
+	if wantPidTidPath != gotPidTidPath {
+		t.Errorf("pidTidMetricsInfo.pidTidPath: want: %q, got: %q", wantPidTidPath, gotPidTidPath)
+	} else {
+		t.Logf("pidTidMetricsInfo.pidTidPath: %q", gotPidTidPath)
+	}
+
+	wantPidTidLabels, gotPidTidLabels := `pid="100",tid="101"`, pidTidMetricsInfo.pidTidLabels
+	if wantPidTidLabels != gotPidTidLabels {
+		t.Errorf("pidTidMetricsInfo.pidTidLabels: want: %q, got: %q", wantPidTidLabels, gotPidTidLabels)
+	} else {
+		t.Logf("pidTidMetricsInfo.pidTidLabels: %q", gotPidTidLabels)
+	}
+
+	wantStarttimeMsec, gotStarttimeMsec := "9812340", pidTidMetricsInfo.starttimeMsec
+	if wantStarttimeMsec != gotStarttimeMsec {
+		t.Errorf("pidTidMetricsInfo.starttimeMsec: want: %q, got: %q", wantStarttimeMsec, gotStarttimeMsec)
+	} else {
+		t.Logf("pidTidMetricsInfo.starttimeMsec: %q", gotStarttimeMsec)
 	}
 }

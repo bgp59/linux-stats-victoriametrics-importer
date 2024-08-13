@@ -93,8 +93,7 @@ const (
 
 type PidStatusParser interface {
 	Parse(pidTidPath string) error
-	GetByteSliceFields() [][]byte
-	GetByteSliceFieldUnit() [][]byte
+	GetByteSliceFieldsAndUnits() ([][]byte, [][]byte)
 	GetNumericFields() []uint64
 }
 
@@ -356,12 +355,8 @@ func (pidStatus *PidStatus) Parse(pidTidPath string) error {
 	return nil
 }
 
-func (pidStatus *PidStatus) GetByteSliceFields() [][]byte {
-	return pidStatus.byteSliceFields
-}
-
-func (pidStatus *PidStatus) GetByteSliceFieldUnit() [][]byte {
-	return pidStatus.byteSliceFieldUnit
+func (pidStatus *PidStatus) GetByteSliceFieldsAndUnits() ([][]byte, [][]byte) {
+	return pidStatus.byteSliceFields, pidStatus.byteSliceFieldUnit
 }
 
 func (pidStatus *PidStatus) GetNumericFields() []uint64 {

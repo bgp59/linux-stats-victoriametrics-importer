@@ -63,8 +63,7 @@ primeProcfsRoot=%q, primePid=%d, PrimeTid=%d
 
 	diffBuf := &bytes.Buffer{}
 
-	gotByteSliceFields := pidStatus.GetByteSliceFields()
-	gotByteSliceFieldUnit := pidStatus.GetByteSliceFieldUnit()
+	gotByteSliceFields, gotByteSliceFieldUnit := pidStatus.GetByteSliceFieldsAndUnits()
 	for index := range tc.wantByteSliceFieldValues {
 		wantVal := tc.wantByteSliceFieldValues[index]
 		gotVal := string(gotByteSliceFields[index])
