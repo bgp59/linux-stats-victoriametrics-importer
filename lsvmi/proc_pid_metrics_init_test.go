@@ -289,7 +289,7 @@ func TestProcPidMetricsInitPidTidMetricsInfo(t *testing.T) {
 	pidStatByteSliceFields := make([]string, procfs.PID_STAT_BYTE_SLICE_NUM_FIELDS)
 	pidStatByteSliceFields[procfs.PID_STAT_STARTTIME] = "1234"
 	pm.pidStat = &TestPidStat{
-		parseResult: &TestPidStatPayload{
+		parseResult: &TestPidStatParsedData{
 			ByteSliceFields: pidStatByteSliceFields,
 		},
 	}
