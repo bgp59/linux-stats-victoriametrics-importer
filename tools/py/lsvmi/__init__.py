@@ -10,7 +10,9 @@ if tools_py_root not in sys.path:
 from testutils import (
     DEFAULT_TEST_HOSTNAME,
     DEFAULT_TEST_INSTANCE,
+    TEST_BOOTTIME_SEC,
     TEST_LINUX_CLKTCK_SEC,
+    lsvmi_proc_root_dir,
     lsvmi_test_cases_root_dir,
 )
 

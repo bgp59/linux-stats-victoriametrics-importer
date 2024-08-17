@@ -30,3 +30,4 @@ benchmarks_root_dir = os.path.join(go_module_root, BENCHMARKS_SUBDIR)
 procfs_testdata_root = os.path.join(go_module_root, PROCFS_TESTDATA_SUBDIR)
 
 TEST_LINUX_CLKTCK_SEC = 0.01
+TEST_BOOTTIME_SEC = 1_000_000_000  # FYI 2001-09-09 01:46:40 GMT, not that it matters

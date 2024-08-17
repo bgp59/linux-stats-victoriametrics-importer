@@ -26,9 +26,6 @@ import (
 const (
 	// Special PID to indicate self:
 	SELF_PID = -1
-
-	// Special TID to indicate that the stats are for PID only:
-	PID_ONLY_TID = -1
 )
 
 type PidTidPath struct {
