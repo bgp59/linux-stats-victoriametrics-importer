@@ -21,7 +21,7 @@ const (
 	PID_LIST_CACHE_ALL_ENABLED = PID_LIST_CACHE_PID_ENABLED | PID_LIST_CACHE_TID_ENABLED
 
 	// Special TID to indicate that the stats are for PID only:
-	PID_ONLY_TID = -1
+	PID_ONLY_TID = 0
 )
 
 type PidTid struct {

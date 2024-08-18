@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 
 from collections import OrderedDict
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
@@ -13,6 +14,7 @@ from . import (
     INSTANCE_LABEL_NAME,
     TEST_BOOTTIME_SEC,
     TEST_LINUX_CLKTCK_SEC,
+    uint64_delta,
 )
 
 DEFAULT_BOOTTIME_MSEC = TEST_BOOTTIME_SEC * 1000
@@ -246,8 +248,10 @@ pid_stat_info_index_to_label_map = OrderedDict(
 
 def generate_pid_stat_info_labels(pid_stat_bsf: List[str]) -> str:
     return ",".join(
-        f'{label}="{pid_stat_bsf[index]}"'
-        for index, label in pid_stat_info_index_to_label_map.items()
+        [
+            f'{label}="{pid_stat_bsf[index]}"'
+            for index, label in pid_stat_info_index_to_label_map.items()
+        ]
     )
 
 
@@ -271,8 +275,10 @@ pid_status_info_index_to_label_map = OrderedDict(
 
 def generate_pid_status_info_labels(pid_status_bsf: List[str]) -> str:
     return ",".join(
-        f'{label}="{pid_status_bsf[index]}"'
-        for index, label in pid_status_info_index_to_label_map.items()
+        [
+            f'{label}="{pid_status_bsf[index]}"'
+            for index, label in pid_status_info_index_to_label_map.items()
+        ]
     )
 
 
@@ -296,10 +302,6 @@ def generate_proc_pid_metrics(
     )
 
     is_pid = pid_parser_data.PidTid.Tid == procfs.PID_ONLY_TID
-    has_prev = pid_metrics_info_data is not None
-    if not has_prev:
-        full_metrics = True
-
     # Labels common to all metrics:
     common_labels = ",".join(
         [
@@ -312,128 +314,153 @@ def generate_proc_pid_metrics(
         common_labels += f',{PROC_PID_TID_LABEL_NAME}="{pid_parser_data.PidTid.Tid}"'
 
     # /proc/PID/stat metrics:
-    curr_pid_stat_bsf = pid_parser_data.PidStat.ByteSliceFields
-    curr_pid_stat_nf = pid_parser_data.PidStat.NumericFields
-    if has_prev:
-        prev_pid_stat_bsf = pid_metrics_info_data.PidStatData.ByteSliceFields
-        prev_pid_stat_nf = pid_metrics_info_data.PidStat.NumericFields
-    else:
-        prev_pid_stat_bsf = None
-        prev_pid_stat_nf = None
-    starttime_msec = boottime_msec + int(
-        float(curr_pid_stat_bsf[procfs.PID_STAT_STARTTIME]) * linux_clktck_sec * 1000
-    )
-
-    ## PID+TID:
-    ### PROC_PID_STAT_STATE_METRIC:
-    has_changed = (
-        prev_pid_stat_bsf is not None
-        and curr_pid_stat_bsf[procfs.PID_STAT_STATE]
-        != prev_pid_stat_bsf[procfs.PID_STAT_STATE]
-    )
-    if has_changed:
-        metrics.append(
-            f"{PROC_PID_STAT_STATE_METRIC}{{"
-            + ",".join(
-                common_labels,
-                f'{PROC_PID_STAT_STARTTIME_LABEL_NAME}="{starttime_msec}"',
-                f'{PROC_PID_STAT_STATE_LABEL_NAME}="{prev_pid_stat_bsf[procfs.PID_STAT_STATE]}"',
-            )
-            + f"}} 0 {curr_prom_ts}"
+    if pid_parser_data.PidStat is not None:
+        has_prev = (
+            pid_metrics_info_data is not None
+            and pid_metrics_info_data.PidStatData is not None
         )
-    if full_metrics or has_changed:
-        metrics.append(
-            f"{PROC_PID_STAT_STATE_METRIC}{{"
-            + ",".join(
-                common_labels,
-                f'{PROC_PID_STAT_STARTTIME_LABEL_NAME}="{starttime_msec}"',
-                f'{PROC_PID_STAT_STATE_LABEL_NAME}="{curr_pid_stat_bsf[procfs.PID_STAT_STATE]}"',
-            )
-            + f"}} 1 {curr_prom_ts}"
-        )
-
-    if has_prev:
-        ### PROC_PID_STAT_*FLT_METRIC:
-        for index, metric_name, zd_index in [
-            (
-                procfs.PID_STAT_MINFLT,
-                PROC_PID_STAT_MINFLT_METRIC,
-                PID_STAT_MINFLT_ZERO_DELTA_INDEX,
-            ),
-            (
-                procfs.PID_STAT_MAJFLT,
-                PROC_PID_STAT_MAJFLT_METRIC,
-                PID_STAT_MAJFLT_ZERO_DELTA_INDEX,
-            ),
-        ]:
-            delta = curr_pid_stat_nf[index] - prev_pid_stat_nf[index]
-            if (
-                delta != 0
-                or full_metrics
-                or not pid_metrics_info_data.PidStatFltZeroDelta[zd_index]
-            ):
-                metrics.append(
-                    f"{metric_name}{{{common_labels}}} {delta} {curr_prom_ts}"
-                )
-            want_zero_delta.PidStatFltZeroDelta[zd_index] = delta == 0
-
-        ### PROC_PID_STAT_*TIME_PCT_METRIC:
-        pcpu_factor = linux_clktck_sec / interval * 100.0
-        cpu_ticks = 0
-        for index, metric_name in [
-            (procfs.PID_STAT_UTIME, PROC_PID_STAT_UTIME_PCT_METRIC),
-            (procfs.PID_STAT_STIME, PROC_PID_STAT_STIME_PCT_METRIC),
-        ]:
-            delta_ticks = curr_pid_stat_nf[index] - prev_pid_stat_nf[index]
-            cpu_ticks += delta_ticks
-            metrics.append(
-                f"{metric_name}{{{common_labels}}} {delta_ticks*pcpu_factor:.1f} {curr_prom_ts}"
-            )
-        metrics.append(
-            f"{PROC_PID_STAT_TIME_PCT_METRIC}{{{common_labels}}} {delta_ticks*pcpu_factor:.1f} {curr_prom_ts}"
-        )
-
-        ### PROC_PID_STAT_CPU_NUM_METRIC:
-        metrics.append(
-            f"{PROC_PID_STAT_CPU_NUM_METRIC}{{{common_labels}}} {curr_pid_stat_bsf[procfs.PID_STAT_PROCESSOR]} {curr_prom_ts}"
-        )
-
-    ## PID only:
-    if is_pid:
-        ### PROC_PID_STAT_INFO_METRIC:
-        has_changed = False
+        pid_stat_full_metrics = full_metrics or not has_prev
+        curr_pid_stat_bsf = pid_parser_data.PidStat.ByteSliceFields
+        curr_pid_stat_nf = pid_parser_data.PidStat.NumericFields
         if has_prev:
-            for i in pid_stat_info_index_to_label_map:
-                has_changed = curr_pid_stat_bsf[i] != prev_pid_stat_bsf[i]
-                if has_changed:
-                    break
-            if has_changed:
-                pid_stat_info_labels = generate_pid_stat_info_labels(prev_pid_stat_bsf)
-                metrics.append(
-                    f"{PROC_PID_STAT_INFO_METRIC}{{{common_labels},{pid_stat_info_labels}}} 0 {curr_prom_ts}"
-                )
-        if full_metrics or has_changed:
-            pid_stat_info_labels = generate_pid_stat_info_labels(curr_pid_stat_bsf)
-            metrics.append(
-                f"{PROC_PID_STAT_INFO_METRIC}{{{common_labels},{pid_stat_info_labels}}} 1 {curr_prom_ts}"
-            )
-        ### PROC_PID_STAT_(VSIZE|RSS*)_METRIC:
-        for index, metric_name in [
-            (procfs.PID_STAT_VSIZE, PROC_PID_STAT_VSIZE_METRIC),
-            (procfs.PID_STAT_RSS, PROC_PID_STAT_RSS_METRIC),
-            (procfs.PID_STAT_RSSLIM, PROC_PID_STAT_RSSLIM_METRIC),
-        ]:
-            crt_val = curr_pid_stat_nf[index]
-            if full_metrics or has_prev and crt_val != prev_pid_stat_nf[index]:
-                metrics.append(
-                    f"{PROC_PID_STAT_INFO_METRIC}{{{common_labels}}} {crt_val} {curr_prom_ts}"
-                )
+            prev_pid_stat_bsf = pid_metrics_info_data.PidStatData.ByteSliceFields
+            prev_pid_stat_nf = pid_metrics_info_data.PidStat.NumericFields
+        else:
+            prev_pid_stat_bsf = None
+            prev_pid_stat_nf = None
+        starttime_msec = boottime_msec + int(
+            float(curr_pid_stat_bsf[procfs.PID_STAT_STARTTIME])
+            * linux_clktck_sec
+            * 1000
+        )
 
-    # /proc/PID/status metrics are optional:
+        ## PID+TID:
+        ### PROC_PID_STAT_STATE_METRIC:
+        has_changed = (
+            prev_pid_stat_bsf is not None
+            and curr_pid_stat_bsf[procfs.PID_STAT_STATE]
+            != prev_pid_stat_bsf[procfs.PID_STAT_STATE]
+        )
+        if has_changed:
+            metrics.append(
+                f"{PROC_PID_STAT_STATE_METRIC}{{"
+                + ",".join(
+                    [
+                        common_labels,
+                        f'{PROC_PID_STAT_STARTTIME_LABEL_NAME}="{starttime_msec}"',
+                        f'{PROC_PID_STAT_STATE_LABEL_NAME}="{prev_pid_stat_bsf[procfs.PID_STAT_STATE]}"',
+                    ]
+                )
+                + f"}} 0 {curr_prom_ts}"
+            )
+        if pid_stat_full_metrics or has_changed:
+            metrics.append(
+                f"{PROC_PID_STAT_STATE_METRIC}{{"
+                + ",".join(
+                    [
+                        common_labels,
+                        f'{PROC_PID_STAT_STARTTIME_LABEL_NAME}="{starttime_msec}"',
+                        f'{PROC_PID_STAT_STATE_LABEL_NAME}="{curr_pid_stat_bsf[procfs.PID_STAT_STATE]}"',
+                    ]
+                )
+                + f"}} 1 {curr_prom_ts}"
+            )
+
+        if has_prev:
+            ### PROC_PID_STAT_*FLT_METRIC:
+            for index, metric_name, zd_index in [
+                (
+                    procfs.PID_STAT_MINFLT,
+                    PROC_PID_STAT_MINFLT_METRIC,
+                    PID_STAT_MINFLT_ZERO_DELTA_INDEX,
+                ),
+                (
+                    procfs.PID_STAT_MAJFLT,
+                    PROC_PID_STAT_MAJFLT_METRIC,
+                    PID_STAT_MAJFLT_ZERO_DELTA_INDEX,
+                ),
+            ]:
+                delta = uint64_delta(curr_pid_stat_nf[index], prev_pid_stat_nf[index])
+                if (
+                    delta != 0
+                    or pid_stat_full_metrics
+                    or not pid_metrics_info_data.PidStatFltZeroDelta[zd_index]
+                ):
+                    metrics.append(
+                        f"{metric_name}{{{common_labels}}} {delta} {curr_prom_ts}"
+                    )
+                want_zero_delta.PidStatFltZeroDelta[zd_index] = delta == 0
+
+            ### PROC_PID_STAT_*TIME_PCT_METRIC:
+            pcpu_factor = linux_clktck_sec / interval * 100.0
+            cpu_ticks = 0
+            for index, metric_name in [
+                (procfs.PID_STAT_UTIME, PROC_PID_STAT_UTIME_PCT_METRIC),
+                (procfs.PID_STAT_STIME, PROC_PID_STAT_STIME_PCT_METRIC),
+            ]:
+                delta_ticks = uint64_delta(
+                    curr_pid_stat_nf[index], prev_pid_stat_nf[index]
+                )
+                cpu_ticks += delta_ticks
+                metrics.append(
+                    f"{metric_name}{{{common_labels}}} {delta_ticks*pcpu_factor:.1f} {curr_prom_ts}"
+                )
+            metrics.append(
+                f"{PROC_PID_STAT_TIME_PCT_METRIC}{{{common_labels}}} {delta_ticks*pcpu_factor:.1f} {curr_prom_ts}"
+            )
+
+            ### PROC_PID_STAT_CPU_NUM_METRIC:
+            metrics.append(
+                f"{PROC_PID_STAT_CPU_NUM_METRIC}{{{common_labels}}} {curr_pid_stat_bsf[procfs.PID_STAT_PROCESSOR]} {curr_prom_ts}"
+            )
+
+        ## PID only:
+        if is_pid:
+            ### PROC_PID_STAT_INFO_METRIC:
+            has_changed = False
+            if has_prev:
+                for i in pid_stat_info_index_to_label_map:
+                    has_changed = curr_pid_stat_bsf[i] != prev_pid_stat_bsf[i]
+                    if has_changed:
+                        break
+                if has_changed:
+                    pid_stat_info_labels = generate_pid_stat_info_labels(
+                        prev_pid_stat_bsf
+                    )
+                    metrics.append(
+                        f"{PROC_PID_STAT_INFO_METRIC}{{{common_labels},{pid_stat_info_labels}}} 0 {curr_prom_ts}"
+                    )
+            if pid_stat_full_metrics or has_changed:
+                pid_stat_info_labels = generate_pid_stat_info_labels(curr_pid_stat_bsf)
+                metrics.append(
+                    f"{PROC_PID_STAT_INFO_METRIC}{{{common_labels},{pid_stat_info_labels}}} 1 {curr_prom_ts}"
+                )
+            ### PROC_PID_STAT_(VSIZE|RSS*)_METRIC:
+            for index, metric_name in [
+                (procfs.PID_STAT_VSIZE, PROC_PID_STAT_VSIZE_METRIC),
+                (procfs.PID_STAT_RSS, PROC_PID_STAT_RSS_METRIC),
+                (procfs.PID_STAT_RSSLIM, PROC_PID_STAT_RSSLIM_METRIC),
+            ]:
+                crt_val = curr_pid_stat_bsf[index]
+                if (
+                    pid_stat_full_metrics
+                    or has_prev
+                    and crt_val != prev_pid_stat_bsf[index]
+                ):
+                    metrics.append(
+                        f"{PROC_PID_STAT_INFO_METRIC}{{{common_labels}}} {crt_val} {curr_prom_ts}"
+                    )
+
+    # /proc/PID/status:
     if pid_parser_data.PidStatus is not None:
         curr_pid_status_bsf = pid_parser_data.PidStatus.ByteSliceFields
         curr_pid_status_bsu = pid_parser_data.PidStatus.ByteSliceFieldUnit
         curr_pid_status_nf = pid_parser_data.PidStat.NumericFields
+        has_prev = (
+            pid_metrics_info_data is not None
+            and pid_metrics_info_data.PidStatusData is not None
+        )
+        pid_status_full_metrics = full_metrics or not has_prev
         if has_prev:
             prev_pid_status_bsf = pid_metrics_info_data.PidStatus.ByteSliceFields
             prev_pid_status_nf = pid_metrics_info_data.PidStat.NumericFields
@@ -455,10 +482,12 @@ def generate_proc_pid_metrics(
                     PID_STATUS_NONVOLUNTARY_CTXT_SWITCHES_ZERO_DELTA_INDEX,
                 ),
             ]:
-                delta = curr_pid_status_nf[index] - prev_pid_status_nf[index]
+                delta = uint64_delta(
+                    curr_pid_status_nf[index], prev_pid_status_nf[index]
+                )
                 if (
                     delta != 0
-                    or full_metrics
+                    or pid_status_full_metrics
                     or not pid_metrics_info_data.PidStatusCtxZeroDelta[zd_index]
                 ):
                     metrics.append(
@@ -488,7 +517,11 @@ def generate_proc_pid_metrics(
         ]:
             if metric_name in proc_pid_status_pid_tid_vm_metrics or is_pid:
                 crt_val, unit = curr_pid_status_bsf[index], curr_pid_status_bsu[index]
-                if full_metrics or has_prev and crt_val != prev_pid_status_bsf[index]:
+                if (
+                    pid_status_full_metrics
+                    or has_prev
+                    and crt_val != prev_pid_status_bsf[index]
+                ):
                     metrics.append(
                         f'{metric_name}{{{common_labels},{PROC_PID_STATUS_VM_UNIT_LABEL_NAME}="{unit}"}} {crt_val} {curr_prom_ts}'
                     )
@@ -509,7 +542,7 @@ def generate_proc_pid_metrics(
                     metrics.append(
                         f"{PROC_PID_STATUS_INFO_METRIC}{{{common_labels},{pid_status_info_labels}}} 0 {curr_prom_ts}"
                     )
-            if full_metrics or has_changed:
+            if pid_status_full_metrics or has_changed:
                 pid_status_info_labels = generate_pid_status_info_labels(
                     curr_pid_status_bsf
                 )
@@ -518,40 +551,107 @@ def generate_proc_pid_metrics(
                 )
 
     # /proc/PID/cmdline:
-    if is_pid and full_metrics:
-        metrics.append(
-            f'{PROC_PID_CMDLINE_METRIC}{{{common_labels},{PROC_PID_CMDLINE_LABEL_NAME}="{pid_parser_data.PidCmdline.Cmdline}"}} 1 {curr_prom_ts}'
-        )
+    if pid_parser_data.PidCmdline is not None:
+        if is_pid and full_metrics:
+            metrics.append(
+                f'{PROC_PID_CMDLINE_METRIC}{{{common_labels},{PROC_PID_CMDLINE_LABEL_NAME}="{pid_parser_data.PidCmdline.Cmdline}"}} 1 {curr_prom_ts}'
+            )
 
     return metrics, want_zero_delta
 
 
-def make_ref_proc_pid_stat() -> TestPidStatParsedData:
+def get_pid_tid_variants(pid_tid: Optional[procfs.PidTid] = None) -> Tuple:
+    if pid_tid is None:
+        return "", 0, ""
+    str_suffix = f"-{pid_tid.Pid}"
+    num_offset = pid_tid.Pid
+    if pid_tid.Tid > 0:
+        str_suffix += f"-{pid_tid.Tid}"
+        num_offset = num_offset * 57 + pid_tid.Tid
+    return str_suffix, num_offset, str(num_offset)
+
+
+def make_ref_proc_pid_stat(
+    pid_tid: Optional[procfs.PidTid] = None,
+) -> TestPidStatParsedData:
+    str_suffix, num_offset, num_suffix = get_pid_tid_variants(pid_tid)
+
     pid_stat_bsf = [""] * procfs.PID_STAT_BYTE_SLICE_NUM_FIELDS
-    pid_stat_bsf[procfs.PID_STAT_COMM] = "COMM"
-    pid_stat_bsf[procfs.PID_STAT_STATE] = "STATE"
-    pid_stat_bsf[procfs.PID_STAT_PPID] = "PPID"
-    pid_stat_bsf[procfs.PID_STAT_PGRP] = "PGRP"
-    pid_stat_bsf[procfs.PID_STAT_SESSION] = "SESSION"
-    pid_stat_bsf[procfs.PID_STAT_TTY_NR] = "TTY_NR"
-    pid_stat_bsf[procfs.PID_STAT_TPGID] = "TPGID"
-    pid_stat_bsf[procfs.PID_STAT_FLAGS] = "FLAGS"
-    pid_stat_bsf[procfs.PID_STAT_PRIORITY] = "PRIORITY"
-    pid_stat_bsf[procfs.PID_STAT_NICE] = "10"
-    pid_stat_bsf[procfs.PID_STAT_NUM_THREADS] = "7"
-    pid_stat_bsf[procfs.PID_STAT_STARTTIME] = "33"
-    pid_stat_bsf[procfs.PID_STAT_VSIZE] = "1000"
-    pid_stat_bsf[procfs.PID_STAT_RSS] = "2000"
-    pid_stat_bsf[procfs.PID_STAT_RSSLIM] = "100000"
-    pid_stat_bsf[procfs.PID_STAT_PROCESSOR] = "13"
-    pid_stat_bsf[procfs.PID_STAT_RT_PRIORITY] = "0"
-    pid_stat_bsf[procfs.PID_STAT_POLICY] = "POLICY"
+    pid_stat_bsf[procfs.PID_STAT_COMM] = "COMM" + str_suffix
+    pid_stat_bsf[procfs.PID_STAT_STATE] = "STATE" + str_suffix
+    pid_stat_bsf[procfs.PID_STAT_PPID] = "PPID" + str_suffix
+    pid_stat_bsf[procfs.PID_STAT_PGRP] = "PGRP" + str_suffix
+    pid_stat_bsf[procfs.PID_STAT_SESSION] = "SESSION" + str_suffix
+    pid_stat_bsf[procfs.PID_STAT_TTY_NR] = "TTY_NR" + str_suffix
+    pid_stat_bsf[procfs.PID_STAT_TPGID] = "TPGID" + str_suffix
+    pid_stat_bsf[procfs.PID_STAT_FLAGS] = "FLAGS" + str_suffix
+    pid_stat_bsf[procfs.PID_STAT_PRIORITY] = "PRIORITY" + str_suffix
+    pid_stat_bsf[procfs.PID_STAT_NICE] = f"10{num_suffix}"
+    pid_stat_bsf[procfs.PID_STAT_NUM_THREADS] = f"7{num_suffix}"
+    pid_stat_bsf[procfs.PID_STAT_STARTTIME] = f"33{num_suffix}"
+    pid_stat_bsf[procfs.PID_STAT_VSIZE] = f"1000{num_suffix}"
+    pid_stat_bsf[procfs.PID_STAT_RSS] = f"2000{num_suffix}"
+    pid_stat_bsf[procfs.PID_STAT_RSSLIM] = f"100000{num_suffix}"
+    pid_stat_bsf[procfs.PID_STAT_PROCESSOR] = f"13{num_suffix}"
+    pid_stat_bsf[procfs.PID_STAT_RT_PRIORITY] = f"0{num_suffix}"
+    pid_stat_bsf[procfs.PID_STAT_POLICY] = "POLICY" + str_suffix
+
     pid_stat_nf = [0] * procfs.PID_STAT_ULONG_FIELD_NUM_FIELDS
-    pid_stat_nf[procfs.PID_STAT_MINFLT] = 1000
-    pid_stat_nf[procfs.PID_STAT_MAJFLT] = 100
-    pid_stat_nf[procfs.PID_STAT_UTIME] = 0
-    pid_stat_nf[procfs.PID_STAT_STIME] = 0
+    pid_stat_nf[procfs.PID_STAT_MINFLT] = 1000 + num_offset
+    pid_stat_nf[procfs.PID_STAT_MAJFLT] = 100 + num_offset
+    pid_stat_nf[procfs.PID_STAT_UTIME] = 0 + num_offset
+    pid_stat_nf[procfs.PID_STAT_STIME] = 0 + num_offset
+
     return TestPidStatParsedData(
         ByteSliceFields=pid_stat_bsf,
         NumericFields=pid_stat_nf,
     )
+
+
+def make_prev_proc_pid_stat(
+    curr_pid_stat: TestPidStatParsedData,
+    bsf_indexes: Optional[List[int]] = None,  # [] stands for all
+    nf_indexes: Optional[List[int]] = None,  # [] stands for all
+    target_pcpu: float = 12.3,
+    interval: float = DEFAULT_PROC_PID_INTERVAL_SEC,
+    linux_clktck_sec: float = TEST_LINUX_CLKTCK_SEC,
+) -> TestPidStatParsedData:
+    alt_pid_stat = deepcopy(curr_pid_stat)
+
+    if bsf_indexes is not None:
+        bsf_fields = alt_pid_stat.ByteSliceFields
+        if not bsf_indexes:
+            bsf_indexes = range(procfs.PID_STAT_BYTE_SLICE_NUM_FIELDS)
+        for index in bsf_indexes:
+            try:
+                num = int(bsf_fields[index])
+                bsf_fields[index] = str(num + 13 * (index + 1))
+            except Exception:
+                bsf_fields[index] += "_"
+    if nf_indexes is not None:
+        nf_fields = alt_pid_stat.NumericFields
+        if not nf_indexes:
+            nf_indexes = range(procfs.PID_STAT_ULONG_FIELD_NUM_FIELDS)
+        for index in nf_indexes:
+            val = nf_fields[index]
+            if index in {procfs.PID_STAT_UTIME, procfs.PID_STAT_STIME}:
+                delta = int(target_pcpu / 100 * interval / linux_clktck_sec)
+            else:
+                delta = 2 * (val + index + 1)
+            nf_fields[index] = uint64_delta(val, delta)
+    return alt_pid_stat
+
+
+def make_ref_proc_pid_cmdline() -> TestPidCmdlineParsedData:
+    return TestPidCmdlineParsedData(Cmdline="/pa/th/to/exec arg1 arg2 arg3=val3")
+
+
+"""
+
+from lsvmi import proc_pid_metrics as m
+curr_pid_stat = m.make_ref_proc_pid_stat()
+pid_tid = m.procfs.PidTid(10)
+pid_parser_data = m.TestPidParserData(PidStat=curr_pid_stat, PidTid=pid_tid)
+metrics, want_zero_delta = m.generate_proc_pid_metrics(pid_parser_data, 13)
+
+"""
