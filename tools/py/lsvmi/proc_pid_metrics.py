@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+import time
 from collections import OrderedDict
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -14,10 +15,13 @@ from . import (
     INSTANCE_LABEL_NAME,
     TEST_BOOTTIME_SEC,
     TEST_LINUX_CLKTCK_SEC,
+    lsvmi_test_cases_root_dir,
+    save_test_cases,
     uint64_delta,
 )
 
 DEFAULT_BOOTTIME_MSEC = TEST_BOOTTIME_SEC * 1000
+DEFAULT_PROCFS_ROOT = "/PROC_PID_METRICS_PROCFS"
 
 # Should match lsvmi/proc_pid_metrics.go:
 DEFAULT_PROC_PID_INTERVAL_SEC = 1
@@ -119,6 +123,7 @@ PROC_PID_TOTAL_COUNT_METRIC = "proc_pid_total_count"
 # value, rather than the desired one:
 PROC_PID_INTERVAL_METRIC = "proc_pid_metrics_delta_sec"
 
+
 # Based on lsvmi/proc_pid_metrics_utils_test.go:
 @dataclass
 class TestPidStatParsedData:
@@ -149,13 +154,13 @@ class TestPidParserData:
 @dataclass
 class TestPidParsersTestCaseData:
     ParserData: Optional[List[TestPidParserData]] = None
-    ProcfsRoot: str = "DUMMY_PROCFS_ROOT_DIR"
+    ProcfsRoot: str = DEFAULT_PROCFS_ROOT
 
 
 @dataclass
 class TestProcPidTidMetricsInfoData:
-    PidStatData: Optional[TestPidStatParsedData] = None
-    PidStatusData: Optional[TestPidStatusParsedData] = None
+    PidStat: Optional[TestPidStatParsedData] = None
+    PidStatus: Optional[TestPidStatusParsedData] = None
     PidStatFltZeroDelta: Optional[List[bool]] = None
     PidStatusCtxZeroDelta: Optional[List[bool]] = None
     PidTid: Optional[procfs.PidTid] = None
@@ -173,11 +178,14 @@ PID_STATUS_NONVOLUNTARY_CTXT_SWITCHES_ZERO_DELTA_INDEX = 1
 PID_STATUS_CTX_ZERO_DELTA_SIZE = 2
 
 # Based on lsvmi/proc_pid_metrics_test.go:
+pm_generate_test_cases_file = "proc_pid_metrics_generate.json"
+
+
 @dataclass
 class ProcPidMetricsGenerateTestCase:
     Name: Optional[str] = None
     Description: Optional[str] = None
-    ProcfsRoot: Optional[str] = None
+    ProcfsRoot: Optional[str] = DEFAULT_PROCFS_ROOT
 
     Instance: Optional[str] = DEFAULT_TEST_INSTANCE
     Hostname: Optional[str] = DEFAULT_TEST_HOSTNAME
@@ -299,6 +307,7 @@ def generate_proc_pid_metrics(
     want_zero_delta = TestProcPidTidMetricsInfoData(
         PidStatFltZeroDelta=[False] * PID_STAT_FLT_ZERO_DELTA_SIZE,
         PidStatusCtxZeroDelta=[False] * PID_STATUS_CTX_ZERO_DELTA_SIZE,
+        PidTid=pid_parser_data.PidTid,
     )
 
     is_pid = pid_parser_data.PidTid.Tid == procfs.PID_ONLY_TID
@@ -317,13 +326,13 @@ def generate_proc_pid_metrics(
     if pid_parser_data.PidStat is not None:
         has_prev = (
             pid_metrics_info_data is not None
-            and pid_metrics_info_data.PidStatData is not None
+            and pid_metrics_info_data.PidStat is not None
         )
         pid_stat_full_metrics = full_metrics or not has_prev
         curr_pid_stat_bsf = pid_parser_data.PidStat.ByteSliceFields
         curr_pid_stat_nf = pid_parser_data.PidStat.NumericFields
         if has_prev:
-            prev_pid_stat_bsf = pid_metrics_info_data.PidStatData.ByteSliceFields
+            prev_pid_stat_bsf = pid_metrics_info_data.PidStat.ByteSliceFields
             prev_pid_stat_nf = pid_metrics_info_data.PidStat.NumericFields
         else:
             prev_pid_stat_bsf = None
@@ -393,7 +402,7 @@ def generate_proc_pid_metrics(
 
             ### PROC_PID_STAT_*TIME_PCT_METRIC:
             pcpu_factor = linux_clktck_sec / interval * 100.0
-            cpu_ticks = 0
+            total_delta_ticks = 0
             for index, metric_name in [
                 (procfs.PID_STAT_UTIME, PROC_PID_STAT_UTIME_PCT_METRIC),
                 (procfs.PID_STAT_STIME, PROC_PID_STAT_STIME_PCT_METRIC),
@@ -401,18 +410,18 @@ def generate_proc_pid_metrics(
                 delta_ticks = uint64_delta(
                     curr_pid_stat_nf[index], prev_pid_stat_nf[index]
                 )
-                cpu_ticks += delta_ticks
+                total_delta_ticks += delta_ticks
                 metrics.append(
                     f"{metric_name}{{{common_labels}}} {delta_ticks*pcpu_factor:.1f} {curr_prom_ts}"
                 )
             metrics.append(
-                f"{PROC_PID_STAT_TIME_PCT_METRIC}{{{common_labels}}} {delta_ticks*pcpu_factor:.1f} {curr_prom_ts}"
+                f"{PROC_PID_STAT_TIME_PCT_METRIC}{{{common_labels}}} {total_delta_ticks*pcpu_factor:.1f} {curr_prom_ts}"
             )
 
-            ### PROC_PID_STAT_CPU_NUM_METRIC:
-            metrics.append(
-                f"{PROC_PID_STAT_CPU_NUM_METRIC}{{{common_labels}}} {curr_pid_stat_bsf[procfs.PID_STAT_PROCESSOR]} {curr_prom_ts}"
-            )
+        ### PROC_PID_STAT_CPU_NUM_METRIC:
+        metrics.append(
+            f"{PROC_PID_STAT_CPU_NUM_METRIC}{{{common_labels}}} {curr_pid_stat_bsf[procfs.PID_STAT_PROCESSOR]} {curr_prom_ts}"
+        )
 
         ## PID only:
         if is_pid:
@@ -448,22 +457,22 @@ def generate_proc_pid_metrics(
                     and crt_val != prev_pid_stat_bsf[index]
                 ):
                     metrics.append(
-                        f"{PROC_PID_STAT_INFO_METRIC}{{{common_labels}}} {crt_val} {curr_prom_ts}"
+                        f"{metric_name}{{{common_labels}}} {crt_val} {curr_prom_ts}"
                     )
 
     # /proc/PID/status:
     if pid_parser_data.PidStatus is not None:
         curr_pid_status_bsf = pid_parser_data.PidStatus.ByteSliceFields
         curr_pid_status_bsu = pid_parser_data.PidStatus.ByteSliceFieldUnit
-        curr_pid_status_nf = pid_parser_data.PidStat.NumericFields
+        curr_pid_status_nf = pid_parser_data.PidStatus.NumericFields
         has_prev = (
             pid_metrics_info_data is not None
-            and pid_metrics_info_data.PidStatusData is not None
+            and pid_metrics_info_data.PidStatus is not None
         )
         pid_status_full_metrics = full_metrics or not has_prev
         if has_prev:
             prev_pid_status_bsf = pid_metrics_info_data.PidStatus.ByteSliceFields
-            prev_pid_status_nf = pid_metrics_info_data.PidStat.NumericFields
+            prev_pid_status_nf = pid_metrics_info_data.PidStatus.NumericFields
         else:
             prev_pid_status_bsf = None
             prev_pid_status_nf = None
@@ -551,11 +560,14 @@ def generate_proc_pid_metrics(
                 )
 
     # /proc/PID/cmdline:
-    if pid_parser_data.PidCmdline is not None:
-        if is_pid and full_metrics:
-            metrics.append(
-                f'{PROC_PID_CMDLINE_METRIC}{{{common_labels},{PROC_PID_CMDLINE_LABEL_NAME}="{pid_parser_data.PidCmdline.Cmdline}"}} 1 {curr_prom_ts}'
-            )
+    if (
+        pid_parser_data.PidCmdline is not None
+        and is_pid
+        and (full_metrics or pid_metrics_info_data is None)
+    ):
+        metrics.append(
+            f'{PROC_PID_CMDLINE_METRIC}{{{common_labels},{PROC_PID_CMDLINE_LABEL_NAME}="{pid_parser_data.PidCmdline.Cmdline}"}} 1 {curr_prom_ts}'
+        )
 
     return metrics, want_zero_delta
 
@@ -596,7 +608,7 @@ def make_ref_proc_pid_stat(
     pid_stat_bsf[procfs.PID_STAT_RT_PRIORITY] = f"0{num_suffix}"
     pid_stat_bsf[procfs.PID_STAT_POLICY] = "POLICY" + str_suffix
 
-    pid_stat_nf = [0] * procfs.PID_STAT_ULONG_FIELD_NUM_FIELDS
+    pid_stat_nf = [0] * procfs.PID_STAT_ULONG_NUM_FIELDS
     pid_stat_nf[procfs.PID_STAT_MINFLT] = 1000 + num_offset
     pid_stat_nf[procfs.PID_STAT_MAJFLT] = 100 + num_offset
     pid_stat_nf[procfs.PID_STAT_UTIME] = 0 + num_offset
@@ -608,11 +620,15 @@ def make_ref_proc_pid_stat(
     )
 
 
+ALL_INDEXES = tuple()
+
+
 def make_prev_proc_pid_stat(
     curr_pid_stat: TestPidStatParsedData,
-    bsf_indexes: Optional[List[int]] = None,  # [] stands for all
-    nf_indexes: Optional[List[int]] = None,  # [] stands for all
-    target_pcpu: float = 12.3,
+    bsf_indexes: Optional[List[int]] = ALL_INDEXES,  # None skip
+    nf_indexes: Optional[List[int]] = ALL_INDEXES,  # None skip
+    target_utime_pcpu: float = 12,
+    target_stime_pcpu: float = 13,
     interval: float = DEFAULT_PROC_PID_INTERVAL_SEC,
     linux_clktck_sec: float = TEST_LINUX_CLKTCK_SEC,
 ) -> TestPidStatParsedData:
@@ -631,27 +647,248 @@ def make_prev_proc_pid_stat(
     if nf_indexes is not None:
         nf_fields = alt_pid_stat.NumericFields
         if not nf_indexes:
-            nf_indexes = range(procfs.PID_STAT_ULONG_FIELD_NUM_FIELDS)
+            nf_indexes = range(procfs.PID_STAT_ULONG_NUM_FIELDS)
         for index in nf_indexes:
             val = nf_fields[index]
-            if index in {procfs.PID_STAT_UTIME, procfs.PID_STAT_STIME}:
-                delta = int(target_pcpu / 100 * interval / linux_clktck_sec)
+            if index == procfs.PID_STAT_UTIME:
+                delta = int(target_utime_pcpu / 100 * interval / linux_clktck_sec)
+            elif index == procfs.PID_STAT_STIME:
+                delta = int(target_stime_pcpu / 100 * interval / linux_clktck_sec)
             else:
                 delta = 2 * (val + index + 1)
             nf_fields[index] = uint64_delta(val, delta)
     return alt_pid_stat
 
 
-def make_ref_proc_pid_cmdline() -> TestPidCmdlineParsedData:
-    return TestPidCmdlineParsedData(Cmdline="/pa/th/to/exec arg1 arg2 arg3=val3")
+def make_ref_proc_pid_status(
+    pid_tid: Optional[procfs.PidTid] = None,
+) -> TestPidStatParsedData:
+    str_suffix, num_offset, num_suffix = get_pid_tid_variants(pid_tid)
+
+    pid_status_bsf = [""] * procfs.PID_STATUS_BYTE_SLICE_NUM_FIELDS
+    pid_status_bsf[procfs.PID_STATUS_UID] = f"UID{str_suffix}"
+    pid_status_bsf[procfs.PID_STATUS_GID] = f"GID{str_suffix}"
+    pid_status_bsf[procfs.PID_STATUS_GROUPS] = f"GID{str_suffix}"
+    pid_status_bsf[procfs.PID_STATUS_VM_PEAK] = f"113{num_suffix}"
+    pid_status_bsf[procfs.PID_STATUS_VM_SIZE] = f"114{num_suffix}"
+    pid_status_bsf[procfs.PID_STATUS_VM_LCK] = f"115{num_suffix}"
+    pid_status_bsf[procfs.PID_STATUS_VM_PIN] = f"116{num_suffix}"
+    pid_status_bsf[procfs.PID_STATUS_VM_HWM] = f"117{num_suffix}"
+    pid_status_bsf[procfs.PID_STATUS_VM_RSS] = f"118{num_suffix}"
+    pid_status_bsf[procfs.PID_STATUS_RSS_ANON] = f"119{num_suffix}"
+    pid_status_bsf[procfs.PID_STATUS_RSS_FILE] = f"120{num_suffix}"
+    pid_status_bsf[procfs.PID_STATUS_RSS_SHMEM] = f"121{num_suffix}"
+    pid_status_bsf[procfs.PID_STATUS_VM_DATA] = f"122{num_suffix}"
+    pid_status_bsf[procfs.PID_STATUS_VM_STK] = f"123{num_suffix}"
+    pid_status_bsf[procfs.PID_STATUS_VM_EXE] = f"124{num_suffix}"
+    pid_status_bsf[procfs.PID_STATUS_VM_LIB] = f"125{num_suffix}"
+    pid_status_bsf[procfs.PID_STATUS_VM_PTE] = f"126{num_suffix}"
+    pid_status_bsf[procfs.PID_STATUS_VM_PMD] = f"127{num_suffix}"
+    pid_status_bsf[procfs.PID_STATUS_VM_SWAP] = f"128{num_suffix}"
+    pid_status_bsf[procfs.PID_STATUS_HUGETLBPAGES] = f"129{num_suffix}"
+    pid_status_bsf[procfs.PID_STATUS_CPUS_ALLOWED_LIST] = f"CPUS_ALLOWED{str_suffix}"
+    pid_status_bsf[procfs.PID_STATUS_MEMS_ALLOWED_LIST] = f"MEMS_ALLOWED{str_suffix}"
+
+    pid_status_bsu = [""] * procfs.PID_STATUS_BYTE_SLICE_NUM_FIELDS
+    pid_status_bsu[procfs.PID_STATUS_VM_PEAK] = f"VM_PEAK_UNIT{str_suffix}"
+    pid_status_bsu[procfs.PID_STATUS_VM_SIZE] = f"VM_SIZE_UNIT{str_suffix}"
+    pid_status_bsu[procfs.PID_STATUS_VM_LCK] = f"VM_LCK_UNIT{str_suffix}"
+    pid_status_bsu[procfs.PID_STATUS_VM_PIN] = f"VM_PIN_UNIT{str_suffix}"
+    pid_status_bsu[procfs.PID_STATUS_VM_HWM] = f"VM_HWM_UNIT{str_suffix}"
+    pid_status_bsu[procfs.PID_STATUS_VM_RSS] = f"VM_RSS_UNIT{str_suffix}"
+    pid_status_bsu[procfs.PID_STATUS_RSS_ANON] = f"RSS_ANON_UNIT{str_suffix}"
+    pid_status_bsu[procfs.PID_STATUS_RSS_FILE] = f"RSS_FILE_UNIT{str_suffix}"
+    pid_status_bsu[procfs.PID_STATUS_RSS_SHMEM] = f"RSS_SHMEM_UNIT{str_suffix}"
+    pid_status_bsu[procfs.PID_STATUS_VM_DATA] = f"VM_DATA_UNIT{str_suffix}"
+    pid_status_bsu[procfs.PID_STATUS_VM_STK] = f"VM_STK_UNIT{str_suffix}"
+    pid_status_bsu[procfs.PID_STATUS_VM_EXE] = f"VM_EXE_UNIT{str_suffix}"
+    pid_status_bsu[procfs.PID_STATUS_VM_LIB] = f"VM_LIB_UNIT{str_suffix}"
+    pid_status_bsu[procfs.PID_STATUS_VM_PTE] = f"VM_PTE_UNIT{str_suffix}"
+    pid_status_bsu[procfs.PID_STATUS_VM_PMD] = f"VM_PMD_UNIT{str_suffix}"
+    pid_status_bsu[procfs.PID_STATUS_VM_SWAP] = f"VM_SWAP_UNIT{str_suffix}"
+    pid_status_bsu[procfs.PID_STATUS_HUGETLBPAGES] = f"HUGETLBPAGES_UNIT{num_suffix}"
+
+    pid_status_nf = [0] * procfs.PID_STATUS_ULONG_NUM_FIELDS
+    pid_status_nf[procfs.PID_STATUS_VOLUNTARY_CTXT_SWITCHES] = 1021
+    pid_status_nf[procfs.PID_STATUS_NONVOLUNTARY_CTXT_SWITCHES] = 1022
+
+    return TestPidStatusParsedData(
+        ByteSliceFields=pid_status_bsf,
+        ByteSliceFieldUnit=pid_status_bsu,
+        NumericFields=pid_status_nf,
+    )
+
+
+def make_prev_proc_pid_status(
+    curr_pid_status: TestPidStatusParsedData,
+    bsf_indexes: Optional[List[int]] = ALL_INDEXES,  # None skip
+    nf_indexes: Optional[List[int]] = ALL_INDEXES,  # None skip
+) -> TestPidStatusParsedData:
+    alt_pid_status = deepcopy(curr_pid_status)
+
+    if bsf_indexes is not None:
+        bsf_fields = alt_pid_status.ByteSliceFields
+        if not bsf_indexes:
+            bsf_indexes = range(procfs.PID_STATUS_BYTE_SLICE_NUM_FIELDS)
+        for index in bsf_indexes:
+            try:
+                num = int(bsf_fields[index])
+                bsf_fields[index] = str(num + 13 * (index + 1))
+            except Exception:
+                bsf_fields[index] += "_"
+    if nf_indexes is not None:
+        nf_fields = alt_pid_status.NumericFields
+        if not nf_indexes:
+            nf_indexes = range(procfs.PID_STATUS_ULONG_NUM_FIELDS)
+        for index in nf_indexes:
+            val = nf_fields[index]
+            delta = 2 * (val + index + 1)
+            nf_fields[index] = uint64_delta(val, delta)
+    return alt_pid_status
+
+
+def make_ref_proc_pid_cmdline(
+    pid_tid: Optional[procfs.PidTid] = None,
+) -> TestPidCmdlineParsedData:
+    cmdline = "/pa/th/to/exec"
+    if pid_tid is not None:
+        cmdline += f" --pid={pid_tid.Pid}"
+        if pid_tid.Tid > 0:
+            cmdline += f" --tid={pid_tid.Tid}"
+    cmdline += " arg1 arg2"
+    return TestPidCmdlineParsedData(Cmdline=cmdline)
+
+
+def generate_proc_pid_metrics_generate_test_case(
+    name: str,
+    pid_parser_data: TestPidParserData,
+    ts: Optional[float] = None,
+    pid_metrics_info_data: Optional[
+        TestProcPidTidMetricsInfoData
+    ] = None,  # i.e. no prev
+    interval: float = DEFAULT_PROC_PID_INTERVAL_SEC,
+    full_metrics: bool = False,
+    procfs_root: str = DEFAULT_PROCFS_ROOT,
+    instance: str = DEFAULT_TEST_INSTANCE,
+    hostname: str = DEFAULT_TEST_HOSTNAME,
+    boottime_msec: int = DEFAULT_BOOTTIME_MSEC,
+    linux_clktck_sec: float = TEST_LINUX_CLKTCK_SEC,
+    description: Optional[str] = None,
+) -> ProcPidMetricsGenerateTestCase:
+    if ts is None:
+        ts = time.time()
+    curr_prom_ts = int(ts * 1000)
+    metrics, want_zero_delta = generate_proc_pid_metrics(
+        pid_parser_data,
+        curr_prom_ts,
+        interval=interval,
+        full_metrics=full_metrics,
+        instance=instance,
+        hostname=hostname,
+        boottime_msec=boottime_msec,
+        linux_clktck_sec=linux_clktck_sec,
+    )
+    return ProcPidMetricsGenerateTestCase(
+        Name=name,
+        Description=description,
+        ProcfsRoot=procfs_root,
+        Instance=instance,
+        Hostname=hostname,
+        BoottimeMsec=boottime_msec,
+        PidTidMetricsInfo=pid_metrics_info_data,
+        ParserData=pid_parser_data,
+        CurrPromTs=curr_prom_ts,
+        PrevPromTs=curr_prom_ts - int(interval * 1000),
+        WantMetricsCount=len(metrics),
+        WantMetrics=metrics,
+        ReportExtra=True,
+        WantZeroDelta=want_zero_delta,
+    )
+
+
+def generate_proc_pid_metrics_generate_test_cases(
+    instance: str = DEFAULT_TEST_INSTANCE,
+    hostname: str = DEFAULT_TEST_HOSTNAME,
+    test_cases_root_dir: Optional[str] = lsvmi_test_cases_root_dir,
+):
+    test_cases = []
+    tc_num = 0
+
+    # Initial metrics, PID or TID:
+    ref_pid_stat = make_ref_proc_pid_stat()
+    ref_pid_status = make_ref_proc_pid_status()
+    ref_pid_cmdline = make_ref_proc_pid_cmdline()
+    pid = 100
+    for tid in [101, procfs.PID_ONLY_TID]:
+        for full_metrics in [False, True]:
+            pid_parser_data = TestPidParserData(
+                PidStat=ref_pid_stat,
+                PidStatus=ref_pid_status,
+                PidCmdline=ref_pid_cmdline,
+                PidTid=procfs.PidTid(Pid=pid, Tid=tid),
+            )
+            test_cases.append(
+                generate_proc_pid_metrics_generate_test_case(
+                    f"initial/{tc_num:04d}",
+                    pid_parser_data,
+                    full_metrics=full_metrics,
+                    instance=instance,
+                    hostname=hostname,
+                    description=f"is_pid={tid==procfs.PID_ONLY_TID}, full_metrics={full_metrics}",
+                )
+            )
+            tc_num += 1
+
+    save_test_cases(
+        test_cases, pm_generate_test_cases_file, test_cases_root_dir=test_cases_root_dir
+    )
 
 
 """
+from lsvmi import proc_pid_metrics as pm
+import procfs
 
-from lsvmi import proc_pid_metrics as m
-curr_pid_stat = m.make_ref_proc_pid_stat()
-pid_tid = m.procfs.PidTid(10)
-pid_parser_data = m.TestPidParserData(PidStat=curr_pid_stat, PidTid=pid_tid)
-metrics, want_zero_delta = m.generate_proc_pid_metrics(pid_parser_data, 13)
+pid_tid = procfs.PidTid(10)
+
+curr_pid_stat = pm.make_ref_proc_pid_stat()
+prev_pid_stat = pm.make_prev_proc_pid_stat(curr_pid_stat)
+pid_parser_data = pm.TestPidParserData(PidStat=curr_pid_stat, PidTid=pid_tid)
+pid_metrics_info_data = pm.TestProcPidTidMetricsInfoData(PidStat=prev_pid_stat, PidTid=pid_tid)
+
+metrics, want_zero_delta = pm.generate_proc_pid_metrics(pid_parser_data, 13)
+for m in metrics:
+    print(m)
+
+metrics, want_zero_delta = pm.generate_proc_pid_metrics(
+    pid_parser_data,
+    113,
+    pid_metrics_info_data=pid_metrics_info_data,
+)
+for m in metrics:
+    print(m)
+
+curr_pid_status = pm.make_ref_proc_pid_status()
+prev_pid_status = pm.make_prev_proc_pid_status(curr_pid_status)
+pid_parser_data = pm.TestPidParserData(PidStatus=curr_pid_status, PidTid=pid_tid)
+pid_metrics_info_data = pm.TestProcPidTidMetricsInfoData(PidStatus=prev_pid_status, PidTid=pid_tid)
+
+metrics, want_zero_delta = pm.generate_proc_pid_metrics(pid_parser_data, 13)
+for m in metrics:
+    print(m)
+
+metrics, want_zero_delta = pm.generate_proc_pid_metrics(
+    pid_parser_data,
+    113,
+    pid_metrics_info_data=pid_metrics_info_data,
+)
+for m in metrics:
+    print(m)
+
+curr_pid_cmdline = pm.make_ref_proc_pid_cmdline()
+pid_parser_data = pm.TestPidParserData(PidCmdline=curr_pid_cmdline, PidTid=pid_tid)
+metrics, want_zero_delta = pm.generate_proc_pid_metrics(pid_parser_data, 13, full_metrics=True)
+for m in metrics:
+    print(m)
+
 
 """

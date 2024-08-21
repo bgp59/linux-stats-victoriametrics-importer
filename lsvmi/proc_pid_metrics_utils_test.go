@@ -234,8 +234,8 @@ func setTestPidCmdlineData(pidCmdlineParser procfs.PidCmdlineParser, data *TestP
 
 // ProcPidTidMetricsInfo:
 type TestProcPidTidMetricsInfoData struct {
-	PidStatData           *TestPidStatParsedData
-	PidStatusData         *TestPidStatusParsedData
+	PidStat               *TestPidStatParsedData
+	PidStatus             *TestPidStatusParsedData
 	PidStatFltZeroDelta   []bool
 	PidStatusCtxZeroDelta []bool
 	// PID,TID for which the above applies:
@@ -250,14 +250,14 @@ func buildTestPidTidMetricsInfo(pm *ProcPidMetrics, data any) *ProcPidTidMetrics
 
 	switch data := data.(type) {
 	case *TestProcPidTidMetricsInfoData:
-		setTestPidStatData(pm.pidStat, data.PidStatData)
+		setTestPidStatData(pm.pidStat, data.PidStat)
 		pidTid := data.PidTid
 		pidTidPath := procfs.BuildPidTidPath(pm.procfsRoot, pidTid.Pid, pidTid.Tid)
 		pidTidMetricsInfo = pm.initPidTidMetricsInfo(pidTid, pidTidPath)
-		setTestPidStatData(pidTidMetricsInfo.pidStat, data.PidStatData)
+		setTestPidStatData(pidTidMetricsInfo.pidStat, data.PidStat)
 		copy(pidTidMetricsInfo.pidStatFltZeroDelta, data.PidStatFltZeroDelta)
 		if pm.usePidStatus {
-			setTestPidStatusData(pidTidMetricsInfo.pidStatus, data.PidStatusData)
+			setTestPidStatusData(pidTidMetricsInfo.pidStatus, data.PidStatus)
 			copy(pidTidMetricsInfo.pidStatusCtxZeroDelta, data.PidStatusCtxZeroDelta)
 		}
 		pidTidMetricsInfo.prevTs = pm.prevTs

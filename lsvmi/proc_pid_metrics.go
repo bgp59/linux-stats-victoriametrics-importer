@@ -859,26 +859,26 @@ func (pm *ProcPidMetrics) generateMetrics(
 				)
 				actualMetricsCount++
 			}
-			fmt.Fprintf(
-				buf,
-				pm.pidStatInfoMetricFmt,
-				pidTidMetricsInfo.pidTidLabels,
-				currPidStatBSF[procfs.PID_STAT_COMM],
-				currPidStatBSF[procfs.PID_STAT_PPID],
-				currPidStatBSF[procfs.PID_STAT_PGRP],
-				currPidStatBSF[procfs.PID_STAT_SESSION],
-				currPidStatBSF[procfs.PID_STAT_TTY_NR],
-				currPidStatBSF[procfs.PID_STAT_TPGID],
-				currPidStatBSF[procfs.PID_STAT_FLAGS],
-				currPidStatBSF[procfs.PID_STAT_PRIORITY],
-				currPidStatBSF[procfs.PID_STAT_NICE],
-				currPidStatBSF[procfs.PID_STAT_RT_PRIORITY],
-				currPidStatBSF[procfs.PID_STAT_POLICY],
-				'1',
-				ts,
-			)
-			actualMetricsCount++
 		}
+		fmt.Fprintf(
+			buf,
+			pm.pidStatInfoMetricFmt,
+			pidTidMetricsInfo.pidTidLabels,
+			currPidStatBSF[procfs.PID_STAT_COMM],
+			currPidStatBSF[procfs.PID_STAT_PPID],
+			currPidStatBSF[procfs.PID_STAT_PGRP],
+			currPidStatBSF[procfs.PID_STAT_SESSION],
+			currPidStatBSF[procfs.PID_STAT_TTY_NR],
+			currPidStatBSF[procfs.PID_STAT_TPGID],
+			currPidStatBSF[procfs.PID_STAT_FLAGS],
+			currPidStatBSF[procfs.PID_STAT_PRIORITY],
+			currPidStatBSF[procfs.PID_STAT_NICE],
+			currPidStatBSF[procfs.PID_STAT_RT_PRIORITY],
+			currPidStatBSF[procfs.PID_STAT_POLICY],
+			'1',
+			ts,
+		)
+		actualMetricsCount++
 	}
 
 	for _, indexFmt := range pm.pidStatMemoryMetricFmt {
@@ -968,6 +968,7 @@ func (pm *ProcPidMetrics) generateMetrics(
 			'1',
 			ts,
 		)
+		actualMetricsCount++
 	}
 
 	return actualMetricsCount

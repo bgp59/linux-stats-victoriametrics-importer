@@ -77,7 +77,7 @@ const (
 	PID_STAT_STIME
 
 	// Must be last!
-	PID_STAT_ULONG_FIELD_NUM_FIELDS
+	PID_STAT_ULONG_NUM_FIELDS
 )
 
 // Field handling:
@@ -174,7 +174,7 @@ var pidStatFieldHandling = [PID_STAT_MAX_FIELD_NUM + 1]*PidStatFieldHandling{
 func NewPidStat() PidStatParser {
 	return &PidStat{
 		byteSliceFields: make([][]byte, PID_STAT_BYTE_SLICE_NUM_FIELDS),
-		numericFields:   make([]uint64, PID_STAT_ULONG_FIELD_NUM_FIELDS),
+		numericFields:   make([]uint64, PID_STAT_ULONG_NUM_FIELDS),
 		fBuf:            &bytes.Buffer{},
 	}
 }

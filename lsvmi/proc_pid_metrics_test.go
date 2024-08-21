@@ -187,14 +187,17 @@ func testProcPidMetricsGenerate(tc *ProcPidMetricsGenerateTestCase, t *testing.T
 	gotMetricsCount := pm.generateMetrics(
 		pidTidMetricsInfo, hasPrev, isPid, fullMetrics, time.UnixMilli(tc.CurrPromTs), buf,
 	)
+	testMetricsQueue.QueueBuf(buf)
 
 	errBuf := &bytes.Buffer{}
 
-	fmt.Fprintf(
-		errBuf,
-		"\nmetrics count: want: %d, got: %d",
-		tc.WantMetricsCount, gotMetricsCount,
-	)
+	if tc.WantMetricsCount != gotMetricsCount {
+		fmt.Fprintf(
+			errBuf,
+			"\nmetrics count: want: %d, got: %d",
+			tc.WantMetricsCount, gotMetricsCount,
+		)
+	}
 
 	testMetricsQueue.GenerateReport(tc.WantMetrics, tc.ReportExtra, errBuf)
 

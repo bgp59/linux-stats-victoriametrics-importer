@@ -264,7 +264,7 @@ from .pid_stat_parser import (
     PID_STAT_STIME,
     PID_STAT_TPGID,
     PID_STAT_TTY_NR,
-    PID_STAT_ULONG_FIELD_NUM_FIELDS,
+    PID_STAT_ULONG_NUM_FIELDS,
     PID_STAT_UTIME,
     PID_STAT_VSIZE,
 )
