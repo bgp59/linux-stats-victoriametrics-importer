@@ -46,6 +46,8 @@ PROC_PID_STAT_SESSION_LABEL_NAME = "session"
 PROC_PID_STAT_TTY_NR_LABEL_NAME = "tty"
 PROC_PID_STAT_TPGID_LABEL_NAME = "tpgid"
 PROC_PID_STAT_FLAGS_LABEL_NAME = "flags"
+
+PROC_PID_STAT_PRIORITY_METRIC = "proc_pid_stat_prio"  # PID + TID
 PROC_PID_STAT_PRIORITY_LABEL_NAME = "prio"
 PROC_PID_STAT_NICE_LABEL_NAME = "nice"
 PROC_PID_STAT_RT_PRIORITY_LABEL_NAME = "rt_prio"
@@ -246,6 +248,11 @@ pid_stat_info_index_to_label_map = OrderedDict(
         (procfs.PID_STAT_TTY_NR, PROC_PID_STAT_TTY_NR_LABEL_NAME),
         (procfs.PID_STAT_TPGID, PROC_PID_STAT_TPGID_LABEL_NAME),
         (procfs.PID_STAT_FLAGS, PROC_PID_STAT_FLAGS_LABEL_NAME),
+    ]
+)
+
+pid_stat_priority_index_to_label_map = OrderedDict(
+    [
         (procfs.PID_STAT_PRIORITY, PROC_PID_STAT_PRIORITY_LABEL_NAME),
         (procfs.PID_STAT_NICE, PROC_PID_STAT_NICE_LABEL_NAME),
         (procfs.PID_STAT_RT_PRIORITY, PROC_PID_STAT_RT_PRIORITY_LABEL_NAME),
@@ -259,6 +266,15 @@ def generate_pid_stat_info_labels(pid_stat_bsf: List[str]) -> str:
         [
             f'{label}="{pid_stat_bsf[index]}"'
             for index, label in pid_stat_info_index_to_label_map.items()
+        ]
+    )
+
+
+def generate_pid_stat_priority_labels(pid_stat_bsf: List[str]) -> str:
+    return ",".join(
+        [
+            f'{label}="{pid_stat_bsf[index]}"'
+            for index, label in pid_stat_priority_index_to_label_map.items()
         ]
     )
 
@@ -373,6 +389,28 @@ def generate_proc_pid_metrics(
                     ]
                 )
                 + f"}} 1 {curr_prom_ts}"
+            )
+
+        ### PROC_PID_STAT_PRIORITY_METRIC:
+        has_changed = False
+        if has_prev:
+            for i in pid_stat_priority_index_to_label_map:
+                has_changed = curr_pid_stat_bsf[i] != prev_pid_stat_bsf[i]
+                if has_changed:
+                    break
+            if has_changed:
+                pid_stat_priority_labels = generate_pid_stat_priority_labels(
+                    prev_pid_stat_bsf
+                )
+                metrics.append(
+                    f"{PROC_PID_STAT_PRIORITY_METRIC}{{{common_labels},{pid_stat_priority_labels}}} 0 {curr_prom_ts}"
+                )
+        if pid_stat_full_metrics or has_changed:
+            pid_stat_priority_labels = generate_pid_stat_priority_labels(
+                curr_pid_stat_bsf
+            )
+            metrics.append(
+                f"{PROC_PID_STAT_PRIORITY_METRIC}{{{common_labels},{pid_stat_priority_labels}}} 1 {curr_prom_ts}"
             )
 
         if has_prev:
@@ -639,6 +677,8 @@ def make_prev_proc_pid_stat(
         if not bsf_indexes:
             bsf_indexes = range(procfs.PID_STAT_BYTE_SLICE_NUM_FIELDS)
         for index in bsf_indexes:
+            if index in {procfs.PID_STAT_STARTTIME}:
+                continue
             try:
                 num = int(bsf_fields[index])
                 bsf_fields[index] = str(num + 13 * (index + 1))
@@ -781,6 +821,7 @@ def generate_proc_pid_metrics_generate_test_case(
     metrics, want_zero_delta = generate_proc_pid_metrics(
         pid_parser_data,
         curr_prom_ts,
+        pid_metrics_info_data=pid_metrics_info_data,
         interval=interval,
         full_metrics=full_metrics,
         instance=instance,
@@ -797,6 +838,7 @@ def generate_proc_pid_metrics_generate_test_case(
         BoottimeMsec=boottime_msec,
         PidTidMetricsInfo=pid_metrics_info_data,
         ParserData=pid_parser_data,
+        FullMetrics=full_metrics,
         CurrPromTs=curr_prom_ts,
         PrevPromTs=curr_prom_ts - int(interval * 1000),
         WantMetricsCount=len(metrics),
@@ -814,23 +856,53 @@ def generate_proc_pid_metrics_generate_test_cases(
     test_cases = []
     tc_num = 0
 
-    # Initial metrics, PID or TID:
-    ref_pid_stat = make_ref_proc_pid_stat()
-    ref_pid_status = make_ref_proc_pid_status()
-    ref_pid_cmdline = make_ref_proc_pid_cmdline()
+    # Initial metrics, PID or PID+TID:
+    curr_pid_stat = make_ref_proc_pid_stat()
+    curr_pid_status = make_ref_proc_pid_status()
+    curr_pid_cmdline = make_ref_proc_pid_cmdline()
     pid = 100
     for tid in [101, procfs.PID_ONLY_TID]:
+        pid_tid = procfs.PidTid(Pid=pid, Tid=tid)
+        pid_parser_data = TestPidParserData(
+            PidStat=curr_pid_stat,
+            PidStatus=curr_pid_status,
+            PidCmdline=curr_pid_cmdline,
+            PidTid=pid_tid,
+        )
         for full_metrics in [False, True]:
-            pid_parser_data = TestPidParserData(
-                PidStat=ref_pid_stat,
-                PidStatus=ref_pid_status,
-                PidCmdline=ref_pid_cmdline,
-                PidTid=procfs.PidTid(Pid=pid, Tid=tid),
-            )
             test_cases.append(
                 generate_proc_pid_metrics_generate_test_case(
                     f"initial/{tc_num:04d}",
                     pid_parser_data,
+                    full_metrics=full_metrics,
+                    instance=instance,
+                    hostname=hostname,
+                    description=f"is_pid={tid==procfs.PID_ONLY_TID}, full_metrics={full_metrics}",
+                )
+            )
+            tc_num += 1
+    # All changed, PID or PID+TID:
+    prev_pid_stat = make_prev_proc_pid_stat(curr_pid_stat)
+    prev_pid_status = make_prev_proc_pid_status(curr_pid_status)
+    for tid in [101, procfs.PID_ONLY_TID]:
+        pid_tid = procfs.PidTid(Pid=pid, Tid=tid)
+        pid_parser_data = TestPidParserData(
+            PidStat=curr_pid_stat,
+            PidStatus=curr_pid_status,
+            PidCmdline=curr_pid_cmdline,
+            PidTid=procfs.PidTid(Pid=pid, Tid=tid),
+        )
+        pid_metrics_info_data = TestProcPidTidMetricsInfoData(
+            PidStat=prev_pid_stat,
+            PidStatus=prev_pid_status,
+            PidTid=pid_tid,
+        )
+        for full_metrics in [False, True]:
+            test_cases.append(
+                generate_proc_pid_metrics_generate_test_case(
+                    f"all_change/{tc_num:04d}",
+                    pid_parser_data,
+                    pid_metrics_info_data=pid_metrics_info_data,
                     full_metrics=full_metrics,
                     instance=instance,
                     hostname=hostname,

@@ -38,8 +38,13 @@ func TestProcPidMetricsInitPidStatMetricFmt(t *testing.T) {
 		},
 		{
 			pm.pidStatInfoMetricFmt,
-			[]any{`pid="PID",tid="TID"`, []byte("COMM"), []byte("PPID"), []byte("PGRP"), []byte("SESSION"), []byte("TTY_NR"), []byte("TPGID"), []byte("FLAGS"), []byte("PRIORITY"), []byte("NICE"), []byte("RT_PRIORITY"), []byte("POLICY"), '1', []byte("TIMESTAMP")},
-			`proc_pid_stat_info{instance="INSTANCE",hostname="HOSTNAME",pid="PID",tid="TID",comm="COMM",ppid="PPID",pgrp="PGRP",session="SESSION",tty="TTY_NR",tpgid="TPGID",flags="FLAGS",prio="PRIORITY",nice="NICE",rt_prio="RT_PRIORITY",policy="POLICY"} 1 TIMESTAMP`,
+			[]any{`pid="PID",tid="TID"`, []byte("COMM"), []byte("PPID"), []byte("PGRP"), []byte("SESSION"), []byte("TTY_NR"), []byte("TPGID"), []byte("FLAGS"), '1', []byte("TIMESTAMP")},
+			`proc_pid_stat_info{instance="INSTANCE",hostname="HOSTNAME",pid="PID",tid="TID",comm="COMM",ppid="PPID",pgrp="PGRP",session="SESSION",tty="TTY_NR",tpgid="TPGID",flags="FLAGS"} 1 TIMESTAMP`,
+		},
+		{
+			pm.pidStatPriorityMetricFmt,
+			[]any{`pid="PID",tid="TID"`, []byte("PRIORITY"), []byte("NICE"), []byte("RT_PRIORITY"), []byte("POLICY"), '1', []byte("TIMESTAMP")},
+			`proc_pid_stat_prio{instance="INSTANCE",hostname="HOSTNAME",pid="PID",tid="TID",prio="PRIORITY",nice="NICE",rt_prio="RT_PRIORITY",policy="POLICY"} 1 TIMESTAMP`,
 		},
 		{
 			pm.pidStatCpuNumMetricFmt,
