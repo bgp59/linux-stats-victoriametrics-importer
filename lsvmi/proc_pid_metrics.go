@@ -161,7 +161,7 @@ type ProcPidMetricsConfig struct {
 	ThreadMetrics bool `yaml:"thread_metrics"`
 	// Whether to generate metrics based on /proc/PID/status or not.
 	UsePidStatus bool `yaml:"use_pid_status"`
-	// The list of the memory related in /proc/PID/status to use, as per
+	// The list of the memory related fields in /proc/PID/status to use, as per
 	// https://www.kernel.org/doc/Documentation/filesystems/proc.rst (see
 	// "Contents of the status fields", "VmPeak" thru "HugetlbPages"). An
 	// empty/nil list will cause all fields to be used.
@@ -237,7 +237,7 @@ type ProcPidMetrics struct {
 	// The list of PidStatus memory indexes used for metrics; if empty then they
 	// are all used. Note: it is implemented as a map for fast lookup (is-in
 	// function).
-	pidStatusMemValIndex map[int]bool
+	pidStatusMemKeepIndex map[int]bool
 
 	// The PidTid list cache, shared among ProcPidMetrics instances:
 	pidTidListCache procfs.PidTidListCacheIF
@@ -367,13 +367,13 @@ func NewProcProcPidMetrics(cfg any, nPart int, pidTidListCache procfs.PidTidList
 
 	if procPidMetrics.usePidStatus {
 		if len(procPidMetricsConfig.PidStatusMemoryFields) > 0 {
-			procPidMetrics.pidStatusMemValIndex = make(map[int]bool)
+			procPidMetrics.pidStatusMemKeepIndex = make(map[int]bool)
 			for _, name := range procPidMetricsConfig.PidStatusMemoryFields {
 				index := procfs.PidStatusNameToIndex(name)
 				if index < 0 {
 					return nil, fmt.Errorf("%q: invalid pid status memory metric selector", name)
 				}
-				procPidMetrics.pidStatusMemValIndex[index] = true
+				procPidMetrics.pidStatusMemKeepIndex[index] = true
 			}
 		}
 		procPidMetricsLog.Infof("pid_status_memory_fields=%v", procPidMetricsConfig.PidStatusMemoryFields)
@@ -382,7 +382,7 @@ func NewProcProcPidMetrics(cfg any, nPart int, pidTidListCache procfs.PidTidList
 	return procPidMetrics, nil
 }
 
-func (pm *ProcPidMetrics) buildSpecificMetricFmt(metricName string, valFmt string, labelNames ...string) string {
+func (pm *ProcPidMetrics) buildGeneratorSpecificMetricFmt(metricName string, valFmt string, labelNames ...string) string {
 	metricFmt := fmt.Sprintf(
 		`%s{%s="%s",%s="%s",%s="%d"`,
 		metricName,
@@ -583,7 +583,7 @@ func (pm *ProcPidMetrics) initMetricsCache() {
 			len(procPidStatusPidTidMetricMemoryIndex),
 		)
 		for _, indexFmt := range pidStatusMemoryFmt {
-			if len(pm.pidStatusMemValIndex) > 0 && !pm.pidStatusMemValIndex[indexFmt.index] {
+			if len(pm.pidStatusMemKeepIndex) > 0 && !pm.pidStatusMemKeepIndex[indexFmt.index] {
 				continue
 			}
 			if procPidStatusPidTidMetricMemoryIndex[indexFmt.index] {
@@ -612,9 +612,9 @@ func (pm *ProcPidMetrics) initMetricsCache() {
 	pm.pidCmdlineMetricFmt = pm.buildMetricFmt(PROC_PID_CMDLINE_METRIC, "%c", PROC_PID_CMDLINE_LABEL_NAME)
 	pm.pidOnlyMetricCount++
 
-	pm.pidActiveCountMetricFmt = pm.buildSpecificMetricFmt(PROC_PID_ACTIVE_COUNT_METRIC, "%d")
-	pm.pidTotalCountMetricFmt = pm.buildSpecificMetricFmt(PROC_PID_TOTAL_COUNT_METRIC, "%d")
-	pm.intervalMetricFmt = pm.buildSpecificMetricFmt(PROC_PID_INTERVAL_METRIC, "%.6f")
+	pm.pidActiveCountMetricFmt = pm.buildGeneratorSpecificMetricFmt(PROC_PID_ACTIVE_COUNT_METRIC, "%d")
+	pm.pidTotalCountMetricFmt = pm.buildGeneratorSpecificMetricFmt(PROC_PID_TOTAL_COUNT_METRIC, "%d")
+	pm.intervalMetricFmt = pm.buildGeneratorSpecificMetricFmt(PROC_PID_INTERVAL_METRIC, "%.6f")
 
 	pm.metricCacheInitialized = true
 }
@@ -971,19 +971,21 @@ func (pm *ProcPidMetrics) generateMetrics(
 			)
 			actualMetricsCount++
 		}
-		fmt.Fprintf(
-			buf,
-			pm.pidStatusInfoMetricFmt,
-			pidTidMetricsInfo.pidTidLabels,
-			currPidStatusBSF[procfs.PID_STATUS_UID],
-			currPidStatusBSF[procfs.PID_STATUS_GID],
-			currPidStatusBSF[procfs.PID_STATUS_GROUPS],
-			currPidStatusBSF[procfs.PID_STATUS_CPUS_ALLOWED_LIST],
-			currPidStatusBSF[procfs.PID_STATUS_MEMS_ALLOWED_LIST],
-			'1',
-			ts,
-		)
-		actualMetricsCount++
+		if fullMetrics || !hasPrev || changed {
+			fmt.Fprintf(
+				buf,
+				pm.pidStatusInfoMetricFmt,
+				pidTidMetricsInfo.pidTidLabels,
+				currPidStatusBSF[procfs.PID_STATUS_UID],
+				currPidStatusBSF[procfs.PID_STATUS_GID],
+				currPidStatusBSF[procfs.PID_STATUS_GROUPS],
+				currPidStatusBSF[procfs.PID_STATUS_CPUS_ALLOWED_LIST],
+				currPidStatusBSF[procfs.PID_STATUS_MEMS_ALLOWED_LIST],
+				'1',
+				ts,
+			)
+			actualMetricsCount++
+		}
 
 		for _, indexFmt := range pm.pidStatusPidOnlyMemoryMetricFmt {
 			if fullMetrics || !hasPrev || !bytes.Equal(
@@ -1165,8 +1167,9 @@ func (pm *ProcPidMetrics) Execute() bool {
 	if buf == nil {
 		buf = pm.metricsQueue.GetBuf()
 	}
+	pidTidCount := len(pidTidList)
 	fmt.Fprintf(buf, pm.pidActiveCountMetricFmt, activePidTidCount, ts)
-	fmt.Fprintf(buf, pm.pidTotalCountMetricFmt, activePidTidCount, ts)
+	fmt.Fprintf(buf, pm.pidTotalCountMetricFmt, pidTidCount, ts)
 	actualMetricsCount += 2
 	if hasPrev {
 		fmt.Fprintf(buf, pm.intervalMetricFmt, currTs.Sub(pm.prevTs).Seconds(), ts)
@@ -1177,7 +1180,6 @@ func (pm *ProcPidMetrics) Execute() bool {
 	pm.prevTs = currTs
 
 	// Generator stats:
-	pidTidCount := len(pidTidList)
 	totalMetricsCount := pm.pidTidMetricCount*pidTidCount + pm.pidOnlyMetricCount*(pidTidCount-tidCount) + 3
 	GlobalMetricsGeneratorStatsContainer.Update(
 		pm.id, uint64(actualMetricsCount), uint64(totalMetricsCount), uint64(byteCount),
