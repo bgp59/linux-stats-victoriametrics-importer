@@ -26,6 +26,9 @@ func (mq *TestMetricsQueue) GetBuf() *bytes.Buffer {
 	return &bytes.Buffer{}
 }
 
+func (mq *TestMetricsQueue) ReturnBuf(buf *bytes.Buffer) {
+}
+
 func (mq *TestMetricsQueue) QueueBuf(buf *bytes.Buffer) {
 	if buf == nil || buf.Len() == 0 {
 		return

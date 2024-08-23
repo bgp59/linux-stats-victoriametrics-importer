@@ -73,6 +73,11 @@ var procPidMetricsGenerateTestCaseFile = path.Join(
 	"proc_pid_metrics_generate.json",
 )
 
+var procPidMetricsExecuteTestCaseFile = path.Join(
+	"..", testutils.LsvmiTestCasesSubdir,
+	"proc_pid_metrics_execute.json",
+)
+
 func (testPidTidListCache *TestPidTidListCache) GetPidTidList(part int, into []procfs.PidTid) ([]procfs.PidTid, error) {
 	pidListLen := len(testPidTidListCache.pidTidList)
 	if into == nil || cap(into) < pidListLen {
@@ -148,6 +153,7 @@ func buildTestProcPidMetricsForExecute(tc *ProcPidMetricsExecuteTestCase) (*Proc
 	pm.hostname = tc.Hostname
 	timeNow := time.UnixMilli(tc.CurrPromTs)
 	pm.timeNowFn = func() time.Time { return timeNow }
+	pm.metricsQueue = testutils.NewTestMetricsQueue(0)
 	pm.procfsRoot = tc.TestCaseData.ProcfsRoot
 	pm.linuxClktckSec = tc.LinuxClktckSec
 	pm.boottimeMsec = tc.BoottimeMsec
@@ -221,6 +227,63 @@ func TestProcPidMetricsGenerate(t *testing.T) {
 		t.Run(
 			tc.Name,
 			func(t *testing.T) { testProcPidMetricsGenerate(tc, t) },
+		)
+	}
+}
+
+func testProcPidMetricsExecute(tc *ProcPidMetricsExecuteTestCase, t *testing.T) {
+	tlc := testutils.NewTestLogCollect(t, Log, nil)
+	defer tlc.RestoreLog()
+
+	t.Logf("Description: %s", tc.Description)
+
+	pm, err := buildTestProcPidMetricsForExecute(tc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	GlobalMetricsGeneratorStatsContainer.Clear()
+	pm.Execute()
+
+	errBuf := &bytes.Buffer{}
+
+	gotMetricsCount := int(
+		GlobalMetricsGeneratorStatsContainer.stats[pm.id][METRICS_GENERATOR_ACTUAL_METRICS_COUNT])
+	if tc.WantMetricsCount != gotMetricsCount {
+		fmt.Fprintf(
+			errBuf,
+			"\nmetrics count: want: %d, got: %d",
+			tc.WantMetricsCount, gotMetricsCount,
+		)
+	}
+	testMetricsQueue := pm.metricsQueue.(*testutils.TestMetricsQueue)
+	testMetricsQueue.GenerateReport(tc.WantMetrics, tc.ReportExtra, errBuf)
+	for _, wantZeroDelta := range tc.WantZeroDelta {
+		pidTid := wantZeroDelta.PidTid
+		pidTidMetricsInfo := pm.pidTidMetricsInfo[pidTid]
+		if pidTidMetricsInfo != nil {
+			cmpPidTidMetricsZeroDelta(&pidTid, pidTidMetricsInfo, wantZeroDelta, errBuf)
+		} else {
+			fmt.Fprintf(errBuf, "pidTidMetricsInfo[%v]: missing", pidTid)
+		}
+	}
+
+	if errBuf.Len() > 0 {
+		t.Fatal(errBuf)
+	}
+}
+
+func TestProcPidMetricsExecute(t *testing.T) {
+	t.Logf("Loading test cases from %q ...", procPidMetricsExecuteTestCaseFile)
+	testCases := make([]*ProcPidMetricsExecuteTestCase, 0)
+	err := testutils.LoadJsonFile(procPidMetricsExecuteTestCaseFile, &testCases)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range testCases {
+		t.Run(
+			tc.Name,
+			func(t *testing.T) { testProcPidMetricsExecute(tc, t) },
 		)
 	}
 }

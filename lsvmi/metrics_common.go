@@ -111,6 +111,12 @@ func (mgs *MetricsGeneratorStatsContainer) Update(id string, actualMetricsCount,
 	gStats[METRICS_GENERATOR_BYTES_COUNT] += byteCount
 }
 
+func (mgs *MetricsGeneratorStatsContainer) Clear() {
+	mgs.mu.Lock()
+	defer mgs.mu.Unlock()
+	clear(mgs.stats)
+}
+
 func (mgs *MetricsGeneratorStatsContainer) SnapStats(to MetricsGeneratorStats, clearStats bool) MetricsGeneratorStats {
 	mgs.mu.Lock()
 	defer mgs.mu.Unlock()
@@ -125,10 +131,11 @@ func (mgs *MetricsGeneratorStatsContainer) SnapStats(to MetricsGeneratorStats, c
 			to[taskId] = toGStats
 		}
 		copy(toGStats, gStats)
-		if clearStats {
-			clear(gStats)
-		}
 	}
+	if clearStats {
+		clear(mgs.stats)
+	}
+
 	return to
 }
 
