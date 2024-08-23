@@ -24,7 +24,7 @@ pid_tid_list_test_case_file = os.path.join(
 class PidTidListTestCase:
     ProcfsRoot: str = tc_procfs_root
     Flags: int = 0
-    NPart: int = 0
+    NumPart: int = 0
     PidTidLists: Optional[List[List[procfs.PidTid]]] = None
 
 
@@ -51,19 +51,19 @@ if __name__ == "__main__":
         procfs.PID_LIST_CACHE_TID_ENABLED,
         procfs.PID_LIST_CACHE_ALL_ENABLED,
     ]:
-        for n_part in range(1, 9):
-            pid_tid_lists = [[] for _ in range(n_part)]
+        for num_part in range(1, 9):
+            pid_tid_lists = [[] for _ in range(num_part)]
             for pid_tid in pid_tid_list:
                 part = None
                 if pid_tid.Tid == procfs.PID_ONLY_TID:
                     if flags & procfs.PID_LIST_CACHE_PID_ENABLED:
-                        part = pid_tid.Pid % n_part
+                        part = pid_tid.Pid % num_part
                 elif flags & procfs.PID_LIST_CACHE_TID_ENABLED:
-                    part = pid_tid.Tid % n_part
+                    part = pid_tid.Tid % num_part
                 if part is not None:
                     pid_tid_lists[part].append(pid_tid)
             tc = PidTidListTestCase(
-                Flags=flags, NPart=n_part, PidTidLists=pid_tid_lists
+                Flags=flags, NumPart=num_part, PidTidLists=pid_tid_lists
             )
             test_cases.append(asdict(tc))
     with open(pid_tid_list_test_case_file, "wt") as f:

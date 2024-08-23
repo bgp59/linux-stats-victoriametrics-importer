@@ -13,7 +13,7 @@ import (
 type PidTidListTestCase struct {
 	ProcfsRoot  string
 	Flags       uint32
-	NPart       int
+	NumPart     int
 	PidTidLists [][]PidTid
 }
 
@@ -24,7 +24,7 @@ var pidTidListTestCaseFile = path.Join(
 
 func testPidTidListCacheOnePart(
 	pidTidListCache PidTidListCacheIF,
-	nPart int,
+	partNo int,
 	pidTidList []PidTid,
 	wg *sync.WaitGroup,
 	t *testing.T,
@@ -35,13 +35,13 @@ func testPidTidListCacheOnePart(
 	for _, pidTid := range pidTidList {
 		want[pidTid] = true
 	}
-	pidTidList, err := pidTidListCache.GetPidTidList(nPart, nil)
+	pidTidList, err := pidTidListCache.GetPidTidList(partNo, nil)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 	if pidTidList == nil {
-		t.Errorf("%s: no list for  part %d", t.Name(), nPart)
+		t.Errorf("no list for part# %d", partNo)
 	}
 
 	for _, pidTid := range pidTidList {
@@ -49,11 +49,11 @@ func testPidTidListCacheOnePart(
 		if exists {
 			delete(want, pidTid)
 		} else {
-			t.Errorf("%s: unexpected pidTid %v for part %d", t.Name(), pidTid, nPart)
+			t.Errorf("unexpected pidTid %v for part# %d", pidTid, partNo)
 		}
 	}
-	for pidTid, _ := range want {
-		t.Errorf("%s: missing pidTid %v for part %d", t.Name(), pidTid, nPart)
+	for pidTid := range want {
+		t.Errorf("missing pidTid %v for part# %d", pidTid, partNo)
 	}
 }
 
@@ -61,7 +61,7 @@ func testPidTidListCache(tc *PidTidListTestCase, t *testing.T) {
 	// Use an absurdly large validFor to ensure that refresh will occur only as
 	// instructed:
 	validFor := time.Hour
-	pidTidListCache := NewPidTidListCache(tc.ProcfsRoot, tc.NPart, validFor, tc.Flags)
+	pidTidListCache := NewPidTidListCache(tc.ProcfsRoot, tc.NumPart, validFor, tc.Flags)
 	wg := &sync.WaitGroup{}
 
 	// Run twice, to test reusability:
@@ -69,9 +69,9 @@ func testPidTidListCache(tc *PidTidListTestCase, t *testing.T) {
 		if forceRefresh {
 			pidTidListCache.Invalidate()
 		}
-		for nPart, pidTidList := range tc.PidTidLists {
+		for partNo, pidTidList := range tc.PidTidLists {
 			wg.Add(1)
-			go testPidTidListCacheOnePart(pidTidListCache, nPart, pidTidList, wg, t)
+			go testPidTidListCacheOnePart(pidTidListCache, partNo, pidTidList, wg, t)
 		}
 		wg.Wait()
 		wantRefreshCount, gotRefreshCount := uint64(k+1), pidTidListCache.GetRefreshCount()
@@ -91,8 +91,8 @@ func TestPidTidListCache(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(
 			fmt.Sprintf(
-				"nPart=%d,pidEnabled=%v,tidEnabled=%v",
-				tc.NPart,
+				"numPart=%d,pidEnabled=%v,tidEnabled=%v",
+				tc.NumPart,
 				tc.Flags&PID_LIST_CACHE_PID_ENABLED != 0,
 				tc.Flags&PID_LIST_CACHE_TID_ENABLED != 0,
 			),

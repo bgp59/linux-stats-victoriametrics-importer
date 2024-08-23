@@ -31,7 +31,7 @@ type PidTid struct {
 // Define an interface to be used in tests depending on PidTidListCache (they
 // will replace the real object with a simulated one):
 type PidTidListCacheIF interface {
-	GetPidTidList(part int, into []PidTid) ([]PidTid, error)
+	GetPidTidList(partNo int, into []PidTid) ([]PidTid, error)
 	Invalidate()
 	GetRefreshCount() uint64
 }
@@ -40,9 +40,9 @@ type PidTidListCache struct {
 	// The number of partitions, N, that divide the workload (the number of
 	// worker goroutines, that is). Each goroutine identifies with a number i =
 	// 0..(N-1) and handles only PID/TID such that [PT]ID % N == i.
-	nPart int
+	numPart int
 
-	// If nPart is a power of 2, then use a mask instead of % (modulo). The mask
+	// If numPart is a power of 2, then use a mask instead of % (modulo). The mask
 	// will be set to a negative number if disabled:
 	mask int
 
@@ -69,14 +69,14 @@ type PidTidListCache struct {
 	refreshCount uint64
 }
 
-func NewPidTidListCache(procfsRoot string, nPart int, validFor time.Duration, flags uint32) PidTidListCacheIF {
-	if nPart < 1 {
-		nPart = 1
+func NewPidTidListCache(procfsRoot string, numPart int, validFor time.Duration, flags uint32) PidTidListCacheIF {
+	if numPart < 1 {
+		numPart = 1
 	}
 	mask := int(-1)
-	if nPart > 1 {
+	if numPart > 1 {
 		for m := 1; m <= (1 << 30); m = m << 1 {
-			if m == nPart {
+			if m == numPart {
 				mask = m - 1
 				break
 			}
@@ -84,7 +84,7 @@ func NewPidTidListCache(procfsRoot string, nPart int, validFor time.Duration, fl
 	}
 
 	return &PidTidListCache{
-		nPart:      nPart,
+		numPart:    numPart,
 		mask:       mask,
 		validFor:   validFor,
 		flags:      flags,
@@ -117,12 +117,12 @@ func (pidTidListCache *PidTidListCache) Refresh(lockAcquired bool) error {
 	}
 
 	if pidTidListCache.pidLists == nil {
-		pidTidListCache.pidLists = make([][]PidTid, pidTidListCache.nPart)
-		for i := 0; i < pidTidListCache.nPart; i++ {
+		pidTidListCache.pidLists = make([][]PidTid, pidTidListCache.numPart)
+		for i := 0; i < pidTidListCache.numPart; i++ {
 			pidTidListCache.pidLists[i] = make([]PidTid, 0)
 		}
 	} else {
-		for i := 0; i < pidTidListCache.nPart; i++ {
+		for i := 0; i < pidTidListCache.numPart; i++ {
 			pidTidListCache.pidLists[i] = pidTidListCache.pidLists[i][0:0]
 		}
 	}
@@ -132,18 +132,18 @@ func (pidTidListCache *PidTidListCache) Refresh(lockAcquired bool) error {
 		return err
 	}
 
-	mask, nPart, useMask := pidTidListCache.mask, pidTidListCache.nPart, pidTidListCache.mask > 0
+	mask, numPart, useMask := pidTidListCache.mask, pidTidListCache.numPart, pidTidListCache.mask > 0
 	isPidEnabled := pidTidListCache.flags&PID_LIST_CACHE_PID_ENABLED > 0
 	isTidEnabled := pidTidListCache.flags&PID_LIST_CACHE_TID_ENABLED > 0
 	numEntries := 0
 	for _, name := range names {
 		var (
-			part     int
+			partNo   int
 			pid, tid int
 			pidTid   PidTid
 		)
 
-		// Convert to number by hand, saving a nanosec or two:
+		// Convert to number by hand, saving a nanosecond or two:
 		pid = 0
 		for _, c := range []byte(name) {
 			if d := int(c - '0'); 0 <= d && d <= 9 {
@@ -162,11 +162,11 @@ func (pidTidListCache *PidTidListCache) Refresh(lockAcquired bool) error {
 
 		if isPidEnabled {
 			if useMask {
-				part = pid & mask
+				partNo = pid & mask
 			} else {
-				part = pid % nPart
+				partNo = pid % numPart
 			}
-			pidTidListCache.pidLists[part] = append(pidTidListCache.pidLists[part], pidTid)
+			pidTidListCache.pidLists[partNo] = append(pidTidListCache.pidLists[partNo], pidTid)
 			numEntries += 1
 		}
 		if isTidEnabled {
@@ -191,11 +191,11 @@ func (pidTidListCache *PidTidListCache) Refresh(lockAcquired bool) error {
 				}
 				pidTid.Tid = tid
 				if useMask {
-					part = tid & pidTidListCache.mask
+					partNo = tid & pidTidListCache.mask
 				} else {
-					part = tid % pidTidListCache.nPart
+					partNo = tid % pidTidListCache.numPart
 				}
-				pidTidListCache.pidLists[part] = append(pidTidListCache.pidLists[part], pidTid)
+				pidTidListCache.pidLists[partNo] = append(pidTidListCache.pidLists[partNo], pidTid)
 				numEntries += 1
 			}
 		}
@@ -208,8 +208,8 @@ func (pidTidListCache *PidTidListCache) Refresh(lockAcquired bool) error {
 	return nil
 }
 
-func (pidTidListCache *PidTidListCache) GetPidTidList(part int, into []PidTid) ([]PidTid, error) {
-	if part < 0 || part >= pidTidListCache.nPart {
+func (pidTidListCache *PidTidListCache) GetPidTidList(partNo int, into []PidTid) ([]PidTid, error) {
+	if partNo < 0 || partNo >= pidTidListCache.numPart {
 		return nil, nil
 	}
 	pidTidListCache.lock.Lock()
@@ -220,13 +220,13 @@ func (pidTidListCache *PidTidListCache) GetPidTidList(part int, into []PidTid) (
 			return nil, err
 		}
 	}
-	pidListLen := len(pidTidListCache.pidLists[part])
+	pidListLen := len(pidTidListCache.pidLists[partNo])
 	if into == nil || cap(into) < pidListLen {
 		into = make([]PidTid, pidListLen)
 	} else {
 		into = into[:pidListLen]
 	}
-	copy(into, pidTidListCache.pidLists[part])
+	copy(into, pidTidListCache.pidLists[partNo])
 	return into, nil
 }
 
