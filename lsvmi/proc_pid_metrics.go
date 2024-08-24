@@ -269,7 +269,7 @@ type ProcPidMetrics struct {
 	// Cache metrics in a generic format that is applicable to all PID, TID and
 	// other labels. This can be either as fragments that get combined with
 	// PID, TID specific values, or format strings (args for fmt.Sprintf).
-	metricCacheInitialized bool
+	intialized bool
 
 	// PidStat based metric formats:
 	pidStatStateMetricFmt    string
@@ -616,7 +616,17 @@ func (pm *ProcPidMetrics) initMetricsCache() {
 	pm.pidTotalCountMetricFmt = pm.buildGeneratorSpecificMetricFmt(PROC_PID_TOTAL_COUNT_METRIC, "%d")
 	pm.intervalMetricFmt = pm.buildGeneratorSpecificMetricFmt(PROC_PID_INTERVAL_METRIC, "%.6f")
 
-	pm.metricCacheInitialized = true
+}
+
+func (pm *ProcPidMetrics) initialize() {
+	pm.initMetricsCache()
+	// Note the dummy PID, TID next; they will be overwritten in parser args:
+	pm.pidStat = pm.newPidStatParser()
+	if pm.usePidStatus {
+		pm.pidStatus = pm.newPidStatusParser()
+	}
+	pm.pidCmdline = pm.newPidCmdlineParser()
+	pm.intialized = true
 }
 
 func (pm *ProcPidMetrics) initPidTidMetricsInfo(pidTid procfs.PidTid, pidTidPath string) *ProcPidTidMetricsInfo {
@@ -1023,15 +1033,9 @@ func (pm *ProcPidMetrics) generateMetrics(
 // Satisfy the TaskActivity interface:
 func (pm *ProcPidMetrics) Execute() bool {
 	// If this is the 1st call, initialize various structures:
-	hasPrev := pm.metricCacheInitialized
+	hasPrev := pm.intialized
 	if !hasPrev {
-		pm.initMetricsCache()
-		// Note the dummy PID, TID next; they will be overwritten in parser args:
-		pm.pidStat = pm.newPidStatParser()
-		if pm.usePidStatus {
-			pm.pidStatus = pm.newPidStatusParser()
-		}
-		pm.pidCmdline = pm.newPidCmdlineParser()
+		pm.initialize()
 	}
 
 	// Get the current list of PID, TID to be handled by this generator:

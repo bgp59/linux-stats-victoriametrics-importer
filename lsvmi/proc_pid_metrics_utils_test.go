@@ -44,13 +44,14 @@ type TestPidParserData struct {
 
 type TestPidParsersTestCaseData struct {
 	// JSON loadable part:
-	ParserDataList []TestPidParserData
+	ParserDataList []*TestPidParserData
 	ProcfsRoot     string
 	// Index by pidTidPath for a given procfsRoot, as expected by parsers:
 	byPidTidPath map[string]*TestPidParserData
-	// The from the most recent lookup, if successful; == nil if the last lookup
-	// failed:
-	promTs *int64
+	// The timestamp from the most recent lookup and a flag indicating whether
+	// it is valid or not:
+	promTs      int64
+	validPromTs bool
 }
 
 func (tcd *TestPidParsersTestCaseData) get(pidTidPath string) *TestPidParserData {
@@ -58,14 +59,15 @@ func (tcd *TestPidParsersTestCaseData) get(pidTidPath string) *TestPidParserData
 		tcd.byPidTidPath = make(map[string]*TestPidParserData)
 		for _, parserData := range tcd.ParserDataList {
 			pidTidPath := procfs.BuildPidTidPath(tcd.ProcfsRoot, parserData.PidTid.Pid, parserData.PidTid.Tid)
-			tcd.byPidTidPath[pidTidPath] = &parserData
+			tcd.byPidTidPath[pidTidPath] = parserData
 		}
 	}
 	parseResult := tcd.byPidTidPath[pidTidPath]
 	if parseResult != nil {
-		tcd.promTs = &parseResult.CurrPromTs
+		tcd.promTs = parseResult.CurrPromTs
+		tcd.validPromTs = true
 	} else {
-		tcd.promTs = nil
+		tcd.validPromTs = false
 	}
 	return parseResult
 }

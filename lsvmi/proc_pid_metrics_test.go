@@ -151,9 +151,9 @@ func buildTestProcPidMetricsForExecute(tc *ProcPidMetricsExecuteTestCase) (*Proc
 	// test case's timestamp.
 	pm.timeNowFn = func() time.Time {
 		promTs := tc.CurrPromTs
-		if tc.PidParsersData.promTs != nil {
-			promTs = *tc.PidParsersData.promTs
-			tc.PidParsersData.promTs = nil
+		if tc.PidParsersData.validPromTs {
+			promTs = tc.PidParsersData.promTs
+			tc.PidParsersData.validPromTs = false // to be used only once
 		}
 		return time.UnixMilli(promTs)
 	}
@@ -167,7 +167,7 @@ func buildTestProcPidMetricsForExecute(tc *ProcPidMetricsExecuteTestCase) (*Proc
 	pm.newPidCmdlineParser = tc.PidParsersData.NewPidCmdline
 
 	if tc.PidTidMetricsInfoList != nil {
-		pm.initMetricsCache()
+		pm.initialize()
 		pm.prevTs = time.UnixMilli(tc.PrevPromTs)
 		for _, primeInfo := range tc.PidTidMetricsInfoList {
 			pidTid := primeInfo.PidTid
