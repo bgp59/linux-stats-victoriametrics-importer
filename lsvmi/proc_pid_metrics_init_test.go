@@ -238,7 +238,7 @@ func TestProcPidMetricsInitSpecificMetricFmt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pm.nPart = 13
+	pm.partNo = 13
 	pm.instance = "INSTANCE"
 	pm.hostname = "HOSTNAME"
 

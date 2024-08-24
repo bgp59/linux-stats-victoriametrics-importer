@@ -242,7 +242,7 @@ type ProcPidMetrics struct {
 	// The PidTid list cache, shared among ProcPidMetrics instances:
 	pidTidListCache procfs.PidTidListCacheIF
 	// The partition for the above:
-	nPart int
+	partNo int
 	// Destination storage for the above:
 	pidTidList []procfs.PidTid
 
@@ -317,7 +317,7 @@ type ProcPidMetrics struct {
 	newPidCmdlineParser procfs.NewPidCmdlineParser
 }
 
-func NewProcProcPidMetrics(cfg any, nPart int, pidTidListCache procfs.PidTidListCacheIF) (*ProcPidMetrics, error) {
+func NewProcProcPidMetrics(cfg any, partNo int, pidTidListCache procfs.PidTidListCacheIF) (*ProcPidMetrics, error) {
 	var (
 		err                  error
 		procPidMetricsConfig *ProcPidMetricsConfig
@@ -340,12 +340,12 @@ func NewProcProcPidMetrics(cfg any, nPart int, pidTidListCache procfs.PidTidList
 	}
 
 	procPidMetrics := &ProcPidMetrics{
-		id:                  fmt.Sprintf("%s#%d", PROC_PID_METRICS_ID, nPart),
+		id:                  fmt.Sprintf("%s#%d", PROC_PID_METRICS_ID, partNo),
 		interval:            interval,
 		fullMetricsFactor:   procPidMetricsConfig.FullMetricsFactor,
 		usePidStatus:        procPidMetricsConfig.UsePidStatus,
 		pidTidListCache:     pidTidListCache,
-		nPart:               nPart,
+		partNo:              partNo,
 		pidTidMetricsInfo:   make(map[procfs.PidTid]*ProcPidTidMetricsInfo),
 		tsBuf:               &bytes.Buffer{},
 		instance:            GlobalInstance,
@@ -386,7 +386,7 @@ func (pm *ProcPidMetrics) buildGeneratorSpecificMetricFmt(metricName string, val
 	metricFmt := fmt.Sprintf(
 		`%s{%s="%s",%s="%s",%s="%d"`,
 		metricName,
-		INSTANCE_LABEL_NAME, pm.instance, HOSTNAME_LABEL_NAME, pm.hostname, PROC_PID_PART_LABEL_NAME, pm.nPart,
+		INSTANCE_LABEL_NAME, pm.instance, HOSTNAME_LABEL_NAME, pm.hostname, PROC_PID_PART_LABEL_NAME, pm.partNo,
 	)
 	for _, label := range labelNames {
 		metricFmt += fmt.Sprintf(`,%s="%%s"`, label)
@@ -1034,9 +1034,9 @@ func (pm *ProcPidMetrics) Execute() bool {
 	}
 
 	// Get the current list of PID, TID to be handled by this generator:
-	pidTidList, err := pm.pidTidListCache.GetPidTidList(pm.nPart, pm.pidTidList)
+	pidTidList, err := pm.pidTidListCache.GetPidTidList(pm.partNo, pm.pidTidList)
 	if err != nil {
-		procPidMetricsLog.Errorf("GetPidTidList(part=%d): %v", pm.nPart, err)
+		procPidMetricsLog.Errorf("GetPidTidList(part=%d): %v", pm.partNo, err)
 		return false
 	}
 	// The list will be reused next time:
@@ -1145,7 +1145,7 @@ func (pm *ProcPidMetrics) Execute() bool {
 			buf = nil
 		}
 
-		// Swap per PID, TID scanners w/ the metrics generator ones:
+		// Swap the per PID, TID parsers w/ the metrics generator ones:
 		pidTidMetricsInfo.pidStat, pm.pidStat = pm.pidStat, pidTidMetricsInfo.pidStat
 		if pm.usePidStatus {
 			pidTidMetricsInfo.pidStatus, pm.pidStatus = pm.pidStatus, pidTidMetricsInfo.pidStatus
@@ -1220,9 +1220,9 @@ func ProcPidMetricsTaskBuilder(cfg *LsvmiConfig) ([]*Task, error) {
 		return nil, nil
 	}
 
-	nPart := procPidMetricsConfig.NumPartitions
-	if nPart <= 0 {
-		nPart = GlobalScheduler.numWorkers
+	numPart := procPidMetricsConfig.NumPartitions
+	if numPart <= 0 {
+		numPart = GlobalScheduler.numWorkers
 	}
 	validFor, err := time.ParseDuration(procPidMetricsConfig.PidTidListCacheValidInterval)
 	if err != nil {
@@ -1235,18 +1235,18 @@ func ProcPidMetricsTaskBuilder(cfg *LsvmiConfig) ([]*Task, error) {
 	procPidMetricsLog.Infof(
 		"num_partitions=%d (config), %d (using)",
 		procPidMetricsConfig.NumPartitions,
-		nPart,
+		numPart,
 	)
 	procPidMetricsLog.Infof("pid_list_cache_valid_interval=%s", validFor)
-	pidTidListCache := procfs.NewPidTidListCache(GlobalProcfsRoot, nPart, validFor, flags)
+	pidTidListCache := procfs.NewPidTidListCache(GlobalProcfsRoot, numPart, validFor, flags)
 
-	tasks := make([]*Task, nPart)
-	for i := 0; i < nPart; i++ {
-		pm, err := NewProcProcPidMetrics(procPidMetricsConfig, i, pidTidListCache)
+	tasks := make([]*Task, numPart)
+	for partNo := 0; partNo < numPart; partNo++ {
+		pm, err := NewProcProcPidMetrics(procPidMetricsConfig, partNo, pidTidListCache)
 		if err != nil {
 			return nil, err
 		}
-		tasks[i] = NewTask(pm.id, pm.interval, pm)
+		tasks[partNo] = NewTask(pm.id, pm.interval, pm)
 	}
 	return tasks, nil
 }

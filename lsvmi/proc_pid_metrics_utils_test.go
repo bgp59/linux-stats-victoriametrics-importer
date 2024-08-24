@@ -5,6 +5,7 @@ package lsvmi
 import (
 	"bytes"
 	"fmt"
+	"time"
 
 	"github.com/emypar/linux-stats-victoriametrics-importer/procfs"
 )
@@ -36,27 +37,37 @@ type TestPidParserData struct {
 	PidStat    *TestPidStatParsedData
 	PidStatus  *TestPidStatusParsedData
 	PidCmdline *TestPidCmdlineParsedData
+	CurrPromTs int64 // Prometheus TS, milliseconds since the epoch
 	// PID,TID for which the above applies:
 	PidTid *procfs.PidTid
 }
 
 type TestPidParsersTestCaseData struct {
 	// JSON loadable part:
-	ParserData []TestPidParserData
-	ProcfsRoot string
+	ParserDataList []TestPidParserData
+	ProcfsRoot     string
 	// Index by pidTidPath for a given procfsRoot, as expected by parsers:
 	byPidTidPath map[string]*TestPidParserData
+	// The from the most recent lookup, if successful; == nil if the last lookup
+	// failed:
+	promTs *int64
 }
 
 func (tcd *TestPidParsersTestCaseData) get(pidTidPath string) *TestPidParserData {
 	if tcd.byPidTidPath == nil {
 		tcd.byPidTidPath = make(map[string]*TestPidParserData)
-		for _, parserData := range tcd.ParserData {
+		for _, parserData := range tcd.ParserDataList {
 			pidTidPath := procfs.BuildPidTidPath(tcd.ProcfsRoot, parserData.PidTid.Pid, parserData.PidTid.Tid)
 			tcd.byPidTidPath[pidTidPath] = &parserData
 		}
 	}
-	return tcd.byPidTidPath[pidTidPath]
+	parseResult := tcd.byPidTidPath[pidTidPath]
+	if parseResult != nil {
+		tcd.promTs = &parseResult.CurrPromTs
+	} else {
+		tcd.promTs = nil
+	}
+	return parseResult
 }
 
 // TestPidParsersTestCaseData gets loaded from the test case file and it is used
@@ -238,6 +249,7 @@ type TestProcPidTidMetricsInfoData struct {
 	PidStatus             *TestPidStatusParsedData
 	PidStatFltZeroDelta   []bool
 	PidStatusCtxZeroDelta []bool
+	PrevPromTs            int64 // Prometheus TS, milliseconds since the epoch
 	// PID,TID for which the above applies:
 	PidTid procfs.PidTid
 }
@@ -260,14 +272,14 @@ func buildTestPidTidMetricsInfo(pm *ProcPidMetrics, data any) *ProcPidTidMetrics
 			setTestPidStatusData(pidTidMetricsInfo.pidStatus, data.PidStatus)
 			copy(pidTidMetricsInfo.pidStatusCtxZeroDelta, data.PidStatusCtxZeroDelta)
 		}
-		pidTidMetricsInfo.prevTs = pm.prevTs
+		pidTidMetricsInfo.prevTs = time.UnixMilli(data.PrevPromTs)
 	case *TestPidParserData:
 		setTestPidStatData(pm.pidStat, data.PidStat)
 		pidTid := data.PidTid
 		pidTidPath := procfs.BuildPidTidPath(pm.procfsRoot, pidTid.Pid, pidTid.Tid)
 		pidTidMetricsInfo = pm.initPidTidMetricsInfo(*pidTid, pidTidPath)
 	}
-
+	pidTidMetricsInfo.scanNum = -1
 	pm.pidStat = savedPidStat
 	return pidTidMetricsInfo
 }
