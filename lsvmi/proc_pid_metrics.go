@@ -697,22 +697,23 @@ func (pm *ProcPidMetrics) generateMetrics(
 	actualMetricsCount := 0
 
 	// PID + TID metrics:
-	if changed = hasPrev && !bytes.Equal(
+	changed = hasPrev && !bytes.Equal(
 		prevPidStatBSF[procfs.PID_STAT_STATE],
-		currPidStatBSF[procfs.PID_STAT_STATE]); changed || fullMetrics {
-		if changed {
-			// Clear previous state:
-			fmt.Fprintf(
-				buf,
-				pm.pidStatStateMetricFmt,
-				pidTidMetricsInfo.pidTidLabels,
-				pidTidMetricsInfo.starttimeMsec,
-				prevPidStatBSF[procfs.PID_STAT_STATE],
-				'0',
-				ts,
-			)
-			actualMetricsCount++
-		}
+		currPidStatBSF[procfs.PID_STAT_STATE])
+	if changed {
+		// Clear previous state:
+		fmt.Fprintf(
+			buf,
+			pm.pidStatStateMetricFmt,
+			pidTidMetricsInfo.pidTidLabels,
+			pidTidMetricsInfo.starttimeMsec,
+			prevPidStatBSF[procfs.PID_STAT_STATE],
+			'0',
+			ts,
+		)
+		actualMetricsCount++
+	}
+	if fullMetrics || !hasPrev || changed {
 		fmt.Fprintf(
 			buf,
 			pm.pidStatStateMetricFmt,
@@ -1004,7 +1005,7 @@ func (pm *ProcPidMetrics) generateMetrics(
 		}
 	}
 
-	if fullMetrics {
+	if fullMetrics || !hasPrev {
 		fmt.Fprintf(
 			buf,
 			pm.pidCmdlineMetricFmt,
@@ -1123,7 +1124,7 @@ func (pm *ProcPidMetrics) Execute() bool {
 				continue
 			}
 		}
-		if fullMetrics && isPid {
+		if (fullMetrics || !hasPrev) && isPid {
 			err = pm.pidCmdline.Parse(pidTidPath)
 			if err != nil {
 				procPidMetricsLog.Error(err)

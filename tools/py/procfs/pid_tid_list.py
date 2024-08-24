@@ -16,3 +16,6 @@ PID_ONLY_TID = 0
 class PidTid:
     Pid: int = 0
     Tid: int = PID_ONLY_TID
+
+    def __hash__(self):
+        return hash((self.Pid, self.Tid))

@@ -239,6 +239,9 @@ func TestProcPidMetricsGenerate(t *testing.T) {
 func testProcPidMetricsExecute(tc *ProcPidMetricsExecuteTestCase, t *testing.T) {
 	tlc := testutils.NewTestLogCollect(t, Log, nil)
 	defer tlc.RestoreLog()
+	savedGlobalMetricsGeneratorStatsContainer := GlobalMetricsGeneratorStatsContainer
+	defer func() { GlobalMetricsGeneratorStatsContainer = savedGlobalMetricsGeneratorStatsContainer }()
+	GlobalMetricsGeneratorStatsContainer = NewMetricsGeneratorStatsContainer()
 
 	t.Logf("Description: %s", tc.Description)
 
@@ -247,7 +250,6 @@ func testProcPidMetricsExecute(tc *ProcPidMetricsExecuteTestCase, t *testing.T) 
 		t.Fatal(err)
 	}
 
-	GlobalMetricsGeneratorStatsContainer.Clear()
 	pm.Execute()
 
 	errBuf := &bytes.Buffer{}

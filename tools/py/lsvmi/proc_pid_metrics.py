@@ -1119,6 +1119,11 @@ def generate_proc_pid_metrics_execute_test_case(
             for i in range(PROC_PID_METRICS_CYCLE_NUM_COUNTERS)
         ]
 
+    tc_pid_parser_data_list = []
+
+    pid_parser_data_list = deepcopy(pid_parser_data_list)
+    pid_metrics_info_data_list = deepcopy(pid_metrics_info_data_list)
+
     pid_metrics_info_data_by_pid_tid = {}
     if pid_metrics_info_data_list is not None:
         for pid_metrics_info_data in pid_metrics_info_data_list:
@@ -1136,13 +1141,11 @@ def generate_proc_pid_metrics_execute_test_case(
             use_pid_status = False
         pid_tid = pid_parser_data.PidTid
         pid_tid_list_result.append(pid_tid)
-        pid_parser_data = deepcopy(pid_parser_data)
         pid_parser_data.CurrPromTs = int(ts * 1000)
         ts += ts_inc
 
         pid_metrics_info_data = pid_metrics_info_data_by_pid_tid.get(pid_tid)
         if pid_metrics_info_data is not None:
-            pid_metrics_info_data = deepcopy(pid_metrics_info_data)
             pid_metrics_info_data.PrevPromTs = (
                 pid_parser_data.CurrPromTs - interval_msec
             )
@@ -1183,14 +1186,14 @@ def generate_proc_pid_metrics_execute_test_case(
         ]
     )
     all_metrics.append(
-        f"{PROC_PID_ACTIVE_COUNT_METRIC}{{gen_spec_labels}} {active_pid_tid_count} {curr_prom_ts}"
+        f"{PROC_PID_ACTIVE_COUNT_METRIC}{{{gen_spec_labels}}} {active_pid_tid_count} {curr_prom_ts}"
     )
     all_metrics.append(
-        f"{PROC_PID_TOTAL_COUNT_METRIC}{{gen_spec_labels}} {len(pid_tid_list_result)} {curr_prom_ts}"
+        f"{PROC_PID_TOTAL_COUNT_METRIC}{{{gen_spec_labels}}} {len(pid_tid_list_result)} {curr_prom_ts}"
     )
     if pid_metrics_info_data_list is not None:
         all_metrics.append(
-            f"{PROC_PID_INTERVAL_METRIC}{{gen_spec_labels}} {interval:.06f} {curr_prom_ts}"
+            f"{PROC_PID_INTERVAL_METRIC}{{{gen_spec_labels}}} {interval:.06f} {curr_prom_ts}"
         )
 
     return ProcPidMetricsExecuteTestCase(
@@ -1208,7 +1211,7 @@ def generate_proc_pid_metrics_execute_test_case(
         PidTidListResult=pid_tid_list_result,
         PidTidMetricsInfoList=pid_metrics_info_data_list,
         PidParsersData=TestPidParsersTestCaseData(
-            ParserDataList=pid_metrics_info_data_list,
+            ParserDataList=pid_parser_data_list,
             ProcfsRoot=procfs_root,
         ),
         CurrPromTs=curr_prom_ts,
@@ -1217,6 +1220,41 @@ def generate_proc_pid_metrics_execute_test_case(
         WantMetrics=all_metrics,
         ReportExtra=True,
         WantZeroDeltaList=want_zero_delta_list,
+    )
+
+
+def generate_proc_pid_metrics_execute_test_cases(
+    instance: str = DEFAULT_TEST_INSTANCE,
+    hostname: str = DEFAULT_TEST_HOSTNAME,
+    test_cases_root_dir: Optional[str] = lsvmi_test_cases_root_dir,
+):
+    test_cases = []
+    tc_num = 0
+
+    pid, tid = 100, procfs.PID_ONLY_TID
+    pid_tid = procfs.PidTid(Pid=pid, Tid=tid)
+    curr_pid_stat = make_ref_proc_pid_stat(pid_tid)
+    curr_pid_status = make_ref_proc_pid_status(pid_tid)
+    curr_pid_cmdline = make_ref_proc_pid_cmdline(pid_tid)
+    pid_parser_data_list = [
+        TestPidParserData(
+            PidStat=curr_pid_stat,
+            PidStatus=curr_pid_status,
+            PidCmdline=curr_pid_cmdline,
+            PidTid=pid_tid,
+        )
+    ]
+
+    test_cases.append(
+        generate_proc_pid_metrics_execute_test_case(
+            f"initial/{tc_num:04d}",
+            pid_parser_data_list=pid_parser_data_list,
+        )
+    )
+    tc_num += 1
+
+    save_test_cases(
+        test_cases, pm_execute_test_cases_file, test_cases_root_dir=test_cases_root_dir
     )
 
 

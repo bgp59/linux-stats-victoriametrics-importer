@@ -91,7 +91,7 @@ func (testPidStat *TestPidStat) Parse(pidTidPath string) error {
 	if testPidStat.parseResult != nil {
 		return nil
 	}
-	return fmt.Errorf("%s/stat: no such file", pidTidPath)
+	return fmt.Errorf("%s/stat: no such (test case) file", pidTidPath)
 }
 
 func (testPidStat *TestPidStat) GetByteSliceFields() [][]byte {
@@ -147,7 +147,7 @@ func (testPidStatus *TestPidStatus) Parse(pidTidPath string) error {
 	if testPidStatus.parseResult != nil {
 		return nil
 	}
-	return fmt.Errorf("%s/status: no such file", pidTidPath)
+	return fmt.Errorf("%s/status: no such (test case) file", pidTidPath)
 }
 
 func (testPidStatus *TestPidStatus) GetByteSliceFieldsAndUnits() ([][]byte, [][]byte) {
@@ -216,7 +216,7 @@ func (testPidCmdline *TestPidCmdline) Parse(pidTidPath string) error {
 	if testPidCmdline.parseResult != nil {
 		return nil
 	}
-	return fmt.Errorf("%s/cmdline: no such file", pidTidPath)
+	return fmt.Errorf("%s/cmdline: no such (test case) file", pidTidPath)
 }
 
 func (testPidCmdline *TestPidCmdline) GetCmdlineBytes() []byte {
