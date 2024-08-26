@@ -254,6 +254,7 @@ func testProcPidMetricsExecute(tc *ProcPidMetricsExecuteTestCase, t *testing.T) 
 
 	errBuf := &bytes.Buffer{}
 
+	// Verify metrics:
 	gotMetricsCount := int(
 		GlobalMetricsGeneratorStatsContainer.stats[pm.id][METRICS_GENERATOR_ACTUAL_METRICS_COUNT])
 	if tc.WantMetricsCount != gotMetricsCount {
@@ -265,14 +266,49 @@ func testProcPidMetricsExecute(tc *ProcPidMetricsExecuteTestCase, t *testing.T) 
 	}
 	testMetricsQueue := pm.metricsQueue.(*testutils.TestMetricsQueue)
 	testMetricsQueue.GenerateReport(tc.WantMetrics, tc.ReportExtra, errBuf)
+
+	// Verify zero delta state:
 	for _, wantZeroDelta := range tc.WantZeroDeltaList {
 		pidTid := wantZeroDelta.PidTid
 		pidTidMetricsInfo := pm.pidTidMetricsInfo[pidTid]
 		if pidTidMetricsInfo != nil {
 			cmpPidTidMetricsZeroDelta(&pidTid, pidTidMetricsInfo, wantZeroDelta, errBuf)
 		} else {
-			fmt.Fprintf(errBuf, "pidTidMetricsInfo[%v]: missing", pidTid)
+			fmt.Fprintf(errBuf, "\npidTidMetricsInfo[%v]: missing", pidTid)
 		}
+	}
+
+	// Verify cycle info:
+	for i, want := range tc.CycleNum {
+		if want++; want >= tc.FullMetricsFactor {
+			want = 0
+		}
+		got := pm.cycleNum[i]
+		if want != got {
+			fmt.Fprintf(errBuf, "\ncycleNum[%d]: want: %d, got: %d", i, want, got)
+		}
+	}
+
+	want := tc.ScanNum + 1
+	if want != pm.scanNum {
+		fmt.Fprintf(errBuf, "\nscanNum,: want: %d, got: %d", want, pm.scanNum)
+	}
+
+	// Verify metrics info cache consistency; only the PID,TID's in the test
+	// data should be keys in the cache:
+	expectedPidTid := make(map[procfs.PidTid]bool)
+	for _, testPidParserData := range tc.PidParsersData.ParserDataList {
+		expectedPidTid[*testPidParserData.PidTid] = true
+	}
+	for pidTid := range pm.pidTidMetricsInfo {
+		if !expectedPidTid[pidTid] {
+			fmt.Fprintf(errBuf, "\npidTidMetricsInfo[%#v]: unexpected PidTid key", pidTid)
+		} else {
+			delete(expectedPidTid, pidTid)
+		}
+	}
+	for pidTid := range expectedPidTid {
+		fmt.Fprintf(errBuf, "\npidTidMetricsInfo[%#v]: missing PidTid key", pidTid)
 	}
 
 	if errBuf.Len() > 0 {
