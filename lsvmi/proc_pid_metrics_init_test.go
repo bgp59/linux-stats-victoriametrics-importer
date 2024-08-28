@@ -284,9 +284,9 @@ func TestProcPidMetricsInitPidTidMetricsInfo(t *testing.T) {
 	pm.hostname = "HOSTNAME"
 	pm.procfsRoot = "PROCFS"
 
-	tcd := &TestPidParsersTestCaseData{}
-	pm.newPidStatParser = tcd.NewPidStat
-	pm.newPidStatusParser = tcd.NewPidStatus
+	tpp := &TestPidParsers{}
+	pm.newPidStatParser = tpp.NewPidStat
+	pm.newPidStatusParser = tpp.NewPidStatus
 	pm.usePidStatus = true
 	pm.boottimeMsec = 9_800_000
 	pm.linuxClktckSec = .01
@@ -294,7 +294,7 @@ func TestProcPidMetricsInitPidTidMetricsInfo(t *testing.T) {
 	pidStatByteSliceFields := make([]string, procfs.PID_STAT_BYTE_SLICE_NUM_FIELDS)
 	pidStatByteSliceFields[procfs.PID_STAT_STARTTIME] = "1234"
 	pm.pidStat = &TestPidStat{
-		parseResult: &TestPidStatParsedData{
+		parsedData: &TestPidStatParsedData{
 			ByteSliceFields: pidStatByteSliceFields,
 		},
 	}

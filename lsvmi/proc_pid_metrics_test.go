@@ -26,20 +26,21 @@ type ProcPidMetricsGenerateTestCase struct {
 	LinuxClktckSec float64
 	BoottimeMsec   int64
 
-	PidTidMetricsInfo *TestProcPidTidMetricsInfoData // != nil -> hasPrev is true
-	ParserData        *TestPidParserData
+	PidTidMetricsInfo *TestPidParserStateData
+	ParserData        *TestPidParserStateData
 	FullMetrics       bool
 
 	WantMetricsCount int
 	WantMetrics      []string
 	ReportExtra      bool
-	WantZeroDelta    *TestProcPidTidMetricsInfoData
+	WantZeroDelta    *TestPidParserStateData
 }
 
 type ProcPidMetricsExecuteTestCase struct {
 	Name        string
 	Description string
 
+	ProcfsRoot        string
 	PartNo            int
 	FullMetricsFactor int
 	UsePidStatus      bool
@@ -51,15 +52,17 @@ type ProcPidMetricsExecuteTestCase struct {
 	LinuxClktckSec float64
 	BoottimeMsec   int64
 
-	PidTidListResult       []procfs.PidTid
-	PidTidMetricsInfoList  []*TestProcPidTidMetricsInfoData // != nil -> the metrics should be initialized
-	PidParsersData         *TestPidParsersTestCaseData
-	CurrPromTs, PrevPromTs int64 // Prometheus timestamps, i.e. milliseconds since the epoch, for the specific metrics
+	PidTidListResult             []procfs.PidTid
+	PidTidMetricsInfoList        []*TestPidParserStateData // != nil -> the metrics should be initialized
+	PidParsersDataList           []*TestPidParserStateData
+	CurrUnixMilli, PrevUnixMilli int64 // Timestamps for specific metrics
 
 	WantMetricsCount  int
 	WantMetrics       []string
 	ReportExtra       bool
-	WantZeroDeltaList []*TestProcPidTidMetricsInfoData
+	WantZeroDeltaList []*TestPidParserStateData
+
+	pidParsers *TestPidParsers
 }
 
 type TestPidTidListCache struct {
@@ -107,10 +110,10 @@ func buildTestProcPidMetricsForGenerate(tc *ProcPidMetricsGenerateTestCase) (*Pr
 	pm.linuxClktckSec = tc.LinuxClktckSec
 	pm.boottimeMsec = tc.BoottimeMsec
 
-	tcd := TestPidParsersTestCaseData{}
-	pm.newPidStatParser = tcd.NewPidStat
+	tpp := TestPidParsers{}
+	pm.newPidStatParser = tpp.NewPidStat
 	if pm.usePidStatus {
-		pm.newPidStatusParser = tcd.NewPidStatus
+		pm.newPidStatusParser = tpp.NewPidStatus
 	}
 
 	if tc.PidTidMetricsInfo != nil {
@@ -133,51 +136,6 @@ func buildTestProcPidMetricsForGenerate(tc *ProcPidMetricsGenerateTestCase) (*Pr
 	return pm, pidTidMetricsInfo, nil
 }
 
-func buildTestProcPidMetricsForExecute(tc *ProcPidMetricsExecuteTestCase) (*ProcPidMetrics, error) {
-	pm, err := NewProcProcPidMetrics(nil, tc.PartNo, &TestPidTidListCache{tc.PidTidListResult})
-	if err != nil {
-		return nil, err
-	}
-	pm.fullMetricsFactor = tc.FullMetricsFactor
-	pm.usePidStatus = tc.UsePidStatus
-	pm.cycleNum = tc.CycleNum
-	pm.scanNum = tc.ScanNum
-
-	pm.instance = tc.Instance
-	pm.hostname = tc.Hostname
-
-	// The time.Now() should return the timestamp from the most recent
-	// successfully parsed data exactly once; otherwise it should return the
-	// test case's timestamp.
-	pm.timeNowFn = func() time.Time {
-		promTs := tc.CurrPromTs
-		if tc.PidParsersData.validPromTs {
-			promTs = tc.PidParsersData.promTs
-			tc.PidParsersData.validPromTs = false // to be used only once
-		}
-		return time.UnixMilli(promTs)
-	}
-
-	pm.metricsQueue = testutils.NewTestMetricsQueue(0)
-	pm.procfsRoot = tc.PidParsersData.ProcfsRoot
-	pm.linuxClktckSec = tc.LinuxClktckSec
-	pm.boottimeMsec = tc.BoottimeMsec
-	pm.newPidStatParser = tc.PidParsersData.NewPidStat
-	pm.newPidStatusParser = tc.PidParsersData.NewPidStatus
-	pm.newPidCmdlineParser = tc.PidParsersData.NewPidCmdline
-
-	if tc.PidTidMetricsInfoList != nil {
-		pm.initialize()
-		pm.prevTs = time.UnixMilli(tc.PrevPromTs)
-		for _, primeInfo := range tc.PidTidMetricsInfoList {
-			pidTid := primeInfo.PidTid
-			pm.pidTidMetricsInfo[pidTid] = buildTestPidTidMetricsInfo(pm, primeInfo)
-		}
-	}
-
-	return pm, nil
-}
-
 func testProcPidMetricsGenerate(tc *ProcPidMetricsGenerateTestCase, t *testing.T) {
 	tlc := testutils.NewTestLogCollect(t, Log, nil)
 	defer tlc.RestoreLog()
@@ -196,7 +154,7 @@ func testProcPidMetricsGenerate(tc *ProcPidMetricsGenerateTestCase, t *testing.T
 	isPid := tc.ParserData.PidTid.Tid == procfs.PID_ONLY_TID
 	fullMetrics := !hasPrev || tc.FullMetrics
 	gotMetricsCount := pm.generateMetrics(
-		pidTidMetricsInfo, hasPrev, isPid, fullMetrics, time.UnixMilli(tc.ParserData.CurrPromTs), buf,
+		pidTidMetricsInfo, hasPrev, isPid, fullMetrics, time.UnixMilli(tc.ParserData.UnixMilli), buf,
 	)
 	testMetricsQueue.QueueBuf(buf)
 
@@ -213,7 +171,7 @@ func testProcPidMetricsGenerate(tc *ProcPidMetricsGenerateTestCase, t *testing.T
 	testMetricsQueue.GenerateReport(tc.WantMetrics, tc.ReportExtra, errBuf)
 
 	if tc.WantZeroDelta != nil {
-		cmpPidTidMetricsZeroDelta(tc.ParserData.PidTid, pidTidMetricsInfo, tc.WantZeroDelta, errBuf)
+		cmpPidTidMetricsZeroDelta(pidTidMetricsInfo, tc.WantZeroDelta, errBuf)
 	}
 
 	if errBuf.Len() > 0 {
@@ -234,6 +192,43 @@ func TestProcPidMetricsGenerate(t *testing.T) {
 			func(t *testing.T) { testProcPidMetricsGenerate(tc, t) },
 		)
 	}
+}
+
+func buildTestProcPidMetricsForExecute(tc *ProcPidMetricsExecuteTestCase) (*ProcPidMetrics, error) {
+	pm, err := NewProcProcPidMetrics(nil, tc.PartNo, &TestPidTidListCache{tc.PidTidListResult})
+	if err != nil {
+		return nil, err
+	}
+
+	pm.instance = tc.Instance
+	pm.hostname = tc.Hostname
+	pm.linuxClktckSec = tc.LinuxClktckSec
+	pm.boottimeMsec = tc.BoottimeMsec
+
+	if tc.PidTidMetricsInfoList != nil {
+		// Prime state by running an Execute cycle w/ the info data as parser
+		// data and no previous state:
+		tpp := NewTestPidParsers(tc.PidTidMetricsInfoList, tc.ProcfsRoot, tc.PrevUnixMilli)
+		pm.newPidStatParser = tpp.NewPidStat
+		pm.newPidStatusParser = tpp.NewPidStatus
+		pm.newPidCmdlineParser = tpp.NewPidCmdline
+		pm.timeNowFn = tpp.timeNow
+		pm.metricsQueue = testutils.NewTestMetricsQueue(0)
+		pm.scanNum = tc.ScanNum - 1
+		pm.Execute()
+	}
+
+	pm.fullMetricsFactor = tc.FullMetricsFactor
+	pm.usePidStatus = tc.UsePidStatus
+	pm.cycleNum = tc.CycleNum
+	pm.scanNum = tc.ScanNum
+
+	tc.pidParsers = NewTestPidParsers(tc.PidParsersDataList, tc.ProcfsRoot, tc.CurrUnixMilli)
+	pm.metricsQueue = testutils.NewTestMetricsQueue(0)
+	pm.newPidStatParser = tc.pidParsers.NewPidStat
+	pm.newPidStatusParser = tc.pidParsers.NewPidStatus
+	pm.newPidCmdlineParser = tc.pidParsers.NewPidCmdline
+	return pm, nil
 }
 
 func testProcPidMetricsExecute(tc *ProcPidMetricsExecuteTestCase, t *testing.T) {
@@ -269,12 +264,12 @@ func testProcPidMetricsExecute(tc *ProcPidMetricsExecuteTestCase, t *testing.T) 
 
 	// Verify zero delta state:
 	for _, wantZeroDelta := range tc.WantZeroDeltaList {
-		pidTid := wantZeroDelta.PidTid
+		pidTid := *wantZeroDelta.PidTid
 		pidTidMetricsInfo := pm.pidTidMetricsInfo[pidTid]
 		if pidTidMetricsInfo != nil {
-			cmpPidTidMetricsZeroDelta(&pidTid, pidTidMetricsInfo, wantZeroDelta, errBuf)
+			cmpPidTidMetricsZeroDelta(pidTidMetricsInfo, wantZeroDelta, errBuf)
 		} else {
-			fmt.Fprintf(errBuf, "\npidTidMetricsInfo[%v]: missing", pidTid)
+			fmt.Fprintf(errBuf, "\npidTidMetricsInfo[%#v]: missing PidTid key", pidTid)
 		}
 	}
 
@@ -297,7 +292,7 @@ func testProcPidMetricsExecute(tc *ProcPidMetricsExecuteTestCase, t *testing.T) 
 	// Verify metrics info cache consistency; only the PID,TID's in the test
 	// data should be keys in the cache:
 	expectedPidTid := make(map[procfs.PidTid]bool)
-	for _, testPidParserData := range tc.PidParsersData.ParserDataList {
+	for _, testPidParserData := range tc.PidParsersDataList {
 		expectedPidTid[*testPidParserData.PidTid] = true
 	}
 	for pidTid := range pm.pidTidMetricsInfo {
