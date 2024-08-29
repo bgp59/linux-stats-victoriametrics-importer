@@ -636,7 +636,6 @@ func (pm *ProcPidMetrics) initMetricsCache() {
 	pm.pidNewCountMetricFmt = pm.buildGeneratorSpecificMetricFmt(PROC_PID_NEW_COUNT_METRIC, "%d")
 	pm.pidDelCountMetricFmt = pm.buildGeneratorSpecificMetricFmt(PROC_PID_DEL_COUNT_METRIC, "%d")
 	pm.intervalMetricFmt = pm.buildGeneratorSpecificMetricFmt(PROC_PID_INTERVAL_METRIC, "%.6f")
-
 }
 
 func (pm *ProcPidMetrics) initialize() {

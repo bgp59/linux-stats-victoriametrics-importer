@@ -1138,7 +1138,8 @@ def generate_proc_pid_metrics_execute_test_case(
         pid_parser_data.UnixMilli = int(ts * 1000)
         ts += ts_inc
 
-        if pid_tid.Tid == procfs.PID_ONLY_TID:
+        is_pid = pid_tid.Tid == procfs.PID_ONLY_TID
+        if is_pid:
             cycle_num_index = pid_tid.Pid % PROC_PID_METRICS_CYCLE_NUM_COUNTERS
         else:
             cycle_num_index = pid_tid.Tid % PROC_PID_METRICS_CYCLE_NUM_COUNTERS
@@ -1156,6 +1157,7 @@ def generate_proc_pid_metrics_execute_test_case(
                 or use_pid_status
                 and pid_parser_data.PidStatus is None
                 or full_metrics
+                and is_pid
                 and pid_parser_data.PidCmdline is None
             ):
                 parse_err_pid_tid_count += 1
@@ -1428,6 +1430,55 @@ def generate_proc_pid_metrics_execute_test_cases(
                 f"{name}/{tc_num:04d}",
                 pid_parsers_data_list=pid_parsers_data_list,
                 pid_metrics_info_data_list=pid_metrics_info_data_list,
+                instance=instance,
+                hostname=hostname,
+                description=f"len(info_data)={len(pid_metrics_info_data_list)}, len(parsers_data)={len(pid_parsers_data_list)}",
+            )
+        )
+        tc_num += 1
+
+    # Deleted PID,TID; they are reported in the list but they vanish by the time
+    # they are parsed and they are reported as parse error:
+    name = "parse_error"
+    start_pid, tid_offset = 400, 4000
+    # Force full metrics cycle across the board:
+    cycle_num = [0] * PROC_PID_METRICS_CYCLE_NUM_COUNTERS
+    # Simulate parse failure for every 3 out of N:
+    fail_mod = 5
+    for num_pids in range(1, max_n_pid + 1):
+        pid_metrics_info_data_list = []
+        for pid_tid in pid_tid_list_generator(
+            start_pid=start_pid,
+            tid_offset=tid_offset,
+            num_pids=num_pids,
+            tid_mod=tid_mod,
+        ):
+            curr_pid_stat = make_ref_proc_pid_stat(pid_tid)
+            curr_pid_status = make_ref_proc_pid_status(pid_tid)
+            curr_pid_cmdline = make_ref_proc_pid_cmdline(pid_tid)
+            pid_metrics_info_data_list.append(
+                TestPidParserStateData(
+                    PidStat=curr_pid_stat,
+                    PidStatus=curr_pid_status,
+                    PidCmdline=curr_pid_cmdline,
+                    PidTid=pid_tid,
+                )
+            )
+        pid_parsers_data_list = deepcopy(pid_metrics_info_data_list)
+        for i, pid_parsers_data in enumerate(pid_parsers_data_list):
+            i_mod = i % fail_mod
+            if i_mod == 0:
+                pid_parsers_data.PidStat = None
+            elif i_mod == 1:
+                pid_parsers_data.PidStatus = None
+            elif i_mod == 2:
+                pid_parsers_data.PidCmdline = None
+        test_cases.append(
+            generate_proc_pid_metrics_execute_test_case(
+                f"{name}/{tc_num:04d}",
+                pid_parsers_data_list=pid_parsers_data_list,
+                pid_metrics_info_data_list=pid_metrics_info_data_list,
+                cycle_num=cycle_num,
                 instance=instance,
                 hostname=hostname,
                 description=f"len(info_data)={len(pid_metrics_info_data_list)}, len(parsers_data)={len(pid_parsers_data_list)}",

@@ -252,7 +252,7 @@ func testProcPidMetricsExecute(tc *ProcPidMetricsExecuteTestCase, t *testing.T) 
 		if pidTidMetricsInfo != nil {
 			cmpPidTidMetricsZeroDelta(pidTidMetricsInfo, wantZeroDelta, errBuf)
 		} else {
-			fmt.Fprintf(errBuf, "\npidTidMetricsInfo[%#v]: missing PidTid key", pidTid)
+			fmt.Fprintf(errBuf, "\npidTidMetricsInfo[%#v]: missing PidTid key for zero delta check", pidTid)
 		}
 	}
 
@@ -272,21 +272,25 @@ func testProcPidMetricsExecute(tc *ProcPidMetricsExecuteTestCase, t *testing.T) 
 		fmt.Fprintf(errBuf, "\nscanNum,: want: %d, got: %d", want, pm.scanNum)
 	}
 
-	// Verify metrics info cache consistency; only the PID,TID's in the test
-	// data should be keys in the cache:
+	// Verify metrics info cache consistency; only the PID,TID's in good
+	// standing (i.e. no simulated parse errors) in the test data should be keys
+	// in the cache:
 	expectedPidTid := make(map[procfs.PidTid]bool)
 	for _, testPidParserData := range tc.PidParsersDataList {
-		expectedPidTid[*testPidParserData.PidTid] = true
+		pidTid := *testPidParserData.PidTid
+		if !tpp.failedPidTid[pidTid] {
+			expectedPidTid[pidTid] = true
+		}
 	}
 	for pidTid := range pm.pidTidMetricsInfo {
 		if !expectedPidTid[pidTid] {
-			fmt.Fprintf(errBuf, "\npidTidMetricsInfo[%#v]: unexpected PidTid key", pidTid)
+			fmt.Fprintf(errBuf, "\npidTidMetricsInfo[%#v]: unexpected PidTid key at consistency check", pidTid)
 		} else {
 			delete(expectedPidTid, pidTid)
 		}
 	}
 	for pidTid := range expectedPidTid {
-		fmt.Fprintf(errBuf, "\npidTidMetricsInfo[%#v]: missing PidTid key", pidTid)
+		fmt.Fprintf(errBuf, "\npidTidMetricsInfo[%#v]: missing PidTid key at consistency check", pidTid)
 	}
 
 	if errBuf.Len() > 0 {

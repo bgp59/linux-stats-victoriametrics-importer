@@ -51,6 +51,10 @@ type TestPidParsers struct {
 	ProcfsRoot string
 	// Index by pidTidPath for a given procfsRoot, as expected by parsers:
 	byPidTidPath map[string]*TestPidParserStateData
+	// Keep track of PID,TID in Data w/ a lookup error to exclude them from
+	// consistency checks; this happens for simulated parser errors via
+	// PidStat|PidStatus|PidCmdline set to nil.
+	failedPidTid map[procfs.PidTid]bool
 	// The timestamp from the most recent successful lookup and the fallback
 	// value:
 	lastUnixMilli, fallbackUnixMilli int64
@@ -61,6 +65,7 @@ func NewTestPidParsers(pidParserAndStateData []*TestPidParserStateData, procfsRo
 		Data:              pidParserAndStateData,
 		ProcfsRoot:        procfsRoot,
 		byPidTidPath:      make(map[string]*TestPidParserStateData),
+		failedPidTid:      make(map[procfs.PidTid]bool),
 		lastUnixMilli:     fallbackUnixMilli,
 		fallbackUnixMilli: fallbackUnixMilli,
 	}
@@ -95,19 +100,24 @@ type TestPidStat struct {
 	// The most recent call to Parse result:
 	parsedData *TestPidStatParsedData
 	// Underlying test data:
-	pidParser *TestPidParsers
+	pidParsers *TestPidParsers
 }
 
 func (testPidStat *TestPidStat) Parse(pidTidPath string) error {
 	testPidStat.parsedData = nil
-	if testPidStat.pidParser != nil {
-		if testPidParserData := testPidStat.pidParser.get(pidTidPath); testPidParserData != nil {
+	pidParsers := testPidStat.pidParsers
+	if pidParsers != nil {
+		if testPidParserData := pidParsers.get(pidTidPath); testPidParserData != nil {
 			testPidStat.parsedData = testPidParserData.PidStat
+			if testPidStat.parsedData == nil {
+				pidParsers.failedPidTid[*testPidParserData.PidTid] = true
+			}
 		}
 	}
 	if testPidStat.parsedData != nil {
 		return nil
 	}
+	pidParsers.lastUnixMilli = pidParsers.fallbackUnixMilli
 	return fmt.Errorf("%s/stat: no such (test case) file", pidTidPath)
 }
 
@@ -130,7 +140,7 @@ func (testPidStat *TestPidStat) GetNumericFields() []uint64 {
 }
 
 func (tpp *TestPidParsers) NewPidStat() procfs.PidStatParser {
-	return &TestPidStat{pidParser: tpp}
+	return &TestPidStat{pidParsers: tpp}
 }
 
 func setTestPidStatData(pidStatParser procfs.PidStatParser, data *TestPidStatParsedData) {
@@ -151,19 +161,24 @@ type TestPidStatus struct {
 	// The most recent call to Parse result:
 	parsedData *TestPidStatusParsedData
 	// Underlying test data:
-	pidParser *TestPidParsers
+	pidParsers *TestPidParsers
 }
 
 func (testPidStatus *TestPidStatus) Parse(pidTidPath string) error {
 	testPidStatus.parsedData = nil
-	if testPidStatus.pidParser != nil {
-		if testPidParserData := testPidStatus.pidParser.get(pidTidPath); testPidParserData != nil {
+	pidParsers := testPidStatus.pidParsers
+	if pidParsers != nil {
+		if testPidParserData := pidParsers.get(pidTidPath); testPidParserData != nil {
 			testPidStatus.parsedData = testPidParserData.PidStatus
+			if testPidStatus.parsedData == nil {
+				pidParsers.failedPidTid[*testPidParserData.PidTid] = true
+			}
 		}
 	}
 	if testPidStatus.parsedData != nil {
 		return nil
 	}
+	pidParsers.lastUnixMilli = pidParsers.fallbackUnixMilli
 	return fmt.Errorf("%s/status: no such (test case) file", pidTidPath)
 }
 
@@ -194,7 +209,7 @@ func (testPidStatus *TestPidStatus) GetNumericFields() []uint64 {
 }
 
 func (tpp *TestPidParsers) NewPidStatus() procfs.PidStatusParser {
-	return &TestPidStatus{pidParser: tpp}
+	return &TestPidStatus{pidParsers: tpp}
 }
 
 func setTestPidStatusData(pidStatParser procfs.PidStatusParser, data *TestPidStatusParsedData) {
@@ -220,19 +235,24 @@ type TestPidCmdline struct {
 	// The most recent call to Parse result:
 	parsedData *TestPidCmdlineParsedData
 	// Underlying test data:
-	pidParser *TestPidParsers
+	pidParsers *TestPidParsers
 }
 
 func (testPidCmdline *TestPidCmdline) Parse(pidTidPath string) error {
 	testPidCmdline.parsedData = nil
-	if testPidCmdline.pidParser != nil {
-		if testPidParserData := testPidCmdline.pidParser.get(pidTidPath); testPidParserData != nil {
+	pidParsers := testPidCmdline.pidParsers
+	if pidParsers != nil {
+		if testPidParserData := pidParsers.get(pidTidPath); testPidParserData != nil {
 			testPidCmdline.parsedData = testPidParserData.PidCmdline
+			if testPidCmdline.parsedData == nil {
+				pidParsers.failedPidTid[*testPidParserData.PidTid] = true
+			}
 		}
 	}
 	if testPidCmdline.parsedData != nil {
 		return nil
 	}
+	pidParsers.lastUnixMilli = pidParsers.fallbackUnixMilli
 	return fmt.Errorf("%s/cmdline: no such (test case) file", pidTidPath)
 }
 
@@ -251,7 +271,7 @@ func (testPidCmdline *TestPidCmdline) GetCmdlineString() string {
 }
 
 func (tpp *TestPidParsers) NewPidCmdline() procfs.PidCmdlineParser {
-	return &TestPidCmdline{pidParser: tpp}
+	return &TestPidCmdline{pidParsers: tpp}
 }
 
 func setTestPidCmdlineData(pidCmdlineParser procfs.PidCmdlineParser, data *TestPidCmdlineParsedData) {
