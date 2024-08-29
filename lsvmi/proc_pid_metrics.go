@@ -1113,6 +1113,8 @@ func (pm *ProcPidMetrics) Execute() bool {
 			} else {
 				pm.pidTidMetricsInfoHead = pidTidMetricsInfo.next
 			}
+			pidTidMetricsInfo.next = nil
+			pidTidMetricsInfo.prev = nil
 		}
 		err = pm.pidStat.Parse(pidTidPath)
 		if err != nil {
@@ -1239,6 +1241,7 @@ func (pm *ProcPidMetrics) Execute() bool {
 		delPidCount++
 		pidTidMetricsInfo = pidTidMetricsInfo.next
 		pm.pidTidMetricsInfoHead = pidTidMetricsInfo
+		pidTidMetricsInfo.prev = nil
 	}
 
 	// This generator's specific metrics:

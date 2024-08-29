@@ -4,7 +4,7 @@ import time
 from collections import OrderedDict
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import Generator, List, Optional, Tuple
 
 import procfs
 
@@ -201,35 +201,35 @@ class ProcPidMetricsGenerateTestCase:
     WantZeroDelta: Optional[TestPidParserStateData] = None
 
 
-# @dataclass
-# class ProcPidMetricsExecuteTestCase:
-#     Name: Optional[str] = None
-#     Description: Optional[str] = None
+@dataclass
+class ProcPidMetricsExecuteTestCase:
+    Name: Optional[str] = None
+    Description: Optional[str] = None
 
-#     PartNo: int = 0
-#     FullMetricsFactor: int = 15
-#     UsePidStatus: bool = False
-#     CycleNum: List[int] = field(
-#         default_factory=lambda: [0] * PROC_PID_METRICS_CYCLE_NUM_COUNTERS
-#     )
-#     ScanNum: int = 0
+    PartNo: int = 0
+    FullMetricsFactor: int = 15
+    UsePidStatus: bool = False
+    CycleNum: List[int] = field(
+        default_factory=lambda: [0] * PROC_PID_METRICS_CYCLE_NUM_COUNTERS
+    )
+    ScanNum: int = 0
 
-#     Instance: Optional[str] = DEFAULT_TEST_INSTANCE
-#     Hostname: Optional[str] = DEFAULT_TEST_HOSTNAME
-#     LinuxClktckSec: float = TEST_LINUX_CLKTCK_SEC
-#     BoottimeMsec: int = DEFAULT_BOOTTIME_MSEC
+    Instance: Optional[str] = DEFAULT_TEST_INSTANCE
+    Hostname: Optional[str] = DEFAULT_TEST_HOSTNAME
+    LinuxClktckSec: float = TEST_LINUX_CLKTCK_SEC
+    BoottimeMsec: int = DEFAULT_BOOTTIME_MSEC
 
-#     PidTidListResult: Optional[List[procfs.PidTid]] = None
-#     PidTidMetricsInfoList: Optional[List[TestPidParserStateData]] = None
-#     PidParsersData: Optional[TestPidParsersTestCaseData] = None
+    PidTidListResult: Optional[List[procfs.PidTid]] = None
+    PidTidMetricsInfoList: Optional[List[TestPidParserStateData]] = None
+    PidParsersDataList: Optional[List[TestPidParserStateData]] = None
 
-#     UnixMilli: int = 0
-#     UnixMilli: int = 0
+    CurrUnixMilli: int = 0
+    PrevUnixMilli: int = 0
 
-#     WantMetricsCount: int = 0
-#     WantMetrics: Optional[str] = None
-#     ReportExtra: bool = True
-#     WantZeroDeltaList: Optional[List[TestPidParserStateData]] = None
+    WantMetricsCount: int = 0
+    WantMetrics: Optional[str] = None
+    ReportExtra: bool = True
+    WantZeroDeltaList: Optional[List[TestPidParserStateData]] = None
 
 
 # Use an ordered dict to match the expected label order:
@@ -302,9 +302,7 @@ def generate_pid_status_info_labels(pid_status_bsf: List[str]) -> str:
 
 def generate_proc_pid_metrics(
     pid_parser_data: TestPidParserStateData,
-    pid_metrics_info_data: Optional[
-        TestPidParserStateData
-    ] = None,  # i.e. no prev
+    pid_metrics_info_data: Optional[TestPidParserStateData] = None,  # i.e. no prev
     full_metrics: bool = False,
     instance: str = DEFAULT_TEST_INSTANCE,
     hostname: str = DEFAULT_TEST_HOSTNAME,
@@ -798,9 +796,7 @@ def make_ref_proc_pid_cmdline(
 def generate_proc_pid_metrics_generate_test_case(
     name: str,
     pid_parser_data: TestPidParserStateData,
-    pid_metrics_info_data: Optional[
-        TestPidParserStateData
-    ] = None,  # i.e. no prev
+    pid_metrics_info_data: Optional[TestPidParserStateData] = None,  # i.e. no prev
     interval: float = DEFAULT_PROC_PID_INTERVAL_SEC,
     full_metrics: bool = False,
     procfs_root: str = DEFAULT_PROCFS_ROOT,
@@ -1086,327 +1082,359 @@ def generate_proc_pid_metrics_generate_test_cases(
     )
 
 
-# def generate_proc_pid_metrics_execute_test_case(
-#     name: str,
-#     pid_parser_data_list: List[TestPidParserStateData],
-#     ts: Optional[float] = None,
-#     pid_metrics_info_data_list: Optional[
-#         List[TestPidParserStateData]
-#     ] = None,  # i.e. no prev
-#     part_no: int = 1,
-#     full_metrics_factor: int = DEFAULT_PROC_PID_FULL_METRICS_FACTOR,
-#     cycle_num: Optional[List[int]] = None,
-#     scan_num: int = 1,
-#     use_pid_status: bool = True,
-#     interval: float = DEFAULT_PROC_PID_INTERVAL_SEC,
-#     procfs_root: str = DEFAULT_PROCFS_ROOT,
-#     instance: str = DEFAULT_TEST_INSTANCE,
-#     hostname: str = DEFAULT_TEST_HOSTNAME,
-#     boottime_msec: int = DEFAULT_BOOTTIME_MSEC,
-#     linux_clktck_sec: float = TEST_LINUX_CLKTCK_SEC,
-#     description: Optional[str] = None,
-# ) -> ProcPidMetricsExecuteTestCase:
+def generate_proc_pid_metrics_execute_test_case(
+    name: str,
+    pid_parsers_data_list: List[TestPidParserStateData],
+    ts: Optional[float] = None,
+    pid_metrics_info_data_list: Optional[
+        List[TestPidParserStateData]
+    ] = None,  # i.e. no prev
+    part_no: int = 1,
+    full_metrics_factor: int = DEFAULT_PROC_PID_FULL_METRICS_FACTOR,
+    cycle_num: Optional[List[int]] = None,
+    scan_num: int = 1,
+    use_pid_status: bool = True,
+    interval: float = DEFAULT_PROC_PID_INTERVAL_SEC,
+    procfs_root: str = DEFAULT_PROCFS_ROOT,
+    instance: str = DEFAULT_TEST_INSTANCE,
+    hostname: str = DEFAULT_TEST_HOSTNAME,
+    boottime_msec: int = DEFAULT_BOOTTIME_MSEC,
+    linux_clktck_sec: float = TEST_LINUX_CLKTCK_SEC,
+    description: Optional[str] = None,
+) -> ProcPidMetricsExecuteTestCase:
 
-#     if ts is None:
-#         ts = time.time()
-#     ts_inc = interval / len(pid_parser_data_list) * 0.8
-#     interval_msec = int(interval * 1000)
+    if ts is None:
+        ts = time.time()
+    ts_inc = interval / len(pid_parsers_data_list) * 0.8
+    interval_msec = int(interval * 1000)
 
-#     if cycle_num is None:
-#         cycle_num = [
-#             i % full_metrics_factor if full_metrics_factor > 0 else 0
-#             for i in range(PROC_PID_METRICS_CYCLE_NUM_COUNTERS)
-#         ]
+    if cycle_num is None:
+        cycle_num = [
+            i % full_metrics_factor if full_metrics_factor > 0 else 0
+            for i in range(PROC_PID_METRICS_CYCLE_NUM_COUNTERS)
+        ]
 
-#     pid_parser_data_list = deepcopy(pid_parser_data_list)
-#     pid_metrics_info_data_list = deepcopy(pid_metrics_info_data_list)
+    pid_parsers_data_list = deepcopy(pid_parsers_data_list)
+    pid_metrics_info_data_list = deepcopy(pid_metrics_info_data_list)
 
-#     pid_metrics_info_data_by_pid_tid = {}
-#     if pid_metrics_info_data_list is not None:
-#         for pid_metrics_info_data in pid_metrics_info_data_list:
-#             pid_metrics_info_data_by_pid_tid[
-#                 pid_metrics_info_data.PidTid
-#             ] = pid_metrics_info_data
+    pid_metrics_info_data_by_pid_tid = {}
+    if pid_metrics_info_data_list:
+        for pid_metrics_info_data in pid_metrics_info_data_list:
+            pid_metrics_info_data_by_pid_tid[
+                pid_metrics_info_data.PidTid
+            ] = pid_metrics_info_data
 
-#     pid_tid_list_result = []
-#     all_metrics = []
-#     want_zero_delta_list = []
-#     active_pid_tid_count = 0
-#     parse_err_pid_tid_count = 0
-#     new_pid_tid_count = 0
-#     del_pid_tid_count = 0
-#     use_pid_status = True
-#     for pid_parser_data in pid_parser_data_list:
-#         pid_tid = pid_parser_data.PidTid
-#         pid_tid_list_result.append(pid_tid)
-#         pid_parser_data.UnixMilli = int(ts * 1000)
-#         ts += ts_inc
+    pid_tid_list_result = []
+    all_metrics = []
+    want_zero_delta_list = []
+    active_pid_tid_count = 0
+    parse_err_pid_tid_count = 0
+    new_pid_tid_count = 0
+    del_pid_tid_count = 0
+    use_pid_status = True
+    for pid_parser_data in pid_parsers_data_list:
+        pid_tid = pid_parser_data.PidTid
+        pid_tid_list_result.append(pid_tid)
+        pid_parser_data.UnixMilli = int(ts * 1000)
+        ts += ts_inc
 
-#         if pid_tid.Tid == procfs.PID_ONLY_TID:
-#             cycle_num_index = pid_tid.Pid % PROC_PID_METRICS_CYCLE_NUM_COUNTERS
-#         else:
-#             cycle_num_index = pid_tid.Tid % PROC_PID_METRICS_CYCLE_NUM_COUNTERS
-#         full_metrics = cycle_num[cycle_num_index] == 0
+        if pid_tid.Tid == procfs.PID_ONLY_TID:
+            cycle_num_index = pid_tid.Pid % PROC_PID_METRICS_CYCLE_NUM_COUNTERS
+        else:
+            cycle_num_index = pid_tid.Tid % PROC_PID_METRICS_CYCLE_NUM_COUNTERS
+        full_metrics = cycle_num[cycle_num_index] == 0
 
-#         pid_metrics_info_data = pid_metrics_info_data_by_pid_tid.get(pid_tid)
-#         if pid_metrics_info_data is None:
-#             # By definition this counts as active:
-#             active_pid_tid_count += 1
-#         else:
-#             # If either of the needed parser data is None then this PID,TID will
-#             # generate an error and it will be deleted:
-#             if (
-#                 pid_parser_data.PidStat is None
-#                 or use_pid_status
-#                 and pid_parser_data.PidStatus is None
-#                 or full_metrics
-#                 and pid_parser_data.PidCmdline is None
-#             ):
-#                 parse_err_pid_tid_count += 1
-#                 del_pid_tid_count += 1
-#                 continue
+        pid_metrics_info_data = pid_metrics_info_data_by_pid_tid.get(pid_tid)
+        if pid_metrics_info_data is None:
+            # By definition this counts as active:
+            active_pid_tid_count += 1
+        else:
+            # If either of the needed parser data is None then this PID,TID will
+            # generate an error and it will be deleted:
+            if (
+                pid_parser_data.PidStat is None
+                or use_pid_status
+                and pid_parser_data.PidStatus is None
+                or full_metrics
+                and pid_parser_data.PidCmdline is None
+            ):
+                parse_err_pid_tid_count += 1
+                del_pid_tid_count += 1
+                continue
 
-#             pid_metrics_info_data.UnixMilli = (
-#                 pid_parser_data.UnixMilli - interval_msec
-#             )
+            pid_metrics_info_data.UnixMilli = pid_parser_data.UnixMilli - interval_msec
 
-#             # Furthermore if starttime has changed then this is fact a new PID,TID:
-#             if (
-#                 pid_parser_data.PidStat.ByteSliceFields[procfs.PID_STAT_STARTTIME]
-#                 != pid_metrics_info_data.PidStat.ByteSliceFields[
-#                     procfs.PID_STAT_STARTTIME
-#                 ]
-#             ):
-#                 del_pid_tid_count += 1
-#                 pid_metrics_info_data = None
-#             else:
-#                 curr_pid_stat_nf = pid_parser_data.PidStat.NumericFields
-#                 prev_pid_stat_nf = pid_metrics_info_data.PidStat.NumericFields
-#                 if (
-#                     curr_pid_stat_nf[procfs.PID_STAT_UTIME]
-#                     != prev_pid_stat_nf[procfs.PID_STAT_UTIME]
-#                     or curr_pid_stat_nf[procfs.PID_STAT_STIME]
-#                     != prev_pid_stat_nf[procfs.PID_STAT_STIME]
-#                 ):
-#                     # Active:
-#                     active_pid_tid_count += 1
-#                 elif not full_metrics:
-#                     # Inactive, non-full metrics, no metrics will be generated:
-#                     continue
-#         metrics, want_zero_delta = generate_proc_pid_metrics(
-#             pid_parser_data,
-#             pid_metrics_info_data=pid_metrics_info_data,
-#             full_metrics=full_metrics,
-#             instance=instance,
-#             hostname=hostname,
-#             boottime_msec=boottime_msec,
-#             linux_clktck_sec=linux_clktck_sec,
-#         )
-#         all_metrics.extend(metrics)
-#         want_zero_delta_list.append(want_zero_delta)
-#         if pid_metrics_info_data is None:
-#             new_pid_tid_count += 1
+            # Furthermore if starttime has changed then this is fact a new PID,TID:
+            if (
+                pid_parser_data.PidStat.ByteSliceFields[procfs.PID_STAT_STARTTIME]
+                != pid_metrics_info_data.PidStat.ByteSliceFields[
+                    procfs.PID_STAT_STARTTIME
+                ]
+            ):
+                del_pid_tid_count += 1
+                pid_metrics_info_data = None
+            else:
+                curr_pid_stat_nf = pid_parser_data.PidStat.NumericFields
+                prev_pid_stat_nf = pid_metrics_info_data.PidStat.NumericFields
+                if (
+                    curr_pid_stat_nf[procfs.PID_STAT_UTIME]
+                    != prev_pid_stat_nf[procfs.PID_STAT_UTIME]
+                    or curr_pid_stat_nf[procfs.PID_STAT_STIME]
+                    != prev_pid_stat_nf[procfs.PID_STAT_STIME]
+                ):
+                    # Active:
+                    active_pid_tid_count += 1
+                elif not full_metrics:
+                    # Inactive, non-full metrics, no metrics will be generated:
+                    continue
+        metrics, want_zero_delta = generate_proc_pid_metrics(
+            pid_parser_data,
+            pid_metrics_info_data=pid_metrics_info_data,
+            full_metrics=full_metrics,
+            instance=instance,
+            hostname=hostname,
+            boottime_msec=boottime_msec,
+            linux_clktck_sec=linux_clktck_sec,
+        )
+        all_metrics.extend(metrics)
+        want_zero_delta_list.append(want_zero_delta)
+        if pid_metrics_info_data is None:
+            new_pid_tid_count += 1
 
-#     # PID,TID in metrics info (prev, that is) but not in parser data will also
-#     # be deleted, count them:
-#     paser_data_pid_tid = set(
-#         pid_parser_data.PidTid for pid_parser_data in pid_parser_data_list
-#     )
-#     for pid_tid in pid_metrics_info_data_by_pid_tid:
-#         if pid_tid not in paser_data_pid_tid:
-#             del_pid_tid_count += 1
+    # PID,TID in metrics info (prev, that is) but not in parser data will also
+    # be deleted, count them:
+    paser_data_pid_tid = set(
+        pid_parser_data.PidTid for pid_parser_data in pid_parsers_data_list
+    )
+    for pid_tid in pid_metrics_info_data_by_pid_tid:
+        if pid_tid not in paser_data_pid_tid:
+            del_pid_tid_count += 1
 
-#     # Generator specific metrics:
-#     curr_prom_ts = int(ts * 1000)
-#     gen_spec_labels = ",".join(
-#         [
-#             f'{INSTANCE_LABEL_NAME}="{instance}"',
-#             f'{HOSTNAME_LABEL_NAME}="{hostname}"',
-#             f'{PROC_PID_PART_LABEL_NAME}="{part_no}"',
-#         ]
-#     )
-#     all_metrics.append(
-#         f"{PROC_PID_TOTAL_COUNT_METRIC}{{{gen_spec_labels}}} {len(pid_tid_list_result)} {curr_prom_ts}"
-#     )
-#     all_metrics.append(
-#         f"{PROC_PID_PARSE_OK_COUNT_METRIC}{{{gen_spec_labels}}} {len(pid_tid_list_result) - parse_err_pid_tid_count} {curr_prom_ts}"
-#     )
-#     all_metrics.append(
-#         f"{PROC_PID_PARSE_ERR_COUNT_METRIC}{{{gen_spec_labels}}} {parse_err_pid_tid_count} {curr_prom_ts}"
-#     )
-#     all_metrics.append(
-#         f"{PROC_PID_ACTIVE_COUNT_METRIC}{{{gen_spec_labels}}} {active_pid_tid_count} {curr_prom_ts}"
-#     )
-#     all_metrics.append(
-#         f"{PROC_PID_NEW_COUNT_METRIC}{{{gen_spec_labels}}} {new_pid_tid_count} {curr_prom_ts}"
-#     )
-#     all_metrics.append(
-#         f"{PROC_PID_DEL_COUNT_METRIC}{{{gen_spec_labels}}} {del_pid_tid_count} {curr_prom_ts}"
-#     )
-#     if pid_metrics_info_data_list is not None:
-#         all_metrics.append(
-#             f"{PROC_PID_INTERVAL_METRIC}{{{gen_spec_labels}}} {interval:.06f} {curr_prom_ts}"
-#         )
+    # Generator specific metrics:
+    curr_prom_ts = int(ts * 1000)
+    gen_spec_labels = ",".join(
+        [
+            f'{INSTANCE_LABEL_NAME}="{instance}"',
+            f'{HOSTNAME_LABEL_NAME}="{hostname}"',
+            f'{PROC_PID_PART_LABEL_NAME}="{part_no}"',
+        ]
+    )
+    all_metrics.append(
+        f"{PROC_PID_TOTAL_COUNT_METRIC}{{{gen_spec_labels}}} {len(pid_tid_list_result)} {curr_prom_ts}"
+    )
+    all_metrics.append(
+        f"{PROC_PID_PARSE_OK_COUNT_METRIC}{{{gen_spec_labels}}} {len(pid_tid_list_result) - parse_err_pid_tid_count} {curr_prom_ts}"
+    )
+    all_metrics.append(
+        f"{PROC_PID_PARSE_ERR_COUNT_METRIC}{{{gen_spec_labels}}} {parse_err_pid_tid_count} {curr_prom_ts}"
+    )
+    all_metrics.append(
+        f"{PROC_PID_ACTIVE_COUNT_METRIC}{{{gen_spec_labels}}} {active_pid_tid_count} {curr_prom_ts}"
+    )
+    all_metrics.append(
+        f"{PROC_PID_NEW_COUNT_METRIC}{{{gen_spec_labels}}} {new_pid_tid_count} {curr_prom_ts}"
+    )
+    all_metrics.append(
+        f"{PROC_PID_DEL_COUNT_METRIC}{{{gen_spec_labels}}} {del_pid_tid_count} {curr_prom_ts}"
+    )
+    if pid_metrics_info_data_list:
+        all_metrics.append(
+            f"{PROC_PID_INTERVAL_METRIC}{{{gen_spec_labels}}} {interval:.06f} {curr_prom_ts}"
+        )
 
-#     return ProcPidMetricsExecuteTestCase(
-#         Name=name,
-#         Description=description,
-#         PartNo=part_no,
-#         FullMetricsFactor=full_metrics_factor,
-#         UsePidStatus=use_pid_status,
-#         CycleNum=cycle_num,
-#         ScanNum=scan_num,
-#         Instance=instance,
-#         Hostname=hostname,
-#         LinuxClktckSec=linux_clktck_sec,
-#         BoottimeMsec=boottime_msec,
-#         PidTidListResult=pid_tid_list_result,
-#         PidTidMetricsInfoList=pid_metrics_info_data_list,
-#         PidParsersData=TestPidParsersTestCaseData(
-#             ParserDataList=pid_parser_data_list,
-#             ProcfsRoot=procfs_root,
-#         ),
-#         UnixMilli=curr_prom_ts,
-#         UnixMilli=curr_prom_ts - interval_msec,
-#         WantMetricsCount=len(all_metrics),
-#         WantMetrics=all_metrics,
-#         ReportExtra=True,
-#         WantZeroDeltaList=want_zero_delta_list,
-#     )
+    return ProcPidMetricsExecuteTestCase(
+        Name=name,
+        Description=description,
+        PartNo=part_no,
+        FullMetricsFactor=full_metrics_factor,
+        UsePidStatus=use_pid_status,
+        CycleNum=cycle_num,
+        ScanNum=scan_num,
+        Instance=instance,
+        Hostname=hostname,
+        LinuxClktckSec=linux_clktck_sec,
+        BoottimeMsec=boottime_msec,
+        PidTidListResult=pid_tid_list_result,
+        PidTidMetricsInfoList=pid_metrics_info_data_list,
+        PidParsersDataList=pid_parsers_data_list,
+        CurrUnixMilli=curr_prom_ts,
+        PrevUnixMilli=curr_prom_ts - interval_msec,
+        WantMetricsCount=len(all_metrics),
+        WantMetrics=all_metrics,
+        ReportExtra=True,
+        WantZeroDeltaList=want_zero_delta_list,
+    )
 
 
-# def generate_proc_pid_metrics_execute_test_cases(
-#     instance: str = DEFAULT_TEST_INSTANCE,
-#     hostname: str = DEFAULT_TEST_HOSTNAME,
-#     test_cases_root_dir: Optional[str] = lsvmi_test_cases_root_dir,
-# ):
-#     test_cases = []
-#     tc_num = 0
+def pid_tid_list_generator(
+    start_pid: int = 100,
+    tid_offset: int = 1000,
+    num_pids: int = 1,
+    tid_mod: int = 3,
+) -> Generator:
+    for pid in range(start_pid, start_pid + num_pids):
+        yield procfs.PidTid(Pid=pid)
+        num_tids = (pid - start_pid) % tid_mod
+        start_tid = tid_offset + pid
+        for tid in range(start_tid, start_tid + num_tids):
+            yield procfs.PidTid(Pid=pid, Tid=tid)
 
-#     max_n_pid = PROC_PID_METRICS_CYCLE_NUM_COUNTERS
-#     tid_mod = 3
 
-#     # All new:
-#     for n_pid in range(1, max_n_pid + 1):
-#         pid_parser_data_list = []
-#         for pid in range(100, 100 + n_pid):
-#             for tid in [procfs.PID_ONLY_TID] + [
-#                 100 * pid + t for t in range(pid % tid_mod)
-#             ]:
-#                 pid_tid = procfs.PidTid(Pid=pid, Tid=tid)
-#                 curr_pid_stat = make_ref_proc_pid_stat(pid_tid)
-#                 curr_pid_status = make_ref_proc_pid_status(pid_tid)
-#                 curr_pid_cmdline = make_ref_proc_pid_cmdline(pid_tid)
-#                 pid_parser_data_list.append(
-#                     TestPidParserStateData(
-#                         PidStat=curr_pid_stat,
-#                         PidStatus=curr_pid_status,
-#                         PidCmdline=curr_pid_cmdline,
-#                         PidTid=pid_tid,
-#                     )
-#                 )
-#         test_cases.append(
-#             generate_proc_pid_metrics_execute_test_case(
-#                 f"initial/{tc_num:04d}",
-#                 pid_parser_data_list=pid_parser_data_list,
-#                 instance=instance,
-#                 hostname=hostname,
-#                 description=f"n_pid={n_pid}",
-#             )
-#         )
-#         tc_num += 1
+def generate_proc_pid_metrics_execute_test_cases(
+    instance: str = DEFAULT_TEST_INSTANCE,
+    hostname: str = DEFAULT_TEST_HOSTNAME,
+    test_cases_root_dir: Optional[str] = lsvmi_test_cases_root_dir,
+):
+    test_cases = []
+    tc_num = 0
 
-#     # Existent + new:
-#     pid_stat_changed_indexes = [
-#         ([procfs.PID_STAT_STATE], None),
-#         (None, [procfs.PID_STAT_UTIME]),
-#         (None, [procfs.PID_STAT_STIME]),
-#     ]
-#     pid_status_changed_indexes = [
-#         ([procfs.PID_STATUS_VM_DATA], None),
-#         ([procfs.PID_STATUS_VM_STK], None),
-#         (None, [procfs.PID_STATUS_VOLUNTARY_CTXT_SWITCHES]),
-#     ]
+    max_n_pid = PROC_PID_METRICS_CYCLE_NUM_COUNTERS
+    tid_mod = 3
 
-#     for n_pid in range(1, max_n_pid + 1):
-#         k = 0
-#         pid_parser_data_list = []
-#         pid_metrics_info_data_list = []
-#         for pid in range(100, 100 + n_pid):
-#             for tid in [procfs.PID_ONLY_TID] + [
-#                 100 * pid + t for t in range(pid % tid_mod)
-#             ]:
-#                 pid_tid = procfs.PidTid(Pid=pid, Tid=tid)
-#                 curr_pid_stat = make_ref_proc_pid_stat(pid_tid)
-#                 curr_pid_status = make_ref_proc_pid_status(pid_tid)
-#                 curr_pid_cmdline = make_ref_proc_pid_cmdline(pid_tid)
-#                 if k & 1:
-#                     changed_indexes = pid_stat_changed_indexes[
-#                         k % len(pid_stat_changed_indexes)
-#                     ]
-#                     prev_pid_stat = make_prev_proc_pid_stat(
-#                         curr_pid_stat,
-#                         bsf_indexes=changed_indexes[0],
-#                         nf_indexes=changed_indexes[1],
-#                     )
-#                     changed_indexes = pid_status_changed_indexes[
-#                         k % len(pid_status_changed_indexes)
-#                     ]
-#                     prev_pid_status = make_prev_proc_pid_status(
-#                         curr_pid_status,
-#                         bsf_indexes=changed_indexes[0],
-#                         nf_indexes=changed_indexes[1],
-#                     )
-#                     pid_metrics_info_data_list.append(
-#                         TestPidParserStateData(
-#                             PidStat=prev_pid_stat,
-#                             PidStatus=prev_pid_status,
-#                             PidTid=pid_tid,
-#                         )
-#                     )
-#                 k += 1
-#                 pid_parser_data_list.append(
-#                     TestPidParserStateData(
-#                         PidStat=curr_pid_stat,
-#                         PidStatus=curr_pid_status,
-#                         PidCmdline=curr_pid_cmdline,
-#                         PidTid=pid_tid,
-#                     )
-#                 )
-#         test_cases.append(
-#             generate_proc_pid_metrics_execute_test_case(
-#                 f"existent/{tc_num:04d}",
-#                 pid_parser_data_list=pid_parser_data_list,
-#                 pid_metrics_info_data_list=pid_metrics_info_data_list,
-#                 instance=instance,
-#                 hostname=hostname,
-#                 description=f"n_pid={n_pid}",
-#             )
-#         )
-#         tc_num += 1
+    # All new:
+    name = "new"
+    start_pid, tid_offset = 100, 1000
+    for num_pids in range(1, max_n_pid + 1):
+        pid_parsers_data_list = []
+        for pid_tid in pid_tid_list_generator(
+            start_pid=start_pid,
+            tid_offset=tid_offset,
+            num_pids=num_pids,
+            tid_mod=tid_mod,
+        ):
+            curr_pid_stat = make_ref_proc_pid_stat(pid_tid)
+            curr_pid_status = make_ref_proc_pid_status(pid_tid)
+            curr_pid_cmdline = make_ref_proc_pid_cmdline(pid_tid)
+            pid_parsers_data_list.append(
+                TestPidParserStateData(
+                    PidStat=curr_pid_stat,
+                    PidStatus=curr_pid_status,
+                    PidCmdline=curr_pid_cmdline,
+                    PidTid=pid_tid,
+                )
+            )
+        test_cases.append(
+            generate_proc_pid_metrics_execute_test_case(
+                f"{name}/{tc_num:04d}",
+                pid_parsers_data_list=pid_parsers_data_list,
+                instance=instance,
+                hostname=hostname,
+                description=f"len(parsers_data)={len(pid_parsers_data_list)}",
+            )
+        )
+        tc_num += 1
 
-#     # Reuse the most complex existent + new for deletion tests:
-#     del_tc_ref = deepcopy(test_cases[-1])
+    # Existent + new:
+    name = "existent+new"
+    pid_stat_changed_indexes = [
+        ([procfs.PID_STAT_STATE], None),
+        (None, [procfs.PID_STAT_UTIME]),
+        (None, [procfs.PID_STAT_STIME]),
+    ]
+    pid_status_changed_indexes = [
+        ([procfs.PID_STATUS_VM_DATA], None),
+        ([procfs.PID_STATUS_VM_STK], None),
+        (None, [procfs.PID_STATUS_VOLUNTARY_CTXT_SWITCHES]),
+    ]
 
-#     # Out-of-scope PID,TID:
-#     drop_pid_tid_list = set([del_tc_ref.PidTidMetricsInfoList[-1].PidTid])
-#     pid_parser_data_list = [
-#         pid_parser_data for pid_parser_data in del_tc_ref.PidParsersData.ParserDataList
-#         if pid_parser_data
-#         .PidTid not in drop_pid_tid_list
-#     ]
-#     test_cases.append(
-#         generate_proc_pid_metrics_execute_test_case(
-#             f"out_of_scope/{tc_num:04d}",
-#             pid_parser_data_list=pid_parser_data_list,
-#             pid_metrics_info_data_list=del_tc_ref.PidTidMetricsInfoList,
-#             instance=instance,
-#             hostname=hostname,
-#             description=f"del_pid_tid={drop_pid_tid_list}",
-#         )
-#     )
-#     tc_num += 1
+    start_pid, tid_offset = 200, 2000
+    for num_pids in range(1, max_n_pid + 1):
+        k = 0
+        pid_parsers_data_list = []
+        pid_metrics_info_data_list = []
+        for pid_tid in pid_tid_list_generator(
+            start_pid=start_pid,
+            tid_offset=tid_offset,
+            num_pids=num_pids,
+            tid_mod=tid_mod,
+        ):
+            curr_pid_stat = make_ref_proc_pid_stat(pid_tid)
+            curr_pid_status = make_ref_proc_pid_status(pid_tid)
+            curr_pid_cmdline = make_ref_proc_pid_cmdline(pid_tid)
+            if k & 1:
+                changed_indexes = pid_stat_changed_indexes[
+                    k % len(pid_stat_changed_indexes)
+                ]
+                prev_pid_stat = make_prev_proc_pid_stat(
+                    curr_pid_stat,
+                    bsf_indexes=changed_indexes[0],
+                    nf_indexes=changed_indexes[1],
+                )
+                changed_indexes = pid_status_changed_indexes[
+                    k % len(pid_status_changed_indexes)
+                ]
+                prev_pid_status = make_prev_proc_pid_status(
+                    curr_pid_status,
+                    bsf_indexes=changed_indexes[0],
+                    nf_indexes=changed_indexes[1],
+                )
+                pid_metrics_info_data_list.append(
+                    TestPidParserStateData(
+                        PidStat=prev_pid_stat,
+                        PidStatus=prev_pid_status,
+                        PidTid=pid_tid,
+                    )
+                )
+            k += 1
+            pid_parsers_data_list.append(
+                TestPidParserStateData(
+                    PidStat=curr_pid_stat,
+                    PidStatus=curr_pid_status,
+                    PidCmdline=curr_pid_cmdline,
+                    PidTid=pid_tid,
+                )
+            )
+        test_cases.append(
+            generate_proc_pid_metrics_execute_test_case(
+                f"{name}/{tc_num:04d}",
+                pid_parsers_data_list=pid_parsers_data_list,
+                pid_metrics_info_data_list=pid_metrics_info_data_list,
+                instance=instance,
+                hostname=hostname,
+                description=f"len(info_data)={len(pid_metrics_info_data_list)}, len(parsers_data)={len(pid_parsers_data_list)}",
+            )
+        )
+        tc_num += 1
 
-#     save_test_cases(
-#         test_cases, pm_execute_test_cases_file, test_cases_root_dir=test_cases_root_dir
-#     )
+    # Out-of-scope PID,TID:
+    name = "out_of_scope"
+    start_pid, tid_offset = 300, 3000
+    for num_pids in range(1, max_n_pid + 1):
+        pid_metrics_info_data_list = []
+        for pid_tid in pid_tid_list_generator(
+            start_pid=start_pid,
+            tid_offset=tid_offset,
+            num_pids=num_pids,
+            tid_mod=tid_mod,
+        ):
+            curr_pid_stat = make_ref_proc_pid_stat(pid_tid)
+            curr_pid_status = make_ref_proc_pid_status(pid_tid)
+            curr_pid_cmdline = make_ref_proc_pid_cmdline(pid_tid)
+            pid_metrics_info_data_list.append(
+                TestPidParserStateData(
+                    PidStat=curr_pid_stat,
+                    PidStatus=curr_pid_status,
+                    PidCmdline=curr_pid_cmdline,
+                    PidTid=pid_tid,
+                )
+            )
+        pid_parsers_data_list = [
+            pid_parser_state_data
+            for i, pid_parser_state_data in enumerate(pid_metrics_info_data_list)
+            if i % 2 == 0
+        ]
+        test_cases.append(
+            generate_proc_pid_metrics_execute_test_case(
+                f"{name}/{tc_num:04d}",
+                pid_parsers_data_list=pid_parsers_data_list,
+                pid_metrics_info_data_list=pid_metrics_info_data_list,
+                instance=instance,
+                hostname=hostname,
+                description=f"len(info_data)={len(pid_metrics_info_data_list)}, len(parsers_data)={len(pid_parsers_data_list)}",
+            )
+        )
+        tc_num += 1
+
+    save_test_cases(
+        test_cases, pm_execute_test_cases_file, test_cases_root_dir=test_cases_root_dir
+    )

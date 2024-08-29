@@ -82,8 +82,8 @@ func (tpp *TestPidParsers) get(pidTidPath string) *TestPidParserStateData {
 }
 
 func (tpp *TestPidParsers) timeNow() time.Time {
-	unixMilli := tpp.lastUnixMilli
 	// Last timestamp can be used only once after a successful lookup:
+	unixMilli := tpp.lastUnixMilli
 	tpp.lastUnixMilli = tpp.fallbackUnixMilli
 	return time.UnixMilli(unixMilli)
 }
@@ -276,7 +276,7 @@ func buildTestPidTidMetricsInfo(pm *ProcPidMetrics, pidParserState *TestPidParse
 		copy(pidTidMetricsInfo.pidStatusCtxZeroDelta, pidParserState.PidStatusCtxZeroDelta)
 	}
 	pidTidMetricsInfo.prevTs = time.UnixMilli(pidParserState.UnixMilli)
-	pidTidMetricsInfo.scanNum = -1
+	pidTidMetricsInfo.scanNum = pm.scanNum - 1
 	pm.pidStat = savedPidStat
 	return pidTidMetricsInfo
 }
@@ -294,7 +294,7 @@ func cmpPidTidMetricsZeroDelta(
 		if len(wantZeroDelta) != len(gotZeroDelta) {
 			fmt.Fprintf(
 				errBuf,
-				"%#v: len(%s): want: %d, got: %d",
+				"\n%#v: len(%s): want: %d, got: %d",
 				pidTidMetricsInfo.pidTid, deltaName, len(wantZeroDelta), len(gotZeroDelta),
 			)
 			return
@@ -304,7 +304,7 @@ func cmpPidTidMetricsZeroDelta(
 			if want != got {
 				fmt.Fprintf(
 					errBuf,
-					"%#v: %s[%d]: want: %v, got: %v",
+					"\n%#v: %s[%d]: want: %v, got: %v",
 					pidTidMetricsInfo.pidTid, deltaName, i, want, got,
 				)
 			}
