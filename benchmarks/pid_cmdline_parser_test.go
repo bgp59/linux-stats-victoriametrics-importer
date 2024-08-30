@@ -1,7 +1,6 @@
 package benchmarks
 
 import (
-	"fmt"
 	"path"
 	"testing"
 
@@ -25,24 +24,12 @@ func BenchmarkPidCmdlineParserIO(b *testing.B) {
 	)
 }
 
-func benchmarkPidCmdlineParser(pidTidPath string, retrieveCmd bool, b *testing.B) {
+func BenchmarkPidCmdlineParser(b *testing.B) {
 	pidCmdline := procfs.NewPidCmdline()
 	for n := 0; n < b.N; n++ {
-		err := pidCmdline.Parse(pidTidPath)
-		if retrieveCmd {
-			pidCmdline.GetCmdlineString()
-		}
+		err := pidCmdline.Parse(benchPidCmdlineParserPidTidPath)
 		if err != nil {
 			b.Fatal(err)
 		}
-	}
-}
-
-func BenchmarkPidCmdlineParser(b *testing.B) {
-	for _, retrieveCmd := range []bool{false, true} {
-		b.Run(
-			fmt.Sprintf("retrieveCmd=%v", retrieveCmd),
-			func(b *testing.B) { benchmarkPidCmdlineParser(benchPidCmdlineParserPidTidPath, retrieveCmd, b) },
-		)
 	}
 }

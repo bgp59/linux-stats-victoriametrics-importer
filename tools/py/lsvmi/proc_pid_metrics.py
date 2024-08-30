@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+import os
 import time
 from collections import OrderedDict
 from copy import deepcopy
@@ -108,7 +109,9 @@ PROC_PID_STATUS_NONVOLUNTARY_CTXT_SWITCHES_METRIC = (
 PROC_PID_CMDLINE_METRIC = (
     "proc_pid_cmdline"  # PID only, well behaved threads don't change their command line
 )
-PROC_PID_CMDLINE_LABEL_NAME = "cmdline"
+PROC_PID_CMDLINE_CMD_PATH_LABEL_NAME = "cmd_path"
+PROC_PID_CMDLINE_CMD_LABEL_NAME = "cmd"
+PROC_PID_CMDLINE_ARGS_LABEL_NAME = "args"
 
 # This generator's specific metrics, i.e. in addition to those described in
 # metrics_common.go:
@@ -146,7 +149,8 @@ class TestPidStatusParsedData:
 
 @dataclass
 class TestPidCmdlineParsedData:
-    Cmdline: str = None
+    CmdPath: Optional[str] = None
+    Args: Optional[str] = None
 
 
 @dataclass
@@ -597,8 +601,19 @@ def generate_proc_pid_metrics(
         and is_pid
         and (full_metrics or pid_metrics_info_data is None)
     ):
+        cmd_path = pid_parser_data.PidCmdline.CmdPath or ""
+        cmd = os.path.basename(cmd_path)
+        args = pid_parser_data.PidCmdline.Args or ""
         metrics.append(
-            f'{PROC_PID_CMDLINE_METRIC}{{{common_labels},{PROC_PID_CMDLINE_LABEL_NAME}="{pid_parser_data.PidCmdline.Cmdline}"}} 1 {curr_prom_ts}'
+            f"{PROC_PID_CMDLINE_METRIC}{{{common_labels},"
+            + ",".join(
+                [
+                    f'{PROC_PID_CMDLINE_CMD_PATH_LABEL_NAME}="{cmd_path}"',
+                    f'{PROC_PID_CMDLINE_ARGS_LABEL_NAME}="{args}"',
+                    f'{PROC_PID_CMDLINE_CMD_LABEL_NAME}="{cmd}"',
+                ]
+            )
+            + f"}} 1 {curr_prom_ts}"
         )
 
     return metrics, want_zero_delta
@@ -784,13 +799,14 @@ def make_prev_proc_pid_status(
 def make_ref_proc_pid_cmdline(
     pid_tid: Optional[procfs.PidTid] = None,
 ) -> TestPidCmdlineParsedData:
-    cmdline = "/pa/th/to/exec"
+    cmd_path = "/pa/th/to/exec"
+    args = []
     if pid_tid is not None:
-        cmdline += f" --pid={pid_tid.Pid}"
+        args.append(f"--pid={pid_tid.Pid}")
         if pid_tid.Tid > 0:
-            cmdline += f" --tid={pid_tid.Tid}"
-    cmdline += " arg1 arg2"
-    return TestPidCmdlineParsedData(Cmdline=cmdline)
+            args.append(f"--tid={pid_tid.Tid}")
+    args.extend(["arg1", "arg2"])
+    return TestPidCmdlineParsedData(CmdPath=cmd_path, Args=" ".join(args))
 
 
 def generate_proc_pid_metrics_generate_test_case(

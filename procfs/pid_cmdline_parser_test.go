@@ -9,23 +9,19 @@ import (
 )
 
 type PidCmdlineTestCase struct {
-	name         string
-	procfsRoot   string
-	pid, tid     int
-	poolReadSize int64
-	cmdline      string
-	wantCmdline  string
-	wantError    error
+	name                           string
+	procfsRoot                     string
+	pid, tid                       int
+	poolReadSize                   int64
+	cmdline                        string
+	wantCmdPath, wantArgs, wantCmd string
+	wantError                      error
 }
 
 var pidCmdlineTestDataDir = path.Join(PROCFS_TESTDATA_ROOT, "pid_cmdline")
 
 func testPidCmdlineParser(tc *PidCmdlineTestCase, t *testing.T) {
-	t.Logf(`
-procfsRoot:=%q, pid=%d, tid=%d
-cmdline=%q (%d bytes)
-poolReadSize=%d
-`,
+	t.Logf("\nprocfsRoot:=%q, pid=%d, tid=%d\ncmdline=%q (%d bytes)\npoolReadSize=%d",
 		tc.procfsRoot, tc.pid, tc.tid, tc.cmdline, len(tc.cmdline), tc.poolReadSize,
 	)
 
@@ -66,10 +62,21 @@ poolReadSize=%d
 			t.Fatalf("error: want: %v, got: %v", tc.wantError, err)
 		}
 	}
-	gotCmdline := pidCmdline.GetCmdlineString()
-	if tc.wantCmdline != gotCmdline {
-		t.Fatalf("cmdline: want: %q, got: %q", tc.wantCmdline, gotCmdline)
+	gotCmdPath, gotArgs, gotCmd := pidCmdline.GetData()
+	got := string(gotCmdPath)
+	if tc.wantCmdPath != got {
+		t.Fatalf("cmdPath: want: %q, got: %q", tc.wantCmdPath, got)
 	}
+	got = string(gotArgs)
+	if tc.wantArgs != got {
+		t.Fatalf("args: want: %q, got: %q", tc.wantArgs, got)
+	}
+	got = string(gotCmd)
+	if tc.wantCmd != got {
+		t.Fatalf("cmd: want: %q, got: %q", tc.wantCmd, got)
+	}
+	t.Logf("\ncmdPath=%q\nargs=%q\ncmd=%q", gotCmdPath, gotArgs, gotCmd)
+
 }
 
 func TestPidCmdlineParser(t *testing.T) {
@@ -78,35 +85,44 @@ func TestPidCmdlineParser(t *testing.T) {
 			procfsRoot:  pidCmdlineTestDataDir,
 			pid:         1,
 			tid:         PID_ONLY_TID,
-			wantCmdline: `/sbin/init`,
+			wantCmdPath: `/sbin/init`,
+			wantCmd:     `init`,
 		},
 		{
 			procfsRoot:  pidCmdlineTestDataDir,
 			pid:         101,
 			tid:         PID_ONLY_TID,
 			cmdline:     "arg0\x00arg1\x00",
-			wantCmdline: `arg0 arg1`,
+			wantCmdPath: `arg0`,
+			wantArgs:    `arg1`,
+			wantCmd:     `arg0`,
 		},
 		{
 			procfsRoot:  pidCmdlineTestDataDir,
 			pid:         101,
 			tid:         101,
 			cmdline:     "arg0\x00arg1\x00\x00",
-			wantCmdline: `arg0 arg1`,
+			wantCmdPath: `arg0`,
+			wantArgs:    `arg1`,
+			wantCmd:     `arg0`,
 		},
 		{
 			procfsRoot:  pidCmdlineTestDataDir,
 			pid:         102,
 			tid:         PID_ONLY_TID,
 			cmdline:     "arg0\x00arg1\x00arg\n2\x00",
-			wantCmdline: `arg0 arg1 arg\n2`,
+			wantCmdPath: `arg0`,
+			wantArgs:    `arg1 arg\n2`,
+			wantCmd:     `arg0`,
 		},
 		{
 			procfsRoot:  pidCmdlineTestDataDir,
 			pid:         103,
 			tid:         PID_ONLY_TID,
 			cmdline:     "arg0\x00arg1\x00\"arg 2\"\x00",
-			wantCmdline: `arg0 arg1 \"arg 2\"`,
+			wantCmdPath: `arg0`,
+			wantArgs:    `arg1 \"arg 2\"`,
+			wantCmd:     `arg0`,
 		},
 		{
 			procfsRoot:   pidCmdlineTestDataDir,
@@ -114,7 +130,9 @@ func TestPidCmdlineParser(t *testing.T) {
 			tid:          PID_ONLY_TID,
 			poolReadSize: 10,
 			cmdline:      "arg0\x00arg1\x00arg2\x00",
-			wantCmdline:  `arg0 ar...`,
+			wantCmdPath:  `arg0`,
+			wantArgs:     `ar...`,
+			wantCmd:      `arg0`,
 		},
 		{
 			procfsRoot:   pidCmdlineTestDataDir,
@@ -122,7 +140,8 @@ func TestPidCmdlineParser(t *testing.T) {
 			tid:          8,
 			poolReadSize: 8,
 			cmdline:      "Hello\x00世界\x00",
-			wantCmdline:  `Hello...`,
+			wantCmdPath:  `Hello...`,
+			wantCmd:      `Hello...`,
 		},
 		{
 			procfsRoot:   pidCmdlineTestDataDir,
@@ -130,7 +149,9 @@ func TestPidCmdlineParser(t *testing.T) {
 			tid:          9,
 			poolReadSize: 9,
 			cmdline:      "Hello\x00世界\x00",
-			wantCmdline:  `Hello ...`,
+			wantCmdPath:  `Hello`,
+			wantArgs:     `...`,
+			wantCmd:      `Hello`,
 		},
 		{
 			procfsRoot:   pidCmdlineTestDataDir,
@@ -138,7 +159,9 @@ func TestPidCmdlineParser(t *testing.T) {
 			tid:          10,
 			poolReadSize: 10,
 			cmdline:      "Hello\x00世界\x00",
-			wantCmdline:  `Hello ...`,
+			wantCmdPath:  `Hello`,
+			wantArgs:     `...`,
+			wantCmd:      `Hello`,
 		},
 		{
 			procfsRoot:   pidCmdlineTestDataDir,
@@ -146,7 +169,9 @@ func TestPidCmdlineParser(t *testing.T) {
 			tid:          11,
 			poolReadSize: 11,
 			cmdline:      "Hello\x00世界\x00",
-			wantCmdline:  `Hello ...`,
+			wantCmdPath:  `Hello`,
+			wantArgs:     `...`,
+			wantCmd:      `Hello`,
 		},
 		{
 			procfsRoot:   pidCmdlineTestDataDir,
@@ -154,7 +179,9 @@ func TestPidCmdlineParser(t *testing.T) {
 			tid:          12,
 			poolReadSize: 12,
 			cmdline:      "Hello\x00世界\x00",
-			wantCmdline:  `Hello 世...`,
+			wantCmdPath:  `Hello`,
+			wantArgs:     `世...`,
+			wantCmd:      `Hello`,
 		},
 		{
 			procfsRoot:   pidCmdlineTestDataDir,
@@ -162,7 +189,9 @@ func TestPidCmdlineParser(t *testing.T) {
 			tid:          13,
 			poolReadSize: 13,
 			cmdline:      "Hello\x00世界\x00",
-			wantCmdline:  `Hello 世...`,
+			wantCmdPath:  `Hello`,
+			wantArgs:     `世...`,
+			wantCmd:      `Hello`,
 		},
 		{
 			procfsRoot:   pidCmdlineTestDataDir,
@@ -170,7 +199,9 @@ func TestPidCmdlineParser(t *testing.T) {
 			tid:          14,
 			poolReadSize: 14,
 			cmdline:      "Hello\x00世界\x00",
-			wantCmdline:  `Hello 世界`,
+			wantCmdPath:  `Hello`,
+			wantArgs:     `世界`,
+			wantCmd:      `Hello`,
 		},
 	} {
 		t.Run(

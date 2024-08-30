@@ -19,10 +19,11 @@ var cmdlineByteConvert = [256][]byte{
 	'"':  []byte(`\"`),
 }
 
+// Define the parser as an interface such that it can be replaced w/ test object
+// for UTs:
 type PidCmdlineParser interface {
 	Parse(pidTidPath string) error
-	GetCmdlineBytes() []byte
-	GetCmdlineString() string
+	GetData() ([]byte, []byte, []byte)
 }
 
 type NewPidCmdlineParser func() PidCmdlineParser
@@ -31,6 +32,11 @@ type PidCmdline struct {
 	// The buffer used to store the sanitized command line, if nil them it must
 	// be allocated from the pool:
 	cmdline *bytes.Buffer
+	// The command part (arg0), with and without path:
+	cmdPath []byte
+	cmd     []byte
+	// The arg part:
+	args []byte
 }
 
 // The pool used for reading and sanitizing the command:
@@ -88,6 +94,7 @@ func (pidCmdline *PidCmdline) Parse(pidTidPath string) error {
 		cmdline.Reset()
 	}
 
+	cmdEnd := -1
 	for pos := 0; pos < l; {
 		startStretch, byteConvert := pos, []byte(nil)
 		// Locate the next single byte character that needs escaping:
@@ -100,6 +107,10 @@ func (pidCmdline *PidCmdline) Parse(pidTidPath string) error {
 		_, err = cmdline.Write(buf[startStretch:pos])
 		// Copy the conversion:
 		if err == nil && byteConvert != nil {
+			// If this is the 1st '\0' then this is also the command part:
+			if cmdEnd < 0 && buf[pos] == 0 {
+				cmdEnd = cmdline.Len()
+			}
 			_, err = cmdline.Write(byteConvert)
 			pos++
 		}
@@ -109,21 +120,32 @@ func (pidCmdline *PidCmdline) Parse(pidTidPath string) error {
 		}
 	}
 
+	if cmdEnd < 0 {
+		// If command's end was not found yet then there were no args and the
+		// entire buffer is it:
+		pidCmdline.cmdPath = cmdline.Bytes()
+		pidCmdline.args = nil
+	} else {
+		b := cmdline.Bytes()
+		pidCmdline.cmdPath = b[:cmdEnd]
+		pidCmdline.args = b[cmdEnd+1:]
+	}
+	// Locate cmd:
+	cmdPath := pidCmdline.cmdPath
+	cmdLen := len(cmdPath)
+	dirEnd := cmdLen - 1
+	for dirEnd >= 0 && cmdPath[dirEnd] != '/' {
+		dirEnd--
+	}
+	if dirEnd < cmdLen-1 {
+		pidCmdline.cmd = pidCmdline.cmdPath[dirEnd+1:]
+	} else {
+		pidCmdline.cmd = nil
+	}
+
 	return nil
 }
 
-func (pidCmdline *PidCmdline) GetCmdlineBytes() []byte {
-	if pidCmdline.cmdline != nil {
-		return pidCmdline.cmdline.Bytes()
-	} else {
-		return nil
-	}
-}
-
-func (pidCmdline *PidCmdline) GetCmdlineString() string {
-	if pidCmdline.cmdline != nil {
-		return pidCmdline.cmdline.String()
-	} else {
-		return ""
-	}
+func (pidCmdline *PidCmdline) GetData() ([]byte, []byte, []byte) {
+	return pidCmdline.cmdPath, pidCmdline.args, pidCmdline.cmd
 }

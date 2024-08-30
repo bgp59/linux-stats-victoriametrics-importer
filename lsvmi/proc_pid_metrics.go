@@ -105,8 +105,10 @@ const (
 	PROC_PID_STATUS_NONVOLUNTARY_CTXT_SWITCHES_METRIC = "proc_pid_status_nonvol_ctx_switch_delta" // PID + TID
 
 	// /proc/PID/cmdline.
-	PROC_PID_CMDLINE_METRIC     = "proc_pid_cmdline" // PID only, well behaved threads don't change their command line
-	PROC_PID_CMDLINE_LABEL_NAME = "cmdline"
+	PROC_PID_CMDLINE_METRIC              = "proc_pid_cmdline" // PID only, well behaved threads don't change their command line
+	PROC_PID_CMDLINE_CMD_PATH_LABEL_NAME = "cmd_path"
+	PROC_PID_CMDLINE_CMD_LABEL_NAME      = "cmd"
+	PROC_PID_CMDLINE_ARGS_LABEL_NAME     = "args"
 
 	// This generator's specific metrics, i.e. in addition to those described in
 	// metrics_common.go:
@@ -626,7 +628,10 @@ func (pm *ProcPidMetrics) initMetricsCache() {
 		pm.perPidTidMetricCount += len(pm.pidStatusCtxMetricFmt)
 	}
 
-	pm.pidCmdlineMetricFmt = pm.buildMetricFmt(PROC_PID_CMDLINE_METRIC, "%c", PROC_PID_CMDLINE_LABEL_NAME)
+	pm.pidCmdlineMetricFmt = pm.buildMetricFmt(
+		PROC_PID_CMDLINE_METRIC, "%c",
+		PROC_PID_CMDLINE_CMD_PATH_LABEL_NAME, PROC_PID_CMDLINE_ARGS_LABEL_NAME, PROC_PID_CMDLINE_CMD_LABEL_NAME,
+	)
 	pm.perPidOnlyMetricCount++
 
 	pm.pidTotalCountMetricFmt = pm.buildGeneratorSpecificMetricFmt(PROC_PID_TOTAL_COUNT_METRIC, "%d")
@@ -1037,11 +1042,12 @@ func (pm *ProcPidMetrics) generateMetrics(
 	}
 
 	if fullMetrics || !hasPrev {
+		cmdPath, args, cmd := pm.pidCmdline.GetData()
 		fmt.Fprintf(
 			buf,
 			pm.pidCmdlineMetricFmt,
 			pidTidMetricsInfo.pidTidLabels,
-			pm.pidCmdline.GetCmdlineString(),
+			cmdPath, args, cmd,
 			'1',
 			ts,
 		)

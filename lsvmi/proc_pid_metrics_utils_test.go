@@ -5,6 +5,7 @@ package lsvmi
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/emypar/linux-stats-victoriametrics-importer/procfs"
@@ -24,7 +25,7 @@ type TestPidStatusParsedData struct {
 }
 
 type TestPidCmdlineParsedData struct {
-	Cmdline string
+	CmdPath, Args string
 }
 
 // A structure to be used as test case data for both parsed results and
@@ -256,18 +257,23 @@ func (testPidCmdline *TestPidCmdline) Parse(pidTidPath string) error {
 	return fmt.Errorf("%s/cmdline: no such (test case) file", pidTidPath)
 }
 
-func (testPidCmdline *TestPidCmdline) GetCmdlineBytes() []byte {
+func (testPidCmdline *TestPidCmdline) GetData() ([]byte, []byte, []byte) {
+	var cmdPath, args, cmd []byte
 	if testPidCmdline.parsedData != nil {
-		return []byte(testPidCmdline.parsedData.Cmdline)
+		if len(testPidCmdline.parsedData.CmdPath) > 0 {
+			cp := testPidCmdline.parsedData.CmdPath
+			if i := strings.LastIndex(cp, "/"); i < 0 {
+				cmd = []byte(cp)
+			} else if i < len(cp)-1 {
+				cmd = []byte(cp[i+1:])
+			}
+			cmdPath = []byte(cp)
+		}
+		if len(testPidCmdline.parsedData.Args) > 0 {
+			args = []byte(testPidCmdline.parsedData.Args)
+		}
 	}
-	return nil
-}
-
-func (testPidCmdline *TestPidCmdline) GetCmdlineString() string {
-	if testPidCmdline.parsedData != nil {
-		return testPidCmdline.parsedData.Cmdline
-	}
-	return ""
+	return cmdPath, args, cmd
 }
 
 func (tpp *TestPidParsers) NewPidCmdline() procfs.PidCmdlineParser {
@@ -276,7 +282,8 @@ func (tpp *TestPidParsers) NewPidCmdline() procfs.PidCmdlineParser {
 
 func setTestPidCmdlineData(pidCmdlineParser procfs.PidCmdlineParser, data *TestPidCmdlineParsedData) {
 	pidCmdlineParser.(*TestPidCmdline).parsedData = &TestPidCmdlineParsedData{
-		Cmdline: data.Cmdline,
+		CmdPath: data.CmdPath,
+		Args:    data.Args,
 	}
 }
 
