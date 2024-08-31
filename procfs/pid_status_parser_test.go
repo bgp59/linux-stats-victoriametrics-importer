@@ -56,14 +56,13 @@ primeProcfsRoot=%q, primePid=%d, PrimeTid=%d
 		}
 		return
 	}
-
 	if err != nil {
 		t.Fatal(err)
 	}
+	gotByteSliceFields, gotByteSliceFieldUnit, gotNumericFields := pidStatus.GetData()
 
 	diffBuf := &bytes.Buffer{}
 
-	gotByteSliceFields, gotByteSliceFieldUnit := pidStatus.GetByteSliceFieldsAndUnits()
 	for index := range tc.wantByteSliceFieldValues {
 		wantVal := tc.wantByteSliceFieldValues[index]
 		gotVal := string(gotByteSliceFields[index])
@@ -93,7 +92,6 @@ primeProcfsRoot=%q, primePid=%d, PrimeTid=%d
 		}
 	}
 
-	gotNumericFields := pidStatus.GetNumericFields()
 	for index := range tc.wantNumericFields {
 		wantVal := tc.wantNumericFields[index]
 		gotVal := gotNumericFields[index]

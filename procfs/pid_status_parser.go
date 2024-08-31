@@ -91,10 +91,11 @@ const (
 	PID_STATUS_LIST_DATA_SEP = ','
 )
 
+// Define the parser as an interface such that it can be replaced w/ a test
+// object for UTs:
 type PidStatusParser interface {
 	Parse(pidTidPath string) error
-	GetByteSliceFieldsAndUnits() ([][]byte, [][]byte)
-	GetNumericFields() []uint64
+	GetData() ([][]byte, [][]byte, []uint64)
 }
 
 type NewPidStatusParser func() PidStatusParser
@@ -355,10 +356,6 @@ func (pidStatus *PidStatus) Parse(pidTidPath string) error {
 	return nil
 }
 
-func (pidStatus *PidStatus) GetByteSliceFieldsAndUnits() ([][]byte, [][]byte) {
-	return pidStatus.byteSliceFields, pidStatus.byteSliceFieldUnit
-}
-
-func (pidStatus *PidStatus) GetNumericFields() []uint64 {
-	return pidStatus.numericFields
+func (pidStatus *PidStatus) GetData() ([][]byte, [][]byte, []uint64) {
+	return pidStatus.byteSliceFields, pidStatus.byteSliceFieldUnit, pidStatus.numericFields
 }

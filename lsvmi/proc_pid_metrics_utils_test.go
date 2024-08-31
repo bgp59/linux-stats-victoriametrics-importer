@@ -122,22 +122,19 @@ func (testPidStat *TestPidStat) Parse(pidTidPath string) error {
 	return fmt.Errorf("%s/stat: no such (test case) file", pidTidPath)
 }
 
-func (testPidStat *TestPidStat) GetByteSliceFields() [][]byte {
-	if testPidStat.parsedData == nil || testPidStat.parsedData.ByteSliceFields == nil {
-		return nil
+func (testPidStat *TestPidStat) GetData() (byteSliceFields [][]byte, numericFields []uint64) {
+	if testPidStat.parsedData == nil {
+		return
 	}
-	byteSliceFields := make([][]byte, len(testPidStat.parsedData.ByteSliceFields))
-	for i, s := range testPidStat.parsedData.ByteSliceFields {
-		byteSliceFields[i] = []byte(s)
-	}
-	return byteSliceFields
-}
 
-func (testPidStat *TestPidStat) GetNumericFields() []uint64 {
-	if testPidStat.parsedData != nil {
-		return testPidStat.parsedData.NumericFields
+	if testPidStat.parsedData.ByteSliceFields != nil {
+		byteSliceFields = make([][]byte, len(testPidStat.parsedData.ByteSliceFields))
+		for i, s := range testPidStat.parsedData.ByteSliceFields {
+			byteSliceFields[i] = []byte(s)
+		}
 	}
-	return nil
+	numericFields = testPidStat.parsedData.NumericFields
+	return
 }
 
 func (tpp *TestPidParsers) NewPidStat() procfs.PidStatParser {
@@ -183,8 +180,10 @@ func (testPidStatus *TestPidStatus) Parse(pidTidPath string) error {
 	return fmt.Errorf("%s/status: no such (test case) file", pidTidPath)
 }
 
-func (testPidStatus *TestPidStatus) GetByteSliceFieldsAndUnits() ([][]byte, [][]byte) {
-	byteSliceFields, byteSliceFieldUnit := [][]byte(nil), [][]byte(nil)
+func (testPidStatus *TestPidStatus) GetData() (byteSliceFields [][]byte, byteSliceFieldUnit [][]byte, numericFields []uint64) {
+	if testPidStatus.parsedData == nil {
+		return
+	}
 	if testPidStatus.parsedData != nil {
 		if testPidStatus.parsedData.ByteSliceFields != nil {
 			byteSliceFields = make([][]byte, len(testPidStatus.parsedData.ByteSliceFields))
@@ -199,14 +198,8 @@ func (testPidStatus *TestPidStatus) GetByteSliceFieldsAndUnits() ([][]byte, [][]
 			}
 		}
 	}
-	return byteSliceFields, byteSliceFieldUnit
-}
-
-func (testPidStatus *TestPidStatus) GetNumericFields() []uint64 {
-	if testPidStatus.parsedData != nil {
-		return testPidStatus.parsedData.NumericFields
-	}
-	return nil
+	numericFields = testPidStatus.parsedData.NumericFields
+	return
 }
 
 func (tpp *TestPidParsers) NewPidStatus() procfs.PidStatusParser {

@@ -136,7 +136,7 @@ func (pim *ProcessInternalMetrics) generateMetrics(
 
 	metricsCount := 0
 
-	currPidStatBSF := currPidStat.GetByteSliceFields()
+	currPidStatBSF, currPidStatNF := currPidStat.GetData()
 
 	buf.Write(pim.vszMetric)
 	buf.Write(currPidStatBSF[procfs.PID_STAT_VSIZE])
@@ -159,9 +159,7 @@ func (pim *ProcessInternalMetrics) generateMetrics(
 	metricsCount++
 
 	if prevPidStat != nil {
-		currPidStatNF := currPidStat.GetNumericFields()
-		prevPidStatNF := prevPidStat.GetNumericFields()
-
+		_, prevPidStatNF := prevPidStat.GetData()
 		dTime := pim.statsTs[pim.currIndex].Sub(pim.statsTs[1-pim.currIndex]).Seconds()
 		dTimeCpu := float64(
 			currPidStatNF[procfs.PID_STAT_UTIME]+

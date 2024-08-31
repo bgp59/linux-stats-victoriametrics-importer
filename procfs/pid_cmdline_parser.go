@@ -19,8 +19,8 @@ var cmdlineByteConvert = [256][]byte{
 	'"':  []byte(`\"`),
 }
 
-// Define the parser as an interface such that it can be replaced w/ test object
-// for UTs:
+// Define the parser as an interface such that it can be replaced w/ a test
+// object for UTs:
 type PidCmdlineParser interface {
 	Parse(pidTidPath string) error
 	GetData() ([]byte, []byte, []byte)

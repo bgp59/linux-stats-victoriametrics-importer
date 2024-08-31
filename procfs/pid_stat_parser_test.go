@@ -56,11 +56,11 @@ primeProcfsRoot=%q, primePid=%d, PrimeTid=%d
 			t.Fatalf("error: want: %v, got: %v", wantError, err)
 		}
 	}
+	gotByteSliceFields, gotNumericFields := pidStat.GetData()
 
 	diffBuf := &bytes.Buffer{}
 
 	if tc.wantByteSliceFields != nil {
-		gotByteSliceFields := pidStat.GetByteSliceFields()
 		for i, wantValue := range tc.wantByteSliceFields {
 			gotValue := string(gotByteSliceFields[i])
 			if wantValue != gotValue {
@@ -75,7 +75,6 @@ primeProcfsRoot=%q, primePid=%d, PrimeTid=%d
 		}
 	}
 	if tc.wantNumericFields != nil {
-		gotNumericFields := pidStat.GetNumericFields()
 		for i, wantValue := range tc.wantNumericFields {
 			gotValue := gotNumericFields[i]
 			if wantValue != gotValue {

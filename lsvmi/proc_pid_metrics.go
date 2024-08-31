@@ -660,7 +660,8 @@ func (pm *ProcPidMetrics) initPidTidMetricsInfo(pidTid procfs.PidTid, pidTidPath
 		pidTidLabels += fmt.Sprintf(`,%s="%d"`, PROC_PID_TID_LABEL_NAME, pidTid.Tid)
 	}
 
-	starttimeTck, err := strconv.ParseFloat(string(pm.pidStat.GetByteSliceFields()[procfs.PID_STAT_STARTTIME]), 64)
+	pidStatBSF, _ := pm.pidStat.GetData()
+	starttimeTck, err := strconv.ParseFloat(string(pidStatBSF[procfs.PID_STAT_STARTTIME]), 64)
 	if err != nil {
 		procPidMetricsLog.Warnf(
 			`PID: %d, TID: %d, starttime: %v`,
@@ -707,22 +708,18 @@ func (pm *ProcPidMetrics) generateMetrics(
 	)
 
 	currPidStat = pm.pidStat
-	currPidStatBSF = currPidStat.GetByteSliceFields()
-	currPidStatNF = currPidStat.GetNumericFields()
+	currPidStatBSF, currPidStatNF = currPidStat.GetData()
 	if hasPrev {
 		prevPidStat = pidTidMetricsInfo.pidStat
-		prevPidStatBSF = prevPidStat.GetByteSliceFields()
-		prevPidStatNF = prevPidStat.GetNumericFields()
+		prevPidStatBSF, prevPidStatNF = prevPidStat.GetData()
 	}
 
 	if pm.usePidStatus {
 		currPidStatus = pm.pidStatus
-		currPidStatusBSF, currPidStatusBSFU = currPidStatus.GetByteSliceFieldsAndUnits()
-		currPidStatusNF = currPidStatus.GetNumericFields()
+		currPidStatusBSF, currPidStatusBSFU, currPidStatusNF = currPidStatus.GetData()
 		if hasPrev {
 			prevPidStatus = pidTidMetricsInfo.pidStatus
-			prevPidStatusBSF, _ = prevPidStatus.GetByteSliceFieldsAndUnits()
-			prevPidStatusNF = prevPidStatus.GetNumericFields()
+			prevPidStatusBSF, _, prevPidStatusNF = prevPidStatus.GetData()
 		}
 	}
 
@@ -1089,6 +1086,11 @@ func (pm *ProcPidMetrics) Execute() bool {
 	byteCount := 0
 	var buf *bytes.Buffer
 
+	var (
+		currPidStatBSF, prevPidStatBSF [][]byte
+		currPidStatNF, prevPidStatNF   []uint64
+	)
+
 	for _, pidTid := range pidTidList {
 		pidTidPath := ""
 
@@ -1131,16 +1133,19 @@ func (pm *ProcPidMetrics) Execute() bool {
 			continue
 		}
 
-		// Same as before, based on starttime (though it is only a theoretical
-		// possiblity the PID[+TID] was reused in the interval from the previous
-		// scan):
-		if hasPrev && !bytes.Equal(
-			pm.pidStat.GetByteSliceFields()[procfs.PID_STAT_STARTTIME],
-			pidTidMetricsInfo.pidStat.GetByteSliceFields()[procfs.PID_STAT_STARTTIME],
-		) {
-			hasPrev = false
-			// Technically a delete:
-			delPidCount++
+		if hasPrev {
+			currPidStatBSF, currPidStatNF = pm.pidStat.GetData()
+			prevPidStatBSF, prevPidStatNF = pidTidMetricsInfo.pidStat.GetData()
+
+			// Check if the PID[,TID] was in fact reused since last scan, based
+			// on starttime. This is only a theoretical possiblity, but still
+			// robust conding and all.
+
+			if !bytes.Equal(currPidStatBSF[procfs.PID_STAT_STARTTIME], prevPidStatBSF[procfs.PID_STAT_STARTTIME]) {
+				hasPrev = false
+				// Technically a delete:
+				delPidCount++
+			}
 		}
 
 		// Active?
@@ -1149,8 +1154,8 @@ func (pm *ProcPidMetrics) Execute() bool {
 			// By definition 1st time PID, TID is deemed active:
 			active = true
 			pidTidMetricsInfo = pm.initPidTidMetricsInfo(pidTid, pidTidPath)
-		} else if currNF, prevNF := pm.pidStat.GetNumericFields(), pidTidMetricsInfo.pidStat.GetNumericFields(); currNF[procfs.PID_STAT_UTIME] != prevNF[procfs.PID_STAT_UTIME] ||
-			currNF[procfs.PID_STAT_STIME] != prevNF[procfs.PID_STAT_STIME] {
+		} else if currPidStatNF[procfs.PID_STAT_UTIME] != prevPidStatNF[procfs.PID_STAT_UTIME] ||
+			currPidStatNF[procfs.PID_STAT_STIME] != prevPidStatNF[procfs.PID_STAT_STIME] {
 			active = true
 		} else if !fullMetrics {
 			// Inactive, non full metrics cycle. Mark it as scanned but otherwise do nothing:

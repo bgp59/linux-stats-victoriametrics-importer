@@ -21,10 +21,11 @@ const (
 //   associated w/ the metric, e.g. priority
 // - numerical: used for calculations, e.g. utime/stime
 
+// Define the parser as an interface such that it can be replaced w/ a test
+// object for UTs:
 type PidStatParser interface {
 	Parse(pidTidPath string) error
-	GetByteSliceFields() [][]byte
-	GetNumericFields() []uint64
+	GetData() ([][]byte, []uint64)
 }
 
 type NewPidStatParser func() PidStatParser
@@ -272,10 +273,6 @@ func (pidStat *PidStat) Parse(pidTidPath string) error {
 	return nil
 }
 
-func (pidStat *PidStat) GetByteSliceFields() [][]byte {
-	return pidStat.byteSliceFields
-}
-
-func (pidStat *PidStat) GetNumericFields() []uint64 {
-	return pidStat.numericFields
+func (pidStat *PidStat) GetData() ([][]byte, []uint64) {
+	return pidStat.byteSliceFields, pidStat.numericFields
 }
