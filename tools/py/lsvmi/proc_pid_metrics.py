@@ -38,7 +38,6 @@ PROC_PID_TID_LABEL_NAME = "tid"  # TID only
 PROC_PID_STAT_STATE_METRIC = "proc_pid_stat_state"  # PID + TID
 PROC_PID_STAT_STATE_LABEL_NAME = "state"
 PROC_PID_STAT_STARTTIME_LABEL_NAME = "starttime_msec"
-PROC_PID_STAT_CPU_NUM_LABEL_NAME = "cpu"
 
 PROC_PID_STAT_INFO_METRIC = "proc_pid_stat_info"  # PID only
 PROC_PID_STAT_COMM_LABEL_NAME = "comm"
@@ -65,6 +64,8 @@ PROC_PID_STAT_MAJFLT_METRIC = "proc_pid_stat_majflt_delta"  # PID + TID
 PROC_PID_STAT_UTIME_PCT_METRIC = "proc_pid_stat_utime_pcpu"  # PID + TID
 PROC_PID_STAT_STIME_PCT_METRIC = "proc_pid_stat_stime_pcpu"  # PID + TID
 PROC_PID_STAT_TIME_PCT_METRIC = "proc_pid_stat_pcpu"  # PID + TID
+
+PROC_PID_STAT_CPU_NUM_METRIC = "proc_pid_stat_cpu_num"  # PID + TID
 
 # /proc/PID/status:
 PROC_PID_STATUS_INFO_METRIC = "proc_pid_status_info"  # PID only
@@ -354,11 +355,10 @@ def generate_proc_pid_metrics(
 
         ## PID+TID:
         ### PROC_PID_STAT_STATE_METRIC:
-        has_changed = prev_pid_stat_bsf is not None and (
-            curr_pid_stat_bsf[procfs.PID_STAT_STATE]
+        has_changed = (
+            prev_pid_stat_bsf is not None
+            and curr_pid_stat_bsf[procfs.PID_STAT_STATE]
             != prev_pid_stat_bsf[procfs.PID_STAT_STATE]
-            or curr_pid_stat_bsf[procfs.PID_STAT_PROCESSOR]
-            != prev_pid_stat_bsf[procfs.PID_STAT_PROCESSOR]
         )
         if has_changed:
             metrics.append(
@@ -368,7 +368,6 @@ def generate_proc_pid_metrics(
                         common_labels,
                         f'{PROC_PID_STAT_STARTTIME_LABEL_NAME}="{starttime_msec}"',
                         f'{PROC_PID_STAT_STATE_LABEL_NAME}="{prev_pid_stat_bsf[procfs.PID_STAT_STATE]}"',
-                        f'{PROC_PID_STAT_CPU_NUM_LABEL_NAME}="{prev_pid_stat_bsf[procfs.PID_STAT_PROCESSOR]}"',
                     ]
                 )
                 + f"}} 0 {curr_prom_ts}"
@@ -381,7 +380,6 @@ def generate_proc_pid_metrics(
                         common_labels,
                         f'{PROC_PID_STAT_STARTTIME_LABEL_NAME}="{starttime_msec}"',
                         f'{PROC_PID_STAT_STATE_LABEL_NAME}="{curr_pid_stat_bsf[procfs.PID_STAT_STATE]}"',
-                        f'{PROC_PID_STAT_CPU_NUM_LABEL_NAME}="{curr_pid_stat_bsf[procfs.PID_STAT_PROCESSOR]}"',
                     ]
                 )
                 + f"}} 1 {curr_prom_ts}"
@@ -455,6 +453,11 @@ def generate_proc_pid_metrics(
             metrics.append(
                 f"{PROC_PID_STAT_TIME_PCT_METRIC}{{{common_labels}}} {total_delta_ticks*pcpu_factor:.1f} {curr_prom_ts}"
             )
+
+        ### PROC_PID_STAT_CPU_NUM_METRIC:
+        metrics.append(
+            f"{PROC_PID_STAT_CPU_NUM_METRIC}{{{common_labels}}} {curr_pid_stat_bsf[procfs.PID_STAT_PROCESSOR]} {curr_prom_ts}"
+        )
 
         ## PID only:
         if is_pid:

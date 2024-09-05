@@ -33,8 +33,8 @@ func TestProcPidMetricsInitPidStatMetricFmt(t *testing.T) {
 	for _, tc := range []*TestProcPidMetricsFmtTestCase{
 		{
 			pm.pidStatStateMetricFmt,
-			[]any{`pid="PID",tid="TID"`, "STARTTIME_MS", []byte("S"), []byte("13"), '1', []byte("TIMESTAMP")},
-			`proc_pid_stat_state{instance="INSTANCE",hostname="HOSTNAME",pid="PID",tid="TID",starttime_msec="STARTTIME_MS",state="S",cpu="13"} 1 TIMESTAMP`,
+			[]any{`pid="PID",tid="TID"`, "STARTTIME_MS", []byte("S"), '1', []byte("TIMESTAMP")},
+			`proc_pid_stat_state{instance="INSTANCE",hostname="HOSTNAME",pid="PID",tid="TID",starttime_msec="STARTTIME_MS",state="S"} 1 TIMESTAMP`,
 		},
 		{
 			pm.pidStatInfoMetricFmt,
@@ -45,6 +45,11 @@ func TestProcPidMetricsInitPidStatMetricFmt(t *testing.T) {
 			pm.pidStatPriorityMetricFmt,
 			[]any{`pid="PID",tid="TID"`, []byte("PRIORITY"), []byte("NICE"), []byte("RT_PRIORITY"), []byte("POLICY"), '1', []byte("TIMESTAMP")},
 			`proc_pid_stat_prio{instance="INSTANCE",hostname="HOSTNAME",pid="PID",tid="TID",prio="PRIORITY",nice="NICE",rt_prio="RT_PRIORITY",policy="POLICY"} 1 TIMESTAMP`,
+		},
+		{
+			pm.pidStatCpuNumMetricFmt,
+			[]any{`pid="PID",tid="TID"`, []byte("CPU_N"), []byte("TIMESTAMP")},
+			`proc_pid_stat_cpu_num{instance="INSTANCE",hostname="HOSTNAME",pid="PID",tid="TID"} CPU_N TIMESTAMP`,
 		},
 		{
 			pm.pidStatMemoryMetricFmt[0].fmt,

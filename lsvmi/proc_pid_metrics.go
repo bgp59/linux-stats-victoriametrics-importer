@@ -42,7 +42,6 @@ const (
 	PROC_PID_STAT_STATE_METRIC         = "proc_pid_stat_state" // PID + TID
 	PROC_PID_STAT_STATE_LABEL_NAME     = "state"
 	PROC_PID_STAT_STARTTIME_LABEL_NAME = "starttime_msec"
-	PROC_PID_STAT_CPU_NUM_LABEL_NAME   = "cpu"
 
 	// If starttimeMsec cannot be parsed, use the following value:
 	PROC_PID_STARTTIME_FALLBACK_VALUE = 0 // should default to epoch
@@ -72,6 +71,8 @@ const (
 	PROC_PID_STAT_UTIME_PCT_METRIC = "proc_pid_stat_utime_pcpu" // PID + TID
 	PROC_PID_STAT_STIME_PCT_METRIC = "proc_pid_stat_stime_pcpu" // PID + TID
 	PROC_PID_STAT_TIME_PCT_METRIC  = "proc_pid_stat_pcpu"       // PID + TID
+
+	PROC_PID_STAT_CPU_NUM_METRIC = "proc_pid_stat_cpu_num" // PID + TID
 
 	// /proc/PID/status:
 	PROC_PID_STATUS_INFO_METRIC                  = "proc_pid_status_info" // PID only
@@ -280,16 +281,16 @@ type ProcPidMetrics struct {
 	// with an outdated scan# will be deleted.
 	scanNum int
 
-	// Cache metrics generation format strings, i.e. the 1st arg to fmt.*printf.
-	// They have to be generated at runtime because `instance' and `hostname'
-	// are not known beforehand. The format will include appropriate conversion
-	// descriptors for label values, metric value and timestamp.
+	// Cache metrics in a generic format that is applicable to all PID, TID and
+	// other labels. This can be either as fragments that get combined with
+	// PID, TID specific values, or format strings (args for fmt.Sprintf).
 	intialized bool
 
 	// PidStat based metric formats:
 	pidStatStateMetricFmt    string
 	pidStatInfoMetricFmt     string
 	pidStatPriorityMetricFmt string
+	pidStatCpuNumMetricFmt   string
 	pidStatMemoryMetricFmt   []*ProcPidMetricsIndexFmt
 	pidStatPcpuMetricFmt     []*ProcPidMetricsIndexFmt
 	pidStatFltMetricFmt      []*ProcPidMetricsIndexFmt
@@ -432,7 +433,6 @@ func (pm *ProcPidMetrics) initMetricsCache() {
 		"%c",
 		PROC_PID_STAT_STARTTIME_LABEL_NAME,
 		PROC_PID_STAT_STATE_LABEL_NAME,
-		PROC_PID_STAT_CPU_NUM_LABEL_NAME,
 	)
 	pm.perPidTidMetricCount++
 
@@ -474,6 +474,11 @@ func (pm *ProcPidMetrics) initMetricsCache() {
 		},
 	}
 	pm.perPidOnlyMetricCount += len(pm.pidStatMemoryMetricFmt)
+
+	pm.pidStatCpuNumMetricFmt = pm.buildMetricFmt(
+		PROC_PID_STAT_CPU_NUM_METRIC, "%s",
+	)
+	pm.perPidTidMetricCount++
 
 	pm.pidStatFltMetricFmt = []*ProcPidMetricsIndexFmt{
 		{
@@ -725,12 +730,9 @@ func (pm *ProcPidMetrics) generateMetrics(
 	actualMetricsCount := 0
 
 	// PID + TID metrics:
-	changed = hasPrev && (!bytes.Equal(
+	changed = hasPrev && !bytes.Equal(
 		prevPidStatBSF[procfs.PID_STAT_STATE],
-		currPidStatBSF[procfs.PID_STAT_STATE]) ||
-		!bytes.Equal(
-			prevPidStatBSF[procfs.PID_STAT_PROCESSOR],
-			currPidStatBSF[procfs.PID_STAT_PROCESSOR]))
+		currPidStatBSF[procfs.PID_STAT_STATE])
 	if changed {
 		// Clear previous state:
 		fmt.Fprintf(
@@ -739,7 +741,6 @@ func (pm *ProcPidMetrics) generateMetrics(
 			pidTidMetricsInfo.pidTidLabels,
 			pidTidMetricsInfo.starttimeMsec,
 			prevPidStatBSF[procfs.PID_STAT_STATE],
-			prevPidStatBSF[procfs.PID_STAT_PROCESSOR],
 			'0',
 			ts,
 		)
@@ -752,7 +753,6 @@ func (pm *ProcPidMetrics) generateMetrics(
 			pidTidMetricsInfo.pidTidLabels,
 			pidTidMetricsInfo.starttimeMsec,
 			currPidStatBSF[procfs.PID_STAT_STATE],
-			currPidStatBSF[procfs.PID_STAT_PROCESSOR],
 			'1',
 			ts,
 		)
@@ -804,6 +804,15 @@ func (pm *ProcPidMetrics) generateMetrics(
 		)
 		actualMetricsCount++
 	}
+
+	fmt.Fprintf(
+		buf,
+		pm.pidStatCpuNumMetricFmt,
+		pidTidMetricsInfo.pidTidLabels,
+		currPidStatBSF[procfs.PID_STAT_PROCESSOR],
+		ts,
+	)
+	actualMetricsCount++
 
 	if pm.usePidStatus {
 		for _, indexFmt := range pm.pidStatusPidTidMemoryMetricFmt {
