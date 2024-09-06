@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/emypar/linux-stats-victoriametrics-importer/buildinfo"
 	"github.com/emypar/linux-stats-victoriametrics-importer/lsvmi"
 )
 
@@ -48,7 +49,7 @@ func main() {
 	}
 
 	// Info version:
-	mainLog.Infof("Version: %s, Git: %s", lsvmi.LsvmiVersion, lsvmi.GitInfo)
+	mainLog.Infof("Version: %s, Git Info: %s", buildinfo.Version, buildinfo.GitInfo)
 
 	// Metrics queue:
 	if !*useStdoutMetricsQueue {

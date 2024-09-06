@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/emypar/linux-stats-victoriametrics-importer/buildinfo"
 	"github.com/emypar/linux-stats-victoriametrics-importer/internal/utils"
 )
 
@@ -377,8 +378,8 @@ func (internalMetrics *InternalMetrics) updateUptimeMetric() {
 		LSVMI_UPTIME_METRIC,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
-		LSVMI_VERSION_LABEL_NAME, LsvmiVersion,
-		LSVMI_GIT_INFO_LABEL_NAME, GitInfo,
+		LSVMI_VERSION_LABEL_NAME, buildinfo.Version,
+		LSVMI_GIT_INFO_LABEL_NAME, buildinfo.GitInfo,
 	))
 }
 

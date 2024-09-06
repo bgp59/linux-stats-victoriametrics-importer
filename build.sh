@@ -15,13 +15,22 @@ do_build() {
         set -e
         out_dir=bin/$(go env GOOS)-$(go env GOARCH)
         out_file=$(basename $(pwd))
-        set -x
         cd $this_dir
         if [[ -x pre-build ]]; then
             ./pre-build
         fi
-        mkdir -p $out_dir
-        go build -o $out_dir/$out_file
+        semver_suffix=
+        if [[ -r semver.txt ]]; then
+            semver_suffix=.$(cat semver.txt)
+        fi
+        (
+            set -x
+            mkdir -p $out_dir
+            go build -o $out_dir/$out_file$semver_suffix
+        )
+        if [[ -n "$semver_suffix" ]]; then
+            (set -x; ln -fs $out_file$semver_suffix $out_dir/$out_file)
+        fi
         if [[ -x post-build ]]; then
             ./post-build
         fi
