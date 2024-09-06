@@ -21,6 +21,8 @@ type ProcPidMetricsGenerateTestCase struct {
 
 	ProcfsRoot string
 
+	PageSize uint64
+
 	Instance       string
 	Hostname       string
 	LinuxClktckSec float64
@@ -46,6 +48,8 @@ type ProcPidMetricsExecuteTestCase struct {
 	UsePidStatus      bool
 	CycleNum          [PROC_PID_METRICS_CYCLE_NUM_COUNTERS]int
 	ScanNum           int
+
+	PageSize uint64
 
 	Instance       string
 	Hostname       string
@@ -105,6 +109,10 @@ func testProcPidMetricsGenerate(tc *ProcPidMetricsGenerateTestCase, t *testing.T
 
 	pm.procfsRoot = tc.ProcfsRoot
 	pm.usePidStatus = tc.ParserData.PidStatus != nil
+
+	if tc.PageSize != 0 {
+		pm.pageSize = tc.PageSize
+	}
 
 	pm.instance = tc.Instance
 	pm.hostname = tc.Hostname
@@ -194,6 +202,10 @@ func testProcPidMetricsExecute(tc *ProcPidMetricsExecuteTestCase, t *testing.T) 
 	pm, err := NewProcProcPidMetrics(nil, tc.PartNo, &TestPidTidListCache{tc.PidTidListResult})
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	if tc.PageSize != 0 {
+		pm.pageSize = tc.PageSize
 	}
 
 	pm.instance = tc.Instance

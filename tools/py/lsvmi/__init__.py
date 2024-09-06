@@ -12,6 +12,7 @@ from testutils import (
     DEFAULT_TEST_INSTANCE,
     TEST_BOOTTIME_SEC,
     TEST_LINUX_CLKTCK_SEC,
+    TEST_OS_PAGE_SIZE,
     lsvmi_proc_root_dir,
     lsvmi_test_cases_root_dir,
 )

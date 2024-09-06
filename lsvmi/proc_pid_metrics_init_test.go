@@ -52,19 +52,19 @@ func TestProcPidMetricsInitPidStatMetricFmt(t *testing.T) {
 			`proc_pid_stat_cpu_num{instance="INSTANCE",hostname="HOSTNAME",pid="PID",tid="TID"} CPU_N TIMESTAMP`,
 		},
 		{
+			pm.pidStatRssMetricFmt,
+			[]any{`pid="PID",tid="TID"`, 1234567809, []byte("TIMESTAMP")},
+			`proc_pid_stat_rss_bytes{instance="INSTANCE",hostname="HOSTNAME",pid="PID",tid="TID"} 1234567809 TIMESTAMP`,
+		},
+		{
 			pm.pidStatMemoryMetricFmt[0].fmt,
 			[]any{`pid="PID",tid="TID"`, []byte("VSIZE"), []byte("TIMESTAMP")},
-			`proc_pid_stat_vsize{instance="INSTANCE",hostname="HOSTNAME",pid="PID",tid="TID"} VSIZE TIMESTAMP`,
+			`proc_pid_stat_vsize_bytes{instance="INSTANCE",hostname="HOSTNAME",pid="PID",tid="TID"} VSIZE TIMESTAMP`,
 		},
 		{
 			pm.pidStatMemoryMetricFmt[1].fmt,
-			[]any{`pid="PID",tid="TID"`, []byte("RSS"), []byte("TIMESTAMP")},
-			`proc_pid_stat_rss{instance="INSTANCE",hostname="HOSTNAME",pid="PID",tid="TID"} RSS TIMESTAMP`,
-		},
-		{
-			pm.pidStatMemoryMetricFmt[2].fmt,
 			[]any{`pid="PID",tid="TID"`, []byte("RSSLIM"), []byte("TIMESTAMP")},
-			`proc_pid_stat_rsslim{instance="INSTANCE",hostname="HOSTNAME",pid="PID",tid="TID"} RSSLIM TIMESTAMP`,
+			`proc_pid_stat_rsslim_bytes{instance="INSTANCE",hostname="HOSTNAME",pid="PID",tid="TID"} RSSLIM TIMESTAMP`,
 		},
 		{
 			pm.pidStatPcpuMetricFmt[0].fmt,

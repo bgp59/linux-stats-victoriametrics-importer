@@ -16,6 +16,7 @@ from . import (
     INSTANCE_LABEL_NAME,
     TEST_BOOTTIME_SEC,
     TEST_LINUX_CLKTCK_SEC,
+    TEST_OS_PAGE_SIZE,
     lsvmi_test_cases_root_dir,
     save_test_cases,
     uint64_delta,
@@ -54,9 +55,9 @@ PROC_PID_STAT_NICE_LABEL_NAME = "nice"
 PROC_PID_STAT_RT_PRIORITY_LABEL_NAME = "rt_prio"
 PROC_PID_STAT_POLICY_LABEL_NAME = "policy"
 
-PROC_PID_STAT_VSIZE_METRIC = "proc_pid_stat_vsize"  # PID only
-PROC_PID_STAT_RSS_METRIC = "proc_pid_stat_rss"  # PID only
-PROC_PID_STAT_RSSLIM_METRIC = "proc_pid_stat_rsslim"  # PID only
+PROC_PID_STAT_VSIZE_METRIC = "proc_pid_stat_vsize_bytes"  # PID only
+PROC_PID_STAT_RSS_METRIC = "proc_pid_stat_rss_bytes"  # PID only
+PROC_PID_STAT_RSSLIM_METRIC = "proc_pid_stat_rsslim_bytes"  # PID only
 
 PROC_PID_STAT_MINFLT_METRIC = "proc_pid_stat_minflt_delta"  # PID + TID
 PROC_PID_STAT_MAJFLT_METRIC = "proc_pid_stat_majflt_delta"  # PID + TID
@@ -190,6 +191,8 @@ class ProcPidMetricsGenerateTestCase:
     Description: Optional[str] = None
     ProcfsRoot: Optional[str] = DEFAULT_PROCFS_ROOT
 
+    PageSize: int = TEST_OS_PAGE_SIZE
+
     Instance: Optional[str] = DEFAULT_TEST_INSTANCE
     Hostname: Optional[str] = DEFAULT_TEST_HOSTNAME
     LinuxClktckSec: float = TEST_LINUX_CLKTCK_SEC
@@ -217,6 +220,8 @@ class ProcPidMetricsExecuteTestCase:
         default_factory=lambda: [0] * PROC_PID_METRICS_CYCLE_NUM_COUNTERS
     )
     ScanNum: int = 0
+
+    PageSize: int = TEST_OS_PAGE_SIZE
 
     Instance: Optional[str] = DEFAULT_TEST_INSTANCE
     Hostname: Optional[str] = DEFAULT_TEST_HOSTNAME
@@ -312,6 +317,7 @@ def generate_proc_pid_metrics(
     hostname: str = DEFAULT_TEST_HOSTNAME,
     boottime_msec: int = DEFAULT_BOOTTIME_MSEC,
     linux_clktck_sec: float = TEST_LINUX_CLKTCK_SEC,
+    page_size: int = TEST_OS_PAGE_SIZE,
 ) -> Tuple[List[str], TestPidParserStateData]:
     metrics = []
     want_zero_delta = TestPidParserStateData(
@@ -480,10 +486,20 @@ def generate_proc_pid_metrics(
                 metrics.append(
                     f"{PROC_PID_STAT_INFO_METRIC}{{{common_labels},{pid_stat_info_labels}}} 1 {curr_prom_ts}"
                 )
-            ### PROC_PID_STAT_(VSIZE|RSS*)_METRIC:
+            #### PROC_PID_STAT_RSS_METRIC:
+            crt_val = curr_pid_stat_nf[procfs.PID_STAT_RSS]
+            if (
+                pid_stat_full_metrics
+                or has_prev
+                and crt_val != prev_pid_stat_nf[procfs.PID_STAT_RSS]
+            ):
+                metrics.append(
+                    f"{PROC_PID_STAT_RSS_METRIC}{{{common_labels}}} {crt_val*page_size} {curr_prom_ts}"
+                )
+
+            ### PROC_PID_STAT_(VSIZE|RSSLIM)_METRIC:
             for index, metric_name in [
                 (procfs.PID_STAT_VSIZE, PROC_PID_STAT_VSIZE_METRIC),
-                (procfs.PID_STAT_RSS, PROC_PID_STAT_RSS_METRIC),
                 (procfs.PID_STAT_RSSLIM, PROC_PID_STAT_RSSLIM_METRIC),
             ]:
                 crt_val = curr_pid_stat_bsf[index]
@@ -649,7 +665,6 @@ def make_ref_proc_pid_stat(
     pid_stat_bsf[procfs.PID_STAT_NUM_THREADS] = f"7{num_suffix}"
     pid_stat_bsf[procfs.PID_STAT_STARTTIME] = f"33{num_suffix}"
     pid_stat_bsf[procfs.PID_STAT_VSIZE] = f"1000{num_suffix}"
-    pid_stat_bsf[procfs.PID_STAT_RSS] = f"2000{num_suffix}"
     pid_stat_bsf[procfs.PID_STAT_RSSLIM] = f"100000{num_suffix}"
     pid_stat_bsf[procfs.PID_STAT_PROCESSOR] = f"13{num_suffix}"
     pid_stat_bsf[procfs.PID_STAT_RT_PRIORITY] = f"0{num_suffix}"
@@ -660,6 +675,7 @@ def make_ref_proc_pid_stat(
     pid_stat_nf[procfs.PID_STAT_MAJFLT] = 100 + num_offset
     pid_stat_nf[procfs.PID_STAT_UTIME] = 0 + num_offset
     pid_stat_nf[procfs.PID_STAT_STIME] = 0 + num_offset
+    pid_stat_nf[procfs.PID_STAT_RSS] = 2000 + num_offset
 
     return TestPidStatParsedData(
         ByteSliceFields=pid_stat_bsf,
@@ -820,6 +836,7 @@ def generate_proc_pid_metrics_generate_test_case(
     hostname: str = DEFAULT_TEST_HOSTNAME,
     boottime_msec: int = DEFAULT_BOOTTIME_MSEC,
     linux_clktck_sec: float = TEST_LINUX_CLKTCK_SEC,
+    page_size: int = TEST_OS_PAGE_SIZE,
     description: Optional[str] = None,
 ) -> ProcPidMetricsGenerateTestCase:
     if pid_parser_data.UnixMilli is None:
@@ -848,6 +865,7 @@ def generate_proc_pid_metrics_generate_test_case(
         Name=name,
         Description=description,
         ProcfsRoot=procfs_root,
+        PageSize=page_size,
         Instance=instance,
         Hostname=hostname,
         BoottimeMsec=boottime_msec,
@@ -1116,6 +1134,7 @@ def generate_proc_pid_metrics_execute_test_case(
     hostname: str = DEFAULT_TEST_HOSTNAME,
     boottime_msec: int = DEFAULT_BOOTTIME_MSEC,
     linux_clktck_sec: float = TEST_LINUX_CLKTCK_SEC,
+    page_size: int = TEST_OS_PAGE_SIZE,
     description: Optional[str] = None,
 ) -> ProcPidMetricsExecuteTestCase:
 
@@ -1268,6 +1287,7 @@ def generate_proc_pid_metrics_execute_test_case(
         UsePidStatus=use_pid_status,
         CycleNum=cycle_num,
         ScanNum=scan_num,
+        PageSize=page_size,
         Instance=instance,
         Hostname=hostname,
         LinuxClktckSec=linux_clktck_sec,

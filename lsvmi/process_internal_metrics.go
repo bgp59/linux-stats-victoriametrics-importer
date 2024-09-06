@@ -144,11 +144,7 @@ func (pim *ProcessInternalMetrics) generateMetrics(
 	metricsCount++
 
 	buf.Write(pim.rssMetric)
-	rss := uint64(0)
-	for _, c := range currPidStatBSF[procfs.PID_STAT_RSS] {
-		rss = (rss << 3) + (rss << 1) + uint64(c-'0')
-	}
-	rss *= pim.pagesize
+	rss := currPidStatNF[procfs.PID_STAT_RSS] * pim.pagesize
 	buf.WriteString(strconv.FormatUint(rss, 10))
 	buf.Write(tsSuffix)
 	metricsCount++

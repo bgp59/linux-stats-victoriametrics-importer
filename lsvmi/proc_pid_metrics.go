@@ -13,6 +13,7 @@ package lsvmi
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"strconv"
 	"time"
 
@@ -61,9 +62,9 @@ const (
 	PROC_PID_STAT_RT_PRIORITY_LABEL_NAME = "rt_prio"
 	PROC_PID_STAT_POLICY_LABEL_NAME      = "policy"
 
-	PROC_PID_STAT_VSIZE_METRIC  = "proc_pid_stat_vsize"  // PID only
-	PROC_PID_STAT_RSS_METRIC    = "proc_pid_stat_rss"    // PID only
-	PROC_PID_STAT_RSSLIM_METRIC = "proc_pid_stat_rsslim" // PID only
+	PROC_PID_STAT_VSIZE_METRIC  = "proc_pid_stat_vsize_bytes"  // PID only
+	PROC_PID_STAT_RSS_METRIC    = "proc_pid_stat_rss_bytes"    // PID only
+	PROC_PID_STAT_RSSLIM_METRIC = "proc_pid_stat_rsslim_bytes" // PID only
 
 	PROC_PID_STAT_MINFLT_METRIC = "proc_pid_stat_minflt_delta" // PID + TID
 	PROC_PID_STAT_MAJFLT_METRIC = "proc_pid_stat_majflt_delta" // PID + TID
@@ -281,9 +282,10 @@ type ProcPidMetrics struct {
 	// with an outdated scan# will be deleted.
 	scanNum int
 
-	// Cache metrics in a generic format that is applicable to all PID, TID and
-	// other labels. This can be either as fragments that get combined with
-	// PID, TID specific values, or format strings (args for fmt.Sprintf).
+	// PID metrics (name+labels) are too numerous to be cached individually,
+	// rather cache the format (the arg for fmt.Fprintf, that is) which has
+	// format descriptors for label values such as PID, TID. The formats have to
+	// be built at runtime to include the actual instance and hostname.
 	intialized bool
 
 	// PidStat based metric formats:
@@ -291,6 +293,7 @@ type ProcPidMetrics struct {
 	pidStatInfoMetricFmt     string
 	pidStatPriorityMetricFmt string
 	pidStatCpuNumMetricFmt   string
+	pidStatRssMetricFmt      string
 	pidStatMemoryMetricFmt   []*ProcPidMetricsIndexFmt
 	pidStatPcpuMetricFmt     []*ProcPidMetricsIndexFmt
 	pidStatFltMetricFmt      []*ProcPidMetricsIndexFmt
@@ -322,6 +325,9 @@ type ProcPidMetrics struct {
 
 	// A buffer for the timestamp:
 	tsBuf *bytes.Buffer
+
+	// Page size, needed to convert some of the memory stats:
+	pageSize uint64
 
 	// The following are needed for testing only. Left to their default values,
 	// the usual objects will be used.
@@ -367,6 +373,7 @@ func NewProcProcPidMetrics(cfg any, partNo int, pidTidListCache procfs.PidTidLis
 		partNo:              partNo,
 		pidTidMetricsInfo:   make(map[procfs.PidTid]*ProcPidTidMetricsInfo),
 		tsBuf:               &bytes.Buffer{},
+		pageSize:            uint64(os.Getpagesize()),
 		instance:            GlobalInstance,
 		hostname:            GlobalHostname,
 		timeNowFn:           time.Now,
@@ -459,14 +466,11 @@ func (pm *ProcPidMetrics) initMetricsCache() {
 	)
 	pm.perPidTidMetricCount++
 
+	pm.pidStatRssMetricFmt = pm.buildMetricFmt(PROC_PID_STAT_RSS_METRIC, "%d")
 	pm.pidStatMemoryMetricFmt = []*ProcPidMetricsIndexFmt{
 		{
 			procfs.PID_STAT_VSIZE,
 			pm.buildMetricFmt(PROC_PID_STAT_VSIZE_METRIC, "%s"),
-		},
-		{
-			procfs.PID_STAT_RSS,
-			pm.buildMetricFmt(PROC_PID_STAT_RSS_METRIC, "%s"),
 		},
 		{
 			procfs.PID_STAT_RSSLIM,
@@ -728,6 +732,7 @@ func (pm *ProcPidMetrics) generateMetrics(
 	ts := pm.tsBuf.Bytes()
 
 	actualMetricsCount := 0
+	fullMetricsNoPrev := fullMetrics || !hasPrev
 
 	// PID + TID metrics:
 	changed = hasPrev && !bytes.Equal(
@@ -746,7 +751,7 @@ func (pm *ProcPidMetrics) generateMetrics(
 		)
 		actualMetricsCount++
 	}
-	if fullMetrics || !hasPrev || changed {
+	if fullMetricsNoPrev || changed {
 		fmt.Fprintf(
 			buf,
 			pm.pidStatStateMetricFmt,
@@ -790,7 +795,7 @@ func (pm *ProcPidMetrics) generateMetrics(
 		)
 		actualMetricsCount++
 	}
-	if fullMetrics || !hasPrev || changed {
+	if fullMetricsNoPrev || changed {
 		fmt.Fprintf(
 			buf,
 			pm.pidStatPriorityMetricFmt,
@@ -816,7 +821,7 @@ func (pm *ProcPidMetrics) generateMetrics(
 
 	if pm.usePidStatus {
 		for _, indexFmt := range pm.pidStatusPidTidMemoryMetricFmt {
-			if fullMetrics || !hasPrev || !bytes.Equal(
+			if fullMetricsNoPrev || !bytes.Equal(
 				prevPidStatusBSF[indexFmt.index],
 				currPidStatusBSF[indexFmt.index]) {
 				fmt.Fprintf(
@@ -938,7 +943,7 @@ func (pm *ProcPidMetrics) generateMetrics(
 		)
 		actualMetricsCount++
 	}
-	if fullMetrics || !hasPrev || changed {
+	if fullMetricsNoPrev || changed {
 		fmt.Fprintf(
 			buf,
 			pm.pidStatInfoMetricFmt,
@@ -956,8 +961,19 @@ func (pm *ProcPidMetrics) generateMetrics(
 		actualMetricsCount++
 	}
 
+	if rss := currPidStatNF[procfs.PID_STAT_RSS]; fullMetricsNoPrev || rss != prevPidStatNF[procfs.PID_STAT_RSS] {
+		fmt.Fprintf(
+			buf,
+			pm.pidStatRssMetricFmt,
+			pidTidMetricsInfo.pidTidLabels,
+			rss*pm.pageSize,
+			ts,
+		)
+		actualMetricsCount++
+	}
+
 	for _, indexFmt := range pm.pidStatMemoryMetricFmt {
-		if fullMetrics || !hasPrev || !bytes.Equal(
+		if fullMetricsNoPrev || !bytes.Equal(
 			prevPidStatBSF[indexFmt.index],
 			currPidStatBSF[indexFmt.index]) {
 			fmt.Fprintf(
@@ -1005,7 +1021,7 @@ func (pm *ProcPidMetrics) generateMetrics(
 			)
 			actualMetricsCount++
 		}
-		if fullMetrics || !hasPrev || changed {
+		if fullMetricsNoPrev || changed {
 			fmt.Fprintf(
 				buf,
 				pm.pidStatusInfoMetricFmt,
@@ -1022,7 +1038,7 @@ func (pm *ProcPidMetrics) generateMetrics(
 		}
 
 		for _, indexFmt := range pm.pidStatusPidOnlyMemoryMetricFmt {
-			if fullMetrics || !hasPrev || !bytes.Equal(
+			if fullMetricsNoPrev || !bytes.Equal(
 				prevPidStatusBSF[indexFmt.index],
 				currPidStatusBSF[indexFmt.index]) {
 				fmt.Fprintf(
@@ -1038,7 +1054,7 @@ func (pm *ProcPidMetrics) generateMetrics(
 		}
 	}
 
-	if fullMetrics || !hasPrev {
+	if fullMetricsNoPrev {
 		cmdPath, args, cmd := pm.pidCmdline.GetData()
 		fmt.Fprintf(
 			buf,
