@@ -17,8 +17,14 @@ do_build() {
         out_file=$(basename $(pwd))
         set -x
         cd $this_dir
+        if [[ -x pre-build ]]; then
+            ./pre-build
+        fi
         mkdir -p $out_dir
         go build -o $out_dir/$out_file
+        if [[ -x post-build ]]; then
+            ./post-build
+        fi
     )
 }
 

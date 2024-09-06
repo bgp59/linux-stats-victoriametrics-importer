@@ -47,6 +47,9 @@ func main() {
 		mainLog.Fatal(err)
 	}
 
+	// Info version:
+	mainLog.Infof("Version: %s, Git: %s", lsvmi.LsvmiVersion, lsvmi.GitInfo)
+
 	// Metrics queue:
 	if !*useStdoutMetricsQueue {
 		// Real queue w/ compressed metrics sent to import endpoints:

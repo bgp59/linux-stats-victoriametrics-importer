@@ -1,5 +1,6 @@
-testdata/
-tests/testdata/
 bin/
-vendor.org/
+/buildinfo
 /local
+/testdata
+go.work
+go.work.*

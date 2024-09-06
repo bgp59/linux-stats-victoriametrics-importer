@@ -17,8 +17,9 @@ const (
 	INTERNAL_METRICS_CONFIG_OS_METRICS_FACTOR_DEFAULT = 12
 
 	// Heartbeat metric:
-	LSVMI_UPTIME_METRIC      = "lsvmi_uptime_sec"
-	LSVMI_VERSION_LABEL_NAME = "version"
+	LSVMI_UPTIME_METRIC       = "lsvmi_uptime_sec"
+	LSVMI_VERSION_LABEL_NAME  = "version"
+	LSVMI_GIT_INFO_LABEL_NAME = "gitinfo"
 
 	// OS metrics:
 	OS_INFO_METRIC   = "os_info"
@@ -372,11 +373,12 @@ func (internalMetrics *InternalMetrics) updateUptimeMetric() {
 		hostname = internalMetrics.hostname
 	}
 	internalMetrics.uptimeMetric = []byte(fmt.Sprintf(
-		`%s{%s="%s",%s="%s",%s="%s"} `, // N.B. whitespace before value!
+		`%s{%s="%s",%s="%s",%s="%s",%s="%s"} `, // N.B. whitespace before value!
 		LSVMI_UPTIME_METRIC,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 		LSVMI_VERSION_LABEL_NAME, LsvmiVersion,
+		LSVMI_GIT_INFO_LABEL_NAME, GitInfo,
 	))
 }
 
