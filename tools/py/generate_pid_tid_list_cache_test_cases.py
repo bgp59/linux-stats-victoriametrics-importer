@@ -66,6 +66,7 @@ if __name__ == "__main__":
                 Flags=flags, NumPart=num_part, PidTidLists=pid_tid_lists
             )
             test_cases.append(asdict(tc))
+    os.makedirs(os.path.dirname(pid_tid_list_test_case_file), exist_ok=True)
     with open(pid_tid_list_test_case_file, "wt") as f:
         json.dump(test_cases, f, indent=2)
         f.write("\n")
