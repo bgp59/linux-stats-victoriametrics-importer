@@ -13,5 +13,5 @@ package buildinfo
 
 var GitInfo = "'$(git describe --all --dirty=-dirty --long --abbrev=16)'"
 var Version = "'$(cat semver.txt)'"
-' > buildinfo/gitinfo.go
+' > buildinfo/buildinfo.go
 
