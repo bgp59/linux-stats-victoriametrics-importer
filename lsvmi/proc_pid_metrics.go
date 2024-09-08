@@ -40,15 +40,17 @@ const (
 	PROC_PID_TID_LABEL_NAME = "tid" // TID only
 
 	// /proc/PID/stat:
-	PROC_PID_STAT_STATE_METRIC         = "proc_pid_stat_state" // PID + TID
-	PROC_PID_STAT_STATE_LABEL_NAME     = "state"
+	PROC_PID_STAT_STATE_METRIC     = "proc_pid_stat_state" // PID + TID
+	PROC_PID_STAT_STATE_LABEL_NAME = "state"
+
+	PROC_PID_STAT_COMM_METRIC          = "proc_pid_stat_comm" // PID + TID
+	PROC_PID_STAT_COMM_LABEL_NAME      = "comm"
 	PROC_PID_STAT_STARTTIME_LABEL_NAME = "starttime_msec"
 
 	// If starttimeMsec cannot be parsed, use the following value:
 	PROC_PID_STARTTIME_FALLBACK_VALUE = 0 // should default to epoch
 
 	PROC_PID_STAT_INFO_METRIC        = "proc_pid_stat_info" // PID only
-	PROC_PID_STAT_COMM_LABEL_NAME    = "comm"
 	PROC_PID_STAT_PPID_LABEL_NAME    = "ppid"
 	PROC_PID_STAT_PGRP_LABEL_NAME    = "pgrp"
 	PROC_PID_STAT_SESSION_LABEL_NAME = "session"
@@ -290,6 +292,7 @@ type ProcPidMetrics struct {
 
 	// PidStat based metric formats:
 	pidStatStateMetricFmt    string
+	pidStatCommMetricFmt     string
 	pidStatInfoMetricFmt     string
 	pidStatPriorityMetricFmt string
 	pidStatCpuNumMetricFmt   string
@@ -306,6 +309,8 @@ type ProcPidMetrics struct {
 
 	// PidCmdline metric format:
 	pidCmdlineMetricFmt string
+	// Fallback for kernel threads and zombie processes where cmdline is empty:
+	pidCmdlineCommMetricFmt string // use stat COMM field
 
 	// Total metric counts per PID, determined once at the format update:
 	perPidTidMetricCount  int
@@ -438,15 +443,21 @@ func (pm *ProcPidMetrics) initMetricsCache() {
 	pm.pidStatStateMetricFmt = pm.buildMetricFmt(
 		PROC_PID_STAT_STATE_METRIC,
 		"%c",
-		PROC_PID_STAT_STARTTIME_LABEL_NAME,
 		PROC_PID_STAT_STATE_LABEL_NAME,
+	)
+	pm.perPidTidMetricCount++
+
+	pm.pidStatCommMetricFmt = pm.buildMetricFmt(
+		PROC_PID_STAT_COMM_METRIC,
+		"%c",
+		PROC_PID_STAT_STARTTIME_LABEL_NAME,
+		PROC_PID_STAT_COMM_LABEL_NAME,
 	)
 	pm.perPidTidMetricCount++
 
 	pm.pidStatInfoMetricFmt = pm.buildMetricFmt(
 		PROC_PID_STAT_INFO_METRIC,
 		"%c",
-		PROC_PID_STAT_COMM_LABEL_NAME,
 		PROC_PID_STAT_PPID_LABEL_NAME,
 		PROC_PID_STAT_PGRP_LABEL_NAME,
 		PROC_PID_STAT_SESSION_LABEL_NAME,
@@ -636,7 +647,11 @@ func (pm *ProcPidMetrics) initMetricsCache() {
 		PROC_PID_CMDLINE_METRIC, "%c",
 		PROC_PID_CMDLINE_CMD_PATH_LABEL_NAME, PROC_PID_CMDLINE_ARGS_LABEL_NAME, PROC_PID_CMDLINE_CMD_LABEL_NAME,
 	)
-	pm.perPidOnlyMetricCount++
+	pm.pidCmdlineCommMetricFmt = pm.buildMetricFmt(
+		PROC_PID_CMDLINE_METRIC, "%c",
+		PROC_PID_CMDLINE_CMD_LABEL_NAME,
+	)
+	pm.perPidOnlyMetricCount += 2
 
 	pm.pidTotalCountMetricFmt = pm.buildGeneratorSpecificMetricFmt(PROC_PID_TOTAL_COUNT_METRIC, "%d")
 	pm.pidParseOkCountMetricFmt = pm.buildGeneratorSpecificMetricFmt(PROC_PID_PARSE_OK_COUNT_METRIC, "%d")
@@ -744,7 +759,6 @@ func (pm *ProcPidMetrics) generateMetrics(
 			buf,
 			pm.pidStatStateMetricFmt,
 			pidTidMetricsInfo.pidTidLabels,
-			pidTidMetricsInfo.starttimeMsec,
 			prevPidStatBSF[procfs.PID_STAT_STATE],
 			'0',
 			ts,
@@ -756,8 +770,36 @@ func (pm *ProcPidMetrics) generateMetrics(
 			buf,
 			pm.pidStatStateMetricFmt,
 			pidTidMetricsInfo.pidTidLabels,
-			pidTidMetricsInfo.starttimeMsec,
 			currPidStatBSF[procfs.PID_STAT_STATE],
+			'1',
+			ts,
+		)
+		actualMetricsCount++
+	}
+
+	statCommChanged := hasPrev && !bytes.Equal(
+		prevPidStatBSF[procfs.PID_STAT_COMM],
+		currPidStatBSF[procfs.PID_STAT_COMM])
+	if statCommChanged {
+		// Clear previous state:
+		fmt.Fprintf(
+			buf,
+			pm.pidStatCommMetricFmt,
+			pidTidMetricsInfo.pidTidLabels,
+			pidTidMetricsInfo.starttimeMsec,
+			prevPidStatBSF[procfs.PID_STAT_COMM],
+			'0',
+			ts,
+		)
+		actualMetricsCount++
+	}
+	if fullMetricsNoPrev || statCommChanged {
+		fmt.Fprintf(
+			buf,
+			pm.pidStatCommMetricFmt,
+			pidTidMetricsInfo.pidTidLabels,
+			pidTidMetricsInfo.starttimeMsec,
+			currPidStatBSF[procfs.PID_STAT_COMM],
 			'1',
 			ts,
 		)
@@ -910,7 +952,6 @@ func (pm *ProcPidMetrics) generateMetrics(
 	if hasPrev {
 		// Check for change:
 		for _, index := range []int{
-			procfs.PID_STAT_COMM,
 			procfs.PID_STAT_PPID,
 			procfs.PID_STAT_PGRP,
 			procfs.PID_STAT_SESSION,
@@ -931,7 +972,6 @@ func (pm *ProcPidMetrics) generateMetrics(
 			buf,
 			pm.pidStatInfoMetricFmt,
 			pidTidMetricsInfo.pidTidLabels,
-			prevPidStatBSF[procfs.PID_STAT_COMM],
 			prevPidStatBSF[procfs.PID_STAT_PPID],
 			prevPidStatBSF[procfs.PID_STAT_PGRP],
 			prevPidStatBSF[procfs.PID_STAT_SESSION],
@@ -948,7 +988,6 @@ func (pm *ProcPidMetrics) generateMetrics(
 			buf,
 			pm.pidStatInfoMetricFmt,
 			pidTidMetricsInfo.pidTidLabels,
-			currPidStatBSF[procfs.PID_STAT_COMM],
 			currPidStatBSF[procfs.PID_STAT_PPID],
 			currPidStatBSF[procfs.PID_STAT_PGRP],
 			currPidStatBSF[procfs.PID_STAT_SESSION],
@@ -1056,14 +1095,37 @@ func (pm *ProcPidMetrics) generateMetrics(
 
 	if fullMetricsNoPrev {
 		cmdPath, args, cmd := pm.pidCmdline.GetData()
-		fmt.Fprintf(
-			buf,
-			pm.pidCmdlineMetricFmt,
-			pidTidMetricsInfo.pidTidLabels,
-			cmdPath, args, cmd,
-			'1',
-			ts,
-		)
+		if len(cmdPath) != 0 {
+			fmt.Fprintf(
+				buf,
+				pm.pidCmdlineMetricFmt,
+				pidTidMetricsInfo.pidTidLabels,
+				cmdPath, args, cmd,
+				'1',
+				ts,
+			)
+		} else {
+			if statCommChanged {
+				fmt.Fprintf(
+					buf,
+					pm.pidCmdlineCommMetricFmt,
+					pidTidMetricsInfo.pidTidLabels,
+					prevPidStatBSF[procfs.PID_STAT_COMM],
+					'0',
+					ts,
+				)
+				actualMetricsCount++
+			}
+			// Fallback over stat COMM field:
+			fmt.Fprintf(
+				buf,
+				pm.pidCmdlineCommMetricFmt,
+				pidTidMetricsInfo.pidTidLabels,
+				currPidStatBSF[procfs.PID_STAT_COMM],
+				'1',
+				ts,
+			)
+		}
 		actualMetricsCount++
 	}
 

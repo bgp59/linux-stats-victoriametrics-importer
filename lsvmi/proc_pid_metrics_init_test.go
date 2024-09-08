@@ -33,13 +33,18 @@ func TestProcPidMetricsInitPidStatMetricFmt(t *testing.T) {
 	for _, tc := range []*TestProcPidMetricsFmtTestCase{
 		{
 			pm.pidStatStateMetricFmt,
-			[]any{`pid="PID",tid="TID"`, "STARTTIME_MS", []byte("S"), '1', []byte("TIMESTAMP")},
-			`proc_pid_stat_state{instance="INSTANCE",hostname="HOSTNAME",pid="PID",tid="TID",starttime_msec="STARTTIME_MS",state="S"} 1 TIMESTAMP`,
+			[]any{`pid="PID",tid="TID"`, []byte("S"), '1', []byte("TIMESTAMP")},
+			`proc_pid_stat_state{instance="INSTANCE",hostname="HOSTNAME",pid="PID",tid="TID",state="S"} 1 TIMESTAMP`,
+		},
+		{
+			pm.pidStatCommMetricFmt,
+			[]any{`pid="PID",tid="TID"`, "STARTTIME_MS", []byte("COMM"), '1', []byte("TIMESTAMP")},
+			`proc_pid_stat_comm{instance="INSTANCE",hostname="HOSTNAME",pid="PID",tid="TID",starttime_msec="STARTTIME_MS",comm="COMM"} 1 TIMESTAMP`,
 		},
 		{
 			pm.pidStatInfoMetricFmt,
-			[]any{`pid="PID",tid="TID"`, []byte("COMM"), []byte("PPID"), []byte("PGRP"), []byte("SESSION"), []byte("TTY_NR"), []byte("TPGID"), []byte("FLAGS"), '1', []byte("TIMESTAMP")},
-			`proc_pid_stat_info{instance="INSTANCE",hostname="HOSTNAME",pid="PID",tid="TID",comm="COMM",ppid="PPID",pgrp="PGRP",session="SESSION",tty="TTY_NR",tpgid="TPGID",flags="FLAGS"} 1 TIMESTAMP`,
+			[]any{`pid="PID",tid="TID"`, []byte("PPID"), []byte("PGRP"), []byte("SESSION"), []byte("TTY_NR"), []byte("TPGID"), []byte("FLAGS"), '1', []byte("TIMESTAMP")},
+			`proc_pid_stat_info{instance="INSTANCE",hostname="HOSTNAME",pid="PID",tid="TID",ppid="PPID",pgrp="PGRP",session="SESSION",tty="TTY_NR",tpgid="TPGID",flags="FLAGS"} 1 TIMESTAMP`,
 		},
 		{
 			pm.pidStatPriorityMetricFmt,
