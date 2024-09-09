@@ -38,10 +38,12 @@ PROC_PID_TID_LABEL_NAME = "tid"  # TID only
 # /proc/PID/stat:
 PROC_PID_STAT_STATE_METRIC = "proc_pid_stat_state"  # PID + TID
 PROC_PID_STAT_STATE_LABEL_NAME = "state"
+
+PROC_PID_STAT_COMM_METRIC = "proc_pid_stat_comm"
+PROC_PID_STAT_COMM_LABEL_NAME = "comm"
 PROC_PID_STAT_STARTTIME_LABEL_NAME = "starttime_msec"
 
 PROC_PID_STAT_INFO_METRIC = "proc_pid_stat_info"  # PID only
-PROC_PID_STAT_COMM_LABEL_NAME = "comm"
 PROC_PID_STAT_PPID_LABEL_NAME = "ppid"
 PROC_PID_STAT_PGRP_LABEL_NAME = "pgrp"
 PROC_PID_STAT_SESSION_LABEL_NAME = "session"
@@ -244,7 +246,6 @@ class ProcPidMetricsExecuteTestCase:
 # Use an ordered dict to match the expected label order:
 pid_stat_info_index_to_label_map = OrderedDict(
     [
-        (procfs.PID_STAT_COMM, PROC_PID_STAT_COMM_LABEL_NAME),
         (procfs.PID_STAT_PPID, PROC_PID_STAT_PPID_LABEL_NAME),
         (procfs.PID_STAT_PGRP, PROC_PID_STAT_PGRP_LABEL_NAME),
         (procfs.PID_STAT_SESSION, PROC_PID_STAT_SESSION_LABEL_NAME),
@@ -361,51 +362,80 @@ def generate_proc_pid_metrics(
 
         ## PID+TID:
         ### PROC_PID_STAT_STATE_METRIC:
-        has_changed = (
+        changed = (
             prev_pid_stat_bsf is not None
             and curr_pid_stat_bsf[procfs.PID_STAT_STATE]
             != prev_pid_stat_bsf[procfs.PID_STAT_STATE]
         )
-        if has_changed:
+        if changed:
             metrics.append(
                 f"{PROC_PID_STAT_STATE_METRIC}{{"
                 + ",".join(
                     [
                         common_labels,
-                        f'{PROC_PID_STAT_STARTTIME_LABEL_NAME}="{starttime_msec}"',
                         f'{PROC_PID_STAT_STATE_LABEL_NAME}="{prev_pid_stat_bsf[procfs.PID_STAT_STATE]}"',
                     ]
                 )
                 + f"}} 0 {curr_prom_ts}"
             )
-        if pid_stat_full_metrics or has_changed:
+        if pid_stat_full_metrics or changed:
             metrics.append(
                 f"{PROC_PID_STAT_STATE_METRIC}{{"
                 + ",".join(
                     [
                         common_labels,
-                        f'{PROC_PID_STAT_STARTTIME_LABEL_NAME}="{starttime_msec}"',
                         f'{PROC_PID_STAT_STATE_LABEL_NAME}="{curr_pid_stat_bsf[procfs.PID_STAT_STATE]}"',
                     ]
                 )
                 + f"}} 1 {curr_prom_ts}"
             )
 
+        ### PROC_PID_STAT_COMM_METRIC:
+        comm_changed = (
+            prev_pid_stat_bsf is not None
+            and curr_pid_stat_bsf[procfs.PID_STAT_COMM]
+            != prev_pid_stat_bsf[procfs.PID_STAT_COMM]
+        )
+        if comm_changed:
+            metrics.append(
+                f"{PROC_PID_STAT_COMM_METRIC}{{"
+                + ",".join(
+                    [
+                        common_labels,
+                        f'{PROC_PID_STAT_STARTTIME_LABEL_NAME}="{starttime_msec}"',
+                        f'{PROC_PID_STAT_COMM_LABEL_NAME}="{prev_pid_stat_bsf[procfs.PID_STAT_COMM]}"',
+                    ]
+                )
+                + f"}} 0 {curr_prom_ts}"
+            )
+        if pid_stat_full_metrics or comm_changed:
+            metrics.append(
+                f"{PROC_PID_STAT_COMM_METRIC}{{"
+                + ",".join(
+                    [
+                        common_labels,
+                        f'{PROC_PID_STAT_STARTTIME_LABEL_NAME}="{starttime_msec}"',
+                        f'{PROC_PID_STAT_COMM_LABEL_NAME}="{curr_pid_stat_bsf[procfs.PID_STAT_COMM]}"',
+                    ]
+                )
+                + f"}} 1 {curr_prom_ts}"
+            )
+
         ### PROC_PID_STAT_PRIORITY_METRIC:
-        has_changed = False
+        changed = False
         if has_prev:
             for i in pid_stat_priority_index_to_label_map:
-                has_changed = curr_pid_stat_bsf[i] != prev_pid_stat_bsf[i]
-                if has_changed:
+                changed = curr_pid_stat_bsf[i] != prev_pid_stat_bsf[i]
+                if changed:
                     break
-            if has_changed:
+            if changed:
                 pid_stat_priority_labels = generate_pid_stat_priority_labels(
                     prev_pid_stat_bsf
                 )
                 metrics.append(
                     f"{PROC_PID_STAT_PRIORITY_METRIC}{{{common_labels},{pid_stat_priority_labels}}} 0 {curr_prom_ts}"
                 )
-        if pid_stat_full_metrics or has_changed:
+        if pid_stat_full_metrics or changed:
             pid_stat_priority_labels = generate_pid_stat_priority_labels(
                 curr_pid_stat_bsf
             )
@@ -468,20 +498,20 @@ def generate_proc_pid_metrics(
         ## PID only:
         if is_pid:
             ### PROC_PID_STAT_INFO_METRIC:
-            has_changed = False
+            changed = False
             if has_prev:
                 for i in pid_stat_info_index_to_label_map:
-                    has_changed = curr_pid_stat_bsf[i] != prev_pid_stat_bsf[i]
-                    if has_changed:
+                    changed = curr_pid_stat_bsf[i] != prev_pid_stat_bsf[i]
+                    if changed:
                         break
-                if has_changed:
+                if changed:
                     pid_stat_info_labels = generate_pid_stat_info_labels(
                         prev_pid_stat_bsf
                     )
                     metrics.append(
                         f"{PROC_PID_STAT_INFO_METRIC}{{{common_labels},{pid_stat_info_labels}}} 0 {curr_prom_ts}"
                     )
-            if pid_stat_full_metrics or has_changed:
+            if pid_stat_full_metrics or changed:
                 pid_stat_info_labels = generate_pid_stat_info_labels(curr_pid_stat_bsf)
                 metrics.append(
                     f"{PROC_PID_STAT_INFO_METRIC}{{{common_labels},{pid_stat_info_labels}}} 1 {curr_prom_ts}"
@@ -590,20 +620,20 @@ def generate_proc_pid_metrics(
         ## PID only:
         if is_pid:
             ### PROC_PID_STATUS_INFO_METRIC:
-            has_changed = False
+            changed = False
             if has_prev:
                 for i in pid_status_info_index_to_label_map:
-                    has_changed = curr_pid_status_bsf[i] != prev_pid_status_bsf[i]
-                    if has_changed:
+                    changed = curr_pid_status_bsf[i] != prev_pid_status_bsf[i]
+                    if changed:
                         break
-                if has_changed:
+                if changed:
                     pid_status_info_labels = generate_pid_status_info_labels(
                         prev_pid_status_bsf
                     )
                     metrics.append(
                         f"{PROC_PID_STATUS_INFO_METRIC}{{{common_labels},{pid_status_info_labels}}} 0 {curr_prom_ts}"
                     )
-            if pid_status_full_metrics or has_changed:
+            if pid_status_full_metrics or changed:
                 pid_status_info_labels = generate_pid_status_info_labels(
                     curr_pid_status_bsf
                 )
@@ -618,19 +648,33 @@ def generate_proc_pid_metrics(
         and (full_metrics or pid_metrics_info_data is None)
     ):
         cmd_path = pid_parser_data.PidCmdline.CmdPath or ""
-        cmd = os.path.basename(cmd_path)
-        args = pid_parser_data.PidCmdline.Args or ""
-        metrics.append(
-            f"{PROC_PID_CMDLINE_METRIC}{{{common_labels},"
-            + ",".join(
-                [
-                    f'{PROC_PID_CMDLINE_CMD_PATH_LABEL_NAME}="{cmd_path}"',
-                    f'{PROC_PID_CMDLINE_ARGS_LABEL_NAME}="{args}"',
-                    f'{PROC_PID_CMDLINE_CMD_LABEL_NAME}="{cmd}"',
-                ]
+        if cmd_path != "":
+            cmd = os.path.basename(cmd_path)
+            args = pid_parser_data.PidCmdline.Args or ""
+            metrics.append(
+                f"{PROC_PID_CMDLINE_METRIC}{{{common_labels},"
+                + ",".join(
+                    [
+                        f'{PROC_PID_CMDLINE_CMD_PATH_LABEL_NAME}="{cmd_path}"',
+                        f'{PROC_PID_CMDLINE_ARGS_LABEL_NAME}="{args}"',
+                        f'{PROC_PID_CMDLINE_CMD_LABEL_NAME}="{cmd}"',
+                    ]
+                )
+                + f"}} 1 {curr_prom_ts}"
             )
-            + f"}} 1 {curr_prom_ts}"
-        )
+        elif pid_parser_data.PidStat is not None:
+            # Fallback on comm:
+            if comm_changed:
+                metrics.append(
+                    f"{PROC_PID_CMDLINE_METRIC}{{{common_labels},"
+                    + f'{PROC_PID_CMDLINE_CMD_LABEL_NAME}="{prev_pid_stat_bsf[procfs.PID_STAT_COMM]}"'
+                    + f"}} 0 {curr_prom_ts}",
+                )
+            metrics.append(
+                f"{PROC_PID_CMDLINE_METRIC}{{{common_labels},"
+                + f'{PROC_PID_CMDLINE_CMD_LABEL_NAME}="{curr_pid_stat_bsf[procfs.PID_STAT_COMM]}"'
+                + f"}} 1 {curr_prom_ts}",
+            )
 
     return metrics, want_zero_delta
 
@@ -894,24 +938,29 @@ def generate_proc_pid_metrics_generate_test_cases(
     pid = 100
     for tid in [101, procfs.PID_ONLY_TID]:
         pid_tid = procfs.PidTid(Pid=pid, Tid=tid)
-        pid_parser_data = TestPidParserStateData(
-            PidStat=curr_pid_stat,
-            PidStatus=curr_pid_status,
-            PidCmdline=curr_pid_cmdline,
-            PidTid=pid_tid,
-        )
-        for full_metrics in [False, True]:
-            test_cases.append(
-                generate_proc_pid_metrics_generate_test_case(
-                    f"initial/{tc_num:04d}",
-                    pid_parser_data,
-                    full_metrics=full_metrics,
-                    instance=instance,
-                    hostname=hostname,
-                    description=f"is_pid={tid==procfs.PID_ONLY_TID}, full_metrics={full_metrics}",
-                )
+        for comm_fallback in [False, True]:
+            if comm_fallback:
+                pid_cmdline = TestPidCmdlineParsedData(Args="should be ignored")
+            else:
+                pid_cmdline = curr_pid_cmdline
+            pid_parser_data = TestPidParserStateData(
+                PidStat=curr_pid_stat,
+                PidStatus=curr_pid_status,
+                PidCmdline=pid_cmdline,
+                PidTid=pid_tid,
             )
-            tc_num += 1
+            for full_metrics in [False, True]:
+                test_cases.append(
+                    generate_proc_pid_metrics_generate_test_case(
+                        f"initial/{tc_num:04d}",
+                        pid_parser_data,
+                        full_metrics=full_metrics,
+                        instance=instance,
+                        hostname=hostname,
+                        description=f"is_pid={tid==procfs.PID_ONLY_TID}, comm_fallback={comm_fallback}, full_metrics={full_metrics}",
+                    )
+                )
+                tc_num += 1
 
     # All changed:
     prev_pid_stat = make_prev_proc_pid_stat(
@@ -926,61 +975,71 @@ def generate_proc_pid_metrics_generate_test_cases(
     )
     for tid in [101, procfs.PID_ONLY_TID]:
         pid_tid = procfs.PidTid(Pid=pid, Tid=tid)
-        pid_parser_data = TestPidParserStateData(
-            PidStat=curr_pid_stat,
-            PidStatus=curr_pid_status,
-            PidCmdline=curr_pid_cmdline,
-            PidTid=procfs.PidTid(Pid=pid, Tid=tid),
-        )
-        pid_metrics_info_data = TestPidParserStateData(
-            PidStat=prev_pid_stat,
-            PidStatus=prev_pid_status,
-            PidTid=pid_tid,
-        )
-        for full_metrics in [False, True]:
-            test_cases.append(
-                generate_proc_pid_metrics_generate_test_case(
-                    f"all_change/{tc_num:04d}",
-                    pid_parser_data,
-                    pid_metrics_info_data=pid_metrics_info_data,
-                    full_metrics=full_metrics,
-                    instance=instance,
-                    hostname=hostname,
-                    description=f"is_pid={tid==procfs.PID_ONLY_TID}, full_metrics={full_metrics}",
-                )
-            )
-            tc_num += 1
-
-    # No change:
-    for tid in [101, procfs.PID_ONLY_TID]:
-        pid_tid = procfs.PidTid(Pid=pid, Tid=tid)
-        pid_parser_data = TestPidParserStateData(
-            PidStat=curr_pid_stat,
-            PidStatus=curr_pid_status,
-            PidCmdline=curr_pid_cmdline,
-            PidTid=procfs.PidTid(Pid=pid, Tid=tid),
-        )
-        for zero_delta in [False, True]:
-            pid_metrics_info_data = TestPidParserStateData(
+        for comm_fallback in [False, True]:
+            if comm_fallback:
+                pid_cmdline = TestPidCmdlineParsedData(Args="should be ignored")
+            else:
+                pid_cmdline = curr_pid_cmdline
+            pid_parser_data = TestPidParserStateData(
                 PidStat=curr_pid_stat,
                 PidStatus=curr_pid_status,
-                PidStatFltZeroDelta=[zero_delta] * PID_STAT_FLT_ZERO_DELTA_SIZE,
-                PidStatusCtxZeroDelta=[zero_delta] * PID_STATUS_CTX_ZERO_DELTA_SIZE,
+                PidCmdline=pid_cmdline,
+                PidTid=procfs.PidTid(Pid=pid, Tid=tid),
+            )
+            pid_metrics_info_data = TestPidParserStateData(
+                PidStat=prev_pid_stat,
+                PidStatus=prev_pid_status,
                 PidTid=pid_tid,
             )
             for full_metrics in [False, True]:
                 test_cases.append(
                     generate_proc_pid_metrics_generate_test_case(
-                        f"no_change/{tc_num:04d}",
+                        f"all_change/{tc_num:04d}",
                         pid_parser_data,
                         pid_metrics_info_data=pid_metrics_info_data,
                         full_metrics=full_metrics,
                         instance=instance,
                         hostname=hostname,
-                        description=f"is_pid={tid==procfs.PID_ONLY_TID}, zero_delta={zero_delta}, full_metrics={full_metrics}",
+                        description=f"is_pid={tid==procfs.PID_ONLY_TID}, comm_fallback={comm_fallback}, full_metrics={full_metrics}",
                     )
                 )
                 tc_num += 1
+
+    # No change:
+    for tid in [101, procfs.PID_ONLY_TID]:
+        pid_tid = procfs.PidTid(Pid=pid, Tid=tid)
+        for comm_fallback in [False, True]:
+            if comm_fallback:
+                pid_cmdline = TestPidCmdlineParsedData(Args="should be ignored")
+            else:
+                pid_cmdline = curr_pid_cmdline
+            pid_parser_data = TestPidParserStateData(
+                PidStat=curr_pid_stat,
+                PidStatus=curr_pid_status,
+                PidCmdline=pid_cmdline,
+                PidTid=procfs.PidTid(Pid=pid, Tid=tid),
+            )
+            for zero_delta in [False, True]:
+                pid_metrics_info_data = TestPidParserStateData(
+                    PidStat=curr_pid_stat,
+                    PidStatus=curr_pid_status,
+                    PidStatFltZeroDelta=[zero_delta] * PID_STAT_FLT_ZERO_DELTA_SIZE,
+                    PidStatusCtxZeroDelta=[zero_delta] * PID_STATUS_CTX_ZERO_DELTA_SIZE,
+                    PidTid=pid_tid,
+                )
+                for full_metrics in [False, True]:
+                    test_cases.append(
+                        generate_proc_pid_metrics_generate_test_case(
+                            f"no_change/{tc_num:04d}",
+                            pid_parser_data,
+                            pid_metrics_info_data=pid_metrics_info_data,
+                            full_metrics=full_metrics,
+                            instance=instance,
+                            hostname=hostname,
+                            description=f"is_pid={tid==procfs.PID_ONLY_TID}, comm_fallback={comm_fallback}, zero_delta={zero_delta}, full_metrics={full_metrics}",
+                        )
+                    )
+                    tc_num += 1
 
     # Single change:
     for index in range(procfs.PID_STAT_BYTE_SLICE_NUM_FIELDS):
@@ -991,31 +1050,36 @@ def generate_proc_pid_metrics_generate_test_cases(
         )
         for tid in [101, procfs.PID_ONLY_TID]:
             pid_tid = procfs.PidTid(Pid=pid, Tid=tid)
-            pid_parser_data = TestPidParserStateData(
-                PidStat=curr_pid_stat,
-                PidStatus=curr_pid_status,
-                PidCmdline=curr_pid_cmdline,
-                PidTid=procfs.PidTid(Pid=pid, Tid=tid),
-            )
-            pid_metrics_info_data = TestPidParserStateData(
-                PidStat=prev_pid_stat,
-                PidStatus=curr_pid_status,
-                PidStatFltZeroDelta=[True] * PID_STAT_FLT_ZERO_DELTA_SIZE,
-                PidStatusCtxZeroDelta=[True] * PID_STATUS_CTX_ZERO_DELTA_SIZE,
-                PidTid=pid_tid,
-            )
-            test_cases.append(
-                generate_proc_pid_metrics_generate_test_case(
-                    f"pid_stat_bsf_one/{tc_num:04d}",
-                    pid_parser_data,
-                    pid_metrics_info_data=pid_metrics_info_data,
-                    full_metrics=False,
-                    instance=instance,
-                    hostname=hostname,
-                    description=f"is_pid={tid==procfs.PID_ONLY_TID}, index={index}",
+            for comm_fallback in [False, True]:
+                if comm_fallback:
+                    pid_cmdline = TestPidCmdlineParsedData(Args="should be ignored")
+                else:
+                    pid_cmdline = curr_pid_cmdline
+                pid_parser_data = TestPidParserStateData(
+                    PidStat=curr_pid_stat,
+                    PidStatus=curr_pid_status,
+                    PidCmdline=pid_cmdline,
+                    PidTid=procfs.PidTid(Pid=pid, Tid=tid),
                 )
-            )
-            tc_num += 1
+                pid_metrics_info_data = TestPidParserStateData(
+                    PidStat=prev_pid_stat,
+                    PidStatus=curr_pid_status,
+                    PidStatFltZeroDelta=[True] * PID_STAT_FLT_ZERO_DELTA_SIZE,
+                    PidStatusCtxZeroDelta=[True] * PID_STATUS_CTX_ZERO_DELTA_SIZE,
+                    PidTid=pid_tid,
+                )
+                test_cases.append(
+                    generate_proc_pid_metrics_generate_test_case(
+                        f"pid_stat_bsf_one/{tc_num:04d}",
+                        pid_parser_data,
+                        pid_metrics_info_data=pid_metrics_info_data,
+                        full_metrics=False,
+                        instance=instance,
+                        hostname=hostname,
+                        description=f"is_pid={tid==procfs.PID_ONLY_TID}, comm_fallback={comm_fallback}, index={index}",
+                    )
+                )
+                tc_num += 1
     for index in range(procfs.PID_STAT_ULONG_NUM_FIELDS):
         prev_pid_stat = make_prev_proc_pid_stat(
             curr_pid_stat, bsf_indexes=None, nf_indexes=[index]
