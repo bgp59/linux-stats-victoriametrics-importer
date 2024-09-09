@@ -167,14 +167,14 @@ type BytesReadSeekCloser struct {
 
 func (brsc *BytesReadSeekCloser) Read(p []byte) (int, error) {
 	if brsc.closed {
-		return int(brsc.closedPos), nil
+		return 0, nil
 	}
 	return brsc.rs.Read(p)
 }
 
 func (brsc *BytesReadSeekCloser) Seek(offset int64, whence int) (int64, error) {
 	if brsc.closed {
-		return 0, nil
+		return brsc.closedPos, nil
 	}
 	return brsc.rs.Seek(offset, whence)
 }
