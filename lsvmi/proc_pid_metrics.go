@@ -135,16 +135,6 @@ const (
 	PROC_PID_SPECIFIC_METRICS_COUNT = 7
 )
 
-// Maintain N x cycle counter groups; each PID, TID will belong to a PID or TID
-// modulo N group. It would be impractical to keep the counters per PID, TID
-// since their number is significantly greater than the full metric factor, so
-// the full cycle would coincide for many of them anyway. Have N = power of 2 to
-// make modulo N efficient.
-const (
-	PROC_PID_METRICS_CYCLE_NUM_COUNTERS = (1 << 4) // i.e. ~ default full metrics factor
-	PROC_PID_METRICS_CYCLE_NUM_MASK     = PROC_PID_METRICS_CYCLE_NUM_COUNTERS - 1
-)
-
 var procPidMetricsLog = NewCompLogger(PROC_PID_METRICS_ID)
 
 // The list of PidStatus memory indexes used for PID+TID metrics; all the others
@@ -214,6 +204,9 @@ type ProcPidTidMetricsInfo struct {
 	pidStatFltZeroDelta   []bool
 	pidStatusCtxZeroDelta []bool
 
+	// Cycle#, used for full metrics cycles:
+	cycleNum int
+
 	// Scan#, used to detect outdated PID, TID's:
 	scanNum int
 }
@@ -258,9 +251,6 @@ type ProcPidMetrics struct {
 	partNo int
 	// Destination storage for the above:
 	pidTidList []procfs.PidTid
-
-	// The cycle# counters:
-	cycleNum [PROC_PID_METRICS_CYCLE_NUM_COUNTERS]int
 
 	// Individual metrics cache, indexed by PID, TID:
 	pidTidMetricsInfo map[procfs.PidTid]*ProcPidTidMetricsInfo
@@ -697,6 +687,7 @@ func (pm *ProcPidMetrics) initPidTidMetricsInfo(pidTid procfs.PidTid, pidTidPath
 		starttimeMsec:         strconv.FormatInt(pm.boottimeMsec+int64(starttimeTck*pm.linuxClktckSec*1000.), 10),
 		pidStatFltZeroDelta:   make([]bool, 2),
 		pidStatusCtxZeroDelta: make([]bool, 2),
+		cycleNum:              initialCycleNum.Get(pm.fullMetricsFactor),
 	}
 	if pm.usePidStatus {
 		pidTidMetricsInfo.pidStatus = pm.newPidStatusParser()
@@ -1159,7 +1150,6 @@ func (pm *ProcPidMetrics) Execute() bool {
 
 	actualMetricsCount := 0
 	bufTargetSize := pm.metricsQueue.GetTargetSize()
-	fullMetrics := false
 	pidTidCount, pidOnlyCount, activePidTidCount, addPidCount, delPidCount := 0, 0, 0, 0, 0
 	byteCount := 0
 	var buf *bytes.Buffer
@@ -1173,11 +1163,6 @@ func (pm *ProcPidMetrics) Execute() bool {
 		pidTidPath := ""
 
 		isPid := pidTid.Tid == procfs.PID_ONLY_TID
-		if isPid {
-			fullMetrics = pm.cycleNum[pidTid.Pid&PROC_PID_METRICS_CYCLE_NUM_MASK] == 0
-		} else {
-			fullMetrics = pm.cycleNum[pidTid.Tid&PROC_PID_METRICS_CYCLE_NUM_MASK] == 0
-		}
 
 		// Parse PID/stat first; this will be needed to determine whether this
 		// is the same process/thread from the previous scan and whether it is
@@ -1211,6 +1196,7 @@ func (pm *ProcPidMetrics) Execute() bool {
 			continue
 		}
 
+		fullMetrics := false
 		if hasPrev {
 			currPidStatBSF, currPidStatNF = pm.pidStat.GetData()
 			prevPidStatBSF, prevPidStatNF = pidTidMetricsInfo.pidStat.GetData()
@@ -1223,6 +1209,8 @@ func (pm *ProcPidMetrics) Execute() bool {
 				hasPrev = false
 				// Technically a delete:
 				delPidCount++
+			} else {
+				fullMetrics = pidTidMetricsInfo.cycleNum == 0
 			}
 		}
 
@@ -1237,6 +1225,10 @@ func (pm *ProcPidMetrics) Execute() bool {
 			active = true
 		} else if !fullMetrics {
 			// Inactive, non full metrics cycle. Mark it as scanned but otherwise do nothing:
+			pidTidMetricsInfo.cycleNum++
+			if pidTidMetricsInfo.cycleNum >= pm.fullMetricsFactor {
+				pidTidMetricsInfo.cycleNum = 0
+			}
 			pidTidMetricsInfo.scanNum = scanNum
 			pidTidMetricsInfo.prevTs = pm.timeNowFn()
 			// (Re)add to the tail of LRU:
@@ -1288,7 +1280,6 @@ func (pm *ProcPidMetrics) Execute() bool {
 			pm.metricsQueue.QueueBuf(buf)
 			buf = nil
 		}
-
 		// Swap the per PID, TID parsers w/ the metrics generator ones:
 		pidTidMetricsInfo.pidStat, pm.pidStat = pm.pidStat, pidTidMetricsInfo.pidStat
 		if pm.usePidStatus {
@@ -1296,6 +1287,10 @@ func (pm *ProcPidMetrics) Execute() bool {
 		}
 		// Mark it as scanned:
 		pidTidMetricsInfo.prevTs = currTs
+		pidTidMetricsInfo.cycleNum++
+		if pidTidMetricsInfo.cycleNum >= pm.fullMetricsFactor {
+			pidTidMetricsInfo.cycleNum = 0
+		}
 		pidTidMetricsInfo.scanNum = scanNum
 		// Store it in the cache as needed:
 		if !hasPrev {
@@ -1362,13 +1357,7 @@ func (pm *ProcPidMetrics) Execute() bool {
 		pm.id, uint64(actualMetricsCount), uint64(totalMetricsCount), uint64(byteCount),
 	)
 
-	// Update cycle counters and scan#:
-	for i, cycleNum := range pm.cycleNum {
-		if cycleNum++; cycleNum >= pm.fullMetricsFactor {
-			cycleNum = 0
-		}
-		pm.cycleNum[i] = cycleNum
-	}
+	// Update scan#:
 	pm.scanNum = scanNum
 
 	return true

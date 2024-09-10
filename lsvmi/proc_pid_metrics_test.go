@@ -46,7 +46,6 @@ type ProcPidMetricsExecuteTestCase struct {
 	PartNo            int
 	FullMetricsFactor int
 	UsePidStatus      bool
-	CycleNum          [PROC_PID_METRICS_CYCLE_NUM_COUNTERS]int
 	ScanNum           int
 
 	PageSize uint64
@@ -214,7 +213,6 @@ func testProcPidMetricsExecute(tc *ProcPidMetricsExecuteTestCase, t *testing.T) 
 	pm.boottimeMsec = tc.BoottimeMsec
 	pm.fullMetricsFactor = tc.FullMetricsFactor
 	pm.usePidStatus = tc.UsePidStatus
-	pm.cycleNum = tc.CycleNum
 	pm.scanNum = tc.ScanNum
 
 	tpp := NewTestPidParsers(tc.PidParsersDataList, tc.ProcfsRoot, tc.CurrUnixMilli)
@@ -268,17 +266,28 @@ func testProcPidMetricsExecute(tc *ProcPidMetricsExecuteTestCase, t *testing.T) 
 		}
 	}
 
-	// Verify cycle info:
-	for i, want := range tc.CycleNum {
-		if want++; want >= tc.FullMetricsFactor {
-			want = 0
-		}
-		got := pm.cycleNum[i]
-		if want != got {
-			fmt.Fprintf(errBuf, "\ncycleNum[%d]: want: %d, got: %d", i, want, got)
+	// Verify Cycle#:
+	if len(tc.PidTidMetricsInfoList) > 0 {
+		for _, pidParserState := range tc.PidTidMetricsInfoList {
+			wantCycleNum := pidParserState.CycleNum + 1
+			if wantCycleNum >= tc.FullMetricsFactor {
+				wantCycleNum = 0
+			}
+			pidTid := *pidParserState.PidTid
+			if pidTidMetricsInfo := pm.pidTidMetricsInfo[pidTid]; pidTidMetricsInfo != nil {
+				gotCycleNum := pidTidMetricsInfo.cycleNum
+				if wantCycleNum != gotCycleNum {
+					fmt.Fprintf(
+						errBuf,
+						"\npidTidMetricsInfo[%#v].cycleNum: want: %d, got: %d",
+						pidTid, wantCycleNum, gotCycleNum,
+					)
+				}
+			}
 		}
 	}
 
+	// Verify scan#:
 	want := tc.ScanNum + 1
 	if want != pm.scanNum {
 		fmt.Fprintf(errBuf, "\nscanNum,: want: %d, got: %d", want, pm.scanNum)

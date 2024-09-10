@@ -168,6 +168,7 @@ class TestPidParserStateData:
     PidStatusCtxZeroDelta: Optional[List[bool]] = field(
         default_factory=lambda: [False] * PID_STATUS_CTX_ZERO_DELTA_SIZE
     )
+    CycleNum: int = 0
     PidTid: Optional[procfs.PidTid] = None
 
 
@@ -218,9 +219,6 @@ class ProcPidMetricsExecuteTestCase:
     PartNo: int = 0
     FullMetricsFactor: int = 15
     UsePidStatus: bool = False
-    CycleNum: List[int] = field(
-        default_factory=lambda: [0] * PROC_PID_METRICS_CYCLE_NUM_COUNTERS
-    )
     ScanNum: int = 0
 
     PageSize: int = TEST_OS_PAGE_SIZE
@@ -1189,7 +1187,6 @@ def generate_proc_pid_metrics_execute_test_case(
     ] = None,  # i.e. no prev
     part_no: int = 1,
     full_metrics_factor: int = DEFAULT_PROC_PID_FULL_METRICS_FACTOR,
-    cycle_num: Optional[List[int]] = None,
     scan_num: int = 1,
     use_pid_status: bool = True,
     interval: float = DEFAULT_PROC_PID_INTERVAL_SEC,
@@ -1206,12 +1203,6 @@ def generate_proc_pid_metrics_execute_test_case(
         ts = time.time()
     ts_inc = interval / len(pid_parsers_data_list) * 0.8
     interval_msec = int(interval * 1000)
-
-    if cycle_num is None:
-        cycle_num = [
-            i % full_metrics_factor if full_metrics_factor > 0 else 0
-            for i in range(PROC_PID_METRICS_CYCLE_NUM_COUNTERS)
-        ]
 
     pid_parsers_data_list = deepcopy(pid_parsers_data_list)
     pid_metrics_info_data_list = deepcopy(pid_metrics_info_data_list)
@@ -1238,17 +1229,13 @@ def generate_proc_pid_metrics_execute_test_case(
         ts += ts_inc
 
         is_pid = pid_tid.Tid == procfs.PID_ONLY_TID
-        if is_pid:
-            cycle_num_index = pid_tid.Pid % PROC_PID_METRICS_CYCLE_NUM_COUNTERS
-        else:
-            cycle_num_index = pid_tid.Tid % PROC_PID_METRICS_CYCLE_NUM_COUNTERS
-        full_metrics = cycle_num[cycle_num_index] == 0
-
         pid_metrics_info_data = pid_metrics_info_data_by_pid_tid.get(pid_tid)
+        full_metrics = False
         if pid_metrics_info_data is None:
             # By definition this counts as active:
             active_pid_tid_count += 1
         else:
+            full_metrics = pid_metrics_info_data.CycleNum == 0
             # If either of the needed parser data is None then this PID,TID will
             # generate an error and it will be deleted:
             if (
@@ -1349,7 +1336,6 @@ def generate_proc_pid_metrics_execute_test_case(
         PartNo=part_no,
         FullMetricsFactor=full_metrics_factor,
         UsePidStatus=use_pid_status,
-        CycleNum=cycle_num,
         ScanNum=scan_num,
         PageSize=page_size,
         Instance=instance,
@@ -1427,7 +1413,7 @@ def generate_proc_pid_metrics_execute_test_cases(
         tc_num += 1
 
     # Existent + new:
-    name = "existent+new"
+    name = "existent_new"
     pid_stat_changed_indexes = [
         ([procfs.PID_STAT_STATE], None),
         (None, [procfs.PID_STAT_UTIME]),
@@ -1440,6 +1426,7 @@ def generate_proc_pid_metrics_execute_test_cases(
     ]
 
     start_pid, tid_offset = 200, 2000
+    full_metrics_factor = 3
     for num_pids in range(1, max_n_pid + 1):
         k = 0
         pid_parsers_data_list = []
@@ -1454,27 +1441,28 @@ def generate_proc_pid_metrics_execute_test_cases(
             curr_pid_status = make_ref_proc_pid_status(pid_tid)
             curr_pid_cmdline = make_ref_proc_pid_cmdline(pid_tid)
             if k & 1:
-                changed_indexes = pid_stat_changed_indexes[
+                bsf_indexes, nf_indexes = pid_stat_changed_indexes[
                     k % len(pid_stat_changed_indexes)
                 ]
                 prev_pid_stat = make_prev_proc_pid_stat(
                     curr_pid_stat,
-                    bsf_indexes=changed_indexes[0],
-                    nf_indexes=changed_indexes[1],
+                    bsf_indexes=bsf_indexes,
+                    nf_indexes=nf_indexes,
                 )
-                changed_indexes = pid_status_changed_indexes[
+                bsf_indexes, nf_indexes = pid_status_changed_indexes[
                     k % len(pid_status_changed_indexes)
                 ]
                 prev_pid_status = make_prev_proc_pid_status(
                     curr_pid_status,
-                    bsf_indexes=changed_indexes[0],
-                    nf_indexes=changed_indexes[1],
+                    bsf_indexes=bsf_indexes,
+                    nf_indexes=nf_indexes,
                 )
                 pid_metrics_info_data_list.append(
                     TestPidParserStateData(
                         PidStat=prev_pid_stat,
                         PidStatus=prev_pid_status,
                         PidTid=pid_tid,
+                        CycleNum=k % full_metrics_factor,
                     )
                 )
             k += 1
@@ -1491,6 +1479,7 @@ def generate_proc_pid_metrics_execute_test_cases(
                 f"{name}/{tc_num:04d}",
                 pid_parsers_data_list=pid_parsers_data_list,
                 pid_metrics_info_data_list=pid_metrics_info_data_list,
+                full_metrics_factor=full_metrics_factor,
                 instance=instance,
                 hostname=hostname,
                 description=f"len(info_data)={len(pid_metrics_info_data_list)}, len(parsers_data)={len(pid_parsers_data_list)}",
@@ -1541,8 +1530,6 @@ def generate_proc_pid_metrics_execute_test_cases(
     # they are parsed and they are reported as parse error:
     name = "parse_error"
     start_pid, tid_offset = 400, 4000
-    # Force full metrics cycle across the board:
-    cycle_num = [0] * PROC_PID_METRICS_CYCLE_NUM_COUNTERS
     # Simulate parse failure for every 3 out of N:
     fail_mod = 5
     for num_pids in range(1, max_n_pid + 1):
@@ -1578,7 +1565,6 @@ def generate_proc_pid_metrics_execute_test_cases(
                 f"{name}/{tc_num:04d}",
                 pid_parsers_data_list=pid_parsers_data_list,
                 pid_metrics_info_data_list=pid_metrics_info_data_list,
-                cycle_num=cycle_num,
                 instance=instance,
                 hostname=hostname,
                 description=f"len(info_data)={len(pid_metrics_info_data_list)}, len(parsers_data)={len(pid_parsers_data_list)}",

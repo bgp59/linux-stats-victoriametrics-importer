@@ -41,6 +41,8 @@ type TestPidParserStateData struct {
 	// Zero delta flags,for state cache:
 	PidStatFltZeroDelta   []bool
 	PidStatusCtxZeroDelta []bool
+	// Cycle#:
+	CycleNum int
 	// PID,TID for which the above:
 	PidTid *procfs.PidTid
 }
@@ -296,6 +298,7 @@ func buildTestPidTidMetricsInfo(pm *ProcPidMetrics, pidParserState *TestPidParse
 		copy(pidTidMetricsInfo.pidStatusCtxZeroDelta, pidParserState.PidStatusCtxZeroDelta)
 	}
 	pidTidMetricsInfo.prevTs = time.UnixMilli(pidParserState.UnixMilli)
+	pidTidMetricsInfo.cycleNum = pidParserState.CycleNum
 	pidTidMetricsInfo.scanNum = pm.scanNum - 1
 	pm.pidStat = savedPidStat
 	return pidTidMetricsInfo

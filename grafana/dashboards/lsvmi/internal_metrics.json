@@ -84,7 +84,7 @@
                   },
                   {
                     "id": "custom.width",
-                    "value": 126
+                    "value": 110
                   }
                 ]
               },
@@ -199,6 +199,18 @@
                     "value": 103
                   }
                 ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Version"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 71
+                  }
+                ]
               }
             ]
           },
@@ -231,7 +243,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "lsvmi_uptime_sec\n* on (instance, hostname) group_right()\nos_info",
+              "expr": "lsvmi_uptime_sec\n* on (instance, hostname) group_right(version, gitinfo)\nos_info",
               "format": "table",
               "instant": true,
               "interval": "",
@@ -288,21 +300,23 @@
                   "sys_release": true
                 },
                 "indexByName": {
-                  "ID": 3,
-                  "NAME": 4,
-                  "PRETTY_NAME": 5,
+                  "ID": 4,
+                  "NAME": 5,
+                  "PRETTY_NAME": 6,
                   "Time": 0,
-                  "VERSION": 6,
-                  "VERSION_CODENAME": 7,
-                  "VERSION_ID": 8,
-                  "Value #lsvmi_uptime_sec": 12,
-                  "Value #os_btime_sec": 14,
-                  "Value #os_uptime_sec": 13,
+                  "VERSION": 7,
+                  "VERSION_CODENAME": 8,
+                  "VERSION_ID": 9,
+                  "Value #lsvmi_uptime_sec": 13,
+                  "Value #os_btime_sec": 15,
+                  "Value #os_uptime_sec": 14,
+                  "gitinfo": 16,
                   "hostname": 1,
                   "instance": 2,
-                  "sys_name": 9,
-                  "sys_release": 10,
-                  "sys_version": 11
+                  "sys_name": 10,
+                  "sys_release": 11,
+                  "sys_version": 12,
+                  "version": 3
                 },
                 "renameByName": {
                   "NAME": "OS Name",
@@ -311,12 +325,14 @@
                   "Value #lsvmi_uptime_sec": "Agent Uptime",
                   "Value #os_btime_sec": "Host Boot Time",
                   "Value #os_uptime_sec": "Host Uptime",
+                  "gitinfo": "Commit",
                   "hostname": "Hostname",
                   "instance": "Instance",
                   "os_name": "",
                   "sys_name": "Sys Name",
                   "sys_release": "",
-                  "sys_version": "Sys Version"
+                  "sys_version": "Sys Version",
+                  "version": "Version"
                 }
               }
             }
@@ -1091,7 +1107,7 @@
           "type": "timeseries"
         }
       ],
-      "title": "Scheduler Metrics",
+      "title": "Scheduler",
       "type": "row"
     },
     {
@@ -1775,7 +1791,7 @@
           "type": "timeseries"
         }
       ],
-      "title": "Compressor Metrics",
+      "title": "Compressors",
       "type": "row"
     },
     {
@@ -2406,7 +2422,7 @@
           "type": "timeseries"
         }
       ],
-      "title": "HTTP Endpoint Metrics",
+      "title": "HTTP Endpoints",
       "type": "row"
     },
     {
@@ -2460,11 +2476,13 @@
                 }
               },
               "mappings": [],
+              "min": 0,
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2552,11 +2570,13 @@
                 }
               },
               "mappings": [],
+              "min": 0,
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2644,11 +2664,13 @@
                 }
               },
               "mappings": [],
+              "min": 0,
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2737,11 +2759,13 @@
                 }
               },
               "mappings": [],
+              "min": 0,
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2829,11 +2853,13 @@
                 }
               },
               "mappings": [],
+              "min": 0,
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2922,11 +2948,13 @@
                 }
               },
               "mappings": [],
+              "min": 0,
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2975,7 +3003,7 @@
           "type": "timeseries"
         }
       ],
-      "title": "Metrics Generator Metrics",
+      "title": "Generators",
       "type": "row"
     },
     {
@@ -3498,7 +3526,7 @@
           "type": "timeseries"
         }
       ],
-      "title": "Go Runtime Metrics",
+      "title": "Go Runtime",
       "type": "row"
     },
     {
@@ -3809,7 +3837,7 @@
           "type": "timeseries"
         }
       ],
-      "title": "Process Metrics",
+      "title": "Process",
       "type": "row"
     }
   ],
@@ -4044,6 +4072,6 @@
   "timezone": "",
   "title": "internal_metrics",
   "uid": "internal_metrics",
-  "version": 76,
+  "version": 78,
   "weekStart": ""
 }

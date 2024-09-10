@@ -346,7 +346,7 @@
             "h": 9,
             "w": 24,
             "x": 0,
-            "y": 9
+            "y": 1
           },
           "id": 4,
           "options": {
@@ -376,7 +376,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "(proc_pid_stat_state{instance=~\"${instance}\", hostname=~\"${hostname}\", tid=~${threads}} > 0)\n* on (instance, hostname, pid) group_left(cmd, args)\nproc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}",
+              "expr": "(proc_pid_stat_state{instance=~\"${instance}\", hostname=~\"${hostname}\", tid=~${threads}} > 0)\n* on (instance, hostname, pid) group_left(cmd, args)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "format": "table",
               "instant": true,
               "legendFormat": "__auto",
@@ -390,7 +390,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "proc_pid_stat_pcpu{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\nand on (instance, hostname, pid)\nproc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}",
+              "expr": "proc_pid_stat_pcpu{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\nand on (instance, hostname, pid)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "format": "table",
               "hide": false,
               "instant": true,
@@ -405,7 +405,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "proc_pid_stat_cpu_num{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (instance, hostname, pid) group_left\nproc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}",
+              "expr": "proc_pid_stat_cpu_num{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (instance, hostname, pid) group_left()\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "format": "table",
               "hide": false,
               "instant": true,
@@ -420,7 +420,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "proc_pid_stat_rss_bytes{instance=~\"${instance}\",hostname=~\"${hostname}\"}\n* on (instance, hostname, pid)\nproc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}",
+              "expr": "proc_pid_stat_rss_bytes{instance=~\"${instance}\",hostname=~\"${hostname}\"}\n* on (instance, hostname, pid)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "format": "table",
               "hide": false,
               "instant": true,
@@ -435,7 +435,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "max_over_time(proc_pid_stat_pcpu{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}[${max_interval}s])\nand on (instance, hostname, pid)\nproc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}",
+              "expr": "max_over_time(proc_pid_stat_pcpu{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}[${max_interval}s])\nand on (instance, hostname, pid)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "format": "table",
               "hide": false,
               "instant": true,
@@ -450,7 +450,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "(sum_over_time(proc_pid_stat_pcpu{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}[${full_cycle}s])/${full_cycle})\nand on (instance, hostname, pid)\nproc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}",
+              "expr": "(sum_over_time(proc_pid_stat_pcpu{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}[${full_cycle}s])/${full_cycle})\nand on (instance, hostname, pid)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "format": "table",
               "hide": false,
               "instant": true,
@@ -586,7 +586,7 @@
             "h": 7,
             "w": 8,
             "x": 0,
-            "y": 18
+            "y": 10
           },
           "id": 2,
           "interval": "${interval}",
@@ -609,7 +609,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_pid_stat_pcpu{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (pid) group_left(cmd)\nproc_pid_cmdline{instance=~\"${instance}\",cmd=~\"${cmd}\"}",
+              "expr": "proc_pid_stat_pcpu{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "interval": "${interval}",
               "legendFormat": "{{cmd}}(pid={{pid}},tid={{tid}},node={{hostname}},inst={{instance}})",
               "range": true,
@@ -681,7 +681,7 @@
             "h": 7,
             "w": 8,
             "x": 8,
-            "y": 18
+            "y": 10
           },
           "id": 5,
           "interval": "${interval}",
@@ -704,7 +704,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_pid_stat_stime_pcpu{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (pid) group_left(cmd)\nproc_pid_cmdline{instance=~\"${instance}\",cmd=~\"${cmd}\"}",
+              "expr": "proc_pid_stat_stime_pcpu{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "interval": "${interval}",
               "legendFormat": "{{cmd}}(pid={{pid}},tid={{tid}},node={{hostname}},inst={{instance}})",
               "range": true,
@@ -776,7 +776,7 @@
             "h": 7,
             "w": 8,
             "x": 16,
-            "y": 18
+            "y": 10
           },
           "id": 6,
           "interval": "${interval}",
@@ -799,7 +799,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_pid_stat_utime_pcpu{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (pid) group_left(cmd)\nproc_pid_cmdline{instance=~\"${instance}\",cmd=~\"${cmd}\"}",
+              "expr": "proc_pid_stat_utime_pcpu{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "interval": "${interval}",
               "legendFormat": "{{cmd}}(pid={{pid}},tid={{tid}},node={{hostname}},inst={{instance}})",
               "range": true,
@@ -871,7 +871,7 @@
             "h": 7,
             "w": 8,
             "x": 0,
-            "y": 25
+            "y": 17
           },
           "id": 9,
           "interval": "${interval}",
@@ -894,7 +894,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "last_over_time(proc_pid_stat_rss_bytes{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\nproc_pid_cmdline{instance=~\"${instance}\",cmd=~\"${cmd}\"}",
+              "expr": "last_over_time(proc_pid_stat_rss_bytes{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "interval": "${interval}",
               "legendFormat": "{{cmd}}(pid={{pid}},node={{hostname}},inst={{instance}})",
               "range": true,
@@ -966,7 +966,7 @@
             "h": 7,
             "w": 8,
             "x": 8,
-            "y": 25
+            "y": 17
           },
           "id": 11,
           "interval": "${interval}",
@@ -989,7 +989,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "last_over_time(proc_pid_stat_rsslim_bytes{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\nproc_pid_cmdline{instance=~\"${instance}\",cmd=~\"${cmd}\"}",
+              "expr": "last_over_time(proc_pid_stat_rsslim_bytes{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "interval": "${interval}",
               "legendFormat": "{{cmd}}(pid={{pid}},node={{hostname}},inst={{instance}})",
               "range": true,
@@ -1061,7 +1061,7 @@
             "h": 7,
             "w": 8,
             "x": 16,
-            "y": 25
+            "y": 17
           },
           "id": 10,
           "interval": "${interval}",
@@ -1084,7 +1084,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "last_over_time(proc_pid_stat_vsize_bytes{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\nproc_pid_cmdline{instance=~\"${instance}\",cmd=~\"${cmd}\"}",
+              "expr": "last_over_time(proc_pid_stat_vsize_bytes{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "interval": "${interval}",
               "legendFormat": "{{cmd}}(pid={{pid}},node={{hostname}},inst={{instance}})",
               "range": true,
@@ -1140,8 +1140,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1157,7 +1156,7 @@
             "h": 7,
             "w": 8,
             "x": 0,
-            "y": 32
+            "y": 24
           },
           "id": 16,
           "interval": "${interval}",
@@ -1236,8 +1235,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1253,7 +1251,7 @@
             "h": 7,
             "w": 8,
             "x": 8,
-            "y": 32
+            "y": 24
           },
           "id": 19,
           "interval": "${interval}",
@@ -1276,7 +1274,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_pid_stat_majflt_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (pid) group_left(cmd)\nproc_pid_cmdline{instance=~\"${instance}\",cmd=~\"${cmd}\"}",
+              "expr": "proc_pid_stat_majflt_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "interval": "${interval}",
               "legendFormat": "majflt_delta(cmd={{cmd}},pid={{pid}},tid={{tid}},node={{hostname}},inst={{instance}})",
               "range": true,
@@ -1332,8 +1330,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1366,7 +1363,7 @@
             "h": 7,
             "w": 8,
             "x": 16,
-            "y": 32
+            "y": 24
           },
           "id": 18,
           "interval": "${interval}",
@@ -1389,7 +1386,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_pid_stat_minflt_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (pid) group_left(cmd)\nproc_pid_cmdline{instance=~\"${instance}\",cmd=~\"${cmd}\"}",
+              "expr": "proc_pid_stat_minflt_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "interval": "${interval}",
               "legendFormat": "minflt_delta(cmd={{cmd}},pid={{pid}},tid={{tid}},node={{hostname}},inst={{instance}})",
               "range": true,
@@ -1413,7 +1410,7 @@
           "type": "timeseries"
         }
       ],
-      "title": "/proc/PID[/task/TID]/stat Metrics",
+      "title": "/proc/PID/stat",
       "type": "row"
     },
     {
@@ -1448,8 +1445,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1549,7 +1545,7 @@
             "h": 7,
             "w": 24,
             "x": 0,
-            "y": 2
+            "y": 18
           },
           "id": 30,
           "options": {
@@ -1573,7 +1569,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "proc_pid_status_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}\n* on (instance, hostname, pid) group_left(cmd, args)\nproc_pid_cmdline{instance=~\"${instance}\",hostname=~\"${hostname}\",cmd=~\"${cmd}\"}",
+              "expr": "proc_pid_status_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}\n* on (instance, hostname, pid) group_left(cmd, args)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "format": "table",
               "instant": true,
               "legendFormat": "__auto",
@@ -1666,8 +1662,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1683,7 +1678,7 @@
             "h": 7,
             "w": 8,
             "x": 0,
-            "y": 9
+            "y": 25
           },
           "id": 20,
           "interval": "${interval}",
@@ -1706,7 +1701,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "last_over_time(proc_pid_status_vm_data{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\nproc_pid_cmdline{instance=~\"${instance}\",cmd=~\"${cmd}\"}",
+              "expr": "last_over_time(proc_pid_status_vm_data{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "interval": "${interval}",
               "legendFormat": "{{cmd}}(pid={{pid}},node={{hostname}},inst={{instance}})",
               "range": true,
@@ -1761,8 +1756,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1778,7 +1772,7 @@
             "h": 7,
             "w": 8,
             "x": 8,
-            "y": 9
+            "y": 25
           },
           "id": 21,
           "interval": "${interval}",
@@ -1801,7 +1795,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "last_over_time(proc_pid_status_vm_exe{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\nproc_pid_cmdline{instance=~\"${instance}\",cmd=~\"${cmd}\"}",
+              "expr": "last_over_time(proc_pid_status_vm_exe{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "interval": "${interval}",
               "legendFormat": "{{cmd}}(pid={{pid}},node={{hostname}},inst={{instance}})",
               "range": true,
@@ -1856,8 +1850,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1873,7 +1866,7 @@
             "h": 7,
             "w": 8,
             "x": 16,
-            "y": 9
+            "y": 25
           },
           "id": 23,
           "interval": "${interval}",
@@ -1896,7 +1889,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "last_over_time(proc_pid_status_vm_swap{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\nproc_pid_cmdline{instance=~\"${instance}\",cmd=~\"${cmd}\"}",
+              "expr": "last_over_time(proc_pid_status_vm_swap{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "interval": "${interval}",
               "legendFormat": "{{cmd}}(pid={{pid}},node={{hostname}},inst={{instance}})",
               "range": true,
@@ -1951,8 +1944,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1968,7 +1960,7 @@
             "h": 7,
             "w": 8,
             "x": 0,
-            "y": 16
+            "y": 32
           },
           "id": 22,
           "interval": "${interval}",
@@ -1991,7 +1983,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "last_over_time(proc_pid_status_vm_stk{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}[${full_cycle}])\n* on (pid) group_left(cmd)\nproc_pid_cmdline{instance=~\"${instance}\",cmd=~\"${cmd}\"}",
+              "expr": "last_over_time(proc_pid_status_vm_stk{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}[${full_cycle}])\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "interval": "${interval}",
               "legendFormat": "{{cmd}}(pid={{pid}},tid={{tid}},node={{hostname}},inst={{instance}})",
               "range": true,
@@ -2046,8 +2038,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2063,7 +2054,7 @@
             "h": 7,
             "w": 8,
             "x": 8,
-            "y": 16
+            "y": 32
           },
           "id": 24,
           "interval": "${interval}",
@@ -2086,7 +2077,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "last_over_time(proc_pid_status_rss_anon{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\nproc_pid_cmdline{instance=~\"${instance}\",cmd=~\"${cmd}\"}",
+              "expr": "last_over_time(proc_pid_status_rss_anon{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "interval": "${interval}",
               "legendFormat": "{{cmd}}(pid={{pid}},node={{hostname}},inst={{instance}})",
               "range": true,
@@ -2141,8 +2132,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2158,7 +2148,7 @@
             "h": 7,
             "w": 8,
             "x": 16,
-            "y": 16
+            "y": 32
           },
           "id": 25,
           "interval": "${interval}",
@@ -2181,7 +2171,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "last_over_time(proc_pid_status_rss_file{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\nproc_pid_cmdline{instance=~\"${instance}\",cmd=~\"${cmd}\"}",
+              "expr": "last_over_time(proc_pid_status_rss_file{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "interval": "${interval}",
               "legendFormat": "{{cmd}}(pid={{pid}},node={{hostname}},inst={{instance}})",
               "range": true,
@@ -2236,8 +2226,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2253,7 +2242,7 @@
             "h": 7,
             "w": 8,
             "x": 0,
-            "y": 23
+            "y": 39
           },
           "id": 26,
           "interval": "${interval}",
@@ -2276,7 +2265,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "last_over_time(proc_pid_status_rss_shmem{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\nproc_pid_cmdline{instance=~\"${instance}\",cmd=~\"${cmd}\"}",
+              "expr": "last_over_time(proc_pid_status_rss_shmem{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "interval": "${interval}",
               "legendFormat": "{{cmd}}(pid={{pid}},node={{hostname}},inst={{instance}})",
               "range": true,
@@ -2332,8 +2321,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2349,7 +2337,7 @@
             "h": 7,
             "w": 8,
             "x": 8,
-            "y": 23
+            "y": 39
           },
           "id": 27,
           "interval": "${interval}",
@@ -2372,7 +2360,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_pid_status_vol_ctx_switch_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (pid) group_left(cmd)\nproc_pid_cmdline{instance=~\"${instance}\",cmd=~\"${cmd}\"}",
+              "expr": "proc_pid_status_vol_ctx_switch_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "interval": "${interval}",
               "legendFormat": "vol_ctx_delta(cmd={{cmd}},pid={{pid}},tid={{tid}},node={{hostname}},inst={{instance}})",
               "range": true,
@@ -2428,8 +2416,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2445,7 +2432,7 @@
             "h": 7,
             "w": 8,
             "x": 16,
-            "y": 23
+            "y": 39
           },
           "id": 28,
           "interval": "${interval}",
@@ -2468,7 +2455,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_pid_status_nonvol_ctx_switch_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (pid) group_left(cmd)\nproc_pid_cmdline{instance=~\"${instance}\",cmd=~\"${cmd}\"}",
+              "expr": "proc_pid_status_nonvol_ctx_switch_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
               "interval": "${interval}",
               "legendFormat": "vol_ctx_delta(cmd={{cmd}},pid={{pid}},tid={{tid}},node={{hostname}},inst={{instance}})",
               "range": true,
@@ -2479,7 +2466,115 @@
           "type": "timeseries"
         }
       ],
-      "title": "/proc/PID[/task/TID]/status Metrics",
+      "title": "/proc/PID/status",
+      "type": "row"
+    },
+    {
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 2
+      },
+      "id": 32,
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 21,
+            "x": 0,
+            "y": 3
+          },
+          "id": 34,
+          "interval": "${interval}",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "{__name__=~\"proc_pid_.*_count\",instance=~\"${instance}\",hostname=~\"${hostname}\",part=~\"${part}\"}",
+              "hide": false,
+              "legendFormat": "{{__name__}}(part={{part}},host={{hostname}},inst={{instance}})",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "PID Counts",
+          "type": "timeseries"
+        }
+      ],
+      "title": "Counts",
       "type": "row"
     }
   ],
@@ -2667,6 +2762,34 @@
         "type": "custom"
       },
       {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "definition": "proc_pid_metrics_delta_sec{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Partition",
+        "multi": true,
+        "name": "part",
+        "options": [],
+        "query": {
+          "query": "proc_pid_metrics_delta_sec{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "/.*part=\"([^\"]*)\".*/",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
         "current": {
           "selected": true,
           "text": "1s",
@@ -2714,6 +2837,6 @@
   "timezone": "",
   "title": "proc_pid_metrics",
   "uid": "proc_pid_metrics",
-  "version": 28,
+  "version": 32,
   "weekStart": ""
 }
