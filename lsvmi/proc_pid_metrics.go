@@ -637,10 +637,14 @@ func (pm *ProcPidMetrics) initMetricsCache() {
 		PROC_PID_CMDLINE_METRIC, "%c",
 		PROC_PID_CMDLINE_CMD_PATH_LABEL_NAME, PROC_PID_CMDLINE_ARGS_LABEL_NAME, PROC_PID_CMDLINE_CMD_LABEL_NAME,
 	)
-	pm.pidCmdlineCommMetricFmt = pm.buildMetricFmt(
-		PROC_PID_CMDLINE_METRIC, "%c",
-		PROC_PID_CMDLINE_CMD_LABEL_NAME,
-	)
+	// The next fmt has to be built by hand to emulate ps/top behavior of
+	// displaying empty cmdline as [COMM]; the generic buildMetricFmt does not
+	// apply here.
+	pm.pidCmdlineCommMetricFmt = fmt.Sprintf(
+		`%s{%s="%s",%s="%s",%%s,%s="[%%s]"}`,
+		PROC_PID_CMDLINE_METRIC,
+		INSTANCE_LABEL_NAME, pm.instance, HOSTNAME_LABEL_NAME, pm.hostname, PROC_PID_CMDLINE_CMD_LABEL_NAME,
+	) + " %c %s\n"
 	pm.perPidOnlyMetricCount += 2
 
 	pm.pidTotalCountMetricFmt = pm.buildGeneratorSpecificMetricFmt(PROC_PID_TOTAL_COUNT_METRIC, "%d")

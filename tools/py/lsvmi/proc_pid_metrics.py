@@ -665,12 +665,12 @@ def generate_proc_pid_metrics(
             if comm_changed:
                 metrics.append(
                     f"{PROC_PID_CMDLINE_METRIC}{{{common_labels},"
-                    + f'{PROC_PID_CMDLINE_CMD_LABEL_NAME}="{prev_pid_stat_bsf[procfs.PID_STAT_COMM]}"'
+                    + f'{PROC_PID_CMDLINE_CMD_LABEL_NAME}="[{prev_pid_stat_bsf[procfs.PID_STAT_COMM]}]"'
                     + f"}} 0 {curr_prom_ts}",
                 )
             metrics.append(
                 f"{PROC_PID_CMDLINE_METRIC}{{{common_labels},"
-                + f'{PROC_PID_CMDLINE_CMD_LABEL_NAME}="{curr_pid_stat_bsf[procfs.PID_STAT_COMM]}"'
+                + f'{PROC_PID_CMDLINE_CMD_LABEL_NAME}="[{curr_pid_stat_bsf[procfs.PID_STAT_COMM]}]"'
                 + f"}} 1 {curr_prom_ts}",
             )
 
