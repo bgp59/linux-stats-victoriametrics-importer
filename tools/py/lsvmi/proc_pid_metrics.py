@@ -162,6 +162,7 @@ class TestPidParserStateData:
     PidStatus: Optional[TestPidStatusParsedData] = None
     PidCmdline: Optional[TestPidCmdlineParsedData] = None
     UnixMilli: Optional[int] = None
+    Active: bool = False
     PidStatFltZeroDelta: Optional[List[bool]] = field(
         default_factory=lambda: [False] * PID_STAT_FLT_ZERO_DELTA_SIZE
     )
@@ -903,6 +904,10 @@ def generate_proc_pid_metrics_generate_test_case(
         boottime_msec=boottime_msec,
         linux_clktck_sec=linux_clktck_sec,
     )
+    # .generateMetrics does not change active flag, preserve the input:
+    want_zero_delta.Active = (
+        pid_metrics_info_data.Active if pid_metrics_info_data is not None else False
+    )
     return ProcPidMetricsGenerateTestCase(
         Name=name,
         Description=description,
@@ -1231,8 +1236,10 @@ def generate_proc_pid_metrics_execute_test_case(
         is_pid = pid_tid.Tid == procfs.PID_ONLY_TID
         pid_metrics_info_data = pid_metrics_info_data_by_pid_tid.get(pid_tid)
         full_metrics = False
+        active = False
         if pid_metrics_info_data is None:
             # By definition this counts as active:
+            active = True
             active_pid_tid_count += 1
         else:
             full_metrics = pid_metrics_info_data.CycleNum == 0
@@ -1264,16 +1271,17 @@ def generate_proc_pid_metrics_execute_test_case(
             else:
                 curr_pid_stat_nf = pid_parser_data.PidStat.NumericFields
                 prev_pid_stat_nf = pid_metrics_info_data.PidStat.NumericFields
-                if (
+                active = (
                     curr_pid_stat_nf[procfs.PID_STAT_UTIME]
                     != prev_pid_stat_nf[procfs.PID_STAT_UTIME]
                     or curr_pid_stat_nf[procfs.PID_STAT_STIME]
                     != prev_pid_stat_nf[procfs.PID_STAT_STIME]
-                ):
+                )
+                if active:
                     # Active:
                     active_pid_tid_count += 1
-                elif not full_metrics:
-                    # Inactive, non-full metrics, no metrics will be generated:
+                elif not full_metrics and not pid_metrics_info_data.Active:
+                    # Inactive after inactive, non-full metrics, no metrics will be generated:
                     continue
         metrics, want_zero_delta = generate_proc_pid_metrics(
             pid_parser_data,
@@ -1284,6 +1292,7 @@ def generate_proc_pid_metrics_execute_test_case(
             boottime_msec=boottime_msec,
             linux_clktck_sec=linux_clktck_sec,
         )
+        want_zero_delta.Active = active
         all_metrics.extend(metrics)
         want_zero_delta_list.append(want_zero_delta)
         if pid_metrics_info_data is None:
@@ -1412,6 +1421,54 @@ def generate_proc_pid_metrics_execute_test_cases(
         )
         tc_num += 1
 
+    # Existent, (in)active -> (in)active transitions:
+    name = "active_transition"
+    pid_tid = procfs.PidTid(Pid=200, Tid=2000)
+    curr_pid_stat = make_ref_proc_pid_stat(pid_tid)
+    curr_pid_status = make_ref_proc_pid_status(pid_tid)
+    curr_pid_cmdline = make_ref_proc_pid_cmdline(pid_tid)
+    pid_parsers_data_list = [
+        TestPidParserStateData(
+            PidStat=curr_pid_stat,
+            PidStatus=curr_pid_status,
+            PidCmdline=curr_pid_cmdline,
+            PidTid=pid_tid,
+        )
+    ]
+    for prev_active in [False, True]:
+        for curr_active in [False, True]:
+            if curr_active:
+                prev_pid_stat = make_prev_proc_pid_stat(
+                    curr_pid_stat,
+                    nf_indexes=[procfs.PID_STAT_UTIME],
+                )
+            else:
+                prev_pid_stat = make_prev_proc_pid_stat(
+                    curr_pid_stat,
+                    bsf_indexes=[procfs.PID_STAT_STATE],
+                )
+            for cycle_num in [0, 1]:
+                pid_metrics_info_data_list = [
+                    TestPidParserStateData(
+                        PidStat=prev_pid_stat,
+                        PidStatus=curr_pid_status,
+                        PidTid=pid_tid,
+                        CycleNum=cycle_num,
+                        Active=prev_active,
+                    )
+                ]
+                test_cases.append(
+                    generate_proc_pid_metrics_execute_test_case(
+                        f"{name}/{tc_num:04d}",
+                        pid_parsers_data_list=pid_parsers_data_list,
+                        pid_metrics_info_data_list=pid_metrics_info_data_list,
+                        instance=instance,
+                        hostname=hostname,
+                        description=f"active={prev_active}->{curr_active}, full_cyle={cycle_num==0}",
+                    )
+                )
+                tc_num += 1
+
     # Existent + new:
     name = "existent_new"
     pid_stat_changed_indexes = [
@@ -1425,7 +1482,7 @@ def generate_proc_pid_metrics_execute_test_cases(
         (None, [procfs.PID_STATUS_VOLUNTARY_CTXT_SWITCHES]),
     ]
 
-    start_pid, tid_offset = 200, 2000
+    start_pid, tid_offset = 300, 3000
     full_metrics_factor = 3
     for num_pids in range(1, max_n_pid + 1):
         k = 0
@@ -1489,7 +1546,7 @@ def generate_proc_pid_metrics_execute_test_cases(
 
     # Out-of-scope PID,TID:
     name = "out_of_scope"
-    start_pid, tid_offset = 300, 3000
+    start_pid, tid_offset = 400, 4000
     for num_pids in range(1, max_n_pid + 1):
         pid_metrics_info_data_list = []
         for pid_tid in pid_tid_list_generator(
@@ -1529,7 +1586,7 @@ def generate_proc_pid_metrics_execute_test_cases(
     # Deleted PID,TID; they are reported in the list but they vanish by the time
     # they are parsed and they are reported as parse error:
     name = "parse_error"
-    start_pid, tid_offset = 400, 4000
+    start_pid, tid_offset = 500, 5000
     # Simulate parse failure for every 3 out of N:
     fail_mod = 5
     for num_pids in range(1, max_n_pid + 1):

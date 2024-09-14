@@ -38,6 +38,8 @@ type TestPidParserStateData struct {
 	// Timestamp for the above, milliseconds since the epoch, similar to
 	// Prometheus timestamp:
 	UnixMilli int64
+	// Active state, as per last scan:
+	Active bool
 	// Zero delta flags,for state cache:
 	PidStatFltZeroDelta   []bool
 	PidStatusCtxZeroDelta []bool
@@ -292,6 +294,7 @@ func buildTestPidTidMetricsInfo(pm *ProcPidMetrics, pidParserState *TestPidParse
 	pidTidPath := procfs.BuildPidTidPath(pm.procfsRoot, pidTid.Pid, pidTid.Tid)
 	pidTidMetricsInfo = pm.initPidTidMetricsInfo(pidTid, pidTidPath)
 	setTestPidStatData(pidTidMetricsInfo.pidStat, pidParserState.PidStat)
+	pidTidMetricsInfo.active = pidParserState.Active
 	copy(pidTidMetricsInfo.pidStatFltZeroDelta, pidParserState.PidStatFltZeroDelta)
 	if pm.usePidStatus {
 		setTestPidStatusData(pidTidMetricsInfo.pidStatus, pidParserState.PidStatus)
@@ -304,7 +307,7 @@ func buildTestPidTidMetricsInfo(pm *ProcPidMetrics, pidParserState *TestPidParse
 	return pidTidMetricsInfo
 }
 
-func cmpPidTidMetricsZeroDelta(
+func cmpPidTidMetricsActiveZeroDelta(
 	pidTidMetricsInfo *ProcPidTidMetricsInfo,
 	pidParserState *TestPidParserStateData,
 	errBuf *bytes.Buffer,
@@ -332,6 +335,14 @@ func cmpPidTidMetricsZeroDelta(
 				)
 			}
 		}
+	}
+
+	if pidParserState.Active != pidTidMetricsInfo.active {
+		fmt.Fprintf(
+			errBuf,
+			"\n%#v: active: want: %v, got: %v",
+			pidTidMetricsInfo.pidTid, pidParserState.Active, pidTidMetricsInfo.active,
+		)
 	}
 
 	if pidParserState.PidStatFltZeroDelta != nil {

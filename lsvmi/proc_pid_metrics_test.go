@@ -166,7 +166,7 @@ func testProcPidMetricsGenerate(tc *ProcPidMetricsGenerateTestCase, t *testing.T
 	testMetricsQueue.GenerateReport(tc.WantMetrics, tc.ReportExtra, errBuf)
 
 	if tc.WantZeroDelta != nil {
-		cmpPidTidMetricsZeroDelta(pidTidMetricsInfo, tc.WantZeroDelta, errBuf)
+		cmpPidTidMetricsActiveZeroDelta(pidTidMetricsInfo, tc.WantZeroDelta, errBuf)
 	}
 
 	if errBuf.Len() > 0 {
@@ -260,7 +260,7 @@ func testProcPidMetricsExecute(tc *ProcPidMetricsExecuteTestCase, t *testing.T) 
 		pidTid := *wantZeroDelta.PidTid
 		pidTidMetricsInfo := pm.pidTidMetricsInfo[pidTid]
 		if pidTidMetricsInfo != nil {
-			cmpPidTidMetricsZeroDelta(pidTidMetricsInfo, wantZeroDelta, errBuf)
+			cmpPidTidMetricsActiveZeroDelta(pidTidMetricsInfo, wantZeroDelta, errBuf)
 		} else {
 			fmt.Fprintf(errBuf, "\npidTidMetricsInfo[%#v]: missing PidTid key for zero delta check", pidTid)
 		}

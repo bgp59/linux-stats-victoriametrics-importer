@@ -200,6 +200,9 @@ type ProcPidTidMetricsInfo struct {
 	// Starttime label value converted to milliseconds:
 	starttimeMsec string
 
+	// Whether this process was active or not at the last scan:
+	active bool
+
 	// Zero deltas:
 	pidStatFltZeroDelta   []bool
 	pidStatusCtxZeroDelta []bool
@@ -1227,8 +1230,9 @@ func (pm *ProcPidMetrics) Execute() bool {
 		} else if currPidStatNF[procfs.PID_STAT_UTIME] != prevPidStatNF[procfs.PID_STAT_UTIME] ||
 			currPidStatNF[procfs.PID_STAT_STIME] != prevPidStatNF[procfs.PID_STAT_STIME] {
 			active = true
-		} else if !fullMetrics {
-			// Inactive, non full metrics cycle. Mark it as scanned but otherwise do nothing:
+		} else if !fullMetrics && !pidTidMetricsInfo.active {
+			// Inactive after inactive, non full metrics cycle. Mark it as
+			// scanned but otherwise do nothing:
 			pidTidMetricsInfo.cycleNum++
 			if pidTidMetricsInfo.cycleNum >= pm.fullMetricsFactor {
 				pidTidMetricsInfo.cycleNum = 0
@@ -1250,6 +1254,7 @@ func (pm *ProcPidMetrics) Execute() bool {
 			}
 			continue
 		}
+		pidTidMetricsInfo.active = active
 
 		if pm.usePidStatus {
 			err = pm.pidStatus.Parse(pidTidPath)
