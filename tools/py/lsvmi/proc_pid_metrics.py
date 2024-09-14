@@ -67,6 +67,7 @@ PROC_PID_STAT_MAJFLT_METRIC = "proc_pid_stat_majflt_delta"  # PID + TID
 PROC_PID_STAT_UTIME_PCT_METRIC = "proc_pid_stat_utime_pcpu"  # PID + TID
 PROC_PID_STAT_STIME_PCT_METRIC = "proc_pid_stat_stime_pcpu"  # PID + TID
 PROC_PID_STAT_TIME_PCT_METRIC = "proc_pid_stat_pcpu"  # PID + TID
+PROC_PID_STAT_ACTIVE_METRIC = "proc_pid_stat_active"  # PID only
 
 PROC_PID_STAT_CPU_NUM_METRIC = "proc_pid_stat_cpu_num"  # PID + TID
 
@@ -495,6 +496,11 @@ def generate_proc_pid_metrics(
 
         ## PID only:
         if is_pid:
+            ### PROC_PID_STAT_ACTIVE_METRIC:
+            metrics.append(
+                f"{PROC_PID_STAT_ACTIVE_METRIC}{{{common_labels}}} {0 if has_prev and total_delta_ticks == 0 else 1} {curr_prom_ts}"
+            )
+
             ### PROC_PID_STAT_INFO_METRIC:
             changed = False
             if has_prev:
