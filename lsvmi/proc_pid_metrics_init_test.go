@@ -87,11 +87,6 @@ func TestProcPidMetricsInitPidStatMetricFmt(t *testing.T) {
 			`proc_pid_stat_utime_pcpu{instance="INSTANCE",hostname="HOSTNAME",pid="PID",tid="TID"} 2.1 TIMESTAMP`,
 		},
 		{
-			pm.pidStatActiveMetricFmt,
-			[]any{`pid="PID"`, '1', []byte("TIMESTAMP")},
-			`proc_pid_stat_active{instance="INSTANCE",hostname="HOSTNAME",pid="PID"} 1 TIMESTAMP`,
-		},
-		{
 			pm.pidStatFltMetricFmt[0].fmt,
 			[]any{`pid="PID",tid="TID"`, 100, []byte("TIMESTAMP")},
 			`proc_pid_stat_minflt_delta{instance="INSTANCE",hostname="HOSTNAME",pid="PID",tid="TID"} 100 TIMESTAMP`,

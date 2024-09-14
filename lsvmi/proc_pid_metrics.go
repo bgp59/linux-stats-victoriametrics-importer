@@ -74,7 +74,6 @@ const (
 	PROC_PID_STAT_UTIME_PCT_METRIC = "proc_pid_stat_utime_pcpu" // PID + TID
 	PROC_PID_STAT_STIME_PCT_METRIC = "proc_pid_stat_stime_pcpu" // PID + TID
 	PROC_PID_STAT_TIME_PCT_METRIC  = "proc_pid_stat_pcpu"       // PID + TID
-	PROC_PID_STAT_ACTIVE_METRIC    = "proc_pid_stat_active"     // PID only, 1 if proc_pid_stat_pcpu > 0 else 0
 
 	PROC_PID_STAT_CPU_NUM_METRIC = "proc_pid_stat_cpu_num" // PID + TID
 
@@ -290,7 +289,6 @@ type ProcPidMetrics struct {
 	pidStatRssMetricFmt      string
 	pidStatMemoryMetricFmt   []*ProcPidMetricsIndexFmt
 	pidStatPcpuMetricFmt     []*ProcPidMetricsIndexFmt
-	pidStatActiveMetricFmt   string
 	pidStatFltMetricFmt      []*ProcPidMetricsIndexFmt
 
 	// PidStatus based metric formats:
@@ -514,8 +512,6 @@ func (pm *ProcPidMetrics) initMetricsCache() {
 		},
 	}
 	pm.perPidTidMetricCount += len(pm.pidStatPcpuMetricFmt)
-	pm.pidStatActiveMetricFmt = pm.buildMetricFmt(PROC_PID_STAT_ACTIVE_METRIC, "%c")
-	pm.perPidOnlyMetricCount++
 
 	if pm.usePidStatus {
 		pm.pidStatusInfoMetricFmt = pm.buildMetricFmt(
@@ -879,7 +875,6 @@ func (pm *ProcPidMetrics) generateMetrics(
 	}
 
 	// Delta metrics require previous:
-	active := '1' // if no prev
 	if hasPrev {
 		for i, indexFmt := range pm.pidStatFltMetricFmt {
 			delta := currPidStatNF[indexFmt.index] - prevPidStatNF[indexFmt.index]
@@ -924,11 +919,6 @@ func (pm *ProcPidMetrics) generateMetrics(
 			ts,
 		)
 		actualMetricsCount++
-		if totalCpuDelta > 0 {
-			active = '1'
-		} else {
-			active = '0'
-		}
 
 		if pm.usePidStatus {
 			for i, indexFmt := range pm.pidStatusCtxMetricFmt {
@@ -947,20 +937,12 @@ func (pm *ProcPidMetrics) generateMetrics(
 			}
 		}
 	}
+
 	if !isPid {
 		return actualMetricsCount
 	}
 
 	// PID only metrics:
-	fmt.Fprintf(
-		buf,
-		pm.pidStatActiveMetricFmt,
-		pidTidMetricsInfo.pidTidLabels,
-		active,
-		ts,
-	)
-	actualMetricsCount++
-
 	changed = false
 	if hasPrev {
 		// Check for change:
