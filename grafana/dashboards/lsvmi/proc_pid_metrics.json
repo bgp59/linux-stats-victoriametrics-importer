@@ -41,9 +41,928 @@
         {
           "datasource": {
             "type": "prometheus",
+            "uid": "PD27EBB47A0602685"
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 24,
+            "x": 0,
+            "y": 1
+          },
+          "id": 41,
+          "options": {
+            "code": {
+              "language": "plaintext",
+              "showLineNumbers": false,
+              "showMiniMap": false
+            },
+            "content": "* requires specific `Instance` and `Hostname`\n* supports additional filtering via `Comm`\n* it displays only processes that were active in the last ${lookback_interval} sec (`lookback_interval` variable)\n* `%CPU` column is the latest value\n* `%Max` and `%Avg` are computed over the last ${lookback_interval} sec (`lookback_interval` variable)",
+            "mode": "markdown"
+          },
+          "pluginVersion": "9.4.7",
+          "type": "text"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
             "uid": "${datasource}"
           },
           "description": "",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "inspect": false
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Start Time"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "dateTimeAsIso"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 181
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "RSS"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "bytes"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 79
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Time"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 188
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Hostname"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 180
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Inst"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 65
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "PID"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 52
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "TID"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 51
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "State"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 53
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "CPU"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 56
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "%CPU"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 72
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "%Max"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 67
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "%Avg"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 79
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Comm"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 130
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Cmd"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 228
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 24,
+            "x": 0,
+            "y": 5
+          },
+          "id": 4,
+          "options": {
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "frameIndex": 0,
+            "showHeader": true,
+            "sortBy": [
+              {
+                "desc": true,
+                "displayName": "%Avg"
+              }
+            ]
+          },
+          "pluginVersion": "9.4.7",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "(\n    proc_pid_stat_state{instance=\"${instance}\", hostname=\"${hostname}\", tid=\"\"} > 0\n) * on (instance, hostname, pid) group_right(state) (\n    last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=~\"${comm}\",tid=\"\"}[${full_cycle_interval}]) > 0\n) and on (instance, hostname, pid) (\n    sum_over_time(proc_pid_stat_pcpu{instance=\"${instance}\", hostname=\"${hostname}\", tid=\"\"}[$lookback_interval]) > 0\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "state"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "proc_pid_stat_pcpu{instance=~\"${instance}\", hostname=\"${hostname}\", tid=\"\"}\n* on (instance, hostname, pid) (\n    last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=~\"${comm}\",tid=\"\"}[${full_cycle_interval}]) > 0\n) and on (instance, hostname, pid) (\n    sum_over_time(proc_pid_stat_pcpu{instance=\"${instance}\", hostname=\"${hostname}\", tid=\"\"}[$lookback_interval]) > 0\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "pcpu"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "proc_pid_stat_cpu_num{instance=\"${instance}\", hostname=\"${hostname}\", tid=\"\"}\n* on (instance, hostname, pid) (\n    last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=~\"${comm}\",tid=\"\"}[${full_cycle_interval}]) > 0\n) and on (instance, hostname, pid) (\n    sum_over_time(proc_pid_stat_pcpu{instance=\"${instance}\", hostname=\"${hostname}\", tid=\"\"}[$lookback_interval]) > 0\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "cpu"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "proc_pid_stat_rss_bytes{instance=\"${instance}\", hostname=\"${hostname}\", tid=\"\"}\n* on (instance, hostname, pid) (\n    last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=~\"${comm}\",tid=\"\"}[${full_cycle_interval}]) > 0\n) and on (instance, hostname, pid) (\n    sum_over_time(proc_pid_stat_pcpu{instance=\"${instance}\", hostname=\"${hostname}\", tid=\"\"}[$lookback_interval]) > 0\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "rss"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "max_over_time(proc_pid_stat_pcpu{instance=\"${instance}\", hostname=\"${hostname}\", tid=\"\"}[${lookback_interval}])\n* on (instance, hostname, pid) (\n    last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=~\"${comm}\",tid=\"\"}[${full_cycle_interval}]) > 0\n) and on (instance, hostname, pid) (\n    sum_over_time(proc_pid_stat_pcpu{instance=\"${instance}\", hostname=\"${hostname}\", tid=\"\"}[$lookback_interval]) > 0\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "pcpu_max"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "(\n    (\n        sum_over_time(proc_pid_stat_pcpu{instance=\"${instance}\", hostname=\"${hostname}\", tid=\"\"}[${lookback_interval}]) > 0 \n    ) / ${lookback_interval}\n) * on (instance, hostname, pid) (\n    last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=~\"${comm}\", tid=\"\"}[${full_cycle_interval}]) > 0\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "pcpu_avg"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "(\n    proc_pid_cmdline{instance=\"${instance}\", hostname=\"${hostname}\"} > 0\n) * on (instance, hostname, pid) group_right(cmd, args) (\n    last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=~\"${comm}\",tid=\"\"}[${full_cycle_interval}]) > 0\n) and on (instance, hostname, pid) (\n    sum_over_time(proc_pid_stat_pcpu{instance=\"${instance}\", hostname=\"${hostname}\", tid=\"\"}[$lookback_interval]) > 0\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "cmdline"
+            }
+          ],
+          "title": "Top View For Instance=${instance}, Hostname=${hostname}, Comm=${comm}",
+          "transformations": [
+            {
+              "id": "merge",
+              "options": {}
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Value #cmdline": true,
+                  "Value #state": true
+                },
+                "indexByName": {
+                  "Time": 0,
+                  "Value #cmdline": 16,
+                  "Value #cpu": 9,
+                  "Value #pcpu": 10,
+                  "Value #pcpu_avg": 12,
+                  "Value #pcpu_max": 11,
+                  "Value #rss": 8,
+                  "Value #state": 7,
+                  "args": 15,
+                  "cmd": 14,
+                  "comm": 13,
+                  "hostname": 1,
+                  "instance": 2,
+                  "pid": 3,
+                  "starttime_msec": 5,
+                  "state": 6,
+                  "tid": 4
+                },
+                "renameByName": {
+                  "Value #cpu": "CPU",
+                  "Value #pcpu": "%CPU",
+                  "Value #pcpu_avg": "%Avg",
+                  "Value #pcpu_max": "%Max",
+                  "Value #rss": "RSS",
+                  "args": "Args",
+                  "cmd": "Cmd",
+                  "comm": "Comm",
+                  "hostname": "Hostname",
+                  "instance": "Inst",
+                  "pid": "PID",
+                  "starttime_msec": "Start Time",
+                  "state": "State",
+                  "tid": "TID"
+                }
+              }
+            },
+            {
+              "id": "convertFieldType",
+              "options": {
+                "conversions": [
+                  {
+                    "destinationType": "number",
+                    "targetField": "Start Time"
+                  }
+                ],
+                "fields": {}
+              }
+            }
+          ],
+          "type": "table"
+        }
+      ],
+      "title": "Host Centric Top View",
+      "type": "row"
+    },
+    {
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "id": 38,
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PD27EBB47A0602685"
+          },
+          "gridPos": {
+            "h": 3,
+            "w": 24,
+            "x": 0,
+            "y": 2
+          },
+          "id": 42,
+          "options": {
+            "code": {
+              "language": "plaintext",
+              "showLineNumbers": false,
+              "showMiniMap": false
+            },
+            "content": "* requires specific `Comm` \n* supports additional filtering via `Instance` and `Hostname`\n* `%CPU` column is the latest value\n* `%Max` and `%Avg` are computed over the last ${lookback_interval} sec (`lookback_interval` variable)",
+            "mode": "markdown"
+          },
+          "pluginVersion": "9.4.7",
+          "type": "text"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "inspect": false
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Start Time"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "dateTimeAsIso"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 181
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "RSS"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "bytes"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 79
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Time"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 188
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Hostname"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 180
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Inst"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 65
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "PID"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 52
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "TID"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 51
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "State"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 53
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "CPU"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 56
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "%CPU"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 72
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "%Max"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 67
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "%Avg"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 79
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Comm"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 130
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Cmd"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 228
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 24,
+            "x": 0,
+            "y": 5
+          },
+          "id": 39,
+          "options": {
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "frameIndex": 0,
+            "showHeader": true,
+            "sortBy": [
+              {
+                "desc": true,
+                "displayName": "%Avg"
+              }
+            ]
+          },
+          "pluginVersion": "9.4.7",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "(\n    proc_pid_stat_state{instance=~\"${instance}\", hostname=~\"${hostname}\", tid=\"\"} > 0\n) * on (instance, hostname, pid) group_right(state) (\n    last_over_time(proc_pid_stat_comm{instance=~\"${instance}\", hostname=~\"${hostname}\", comm=\"${comm}\",tid=\"\"}[${full_cycle_interval}]) > 0\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "state"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "proc_pid_stat_pcpu{instance=~\"${instance}\", hostname=~\"${hostname}\", tid=\"\"}\n* on (instance, hostname, pid) (\n    last_over_time(proc_pid_stat_comm{instance=~\"${instance}\", hostname=~\"${hostname}\", comm=\"${comm}\",tid=\"\"}[${full_cycle_interval}]) > 0\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "pcpu"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "proc_pid_stat_cpu_num{instance=~\"${instance}\", hostname=~\"${hostname}\", tid=\"\"}\n* on (instance, hostname, pid) (\n    last_over_time(proc_pid_stat_comm{instance=~\"${instance}\", hostname=~\"${hostname}\", comm=\"${comm}\",tid=\"\"}[${full_cycle_interval}]) > 0\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "cpu"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "proc_pid_stat_rss_bytes{instance=~\"${instance}\", hostname=~\"${hostname}\", tid=\"\"}\n* on (instance, hostname, pid) (\n    last_over_time(proc_pid_stat_comm{instance=~\"${instance}\", hostname=~\"${hostname}\", comm=\"${comm}\",tid=\"\"}[${full_cycle_interval}]) > 0\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "rss"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "max_over_time(proc_pid_stat_pcpu{instance=~\"${instance}\", hostname=~\"${hostname}\", tid=\"\"}[${lookback_interval}])\n* on (instance, hostname, pid) (\n    last_over_time(proc_pid_stat_comm{instance=~\"${instance}\", hostname=~\"${hostname}\", comm=\"${comm}\",tid=\"\"}[${full_cycle_interval}]) > 0\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "pcpu_max"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "(\n    (\n        sum_over_time(proc_pid_stat_pcpu{instance=~\"${instance}\", hostname=~\"${hostname}\", tid=\"\"}[${lookback_interval}]) \n    ) / ${lookback_interval}\n) * on (instance, hostname, pid) (\n    last_over_time(proc_pid_stat_comm{instance=~\"${instance}\", hostname=~\"${hostname}\", comm=\"${comm}\", tid=\"\"}[${full_cycle_interval}]) > 0\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "pcpu_avg"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "(\n    proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\"} > 0\n) * on (instance, hostname, pid) group_right(cmd, args) (\n    last_over_time(proc_pid_stat_comm{instance=~\"${instance}\", hostname=~\"${hostname}\", comm=\"${comm}\",tid=\"\"}[${full_cycle_interval}]) > 0\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "cmdline"
+            }
+          ],
+          "title": "Top View For Comm=${comm},  Instance=${instance}, Hostname=${hostname}",
+          "transformations": [
+            {
+              "id": "merge",
+              "options": {}
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Value #cmdline": true,
+                  "Value #state": true
+                },
+                "indexByName": {
+                  "Time": 0,
+                  "Value #cmdline": 16,
+                  "Value #cpu": 9,
+                  "Value #pcpu": 10,
+                  "Value #pcpu_avg": 12,
+                  "Value #pcpu_max": 11,
+                  "Value #rss": 8,
+                  "Value #state": 7,
+                  "args": 15,
+                  "cmd": 14,
+                  "comm": 13,
+                  "hostname": 1,
+                  "instance": 2,
+                  "pid": 3,
+                  "starttime_msec": 5,
+                  "state": 6,
+                  "tid": 4
+                },
+                "renameByName": {
+                  "Value #cpu": "CPU",
+                  "Value #pcpu": "%CPU",
+                  "Value #pcpu_avg": "%Avg",
+                  "Value #pcpu_max": "%Max",
+                  "Value #rss": "RSS",
+                  "args": "Args",
+                  "cmd": "Cmd",
+                  "comm": "Comm",
+                  "hostname": "Hostname",
+                  "instance": "Inst",
+                  "pid": "PID",
+                  "starttime_msec": "Start Time",
+                  "state": "State",
+                  "tid": "TID"
+                }
+              }
+            },
+            {
+              "id": "convertFieldType",
+              "options": {
+                "conversions": [
+                  {
+                    "destinationType": "number",
+                    "targetField": "Start Time"
+                  }
+                ],
+                "fields": {}
+              }
+            }
+          ],
+          "type": "table"
+        }
+      ],
+      "title": "Comm Centric Top View",
+      "type": "row"
+    },
+    {
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 2
+      },
+      "id": 15,
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PD27EBB47A0602685"
+          },
+          "gridPos": {
+            "h": 2,
+            "w": 24,
+            "x": 0,
+            "y": 3
+          },
+          "id": 43,
+          "options": {
+            "code": {
+              "language": "plaintext",
+              "showLineNumbers": false,
+              "showMiniMap": false
+            },
+            "content": "* requires specific `Instance`, `Hostname` and `Comm`\n* supports additional filtering via `PID` and `Threads`\n",
+            "mode": "markdown"
+          },
+          "pluginVersion": "9.4.7",
+          "type": "text"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -80,7 +999,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 67
+                    "value": 74
                   }
                 ]
               },
@@ -92,230 +1011,62 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 70
+                    "value": 63
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "TID"
+                  "options": "UID"
                 },
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 60
+                    "value": 176
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "RSS (kB)"
+                  "options": "GID"
                 },
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 105
+                    "value": 176
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "CPU#"
+                  "options": "PPID"
                 },
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 61
+                    "value": 57
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "% CPU"
+                  "options": "PGRP"
                 },
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 87
+                    "value": 66
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Cmd"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 135
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "State"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 48
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Starttime"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 181
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Host"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 161
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Starttime"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "dateTimeAsIso"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "% CPU (last)"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 118
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "% CPU (max)"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 131
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "% CPU (l)"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 108
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "% CPU (m)"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 107
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "%CPU l"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 85
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "%CPU m"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 88
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "%CPU a"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 75
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "%last"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 73
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "%max"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 74
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "%avg"
+                  "options": "TPGID"
                 },
                 "properties": [
                   {
@@ -327,28 +1078,132 @@
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "RSS"
+                  "options": "Time"
                 },
                 "properties": [
                   {
-                    "id": "unit",
-                    "value": "bytes"
-                  },
+                    "id": "custom.width",
+                    "value": 196
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Comm"
+                },
+                "properties": [
                   {
                     "id": "custom.width",
-                    "value": 111
+                    "value": 127
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "UID (R, E, S, F)"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 162
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "GID (R, E, S, F)"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 170
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Sess"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 59
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "TTY"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 70
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "CPU Allow"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 148
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Flags"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 84
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Groups"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": null
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Hostname"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 177
                   }
                 ]
               }
             ]
           },
           "gridPos": {
-            "h": 9,
+            "h": 5,
             "w": 24,
             "x": 0,
-            "y": 1
+            "y": 5
           },
-          "id": 4,
+          "id": 48,
           "options": {
             "footer": {
               "countRows": false,
@@ -358,14 +1213,8 @@
               ],
               "show": false
             },
-            "frameIndex": 0,
             "showHeader": true,
-            "sortBy": [
-              {
-                "desc": true,
-                "displayName": "%avg"
-              }
-            ]
+            "sortBy": []
           },
           "pluginVersion": "9.4.7",
           "targets": [
@@ -376,7 +1225,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "(proc_pid_stat_state{instance=~\"${instance}\", hostname=~\"${hostname}\", tid=~${threads}} > 0)\n* on (instance, hostname, pid) group_left(cmd, args)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
+              "expr": "(last_over_time(proc_pid_stat_info{instance=\"${instance}\", hostname=\"${hostname}\", pid=~\"${pid}\"}[${full_cycle_interval}]) > 0)\n* on (instance, hostname, pid) group_left(comm)\n(last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=\"${comm}\",  pid=~\"${pid}\", tid=\"\"}[${full_cycle_interval}]) > 0)",
               "format": "table",
               "instant": true,
               "legendFormat": "__auto",
@@ -390,76 +1239,16 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "proc_pid_stat_pcpu{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\nand on (instance, hostname, pid)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
+              "expr": "(last_over_time(proc_pid_status_info{instance=\"${instance}\", hostname=\"${hostname}\", pid=~\"${pid}\"}[${full_cycle_interval}]) > 0)\n* on (instance, hostname, pid) group_left(comm)\n(last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=\"${comm}\",  pid=~\"${pid}\", tid=\"\"}[${full_cycle_interval}]) > 0)",
               "format": "table",
               "hide": false,
               "instant": true,
               "legendFormat": "__auto",
               "range": false,
               "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "exemplar": false,
-              "expr": "proc_pid_stat_cpu_num{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (instance, hostname, pid) group_left()\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
-              "format": "table",
-              "hide": false,
-              "instant": true,
-              "legendFormat": "__auto",
-              "range": false,
-              "refId": "C"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "exemplar": false,
-              "expr": "proc_pid_stat_rss_bytes{instance=~\"${instance}\",hostname=~\"${hostname}\"}\n* on (instance, hostname, pid)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
-              "format": "table",
-              "hide": false,
-              "instant": true,
-              "legendFormat": "__auto",
-              "range": false,
-              "refId": "D"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "exemplar": false,
-              "expr": "max_over_time(proc_pid_stat_pcpu{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}[${max_interval}s])\nand on (instance, hostname, pid)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
-              "format": "table",
-              "hide": false,
-              "instant": true,
-              "legendFormat": "__auto",
-              "range": false,
-              "refId": "E"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "exemplar": false,
-              "expr": "(sum_over_time(proc_pid_stat_pcpu{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}[${full_cycle}s])/${full_cycle})\nand on (instance, hostname, pid)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
-              "format": "table",
-              "hide": false,
-              "instant": true,
-              "legendFormat": "__auto",
-              "range": false,
-              "refId": "F"
             }
           ],
-          "title": "Top View %CPU: %last, %max over ${max_interval}s, %avg over ${full_cycle}s",
+          "title": "Process Info For Instance=${instance}, Hostname=${hostname}, Comm=${comm}, PID=${pid}",
           "transformations": [
             {
               "id": "merge",
@@ -469,56 +1258,268 @@
               "id": "organize",
               "options": {
                 "excludeByName": {
-                  "Time": true,
                   "Value #A": true,
-                  "__name__": true
+                  "Value #B": true,
+                  "Value #C": true
                 },
                 "indexByName": {
                   "Time": 0,
                   "Value #A": 14,
-                  "Value #B": 9,
-                  "Value #C": 8,
-                  "Value #D": 6,
-                  "Value #E": 10,
-                  "Value #F": 11,
-                  "__name__": 15,
-                  "args": 13,
-                  "cmd": 12,
+                  "Value #B": 17,
+                  "comm": 3,
+                  "cpus_allowed": 15,
+                  "flags": 11,
+                  "gid": 9,
+                  "groups": 10,
                   "hostname": 1,
                   "instance": 2,
-                  "pid": 3,
-                  "starttime_msec": 5,
-                  "state": 7,
-                  "tid": 4
+                  "mems_allowed": 16,
+                  "pgrp": 6,
+                  "pid": 4,
+                  "ppid": 5,
+                  "session": 12,
+                  "tpgid": 7,
+                  "tty": 13,
+                  "uid": 8
                 },
                 "renameByName": {
-                  "Value #B": "%last",
-                  "Value #C": "CPU#",
-                  "Value #D": "RSS",
-                  "Value #E": "%max",
-                  "Value #F": "%avg",
-                  "args": "Args",
-                  "cmd": "Cmd",
-                  "hostname": "Host",
+                  "comm": "Comm",
+                  "cpus_allowed": "CPU Allow",
+                  "flags": "Flags",
+                  "gid": "GID (R, E, S, F)",
+                  "groups": "Groups",
+                  "hostname": "Hostname",
                   "instance": "Inst",
+                  "mems_allowed": "Mem Allow",
+                  "nice": "Nice",
+                  "pgrp": "PGRP",
                   "pid": "PID",
-                  "starttime_msec": "Starttime",
-                  "state": "State",
-                  "tid": "TID"
+                  "policy": "Policy",
+                  "ppid": "PPID",
+                  "prio": "Prio",
+                  "rt_prio": "RT Prio",
+                  "session": "Sess",
+                  "tid": "TID",
+                  "tpgid": "TPGID",
+                  "tty": "TTY",
+                  "uid": "UID (R, E, S, F)"
                 }
               }
-            },
-            {
-              "id": "convertFieldType",
-              "options": {
-                "conversions": [
+            }
+          ],
+          "type": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "inspect": false
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
                   {
-                    "dateFormat": "YYYY-MM-DD",
-                    "destinationType": "number",
-                    "targetField": "Starttime"
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
                   }
-                ],
-                "fields": {}
+                ]
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Time"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 199
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Inst"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 61
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Comm"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 143
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "PID"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 62
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Hostname"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 174
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "TID"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 64
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Nice"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 115
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Policy"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 114
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Prio"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 139
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 5,
+            "w": 24,
+            "x": 0,
+            "y": 10
+          },
+          "id": 49,
+          "options": {
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true,
+            "sortBy": []
+          },
+          "pluginVersion": "9.4.7",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "(last_over_time(proc_pid_stat_prio{instance=\"${instance}\", hostname=\"${hostname}\", pid=~\"${pid}\", tid=~${threads}}[${full_cycle_interval}]) > 0)\n* on (instance, hostname, pid) group_left(comm)\n(last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=\"${comm}\",  pid=~\"${pid}\", tid=\"\"}[${full_cycle_interval}]) > 0)",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "A"
+            }
+          ],
+          "title": "Process Priority For Instance=${instance}, Hostname=${hostname}, Comm=${comm}, PID=${pid}",
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Value": true
+                },
+                "indexByName": {
+                  "Time": 0,
+                  "Value": 10,
+                  "comm": 3,
+                  "hostname": 1,
+                  "instance": 2,
+                  "nice": 6,
+                  "pid": 4,
+                  "policy": 7,
+                  "prio": 8,
+                  "rt_prio": 9,
+                  "tid": 5
+                },
+                "renameByName": {
+                  "comm": "Comm",
+                  "hostname": "Hostname",
+                  "instance": "Inst",
+                  "nice": "Nice",
+                  "pid": "PID",
+                  "policy": "Policy",
+                  "prio": "Prio",
+                  "rt_prio": "RT Prio",
+                  "tid": "TID"
+                }
               }
             }
           ],
@@ -565,6 +1566,7 @@
                 }
               },
               "mappings": [],
+              "noValue": "0",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -586,7 +1588,7 @@
             "h": 7,
             "w": 8,
             "x": 0,
-            "y": 10
+            "y": 15
           },
           "id": 2,
           "interval": "${interval}",
@@ -609,9 +1611,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_pid_stat_pcpu{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
+              "expr": "proc_pid_stat_pcpu{instance=\"${instance}\",hostname=\"${hostname}\", pid=~\"${pid}\", tid=~${threads}}\n* on (instance, hostname, pid, tid) group_left(comm) (\n    last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=\"${comm}\", pid=~\"${pid}\", tid=~${threads}}[${full_cycle_interval}]) > 0\n)",
               "interval": "${interval}",
-              "legendFormat": "{{cmd}}(pid={{pid}},tid={{tid}},node={{hostname}},inst={{instance}})",
+              "legendFormat": "{{comm}}(pid={{pid}},tid={{tid}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -660,6 +1662,7 @@
                 }
               },
               "mappings": [],
+              "noValue": "0",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -681,9 +1684,9 @@
             "h": 7,
             "w": 8,
             "x": 8,
-            "y": 10
+            "y": 15
           },
-          "id": 5,
+          "id": 44,
           "interval": "${interval}",
           "options": {
             "legend": {
@@ -704,14 +1707,14 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_pid_stat_stime_pcpu{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
+              "expr": "proc_pid_stat_stime_pcpu{instance=\"${instance}\",hostname=\"${hostname}\", pid=~\"${pid}\", tid=~${threads}}\n* on (instance, hostname, pid, tid) group_left(comm) (\n    last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=\"${comm}\", pid=~\"${pid}\", tid=~${threads}}[${full_cycle_interval}]) > 0\n)",
               "interval": "${interval}",
-              "legendFormat": "{{cmd}}(pid={{pid}},tid={{tid}},node={{hostname}},inst={{instance}})",
+              "legendFormat": "{{comm}}(pid={{pid}},tid={{tid}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
           ],
-          "title": "%CPU (System)",
+          "title": "% Sytem CPU",
           "type": "timeseries"
         },
         {
@@ -755,6 +1758,7 @@
                 }
               },
               "mappings": [],
+              "noValue": "0",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -776,9 +1780,9 @@
             "h": 7,
             "w": 8,
             "x": 16,
-            "y": 10
+            "y": 15
           },
-          "id": 6,
+          "id": 45,
           "interval": "${interval}",
           "options": {
             "legend": {
@@ -799,14 +1803,14 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_pid_stat_utime_pcpu{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
+              "expr": "proc_pid_stat_utime_pcpu{instance=\"${instance}\",hostname=\"${hostname}\", pid=~\"${pid}\", tid=~${threads}}\n* on (instance, hostname, pid, tid) group_left(comm) (\n    last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=\"${comm}\", pid=~\"${pid}\", tid=~${threads}}[${full_cycle_interval}]) > 0\n)",
               "interval": "${interval}",
-              "legendFormat": "{{cmd}}(pid={{pid}},tid={{tid}},node={{hostname}},inst={{instance}})",
+              "legendFormat": "{{comm}}(pid={{pid}},tid={{tid}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
           ],
-          "title": "%CPU (User)",
+          "title": "% User CPU",
           "type": "timeseries"
         },
         {
@@ -840,7 +1844,7 @@
                   "type": "linear"
                 },
                 "showPoints": "auto",
-                "spanNulls": false,
+                "spanNulls": true,
                 "stacking": {
                   "group": "A",
                   "mode": "none"
@@ -871,9 +1875,9 @@
             "h": 7,
             "w": 8,
             "x": 0,
-            "y": 17
+            "y": 22
           },
-          "id": 9,
+          "id": 46,
           "interval": "${interval}",
           "options": {
             "legend": {
@@ -894,14 +1898,14 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "last_over_time(proc_pid_stat_rss_bytes{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
+              "expr": "proc_pid_stat_vsize_bytes{instance=\"${instance}\",hostname=\"${hostname}\", pid=~\"${pid}\", tid=~${threads}}\n* on (instance, hostname, pid, tid) group_left(comm) (\n    last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=\"${comm}\", pid=~\"${pid}\", tid=~${threads}}[${full_cycle_interval}]) > 0\n)",
               "interval": "${interval}",
-              "legendFormat": "{{cmd}}(pid={{pid}},node={{hostname}},inst={{instance}})",
+              "legendFormat": "{{comm}}(pid={{pid}},tid={{tid}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
           ],
-          "title": "RSS",
+          "title": "%VSZ",
           "type": "timeseries"
         },
         {
@@ -935,7 +1939,7 @@
                   "type": "linear"
                 },
                 "showPoints": "auto",
-                "spanNulls": false,
+                "spanNulls": true,
                 "stacking": {
                   "group": "A",
                   "mode": "none"
@@ -966,9 +1970,9 @@
             "h": 7,
             "w": 8,
             "x": 8,
-            "y": 17
+            "y": 22
           },
-          "id": 11,
+          "id": 47,
           "interval": "${interval}",
           "options": {
             "legend": {
@@ -989,14 +1993,14 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "last_over_time(proc_pid_stat_rsslim_bytes{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
+              "expr": "proc_pid_stat_rss_bytes{instance=\"${instance}\",hostname=\"${hostname}\", pid=~\"${pid}\", tid=~${threads}}\n* on (instance, hostname, pid, tid) group_left(comm) (\n    last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=\"${comm}\", pid=~\"${pid}\", tid=~${threads}}[${full_cycle_interval}]) > 0\n)",
               "interval": "${interval}",
-              "legendFormat": "{{cmd}}(pid={{pid}},node={{hostname}},inst={{instance}})",
+              "legendFormat": "{{comm}}(pid={{pid}},tid={{tid}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
           ],
-          "title": "RSSLIM",
+          "title": "%RSS",
           "type": "timeseries"
         },
         {
@@ -1030,7 +2034,7 @@
                   "type": "linear"
                 },
                 "showPoints": "auto",
-                "spanNulls": false,
+                "spanNulls": true,
                 "stacking": {
                   "group": "A",
                   "mode": "none"
@@ -1046,623 +2050,6 @@
                   {
                     "color": "green",
                     "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "bytes"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 8,
-            "x": 16,
-            "y": 17
-          },
-          "id": 10,
-          "interval": "${interval}",
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "last_over_time(proc_pid_stat_vsize_bytes{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
-              "interval": "${interval}",
-              "legendFormat": "{{cmd}}(pid={{pid}},node={{hostname}},inst={{instance}})",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "VSIZE",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "description": "",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "MinFlt Delta",
-                "axisPlacement": "left",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 8,
-            "x": 0,
-            "y": 24
-          },
-          "id": 16,
-          "interval": "${interval}",
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_pid_stat_minflt_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (pid) group_left(cmd)\nproc_pid_cmdline{instance=~\"${instance}\",cmd=~\"${cmd}\"}",
-              "interval": "${interval}",
-              "legendFormat": "minflt_delta(cmd={{cmd}},pid={{pid}},tid={{tid}},node={{hostname}},inst={{instance}})",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "MinFlt Delta",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "description": "",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "MinFlt Delta",
-                "axisPlacement": "left",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 8,
-            "x": 8,
-            "y": 24
-          },
-          "id": 19,
-          "interval": "${interval}",
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_pid_stat_majflt_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
-              "interval": "${interval}",
-              "legendFormat": "majflt_delta(cmd={{cmd}},pid={{pid}},tid={{tid}},node={{hostname}},inst={{instance}})",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "MajFlt Delta",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "description": "",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "MinFlt Delta",
-                "axisPlacement": "left",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": [
-              {
-                "matcher": {
-                  "id": "byRegexp",
-                  "options": "^majflt_delta.*"
-                },
-                "properties": [
-                  {
-                    "id": "custom.axisPlacement",
-                    "value": "right"
-                  },
-                  {
-                    "id": "custom.axisLabel",
-                    "value": "MajFlt Delta"
-                  }
-                ]
-              }
-            ]
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 8,
-            "x": 16,
-            "y": 24
-          },
-          "id": 18,
-          "interval": "${interval}",
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_pid_stat_minflt_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
-              "interval": "${interval}",
-              "legendFormat": "minflt_delta(cmd={{cmd}},pid={{pid}},tid={{tid}},node={{hostname}},inst={{instance}})",
-              "range": true,
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_pid_stat_majflt_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (pid) group_left(cmd)\nproc_pid_cmdline{instance=~\"${instance}\",cmd=~\"${cmd}\"}",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "majflt_delta(cmd={{cmd}},pid={{pid}},tid={{tid}},node={{hostname}},inst={{instance}})",
-              "range": true,
-              "refId": "B"
-            }
-          ],
-          "title": "Min/MajFlt Delta",
-          "type": "timeseries"
-        }
-      ],
-      "title": "/proc/PID/stat",
-      "type": "row"
-    },
-    {
-      "collapsed": true,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 1
-      },
-      "id": 15,
-      "panels": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "custom": {
-                "align": "auto",
-                "cellOptions": {
-                  "type": "auto"
-                },
-                "inspect": false
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": [
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Hostname"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 128
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Instance"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 86
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "PID"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 66
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Groups"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 122
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "MEM Allow"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 112
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "UID"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 158
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "GID"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 198
-                  }
-                ]
-              }
-            ]
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 24,
-            "x": 0,
-            "y": 18
-          },
-          "id": 30,
-          "options": {
-            "footer": {
-              "countRows": false,
-              "fields": "",
-              "reducer": [
-                "sum"
-              ],
-              "show": false
-            },
-            "showHeader": true,
-            "sortBy": []
-          },
-          "pluginVersion": "9.4.7",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "exemplar": false,
-              "expr": "proc_pid_status_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}\n* on (instance, hostname, pid) group_left(cmd, args)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
-              "format": "table",
-              "instant": true,
-              "legendFormat": "__auto",
-              "range": false,
-              "refId": "A"
-            }
-          ],
-          "title": "Process Status Info",
-          "transformations": [
-            {
-              "id": "organize",
-              "options": {
-                "excludeByName": {
-                  "Time": true,
-                  "Value": true
-                },
-                "indexByName": {
-                  "Time": 0,
-                  "Value": 11,
-                  "args": 10,
-                  "cmd": 9,
-                  "cpus_allowed": 7,
-                  "gid": 5,
-                  "groups": 6,
-                  "hostname": 1,
-                  "instance": 2,
-                  "mems_allowed": 8,
-                  "pid": 3,
-                  "uid": 4
-                },
-                "renameByName": {
-                  "args": "Args",
-                  "cmd": "Cmd",
-                  "cpus_allowed": "CPU Allow",
-                  "gid": "GID",
-                  "groups": "Groups",
-                  "hostname": "Hostname",
-                  "instance": "Instance",
-                  "mems_allowed": "MEM Allow",
-                  "pid": "PID",
-                  "uid": "UID"
-                }
-              }
-            }
-          ],
-          "type": "table"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1677,8 +2064,8 @@
           "gridPos": {
             "h": 7,
             "w": 8,
-            "x": 0,
-            "y": 25
+            "x": 16,
+            "y": 22
           },
           "id": 20,
           "interval": "${interval}",
@@ -1701,9 +2088,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "last_over_time(proc_pid_status_vm_data{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
+              "expr": "proc_pid_status_vm_data{instance=\"${instance}\", hostname=\"${hostname}\", pid=~\"${pid}\"}\n* on (instance, hostname, pid) group_left(comm)\n(last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=\"${comm}\", pid=~\"${pid}\", tid=\"\"}[${full_cycle_interval}]) > 0)",
               "interval": "${interval}",
-              "legendFormat": "{{cmd}}(pid={{pid}},node={{hostname}},inst={{instance}})",
+              "legendFormat": "{{comm}}(pid={{pid}},node={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -1742,7 +2129,7 @@
                   "type": "linear"
                 },
                 "showPoints": "auto",
-                "spanNulls": false,
+                "spanNulls": true,
                 "stacking": {
                   "group": "A",
                   "mode": "none"
@@ -1756,7 +2143,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -1771,10 +2159,10 @@
           "gridPos": {
             "h": 7,
             "w": 8,
-            "x": 8,
-            "y": 25
+            "x": 0,
+            "y": 29
           },
-          "id": 21,
+          "id": 52,
           "interval": "${interval}",
           "options": {
             "legend": {
@@ -1795,9 +2183,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "last_over_time(proc_pid_status_vm_exe{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
+              "expr": "proc_pid_status_vm_exe{instance=\"${instance}\", hostname=\"${hostname}\", pid=~\"${pid}\"}\n* on (instance, hostname, pid) group_left(comm)\n(last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=\"${comm}\", pid=~\"${pid}\", tid=\"\"}[${full_cycle_interval}]) > 0)",
               "interval": "${interval}",
-              "legendFormat": "{{cmd}}(pid={{pid}},node={{hostname}},inst={{instance}})",
+              "legendFormat": "{{comm}}(pid={{pid}},node={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -1836,7 +2224,7 @@
                   "type": "linear"
                 },
                 "showPoints": "auto",
-                "spanNulls": false,
+                "spanNulls": true,
                 "stacking": {
                   "group": "A",
                   "mode": "none"
@@ -1850,7 +2238,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -1865,10 +2254,10 @@
           "gridPos": {
             "h": 7,
             "w": 8,
-            "x": 16,
-            "y": 25
+            "x": 8,
+            "y": 29
           },
-          "id": 23,
+          "id": 51,
           "interval": "${interval}",
           "options": {
             "legend": {
@@ -1889,9 +2278,104 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "last_over_time(proc_pid_status_vm_swap{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
+              "expr": "proc_pid_status_vm_stk{instance=\"${instance}\", hostname=\"${hostname}\", pid=~\"${pid}\", tid=~${threads}}\n* on (instance, hostname, pid) group_left(comm)\n(last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=\"${comm}\", pid=~\"${pid}\", tid=\"\"}[${full_cycle_interval}]) > 0)",
               "interval": "${interval}",
-              "legendFormat": "{{cmd}}(pid={{pid}},node={{hostname}},inst={{instance}})",
+              "legendFormat": "{{comm}}(pid={{pid}},tid={{tid}},node={{hostname}},inst={{instance}})",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "VM Stack",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": true,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "kbytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 16,
+            "y": 29
+          },
+          "id": 53,
+          "interval": "${interval}",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "proc_pid_status_vm_swap{instance=\"${instance}\", hostname=\"${hostname}\", pid=~\"${pid}\"}\n* on (instance, hostname, pid) group_left(comm)\n(last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=\"${comm}\", pid=~\"${pid}\", tid=\"\"}[${full_cycle_interval}]) > 0)",
+              "interval": "${interval}",
+              "legendFormat": "{{comm}}(pid={{pid}},node={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -1930,7 +2414,7 @@
                   "type": "linear"
                 },
                 "showPoints": "auto",
-                "spanNulls": false,
+                "spanNulls": true,
                 "stacking": {
                   "group": "A",
                   "mode": "none"
@@ -1944,7 +2428,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -1960,9 +2445,9 @@
             "h": 7,
             "w": 8,
             "x": 0,
-            "y": 32
+            "y": 36
           },
-          "id": 22,
+          "id": 54,
           "interval": "${interval}",
           "options": {
             "legend": {
@@ -1983,103 +2468,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "last_over_time(proc_pid_status_vm_stk{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}[${full_cycle}])\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
+              "expr": "proc_pid_status_rss_anon{instance=\"${instance}\", hostname=\"${hostname}\", pid=~\"${pid}\"}\n* on (instance, hostname, pid) group_left(comm)\n(last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=\"${comm}\", pid=~\"${pid}\", tid=\"\"}[${full_cycle_interval}]) > 0)",
               "interval": "${interval}",
-              "legendFormat": "{{cmd}}(pid={{pid}},tid={{tid}},node={{hostname}},inst={{instance}})",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "VM Stk",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "kbytes"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 8,
-            "x": 8,
-            "y": 32
-          },
-          "id": 24,
-          "interval": "${interval}",
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "last_over_time(proc_pid_status_rss_anon{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
-              "interval": "${interval}",
-              "legendFormat": "{{cmd}}(pid={{pid}},node={{hostname}},inst={{instance}})",
+              "legendFormat": "{{comm}}(pid={{pid}},node={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -2118,7 +2509,7 @@
                   "type": "linear"
                 },
                 "showPoints": "auto",
-                "spanNulls": false,
+                "spanNulls": true,
                 "stacking": {
                   "group": "A",
                   "mode": "none"
@@ -2132,7 +2523,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2147,10 +2539,10 @@
           "gridPos": {
             "h": 7,
             "w": 8,
-            "x": 16,
-            "y": 32
+            "x": 8,
+            "y": 36
           },
-          "id": 25,
+          "id": 55,
           "interval": "${interval}",
           "options": {
             "legend": {
@@ -2171,9 +2563,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "last_over_time(proc_pid_status_rss_file{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
+              "expr": "proc_pid_status_rss_file{instance=\"${instance}\", hostname=\"${hostname}\", pid=~\"${pid}\"}\n* on (instance, hostname, pid) group_left(comm)\n(last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=\"${comm}\", pid=~\"${pid}\", tid=\"\"}[${full_cycle_interval}]) > 0)",
               "interval": "${interval}",
-              "legendFormat": "{{cmd}}(pid={{pid}},node={{hostname}},inst={{instance}})",
+              "legendFormat": "{{comm}}(pid={{pid}},node={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -2212,7 +2604,7 @@
                   "type": "linear"
                 },
                 "showPoints": "auto",
-                "spanNulls": false,
+                "spanNulls": true,
                 "stacking": {
                   "group": "A",
                   "mode": "none"
@@ -2226,7 +2618,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2241,200 +2634,10 @@
           "gridPos": {
             "h": 7,
             "w": 8,
-            "x": 0,
-            "y": 39
-          },
-          "id": 26,
-          "interval": "${interval}",
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "last_over_time(proc_pid_status_rss_shmem{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${full_cycle}])\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
-              "interval": "${interval}",
-              "legendFormat": "{{cmd}}(pid={{pid}},node={{hostname}},inst={{instance}})",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "RSS ShMem",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "description": "",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "VolCtx Delta",
-                "axisPlacement": "left",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 8,
-            "x": 8,
-            "y": 39
-          },
-          "id": 27,
-          "interval": "${interval}",
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_pid_status_vol_ctx_switch_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
-              "interval": "${interval}",
-              "legendFormat": "vol_ctx_delta(cmd={{cmd}},pid={{pid}},tid={{tid}},node={{hostname}},inst={{instance}})",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Voluntary Ctx Switch Delta",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "description": "",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "NonVolCtx Delta",
-                "axisPlacement": "left",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 8,
             "x": 16,
-            "y": 39
+            "y": 36
           },
-          "id": 28,
+          "id": 56,
           "interval": "${interval}",
           "options": {
             "legend": {
@@ -2455,18 +2658,145 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_pid_status_nonvol_ctx_switch_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",tid=~${threads}}\n* on (pid) group_left(cmd)\n(last_over_time(proc_pid_cmdline{instance=~\"${instance}\", hostname=~\"${hostname}\", cmd=~\"${cmd}\"}[${full_cycle}]) > 0)",
+              "expr": "proc_pid_status_rss_shmem{instance=\"${instance}\", hostname=\"${hostname}\", pid=~\"${pid}\"}\n* on (instance, hostname, pid) group_left(comm)\n(last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=\"${comm}\", pid=~\"${pid}\", tid=\"\"}[${full_cycle_interval}]) > 0)",
               "interval": "${interval}",
-              "legendFormat": "vol_ctx_delta(cmd={{cmd}},pid={{pid}},tid={{tid}},node={{hostname}},inst={{instance}})",
+              "legendFormat": "{{comm}}(pid={{pid}},node={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
           ],
-          "title": "Non Voluntary Ctx Switch Delta",
+          "title": "RSS Shared Mem",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "MinFlt Delta",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "noValue": "0",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "majflt_delta.*"
+                },
+                "properties": [
+                  {
+                    "id": "custom.axisPlacement",
+                    "value": "right"
+                  },
+                  {
+                    "id": "custom.axisLabel",
+                    "value": "MajFlt Delta"
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 0,
+            "y": 43
+          },
+          "id": 50,
+          "interval": "${interval}",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "proc_pid_stat_minflt_delta{instance=\"${instance}\",hostname=\"${hostname}\", pid=~\"${pid}\", tid=~${threads}}\n* on (instance, hostname, pid, tid) group_left(comm) (\n    last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=\"${comm}\", pid=~\"${pid}\", tid=~${threads}}[${full_cycle_interval}]) > 0\n)",
+              "interval": "${interval}",
+              "legendFormat": "minflt_delta({{comm}},pid={{pid}},tid={{tid}},host={{hostname}},inst={{instance}})",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "proc_pid_stat_majflt_delta{instance=\"${instance}\",hostname=\"${hostname}\", pid=~\"${pid}\", tid=~${threads}}\n* on (instance, hostname, pid, tid) group_left(comm) (\n    last_over_time(proc_pid_stat_comm{instance=\"${instance}\", hostname=\"${hostname}\", comm=\"${comm}\", pid=~\"${pid}\", tid=~${threads}}[${full_cycle_interval}]) > 0\n)",
+              "hide": false,
+              "interval": "${interval}",
+              "legendFormat": "majflt_delta({{comm}},pid={{pid}},tid={{tid}},host={{hostname}},inst={{instance}})",
+              "range": true,
+              "refId": "B"
+            }
+          ],
+          "title": "Min/Maj Flt# Delta",
           "type": "timeseries"
         }
       ],
-      "title": "/proc/PID/status",
+      "title": "Process Explorer",
       "type": "row"
     },
     {
@@ -2475,7 +2805,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 2
+        "y": 3
       },
       "id": 32,
       "panels": [
@@ -2540,7 +2870,7 @@
             "h": 9,
             "w": 21,
             "x": 0,
-            "y": 3
+            "y": 4
           },
           "id": 34,
           "interval": "${interval}",
@@ -2679,19 +3009,19 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "proc_pid_cmdline{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+        "definition": "proc_pid_stat_comm{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
         "hide": 0,
         "includeAll": true,
-        "label": "Cmd",
+        "label": "Comm",
         "multi": false,
-        "name": "cmd",
+        "name": "comm",
         "options": [],
         "query": {
-          "query": "proc_pid_cmdline{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+          "query": "proc_pid_stat_comm{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
-        "regex": "/.*cmd=\"([^\"]*)\".*/",
+        "regex": "/.*comm=\"([^\"]*)\".*/",
         "skipUrlSync": false,
         "sort": 1,
         "type": "query"
@@ -2699,33 +3029,29 @@
       {
         "allValue": ".*",
         "current": {
-          "selected": true,
-          "text": [
-            "All"
-          ],
-          "value": [
-            "$__all"
-          ]
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
         },
         "datasource": {
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "proc_pid_cmdline{instance=~\"${instance}\",hostname=~\"${hostname}\",cmd=~\"${cmd}\"}",
+        "definition": "proc_pid_stat_comm{instance=\"${instance}\",hostname=\"${hostname}\",comm=\"${comm}\"}",
         "hide": 0,
         "includeAll": true,
-        "label": "Args",
-        "multi": true,
-        "name": "args",
+        "label": "PID",
+        "multi": false,
+        "name": "pid",
         "options": [],
         "query": {
-          "query": "proc_pid_cmdline{instance=~\"${instance}\",hostname=~\"${hostname}\",cmd=~\"${cmd}\"}",
+          "query": "proc_pid_stat_comm{instance=\"${instance}\",hostname=\"${hostname}\",comm=\"${comm}\"}",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
-        "regex": "/.*args=\"([^\"]*)\".*/",
+        "regex": "/.*pid=\"([^\"]*)\".*/",
         "skipUrlSync": false,
-        "sort": 1,
+        "sort": 3,
         "type": "query"
       },
       {
@@ -2772,6 +3098,10 @@
             "$__all"
           ]
         },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "PD27EBB47A0602685"
+        },
         "definition": "proc_pid_metrics_delta_sec{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
         "hide": 0,
         "includeAll": true,
@@ -2804,26 +3134,26 @@
       {
         "current": {
           "selected": true,
-          "text": "15",
-          "value": "15"
+          "text": "5",
+          "value": "5"
         },
-        "description": "Full cycle metrics, in seconds.",
+        "description": "Interval, in sec, for Max & Avg %CPU in Top View table.",
         "hide": 2,
-        "name": "full_cycle",
-        "query": "15",
+        "name": "lookback_interval",
+        "query": "5",
         "skipUrlSync": false,
         "type": "constant"
       },
       {
         "current": {
           "selected": true,
-          "text": "5",
-          "value": "5"
+          "text": "15",
+          "value": "15"
         },
-        "description": "Interval, in sec, for max %CPU in Top View table.",
+        "description": "Full cycle metrics interval, in seconds.",
         "hide": 2,
-        "name": "max_interval",
-        "query": "5",
+        "name": "full_cycle_interval",
+        "query": "15",
         "skipUrlSync": false,
         "type": "constant"
       }
@@ -2837,6 +3167,6 @@
   "timezone": "",
   "title": "proc_pid_metrics",
   "uid": "proc_pid_metrics",
-  "version": 32,
+  "version": 50,
   "weekStart": ""
 }
