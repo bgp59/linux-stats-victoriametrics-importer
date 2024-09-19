@@ -168,7 +168,7 @@ primeProcfsRoot=%q
 
 func TestNetSnmp6Parser(t *testing.T) {
 	for _, tc := range []*NetSnmp6TestCase{
-		&NetSnmp6TestCase{
+		{
 			name:       "field_mapping",
 			procfsRoot: path.Join(netSnmp6TestDataDir, "field_mapping"),
 			wantNetSnmp6: &NetSnmp6{
@@ -198,7 +198,7 @@ func TestNetSnmp6Parser(t *testing.T) {
 				},
 			},
 		},
-		&NetSnmp6TestCase{
+		{
 			name:            "reuse",
 			procfsRoot:      path.Join(netSnmp6TestDataDir, "field_mapping"),
 			primeProcfsRoot: path.Join(netSnmp6TestDataDir, "reference"),

@@ -127,7 +127,7 @@ primeNetDev=%v
 
 func TestNetDevParser(t *testing.T) {
 	for _, tc := range []*NetDevTestCase{
-		&NetDevTestCase{
+		{
 			name:       "field_mapping",
 			procfsRoot: path.Join(netDevTestDataDir, "field_mapping"),
 			wantNetDev: &NetDev{
@@ -137,7 +137,7 @@ func TestNetDevParser(t *testing.T) {
 				},
 			},
 		},
-		&NetDevTestCase{
+		{
 			name:       "reuse",
 			procfsRoot: path.Join(netDevTestDataDir, "field_mapping"),
 			primeNetDev: &NetDev{
@@ -156,7 +156,7 @@ func TestNetDevParser(t *testing.T) {
 				},
 			},
 		},
-		&NetDevTestCase{
+		{
 			name:       "remove_dev",
 			procfsRoot: path.Join(netDevTestDataDir, "field_mapping"),
 			primeNetDev: &NetDev{
@@ -175,7 +175,7 @@ func TestNetDevParser(t *testing.T) {
 				},
 			},
 		},
-		&NetDevTestCase{
+		{
 			name:       "whitespaces",
 			procfsRoot: path.Join(netDevTestDataDir, "whitespaces"),
 			wantNetDev: &NetDev{

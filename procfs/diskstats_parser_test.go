@@ -131,16 +131,16 @@ disableJiffiesToMillisec=%v
 
 func TestDiskstatsParser(t *testing.T) {
 	for _, tc := range []*DiskstatsTestCase{
-		&DiskstatsTestCase{
+		{
 			name:       "field_mapping",
 			procfsRoot: path.Join(diskstatsTestDataDir, "field_mapping"),
 			wantDiskstats: &Diskstats{
 				DevInfoMap: map[string]*DiskstatsDevInfo{
-					"0:0": &DiskstatsDevInfo{
+					"0:0": {
 						Name:  "disk0",
 						Stats: []uint32{1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017},
 					},
-					"1:1": &DiskstatsDevInfo{
+					"1:1": {
 						Name:  "disk1",
 						Stats: []uint32{2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017},
 					},
@@ -148,17 +148,17 @@ func TestDiskstatsParser(t *testing.T) {
 			},
 			disableJiffiesToMillisec: true,
 		},
-		&DiskstatsTestCase{
+		{
 			name:       "reuse",
 			procfsRoot: path.Join(diskstatsTestDataDir, "field_mapping"),
 			primeDiskstats: &Diskstats{
 				DevInfoMap: map[string]*DiskstatsDevInfo{
-					"0:0": &DiskstatsDevInfo{
+					"0:0": {
 						Name:    "disk0",
 						Stats:   make([]uint32, 17),
 						scanNum: 42,
 					},
-					"1:1": &DiskstatsDevInfo{
+					"1:1": {
 						Name:    "disk1",
 						Stats:   make([]uint32, 17),
 						scanNum: 42,
@@ -170,33 +170,33 @@ func TestDiskstatsParser(t *testing.T) {
 			},
 			wantDiskstats: &Diskstats{
 				DevInfoMap: map[string]*DiskstatsDevInfo{
-					"0:0": &DiskstatsDevInfo{
+					"0:0": {
 						Name:  "disk0",
 						Stats: []uint32{1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017},
 					},
-					"1:1": &DiskstatsDevInfo{
+					"1:1": {
 						Name:  "disk1",
 						Stats: []uint32{2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017},
 					},
 				},
 			},
 		},
-		&DiskstatsTestCase{
+		{
 			name:       "remove_dev",
 			procfsRoot: path.Join(diskstatsTestDataDir, "field_mapping"),
 			primeDiskstats: &Diskstats{
 				DevInfoMap: map[string]*DiskstatsDevInfo{
-					"0:0": &DiskstatsDevInfo{
+					"0:0": {
 						Name:    "disk0",
 						Stats:   make([]uint32, 17),
 						scanNum: 42,
 					},
-					"1:1": &DiskstatsDevInfo{
+					"1:1": {
 						Name:    "disk1",
 						Stats:   make([]uint32, 17),
 						scanNum: 42,
 					},
-					"255:255": &DiskstatsDevInfo{
+					"255:255": {
 						Name:    "removed",
 						Stats:   make([]uint32, 17),
 						scanNum: 42,
@@ -208,28 +208,28 @@ func TestDiskstatsParser(t *testing.T) {
 			},
 			wantDiskstats: &Diskstats{
 				DevInfoMap: map[string]*DiskstatsDevInfo{
-					"0:0": &DiskstatsDevInfo{
+					"0:0": {
 						Name:  "disk0",
 						Stats: []uint32{1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017},
 					},
-					"1:1": &DiskstatsDevInfo{
+					"1:1": {
 						Name:  "disk1",
 						Stats: []uint32{2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017},
 					},
 				},
 			},
 		},
-		&DiskstatsTestCase{
+		{
 			name:       "jiffies",
 			procfsRoot: path.Join(diskstatsTestDataDir, "field_mapping"),
 			primeDiskstats: &Diskstats{
 				DevInfoMap: map[string]*DiskstatsDevInfo{
-					"0:0": &DiskstatsDevInfo{
+					"0:0": {
 						Name:    "disk0",
 						Stats:   make([]uint32, 17),
 						scanNum: 42,
 					},
-					"1:1": &DiskstatsDevInfo{
+					"1:1": {
 						Name:    "disk1",
 						Stats:   make([]uint32, 17),
 						scanNum: 42,
@@ -241,11 +241,11 @@ func TestDiskstatsParser(t *testing.T) {
 			},
 			wantDiskstats: &Diskstats{
 				DevInfoMap: map[string]*DiskstatsDevInfo{
-					"0:0": &DiskstatsDevInfo{
+					"0:0": {
 						Name:  "disk0",
 						Stats: []uint32{1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 10100, 1011, 1012, 1013, 1014, 1015, 1016, 1017},
 					},
-					"1:1": &DiskstatsDevInfo{
+					"1:1": {
 						Name:  "disk1",
 						Stats: []uint32{2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 20100, 2011, 2012, 2013, 2014, 2015, 2016, 2017},
 					},
