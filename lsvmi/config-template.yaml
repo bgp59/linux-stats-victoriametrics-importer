@@ -217,7 +217,10 @@ http_endpoint_pool_config:
   # resolve to this failed IP.
   endpoints:
     - url: http://localhost:8428/api/v1/import/prometheus
-      mark_unhealthy_threshold: 1
+      #mark_unhealthy_threshold: 1 # If not defined the pool default will be used
+
+  # Pool default for unhealthy threshold:
+  mark_unhealthy_threshold: 1
 
   # Whether the endpoint list should be shuffled or not. Shuffling is
   # recommended if the config file is shared by all collectors, such they all

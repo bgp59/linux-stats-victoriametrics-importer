@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 )
@@ -243,7 +244,7 @@ var ErrHttpEndpointPoolNoHealthyEP = errors.New("no healthy HTTP endpoint availa
 func DefaultHttpEndpointConfig() *HttpEndpointConfig {
 	return &HttpEndpointConfig{
 		URL:                    HTTP_ENDPOINT_URL_DEFAULT,
-		MarkUnhealthyThreshold: HTTP_ENDPOINT_MARK_UNHEALTHY_THRESHOLD_DEFAULT,
+		MarkUnhealthyThreshold: 0, // i.e. fallback over pool definition or default
 	}
 }
 
@@ -355,39 +356,53 @@ type HttpEndpointPool struct {
 }
 
 type HttpEndpointPoolConfig struct {
-	Endpoints             []*HttpEndpointConfig `yaml:"endpoints"`
-	Shuffle               bool                  `yaml:"shuffle"`
-	HealthyRotateInterval string                `yaml:"healthy_rotate_interval"`
-	ErrorResetInterval    string                `yaml:"error_reset_interval"`
-	HealthCheckInterval   string                `yaml:"health_check_interval"`
-	HealthyMaxWait        string                `yaml:"healthy_max_wait"`
-	SendBufferTimeout     string                `yaml:"send_buffer_timeout"`
-	RateLimitMbps         string                `yaml:"rate_limit_mbps"`
-	TcpConnTimeout        string                `yaml:"tcp_conn_timeout"`
-	TcpKeepAlive          string                `yaml:"tcp_keep_alive"`
-	MaxIdleConns          int                   `yaml:"max_idle_conns"`
-	MaxIdleConnsPerHost   int                   `yaml:"max_idle_conns_per_host"`
-	MaxConnsPerHost       int                   `yaml:"max_conns_per_host"`
-	IdleConnTimeout       string                `yaml:"idle_conn_timeout"`
-	ResponseTimeout       string                `yaml:"response_timeout"`
+	Endpoints              []*HttpEndpointConfig `yaml:"endpoints"`
+	MarkUnhealthyThreshold int                   `yaml:"mark_unhealthy_threshold"`
+	Shuffle                bool                  `yaml:"shuffle"`
+	HealthyRotateInterval  string                `yaml:"healthy_rotate_interval"`
+	ErrorResetInterval     string                `yaml:"error_reset_interval"`
+	HealthCheckInterval    string                `yaml:"health_check_interval"`
+	HealthyMaxWait         string                `yaml:"healthy_max_wait"`
+	SendBufferTimeout      string                `yaml:"send_buffer_timeout"`
+	RateLimitMbps          string                `yaml:"rate_limit_mbps"`
+	TcpConnTimeout         string                `yaml:"tcp_conn_timeout"`
+	TcpKeepAlive           string                `yaml:"tcp_keep_alive"`
+	MaxIdleConns           int                   `yaml:"max_idle_conns"`
+	MaxIdleConnsPerHost    int                   `yaml:"max_idle_conns_per_host"`
+	MaxConnsPerHost        int                   `yaml:"max_conns_per_host"`
+	IdleConnTimeout        string                `yaml:"idle_conn_timeout"`
+	ResponseTimeout        string                `yaml:"response_timeout"`
 }
 
 func DefaultHttpEndpointPoolConfig() *HttpEndpointPoolConfig {
 	return &HttpEndpointPoolConfig{
-		Shuffle:               HTTP_ENDPOINT_POOL_CONFIG_SHUFFLE_DEFAULT,
-		HealthyRotateInterval: HTTP_ENDPOINT_POOL_CONFIG_HEALTHY_ROTATE_INTERVAL_DEFAULT,
-		ErrorResetInterval:    HTTP_ENDPOINT_POOL_CONFIG_ERROR_RESET_INTERVAL_DEFAULT,
-		HealthCheckInterval:   HTTP_ENDPOINT_POOL_CONFIG_HEALTH_CHECK_INTERVAL_DEFAULT,
-		HealthyMaxWait:        HTTP_ENDPOINT_POOL_CONFIG_HEALTHY_MAX_WAIT_DEFAULT,
-		SendBufferTimeout:     HTTP_ENDPOINT_POOL_CONFIG_SEND_BUFFER_TIMEOUT_DEFAULT,
-		RateLimitMbps:         HTTP_ENDPOINT_POOL_CONFIG_RATE_LIMIT_MBPS_DEFAULT,
-		TcpConnTimeout:        HTTP_ENDPOINT_POOL_CONFIG_TCP_CONN_TIMEOUT_DEFAULT,
-		TcpKeepAlive:          HTTP_ENDPOINT_POOL_CONFIG_TCP_KEEP_ALIVE_DEFAULT,
-		MaxIdleConns:          HTTP_ENDPOINT_POOL_CONFIG_MAX_IDLE_CONNS_DEFAULT,
-		MaxIdleConnsPerHost:   HTTP_ENDPOINT_POOL_CONFIG_MAX_IDLE_CONNS_PER_HOST_DEFAULT,
-		MaxConnsPerHost:       HTTP_ENDPOINT_POOL_CONFIG_MAX_CONNS_PER_HOST_DEFAULT,
-		IdleConnTimeout:       HTTP_ENDPOINT_POOL_CONFIG_IDLE_CONN_TIMEOUT_DEFAULT,
-		ResponseTimeout:       HTTP_ENDPOINT_POOL_CONFIG_RESPONSE_TIMEOUT_DEFAULT,
+		Shuffle:                HTTP_ENDPOINT_POOL_CONFIG_SHUFFLE_DEFAULT,
+		MarkUnhealthyThreshold: 0, // i.e. fallback over default
+		HealthyRotateInterval:  HTTP_ENDPOINT_POOL_CONFIG_HEALTHY_ROTATE_INTERVAL_DEFAULT,
+		ErrorResetInterval:     HTTP_ENDPOINT_POOL_CONFIG_ERROR_RESET_INTERVAL_DEFAULT,
+		HealthCheckInterval:    HTTP_ENDPOINT_POOL_CONFIG_HEALTH_CHECK_INTERVAL_DEFAULT,
+		HealthyMaxWait:         HTTP_ENDPOINT_POOL_CONFIG_HEALTHY_MAX_WAIT_DEFAULT,
+		SendBufferTimeout:      HTTP_ENDPOINT_POOL_CONFIG_SEND_BUFFER_TIMEOUT_DEFAULT,
+		RateLimitMbps:          HTTP_ENDPOINT_POOL_CONFIG_RATE_LIMIT_MBPS_DEFAULT,
+		TcpConnTimeout:         HTTP_ENDPOINT_POOL_CONFIG_TCP_CONN_TIMEOUT_DEFAULT,
+		TcpKeepAlive:           HTTP_ENDPOINT_POOL_CONFIG_TCP_KEEP_ALIVE_DEFAULT,
+		MaxIdleConns:           HTTP_ENDPOINT_POOL_CONFIG_MAX_IDLE_CONNS_DEFAULT,
+		MaxIdleConnsPerHost:    HTTP_ENDPOINT_POOL_CONFIG_MAX_IDLE_CONNS_PER_HOST_DEFAULT,
+		MaxConnsPerHost:        HTTP_ENDPOINT_POOL_CONFIG_MAX_CONNS_PER_HOST_DEFAULT,
+		IdleConnTimeout:        HTTP_ENDPOINT_POOL_CONFIG_IDLE_CONN_TIMEOUT_DEFAULT,
+		ResponseTimeout:        HTTP_ENDPOINT_POOL_CONFIG_RESPONSE_TIMEOUT_DEFAULT,
+	}
+}
+
+// Used for command line argument override:
+func (poolCfg *HttpEndpointPoolConfig) OverrideEndpoints(urlList string) {
+	urls := strings.Split(urlList, ",")
+	poolCfg.Endpoints = make([]*HttpEndpointConfig, len(urls))
+	for i, url := range urls {
+		poolCfg.Endpoints[i] = &HttpEndpointConfig{
+			URL:                    url,
+			MarkUnhealthyThreshold: 0, // i.e. use pool config fallback or default
+		}
 	}
 }
 
@@ -500,18 +515,23 @@ func NewHttpEndpointPool(cfg any) (*HttpEndpointPool, error) {
 	epPoolLog.Infof("response_timeout=%s", client.Timeout)
 
 	endpoints := poolCfg.Endpoints
+	if len(endpoints) == 0 {
+		endpoints = []*HttpEndpointConfig{DefaultHttpEndpointConfig()}
+	}
 	if poolCfg.Shuffle && len(endpoints) > 1 {
 		epPoolLog.Info("shuffle the endpoint list")
 		rand.Shuffle(len(endpoints), func(i, j int) { endpoints[i], endpoints[j] = endpoints[j], endpoints[i] })
 	}
-	defaultEpCfg := DefaultHttpEndpointConfig()
 	for _, epCfg := range endpoints {
 		cfg := *epCfg
 		if cfg.URL == "" {
-			cfg.URL = defaultEpCfg.URL
+			cfg.URL = HTTP_ENDPOINT_URL_DEFAULT
 		}
 		if cfg.MarkUnhealthyThreshold <= 0 {
-			cfg.MarkUnhealthyThreshold = defaultEpCfg.MarkUnhealthyThreshold
+			cfg.MarkUnhealthyThreshold = poolCfg.MarkUnhealthyThreshold
+		}
+		if cfg.MarkUnhealthyThreshold <= 0 {
+			cfg.MarkUnhealthyThreshold = HTTP_ENDPOINT_MARK_UNHEALTHY_THRESHOLD_DEFAULT
 		}
 		if ep, err := NewHttpEndpoint(&cfg); err != nil {
 			return nil, err

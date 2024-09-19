@@ -98,6 +98,12 @@ var procfsRootArg = flag.String(
 	"Override the config `procfs_root` setting",
 )
 
+var httpPoolEndpointsArg = flag.String(
+	"http-pool-endpoints",
+	"",
+	"Override the config `endpoints` setting in `http_endpoint_pool_config`",
+)
+
 func DefaultGlobalConfig() *GlobalConfig {
 	return &GlobalConfig{
 		Instance:         GLOBAL_CONFIG_INSTANCE_DEFAULT,
@@ -163,6 +169,9 @@ func LoadLsvmiConfigFromArgs() (*LsvmiConfig, error) {
 	}
 	if loggerLevelArg.Used {
 		cfg.LoggerConfig.Level = loggerLevelArg.Value
+	}
+	if *httpPoolEndpointsArg != "" {
+		cfg.HttpEndpointPoolConfig.OverrideEndpoints(*httpPoolEndpointsArg)
 	}
 
 	return cfg, nil
