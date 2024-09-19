@@ -27,6 +27,8 @@ import (
 //     parameters should be public and they should have tag annotations.
 
 const (
+	CONFIG_FILE_DEFAULT = "lsvmi-config.yaml"
+
 	GLOBAL_CONFIG_INSTANCE_DEFAULT           = "lsvmi"
 	GLOBAL_CONFIG_USE_SHORT_HOSTNAME_DEFAULT = true
 	GLOBAL_CONFIG_PROCFS_ROOT_DEFAULT        = "/proc"
@@ -73,7 +75,7 @@ var ErrConfigFileArgNotProvided = errors.New("config file arg not provided")
 
 var lsvmiConfigFile = flag.String(
 	"config",
-	"",
+	CONFIG_FILE_DEFAULT,
 	`Config file to load`,
 )
 
@@ -81,27 +83,50 @@ var hostnameArg = flag.String(
 	"hostname",
 	"",
 	FormatFlagUsage(`
-	Set the hostname to use as value for the metric label hostname. This
-	overrides the value returned by hostname syscall.
+		Override the "global_config.instance" config setting. If the latter 
+		is empty then the value returned by hostname syscall is used
 	`),
 )
 
 var instanceArg = flag.String(
 	"instance",
 	"",
-	"Override the config `instance` setting",
+	FormatFlagUsage(
+		`Override the "global_config.instance" config setting`,
+	),
 )
 
 var procfsRootArg = flag.String(
 	"procfs-root",
 	"",
-	"Override the config `procfs_root` setting",
+	FormatFlagUsage(
+		`Override the "global_config.procfs_root" config setting`,
+	),
+)
+
+var loggerLevelArg = flag.String(
+	"log-level",
+	"",
+	FormatFlagUsage(fmt.Sprintf(
+		`Override the "log_config.log_level" config setting, it should be one of the %q values`,
+		GetLogLevelNames(),
+	)),
+)
+
+var loggerFilelArg = flag.String(
+	"log-file",
+	"",
+	FormatFlagUsage(
+		`Override the config "log_config.log_file" config setting`,
+	),
 )
 
 var httpPoolEndpointsArg = flag.String(
 	"http-pool-endpoints",
 	"",
-	"Override the config `endpoints` setting in `http_endpoint_pool_config`",
+	FormatFlagUsage(
+		`Override the "http_endpoint_pool_config.endpoints" config setting`,
+	),
 )
 
 func DefaultGlobalConfig() *GlobalConfig {
@@ -164,11 +189,11 @@ func LoadLsvmiConfigFromArgs() (*LsvmiConfig, error) {
 	if *procfsRootArg != "" {
 		cfg.GlobalConfig.ProcfsRoot = *procfsRootArg
 	}
-	if loggerUseJsonArg.Used {
-		cfg.LoggerConfig.UseJson = loggerUseJsonArg.Value
+	if *loggerLevelArg != "" {
+		cfg.LoggerConfig.Level = *loggerLevelArg
 	}
-	if loggerLevelArg.Used {
-		cfg.LoggerConfig.Level = loggerLevelArg.Value
+	if *loggerFilelArg != "" {
+		cfg.LoggerConfig.LogFile = *loggerFilelArg
 	}
 	if *httpPoolEndpointsArg != "" {
 		cfg.HttpEndpointPoolConfig.OverrideEndpoints(*httpPoolEndpointsArg)

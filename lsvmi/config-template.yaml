@@ -285,20 +285,18 @@ http_endpoint_pool_config:
 # Logger
 ###############################################
 log_config:
-  # Whether to log in JSON format. Override w/
-  #  --log-json-format=false, to disable
-  #     or
-  #  --log-json-format, to enable
+  # Whether to log in JSON format:
   use_json: false
-
   # The log level, must be one of the following:
   #   panic, fatal, error, warning, info, debug, trace
   # Override w/ --log-level=LEVEL 
   log_level: info
-
-  # Whether to disable report file:line#. Override w/
-  #  --log-disable-report-file=false, to enable
-  #     or
-  #  --log-disable-report-file, to disable
-  disable_report_file: false
-
+  # Whether to disable report file:line#:
+  disable_src_file: false
+  # Whether to log to a file or stderr or empty to log to stderr.
+  # Override w/ --log-file=PATH
+  log_file: "stderr"
+  # Log file max size, in MB, before rotation, use 0 to disable:
+  log_file_max_size_mb: 10
+  # How many older log files to keep upon rotation:
+  log_file_max_backup_num: 1

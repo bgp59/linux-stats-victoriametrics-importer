@@ -20,10 +20,20 @@ const (
 
 var mainLog = lsvmi.NewCompLogger("main")
 
-var useStdoutMetricsQueue = flag.Bool(
+var useStdoutMetricsQueueArg = flag.Bool(
 	"use-stdout-metrics-queue",
 	false,
-	"Print metrics to stdout instead of sending to import endpoints",
+	lsvmi.FormatFlagUsage(
+		`Print metrics to stdout instead of sending to import endpoints`,
+	),
+)
+
+var printVerArg = flag.Bool(
+	"version",
+	false,
+	lsvmi.FormatFlagUsage(
+		`Print version and other build info and exit`,
+	),
 )
 
 func main() {
@@ -35,6 +45,14 @@ func main() {
 
 	// Parse args:
 	flag.Parse()
+
+	if *printVerArg {
+		fmt.Fprintf(
+			os.Stderr,
+			"Version: %s\nGit Info: %s\n", buildinfo.Version, buildinfo.GitInfo,
+		)
+		return
+	}
 
 	// Config:
 	lsvmi.GlobalLsvmiConfig, err = lsvmi.LoadLsvmiConfigFromArgs()
@@ -52,7 +70,7 @@ func main() {
 	mainLog.Infof("Version: %s, Git Info: %s", buildinfo.Version, buildinfo.GitInfo)
 
 	// Metrics queue:
-	if !*useStdoutMetricsQueue {
+	if !*useStdoutMetricsQueueArg {
 		// Real queue w/ compressed metrics sent to import endpoints:
 		lsvmi.GlobalHttpEndpointPool, err = lsvmi.NewHttpEndpointPool(lsvmi.GlobalLsvmiConfig)
 		if err != nil {

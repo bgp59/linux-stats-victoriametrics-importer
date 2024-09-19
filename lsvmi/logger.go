@@ -12,15 +12,20 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 const (
-	LOGGER_CONFIG_USE_JSON_DEFAULT            = true
-	LOGGER_CONFIG_LEVEL_DEFAULT               = "info"
-	LOGGER_CONFIG_DISBALE_REPORT_FILE_DEFAULT = false
+	LOGGER_CONFIG_USE_JSON_DEFAULT                = true
+	LOGGER_CONFIG_LEVEL_DEFAULT                   = "info"
+	LOGGER_CONFIG_DISBALE_SRC_FILE_DEFAULT        = false
+	LOGGER_CONFIG_LOG_FILE_DEFAULT                = "" // i.e. stderr
+	LOGGER_CONFIG_LOG_FILE_MAX_SIZE_MB_DEFAULT    = 10
+	LOGGER_CONFIG_LOG_FILE_MAX_BACKUP_NUM_DEFAULT = 1
 
 	LOGGER_DEFAULT_LEVEL    = logrus.InfoLevel
-	LOGGER_TIMESTAMP_FORMAT = time.RFC3339Nano
+	LOGGER_TIMESTAMP_FORMAT = time.RFC3339
 	// Extra field added for component sub loggers:
 	LOGGER_COMPONENT_FIELD_NAME = "comp"
 )
@@ -52,31 +57,30 @@ func (log *CollectableLogursLog) SetLevel(level any) {
 }
 
 type LoggerConfig struct {
-	UseJson           bool   `yaml:"use_json"`
-	Level             string `yaml:"level"`
-	DisableReportFile bool   `yaml:"disable_report_file"`
+	// Whether to structure the logged record in JSON:
+	UseJson bool `yaml:"use_json"`
+	// Log level name: info, warn, ...:
+	Level string `yaml:"level"`
+	// Whether to disable the reporting of the source file:line# info:
+	DisableSrcFile bool `yaml:"disable_src_file"`
+	// Whether to log to a file or, if empty, to stderr:
+	LogFile string `yaml:"log_file"`
+	// Log file max size, in MB, before rotation, use 0 to disable:
+	LogFileMaxSizeMB int `yaml:"log_file_max_size_mb"`
+	// How many older log files to keep upon rotation:
+	LogFileMaxBackupNum int `yaml:"log_file_max_backup_num"`
 }
 
 func DefaultLoggerConfig() *LoggerConfig {
 	return &LoggerConfig{
-		UseJson:           LOGGER_CONFIG_USE_JSON_DEFAULT,
-		Level:             LOGGER_CONFIG_LEVEL_DEFAULT,
-		DisableReportFile: LOGGER_CONFIG_DISBALE_REPORT_FILE_DEFAULT,
+		UseJson:             LOGGER_CONFIG_USE_JSON_DEFAULT,
+		Level:               LOGGER_CONFIG_LEVEL_DEFAULT,
+		DisableSrcFile:      LOGGER_CONFIG_DISBALE_SRC_FILE_DEFAULT,
+		LogFile:             LOGGER_CONFIG_LOG_FILE_DEFAULT,
+		LogFileMaxSizeMB:    LOGGER_CONFIG_LOG_FILE_MAX_SIZE_MB_DEFAULT,
+		LogFileMaxBackupNum: LOGGER_CONFIG_LOG_FILE_MAX_BACKUP_NUM_DEFAULT,
 	}
 }
-
-var loggerUseJsonArg = NewBoolFlagCheckUsed(
-	"log-json-format",
-	"Enable log in JSON format",
-)
-
-var loggerLevelArg = NewStringFlagCheckUsed(
-	"log-level",
-	LOGGER_DEFAULT_LEVEL.String(),
-	fmt.Sprintf(`
-	Set log level, it should be one of the %s values. 
-	`, GetLogLevelNames()),
-)
 
 var logSourceRoot string
 
@@ -239,13 +243,41 @@ func SetLogger(cfg any) error {
 		Log.SetLevel(level)
 	}
 
-	if loggerUseJsonArg.Value {
+	if logCfg.UseJson {
 		Log.SetFormatter(LogJsonFormatter)
 	} else {
 		Log.SetFormatter(LogTextFormatter)
 	}
 
-	Log.SetReportCaller(!logCfg.DisableReportFile)
+	Log.SetReportCaller(!logCfg.DisableSrcFile)
+
+	if logCfg.LogFile != "" && logCfg.LogFile != "stderr" {
+		// Create log dir as needed:
+		logDir := path.Dir(logCfg.LogFile)
+		_, err := os.Stat(logDir)
+		if err != nil {
+			err = os.MkdirAll(logDir, os.ModePerm)
+			if err != nil {
+				return err
+			}
+		}
+		// Check if the log file exists, in which case force rotate it before
+		// the 1st use:
+		_, err = os.Stat(logCfg.LogFile)
+		forceRotate := err == nil
+		logFile := &lumberjack.Logger{
+			Filename:   logCfg.LogFile,
+			MaxSize:    logCfg.LogFileMaxSizeMB,
+			MaxBackups: logCfg.LogFileMaxBackupNum,
+		}
+		if forceRotate {
+			err := logFile.Rotate()
+			if err != nil {
+				return err
+			}
+		}
+		Log.SetOutput(logFile)
+	}
 
 	return nil
 }
