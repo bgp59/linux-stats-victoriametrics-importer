@@ -11,6 +11,10 @@ import (
 	"github.com/emypar/linux-stats-victoriametrics-importer/procfs"
 )
 
+// PidStatus []byte fields may be nil, however the test cases use string so a
+// special value is needed to signify nil, as opposed to empty:
+const PID_PARSER_NIL_BSF = "<nil>"
+
 // The test case data should be JSON loadable, they should emulate the pid parsers
 // and they should be indexable by PID,TID:
 type TestPidStatParsedData struct {
@@ -192,7 +196,9 @@ func (testPidStatus *TestPidStatus) GetData() (byteSliceFields [][]byte, byteSli
 		if testPidStatus.parsedData.ByteSliceFields != nil {
 			byteSliceFields = make([][]byte, len(testPidStatus.parsedData.ByteSliceFields))
 			for i, s := range testPidStatus.parsedData.ByteSliceFields {
-				byteSliceFields[i] = []byte(s)
+				if s != PID_PARSER_NIL_BSF {
+					byteSliceFields[i] = []byte(s)
+				}
 			}
 		}
 		if testPidStatus.parsedData.ByteSliceFieldUnit != nil {

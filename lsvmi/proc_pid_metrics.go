@@ -861,6 +861,10 @@ func (pm *ProcPidMetrics) generateMetrics(
 
 	if pm.usePidStatus {
 		for _, indexFmt := range pm.pidStatusPidTidMemoryMetricFmt {
+			if currPidStatusBSF[indexFmt.index] == nil {
+				// Some fields may be missing, for instance  for kernel threads:
+				continue
+			}
 			if fullMetricsNoPrev || !bytes.Equal(
 				prevPidStatusBSF[indexFmt.index],
 				currPidStatusBSF[indexFmt.index]) {
@@ -1075,6 +1079,10 @@ func (pm *ProcPidMetrics) generateMetrics(
 		}
 
 		for _, indexFmt := range pm.pidStatusPidOnlyMemoryMetricFmt {
+			if currPidStatusBSF[indexFmt.index] == nil {
+				// Some fields may be missing, for instance  for kernel threads:
+				continue
+			}
 			if fullMetricsNoPrev || !bytes.Equal(
 				prevPidStatusBSF[indexFmt.index],
 				currPidStatusBSF[indexFmt.index]) {
