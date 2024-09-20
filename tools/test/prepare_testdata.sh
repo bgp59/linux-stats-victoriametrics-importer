@@ -13,7 +13,7 @@ root_dir=$(dirname $tools_dir)
 set -ex
 cd $root_dir
 tar xzf testdata.tgz
-cd $tools_dir/py
+cd $this_dir
 ./py_prerequisites.sh
 ./generate_pid_tid_list_cache_test_cases.py
 ./generate_metrics_test_cases.py
