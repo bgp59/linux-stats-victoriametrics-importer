@@ -1,1 +1,1 @@
-./tools/sh/go-build.sh
+tools/build/go-build.sh
