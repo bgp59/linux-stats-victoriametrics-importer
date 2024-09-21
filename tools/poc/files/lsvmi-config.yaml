@@ -1,0 +1,302 @@
+# Configuration file template for PoC LSVMI.
+
+###############################################
+# Global Parameters
+###############################################
+global_config:
+  # The instance name, default "lsvmi". It may be overridden by --instance
+  # command line arg.
+  instance: lsvmi
+
+  # Whether to use short hostname or not as the value for hostname label.
+  # Typically the hostname is determined from the hostname system call and if
+  # the flag below is in effect, it is stripped of domain part. However if
+  # the hostname is overridden by --hostname command line arg, that value is
+  # used as-is.
+  use_short_hostname: true
+
+# common to all ..._metrics_config:
+# # How often to generate the metrics in time.ParseDuration() format:
+# interval: 5s
+# # Normally metrics are generated only if there is a change in value from the
+# # previous scan. However every N cycles the full set is generated. Use 0 to
+# # fully generate with every cycle.
+# full_metrics_factor: 12
+
+###############################################
+# Internal Metrics
+###############################################
+internal_metrics_config:
+  interval: 5s
+  # N.B. full_metrics_factor is not applicable!
+
+###############################################
+# /proc/stat Metrics
+###############################################
+proc_stat_metrics_config:
+  interval: 200ms
+  full_metrics_factor: 25
+
+###############################################
+# /proc/net/dev Metrics
+###############################################
+proc_net_dev_metrics_config:
+  interval: 1s
+  full_metrics_factor: 15
+
+###############################################
+# /proc/interrupts Metrics
+###############################################
+proc_interrupts_metrics_config:
+  interval: 1s
+  full_metrics_factor: 15
+
+###############################################
+# /proc/softirqs Metrics
+###############################################
+proc_softirqs_metrics_config:
+  interval: 1s
+  full_metrics_factor: 15
+
+###############################################
+# /proc/net/snmp Metrics
+###############################################
+proc_net_snmp_metrics_config:
+  interval: 1s
+  full_metrics_factor: 15
+
+###############################################
+# /proc/net/snmp6 Metrics
+###############################################
+proc_net_snmp6_metrics_config:
+  interval: 1s
+  full_metrics_factor: 15
+
+###############################################
+# /proc/diskstats and /proc/mountifo Metrics
+###############################################
+proc_diskstats_metrics_config:
+  interval: 5s
+  full_metrics_factor: 12
+  # The PID to use for /proc/PID/mountinfo, use 0 for self.
+  mountinfo_pid: 0
+
+###############################################
+# /proc/PID and /proc/PID/task/TID Metrics
+###############################################
+proc_pid_metrics_config:
+  interval: 1s
+  full_metrics_factor: 15
+  # How long the PID/TID cached list (shared among goroutines) is valid before a
+  # new reading of /proc directory is required, in time.ParseDuration() format:
+  pid_list_cache_valid_interval: "900ms"
+  # The number of partitions used to divide the process list; each partition
+  # will generate a task and each task will run in a separate worker. A negative
+  # value signifies the same value as the number of workers.
+  num_partitions: -1
+  # Whether to scan threads (/proc/PID/task/TID) and include thread metrics:
+  thread_metrics: true
+  # Whether to generate metrics based on /proc/PID/status or not.
+  use_pid_status: true
+  # The list of the memory related fields in /proc/PID/status to use, as per
+  # https://www.kernel.org/doc/Documentation/filesystems/proc.rst (see "Contents
+  # of the status fields", "VmPeak" thru "HugetlbPages"). If left undefined then
+  # all fields will be used.
+  pid_status_memory_fields: [
+    # "VmPeak",
+    # "VmSize",
+    # "VmLck",
+    # "VmPin",
+    # "VmHWM",
+    # "VmRSS",
+    "RssAnon",
+    "RssFile",
+    "RssShmem",
+    "VmData",
+    "VmStk",
+    "VmExe",
+    # "VmLib",
+    # "VmPTE",
+    # "VmPMD",
+    "VmSwap",
+    # "HugetlbPages",
+  ]
+
+###############################################
+# Statfs (AKA Disk Free/df) Metrics 
+###############################################
+statfs_metrics_config:
+  interval: 5s
+  full_metrics_factor: 12
+  # The PID to use for /proc/PID/mountinfo, use 0 for self.
+  mountinfo_pid: 0
+
+  # The list list of filesystem types to include; if not defined/empty then all
+  # are included:
+  include_file_system_types: []
+
+  # The list list of filesystem types to exclude; if not defined/empty then none
+  # is excluded. If a filesystem type appears in both lists then exclude takes
+  # precedence. Recommended exclusions contain remote file systems and pseudo
+  # file systems:
+  exclude_file_system_types: [
+    "cgroup",
+    "cgroup2",
+    "cifs",
+    "dav",
+    "davfs2",
+    "devpts",
+    "fakeowner",
+    "mqueue",
+    "nfs",
+    "proc",
+    "sftp",
+    "smb",
+    "sshfs",
+    "sysfs",
+  ]
+
+###############################################
+# qdisc (tc -s qdisc show) Metrics 
+###############################################
+qdisc_metrics_config:
+  interval: 1s
+  full_metrics_factor: 15
+
+###############################################
+# Scheduler
+###############################################
+scheduler_config:
+  # The number of workers in the pool controls the level of concurrency of task
+  # execution and it allows for short tasks to be executed without having to
+  # wait for a long one to complete. If set to -1 it will match the number of
+  # available cores:
+  num_workers: 2
+
+###############################################
+# Compressor Pool
+###############################################
+compressor_pool_config:
+  # The number of compressors. If set to -1 it will match the number of
+  # available cores but not more than COMPRESSOR_POOL_NUM_COMPRESSORS_MAX:
+  num_compressors: 2
+  # Buffer pool max size; buffers are pulled by metrics generators as needed and
+  # they are returned after they are compressed. The pool max size controls only
+  # how many idle buffers are being kept around, since they are created as many
+  # as requested but they are discarded if they exceed the value below. A value
+  # is too small leads to object churning and a value too large may waste
+  # memory.
+  buffer_pool_max_size: 64
+  # Metrics queue size, it should be deep enough to accommodate metrics up to
+  # send_buffer_timeout:
+  metrics_queue_size: 64
+  # Compression level: 0..9, -1 stands for gzip.DefaultCompression:
+  compression_level: -1
+  # Batch target size; metrics will be read from the queue until the
+  # compressed size is ~ to the value below. The value can have the usual `k`
+  # or `m` suffixes for KiB or MiB accordingly.
+  batch_target_size: 64k
+  # Flush interval. If batch_target_size is not reached before this interval
+  # expires, the metrics compressed thus far are being sent anyway. Use 0 to
+  # disable time flush. The value should be compatible with
+  # https://pkg.go.dev/time#ParseDuration
+  flush_interval: 5s
+
+###############################################
+# HTTP Endpoint Pool
+###############################################
+http_endpoint_pool_config:
+  # The list of endpoint URLs. Each URL may have an associated threshold for
+  # failed accesses count, used for declaring the endpoint unhealthy; this may
+  # be > 1 for cases where the host name part of the URL is some kind of a DNS
+  # pool which is resolved to a list of addresses, in which case it should be
+  # set to the number of pool members expected to be unavailable simultaneously.
+  # Just because one member is unhealthy, it doesn't mean that others cannot be
+  # used. The net/http Transport connection cache will remove the failed
+  # connection and the name to address resolution mechanism should no longer
+  # resolve to this failed IP.
+  endpoints:
+    - url: http://127.0.0.1:8428/api/v1/import/prometheus
+      #mark_unhealthy_threshold: 1 # If not defined the pool default will be used
+
+  # Pool default for unhealthy threshold:
+  mark_unhealthy_threshold: 1
+
+  # Whether the endpoint list should be shuffled or not. Shuffling is
+  # recommended if the config file is shared by all collectors, such they all
+  # start with the *same* configured endpoint list; the shuffle will help
+  # distribute the load across all endpoints:
+  shuffle: false
+
+  # How often to rotate the healthy endpoint list, to load balance the
+  # connections. Set to 0 to rotate after every use or to -1s to disable the
+  # rotation. The value must be compatible with
+  # https://pkg.go.dev/time#ParseDuration
+  healthy_rotate_interval: 5m
+
+  # After what time to reset the cumulative error count of a failed endpoint.
+  # A failed endpoint is moved to the back of the usable list, as long as the
+  # cumulative error count is less than the threshold. If enough time passes
+  # before it makes it back to the head of the list, then the error count used
+  # to declare it unhealthy is no longer relevant and it should be reset. Use 0
+  # to disable. The value must be compatible with
+  # https://pkg.go.dev/time#ParseDuration
+  error_reset_interval: 1m
+
+  # How often to check if an unhealthy endpoint has become healthy. The value
+  # must be compatible with https://pkg.go.dev/time#ParseDuration and >= 1s
+  health_check_interval: 5s
+
+  # How long to wait for a healthy endpoint, in case healthy is empty; normally
+  # this should be > health_check_interval. The value must be compatible with
+  # https://pkg.go.dev/time#ParseDuration
+  healthy_max_wait: 6s
+
+  # How long to wait for a SendBuffer call to succeed; normally this should be
+  # longer than healthy_max_wait or other HTTP timeouts:
+  send_buffer_timeout: 30s
+
+  # Rate limit in Mbps; it may be specified as FLOAT or FLOAT:INTERVAL, where
+  # INTERVAL must be compatible with https://pkg.go.dev/time#ParseDuration.
+  # INTERVAL determines the granularity of traffic control and in general the
+  # smaller the value, the smoother the traffic. The default is "1s" and
+  # shouldn't be smaller than "50ms". Leave empty/undefined for no limit.
+  rate_limit_mbps:
+
+  # Parameters for https://pkg.go.dev/net#Dialer:
+  # Timeout:
+  tcp_conn_timeout: 2s
+  # KeepAlive:
+  tcp_keep_alive: 15s
+  # Parameters for https://pkg.go.dev/net/http#Transport:
+  # MaxIdleConns:
+  max_idle_conns: 0
+  # MaxIdleConnsPerHost:
+  max_idle_conns_per_host: 1
+  # MaxConnsPerHost:
+  max_conns_per_host: 0
+  # IdleConnTimeout:
+  idle_conn_timeout: 1m
+  # Parameters for https://pkg.go.dev/net/http#Client:
+  # Timeout:
+  response_timeout: 5s
+
+###############################################
+# Logger
+###############################################
+log_config:
+  # Whether to log in JSON format:
+  use_json: false
+  # The log level, must be one of the following:
+  #   panic, fatal, error, warning, info, debug, trace
+  # Override w/ --log-level=LEVEL 
+  log_level: info
+  # Whether to disable report file:line#:
+  disable_src_file: false
+  # Whether to log to a file or stderr or empty to log to stderr.
+  # Override w/ --log-file=PATH
+  log_file: stderr
+  # Log file max size, in MB, before rotation, use 0 to disable:
+  log_file_max_size_mb: 10
+  # How many older log files to keep upon rotation:
+  log_file_max_backup_num: 1
