@@ -1,4 +1,8 @@
-#! /bin/bash --noprofile
+#!/bin/bash
+
+vm_ver=1.90.0
+vm_os=linux
+vm_arch=amd64
 
 this_script=${0##*/}
 
@@ -11,7 +15,7 @@ fi
 usage="
 Usage: $this_script [-r ROOT_DIR]
 
-Install PoC LSVMI at ROOT_DIR, default: $lsvmi_poc_root_dir
+Install PoC VictoriaMetrics at ROOT_DIR, default: $lsvmi_poc_root_dir
 "
 
 case "$0" in
@@ -40,9 +44,17 @@ set -e
 mkdir -p $lsvmi_poc_root_dir
 dst_dir=$(realpath $lsvmi_poc_root_dir)
 
-set -x
-cd $this_dir
-rsync -plrSH files/common.sh files/*-lsvmi.sh files/lsvmi-config.yaml $dst_dir/
-mkdir -p $dst_dir/bin
-rsync -plrSH $project_root_dir/bin/ $dst_dir/bin
 
+set -x
+
+mkdir -p $dst_dir/bin/$vm_os-$vm_arch
+cd $dst_dir/bin/$vm_os-$vm_arch
+
+curl -s -L https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v$vm_ver/vmutils-$vm_os-$vm_arch-v$vm_ver.tar.gz | tar xzf -
+curl -s -L https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v$vm_ver/victoria-metrics-$vm_os-$vm_arch-v$vm_ver.tar.gz | tar xzf -
+
+ln -fs victoria-metrics-prod victoria-metrics
+ln -fs vmagent-prod vmagent
+
+cd $this_dir
+rsync -plrSH files/common.sh files/*-victoria-metrics.sh $dst_dir/
