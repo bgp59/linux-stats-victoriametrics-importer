@@ -1,6 +1,7 @@
 bin/
-/buildinfo
-/local
-/testdata
+buildinfo/
+local/
+runtime/
+testdata/
 go.work
 go.work.*
