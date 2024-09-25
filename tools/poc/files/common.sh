@@ -2,32 +2,12 @@
 
 # Sourced by various scripts.
 
-if [[ -z "$this_dir" ]]; then
-    this_dir=$(cd $(dirname ${BASH_SOURCE}) && pwd)
-fi
-
-os=$(uname -s | tr A-Z a-z)
-case "$os" in
-    linux) go_os="$os";;
-    *) go_os="";;
-esac
-
-arch=$(uname -m | tr A-Z a-z)
-case "$arch" in
-    x86_64) go_arch="amd64";;
-    *) go_arch=;;
-esac
-
-if [[ -n "$go_os" && -n "$go_arch" && -d "$this_dir/bin/$go_os-$go_arch" ]]; then
-    export PATH="$this_dir/bin/$go_os-$go_arch${PATH:+:}$PATH"
-fi
-
-
 check_os_arch() {
+    local _this_dir=${this_dir:-$(cd $(dirname ${BASH_SOURCE}) && pwd)}
     local _this_script=${this_script:-${BASH_SOURCE##*/}}
     local os=$(uname -s | tr A-Z a-z)
     case "$os" in
-        linux) go_os="$os";;
+        linux) : ;;
         *)
             echo >&2 "$_this_script - $os: unsupported OS"
             return 1
@@ -36,15 +16,18 @@ check_os_arch() {
 
     local arch=$(uname -m | tr A-Z a-z)
     case "$arch" in
-        x86_64) go_arch="amd64";;
+        amd64) : ;;
+        x86_64) arch="amd64";;
         *)
             echo >&2 "$_this_script - $arch: unsupported arch"
             return 1
         ;;
     esac
+    
+    os_arch="$os-$arch"
 
-    if [[ -d "$this_dir/bin/$go_os-$go_arch" && "$PATH" != "$this_dir/bin/$go_os-$go_arch"* ]]; then
-        export PATH="$this_dir/bin/$go_os-$go_arch${PATH:+:}$PATH"
+    if [[ -d "$this_dir/bin/$os_arch" && "$PATH" != "$this_dir/bin/$os_arch"* ]]; then
+        export PATH="$this_dir/bin/$os_arch${PATH:+:}$PATH"
     fi
     return 0
 }
@@ -80,4 +63,18 @@ kill_wait_proc() {
         done
     done
     return 1
+}
+
+create_dir_maybe_symlink() {
+    (
+        set +x
+        while [[ $# -gt 0 ]]; do
+            target=$(readlink $1)
+            if [[ -z "$target" ]]; then
+                target="$1"
+            fi
+            (set -x; mkdir -p $target)
+            shift
+        done
+    )
 }

@@ -2,7 +2,6 @@
 
 this_script=${0##*/}
 
-
 # Common functions, etc:
 case "$0" in
     /*|*/*) this_dir=$(dirname $(realpath $0));;
@@ -17,7 +16,7 @@ fi
 
 usage="
 Usage: $this_script [-r POC_ROOT_DIR]
-Install VictoriaMetrics under POC_ROOT_DIR, default: $lsvmi_poc_root_dir
+Install Grafana under POC_ROOT_DIR, default: $lsvmi_poc_root_dir
 "
 
 case "$1" in
@@ -41,5 +40,5 @@ mkdir -p $lsvmi_poc_root_dir
 lsvmi_poc_root_dir=$(realpath $lsvmi_poc_root_dir)
 
 cd $this_dir/files
-rsync -plrSH common.sh victoria-metrics $lsvmi_poc_root_dir
-$lsvmi_poc_root_dir/victoria-metrics/download-victoria-metrics.sh
+rsync -plrSH common.sh grafana $lsvmi_poc_root_dir
+$lsvmi_poc_root_dir/grafana/download-grafana.sh

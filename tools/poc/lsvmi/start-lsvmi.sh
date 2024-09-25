@@ -13,9 +13,9 @@ case "$this_script" in
         check_os_arch 
         check_if_running linux-stats-victoriametrics-importer
         (
-            set -ex
+            set -x
             cd $this_dir
-            mkdir -p log out
+            create_dir_maybe_symlink log out
             exec linux-stats-victoriametrics-importer \
                 -log-file=log/linux-stats-victoriametrics-importer.log \
                 "$@" \
@@ -25,7 +25,9 @@ case "$this_script" in
         )
     ;;
     run*)
-        set -ex
+        set -e
+        check_os_arch 
+        set -x
         cd $this_dir
         exec linux-stats-victoriametrics-importer -log-file=stderr "$@"
     ;;
