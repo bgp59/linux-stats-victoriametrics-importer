@@ -32,10 +32,12 @@ check_os_arch() {
     return 0
 }
 
-check_if_running() {
+check_if_not_running() {
     local _this_script=${this_script:-${BASH_SOURCE##*/}}
-    if pgrep -af "(.*/)?$*( |\$)" >&2; then
-        echo >&2 "$_this_script - $@ already running"
+    local _running=$(pgrep -af "(.*/)?$*( |\$)")
+    if [[ -n "$_running" ]] >&2; then
+        echo >&2 "$_this_script - $@ running"
+        echo >&2 "$_running"
         return 1
     fi
     return 0

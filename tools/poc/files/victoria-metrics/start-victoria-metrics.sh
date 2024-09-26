@@ -10,16 +10,18 @@ esac
 case "$this_script" in
     start*)
         set -e
-        check_if_running victoria-metrics
+        check_if_not_running victoria-metrics
         export PATH="$this_dir/bin${PATH:+:}$PATH"
-        set -x
-        cd $this_dir
-        create_dir_maybe_symlink out data
-        victoria-metrics \
-            -storageDataPath data \
-            -retentionPeriod 2d \
-            -selfScrapeInterval=10s \
-            > out/victoria-metrics.out 2>out/victoria-metrics.err < /dev/null &
+        (
+            set -x
+            cd $this_dir
+            create_dir_maybe_symlink out data
+            setsid victoria-metrics \
+                -storageDataPath data \
+                -retentionPeriod 2d \
+                -selfScrapeInterval=10s \
+                > out/victoria-metrics.out 2>out/victoria-metrics.err < /dev/null &
+        )
     ;;
     stop*)
         kill_wait_proc victoria-metrics

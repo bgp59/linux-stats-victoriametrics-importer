@@ -10,12 +10,14 @@ esac
 case "$this_script" in
     start*)
         set -e
-        check_if_running grafana
+        check_if_not_running grafana
         export PATH="$this_dir/bin${PATH:+:}$PATH"
-        set -x
-        cd $this_dir
-        create_dir_maybe_symlink data out log
-        grafana ${@:-server} >out/grafana.out 2>out/grafana.err </dev/null &
+        (
+            set -x
+            cd $this_dir
+            create_dir_maybe_symlink data out log
+            setsid grafana ${@:-server} >out/grafana.out 2>out/grafana.err </dev/null &
+        )
     ;;
     stop*)
         kill_wait_proc grafana

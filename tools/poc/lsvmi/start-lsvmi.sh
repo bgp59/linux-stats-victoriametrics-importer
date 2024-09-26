@@ -11,7 +11,7 @@ case "$this_script" in
     start*)
         set -e
         check_os_arch 
-        check_if_running linux-stats-victoriametrics-importer
+        check_if_not_running linux-stats-victoriametrics-importer
         (
             set -x
             cd $this_dir
