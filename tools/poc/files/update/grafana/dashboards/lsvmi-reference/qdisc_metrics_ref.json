@@ -1150,8 +1150,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "qdisc_metrics",
-  "uid": "qdisc_metrics",
+  "title": "qdisc_metrics_ref",
+  "uid": "qdisc_metrics_ref",
   "version": 13,
   "weekStart": ""
 }

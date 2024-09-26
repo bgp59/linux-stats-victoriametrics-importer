@@ -24,7 +24,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 17,
+  "id": 10,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -36,7 +36,7 @@
         "x": 0,
         "y": 0
       },
-      "id": 2,
+      "id": 13,
       "panels": [
         {
           "datasource": {
@@ -78,14 +78,13 @@
                   "mode": "off"
                 }
               },
-              "decimals": 0,
+              "decimals": 1,
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -93,23 +92,23 @@
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "percent"
             },
             "overrides": []
           },
           "gridPos": {
-            "h": 6,
-            "w": 22,
+            "h": 9,
+            "w": 6,
             "x": 0,
             "y": 1
           },
-          "id": 9,
+          "id": 2,
           "interval": "${interval}",
           "options": {
             "legend": {
               "calcs": [],
               "displayMode": "list",
-              "placement": "right",
+              "placement": "bottom",
               "showLegend": true
             },
             "tooltip": {
@@ -124,99 +123,14 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_snmp_ip_in_receives_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"guest\",cpu=~\"${cpu}\",cpu!=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
+              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
               "range": true,
               "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_ip_in_hdr_errors_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_ip_in_addr_errors_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "C"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_ip_forw_datagrams_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "D"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_ip_in_unknown_protos_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}  >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "E"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_ip_in_discards_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}  >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "F"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_ip_in_delivers_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "G"
             }
           ],
-          "title": "IpIn Deltas",
+          "title": "guest %CPU (per cpu + avg)",
           "type": "timeseries"
         },
         {
@@ -259,14 +173,13 @@
                   "mode": "off"
                 }
               },
-              "decimals": 0,
+              "decimals": 1,
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -274,23 +187,23 @@
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "percent"
             },
             "overrides": []
           },
           "gridPos": {
-            "h": 6,
-            "w": 22,
-            "x": 0,
-            "y": 7
+            "h": 9,
+            "w": 6,
+            "x": 6,
+            "y": 1
           },
-          "id": 11,
+          "id": 3,
           "interval": "${interval}",
           "options": {
             "legend": {
               "calcs": [],
               "displayMode": "list",
-              "placement": "right",
+              "placement": "bottom",
               "showLegend": true
             },
             "tooltip": {
@@ -305,43 +218,14 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_snmp_ip_out_requests_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"guest_nice\",cpu=~\"${cpu}\",cpu!=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
+              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
               "range": true,
               "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_ip_out_discards_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_ip_out_discards_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "C"
             }
           ],
-          "title": "IpOut Deltas",
+          "title": "guest_nice %CPU (per cpu + avg)",
           "type": "timeseries"
         },
         {
@@ -384,14 +268,13 @@
                   "mode": "off"
                 }
               },
-              "decimals": 0,
+              "decimals": 1,
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -399,198 +282,15 @@
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "percent"
             },
             "overrides": []
           },
           "gridPos": {
-            "h": 6,
-            "w": 22,
-            "x": 0,
-            "y": 13
-          },
-          "id": 12,
-          "interval": "${interval}",
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "right",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_ip_reasm_timeout{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_ip_reasm_reqds_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_ip_reasm_oks_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "C"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_ip_reasm_fails_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "D"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_ip_frag_oks_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "E"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_ip_frag_fails_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "F"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_ip_frag_creates_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "G"
-            }
-          ],
-          "title": "Ip Deltas",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "left",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "decimals": 0,
-              "mappings": [],
-              "max": 1,
-              "min": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 11,
-            "x": 0,
-            "y": 19
+            "h": 9,
+            "w": 6,
+            "x": 12,
+            "y": 1
           },
           "id": 4,
           "interval": "${interval}",
@@ -613,15 +313,14 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_snmp_ip_forwarding{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
-              "format": "time_series",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"idle\",cpu=~\"${cpu}\",cpu!=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
+              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
               "range": true,
               "refId": "A"
             }
           ],
-          "title": "IpForwarding",
+          "title": "idle %CPU (per cpu + avg)",
           "type": "timeseries"
         },
         {
@@ -629,7 +328,6 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -639,7 +337,7 @@
                 "axisCenteredZero": false,
                 "axisColorMode": "text",
                 "axisLabel": "",
-                "axisPlacement": "left",
+                "axisPlacement": "auto",
                 "barAlignment": 0,
                 "drawStyle": "line",
                 "fillOpacity": 0,
@@ -665,14 +363,13 @@
                   "mode": "off"
                 }
               },
-              "decimals": 0,
+              "decimals": 1,
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -680,14 +377,489 @@
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "percent"
             },
             "overrides": []
           },
           "gridPos": {
-            "h": 4,
-            "w": 11,
-            "x": 11,
+            "h": 9,
+            "w": 6,
+            "x": 18,
+            "y": 1
+          },
+          "id": 5,
+          "interval": "${interval}",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"iowait\",cpu=~\"${cpu}\",cpu!=\"all\"}",
+              "interval": "${interval}",
+              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "iowait %CPU (per cpu + avg)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "decimals": 1,
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 6,
+            "x": 0,
+            "y": 10
+          },
+          "id": 6,
+          "interval": "${interval}",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"irq\",cpu=~\"${cpu}\",cpu!=\"all\"}",
+              "interval": "${interval}",
+              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "irq %CPU (per cpu + avg)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "decimals": 1,
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 6,
+            "x": 6,
+            "y": 10
+          },
+          "id": 7,
+          "interval": "${interval}",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"nice\",cpu=~\"${cpu}\",cpu!=\"all\"}",
+              "interval": "${interval}",
+              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "nice %CPU (per cpu + avg)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "decimals": 1,
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 6,
+            "x": 12,
+            "y": 10
+          },
+          "id": 8,
+          "interval": "${interval}",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"softirq\",cpu=~\"${cpu}\",cpu!=\"all\"}",
+              "interval": "${interval}",
+              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "softirq %CPU (per cpu + avg)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "decimals": 1,
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 6,
+            "x": 18,
+            "y": 10
+          },
+          "id": 9,
+          "interval": "${interval}",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"steal\",cpu=~\"${cpu}\",cpu!=\"all\"}",
+              "interval": "${interval}",
+              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "steal %CPU (per cpu + avg)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "decimals": 1,
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 6,
+            "x": 0,
             "y": 19
           },
           "id": 10,
@@ -711,19 +883,113 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_snmp_ip_default_ttl{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
-              "format": "time_series",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"system\",cpu=~\"${cpu}\",cpu!=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
+              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
               "range": true,
               "refId": "A"
             }
           ],
-          "title": "IpDefaultTTL",
+          "title": "system %CPU (per cpu + avg)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "decimals": 1,
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 6,
+            "x": 6,
+            "y": 19
+          },
+          "id": 11,
+          "interval": "${interval}",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"user\",cpu=~\"${cpu}\",cpu!=\"all\"}",
+              "interval": "${interval}",
+              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "user %CPU (per cpu + avg)",
           "type": "timeseries"
         }
       ],
-      "title": "IP",
+      "title": "Per CPU + Avg %CPU",
       "type": "row"
     },
     {
@@ -734,7 +1000,7 @@
         "x": 0,
         "y": 1
       },
-      "id": 14,
+      "id": 16,
       "panels": [
         {
           "datasource": {
@@ -776,7 +1042,7 @@
                   "mode": "off"
                 }
               },
-              "decimals": 0,
+              "decimals": 1,
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
@@ -790,23 +1056,23 @@
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "percent"
             },
             "overrides": []
           },
           "gridPos": {
-            "h": 6,
-            "w": 22,
+            "h": 9,
+            "w": 6,
             "x": 0,
-            "y": 18
+            "y": 2
           },
-          "id": 15,
+          "id": 14,
           "interval": "${interval}",
           "options": {
             "legend": {
               "calcs": [],
               "displayMode": "list",
-              "placement": "right",
+              "placement": "bottom",
               "showLegend": true
             },
             "tooltip": {
@@ -821,211 +1087,14 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_in_msgs_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"guest\",cpu=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
+              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
               "range": true,
               "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_in_errors_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_in_csum_errors_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "C"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_in_dest_unreachs_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}  >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "D"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_in_time_excds_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}  >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "E"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_in_parm_probs_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "F"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_in_src_quenchs_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "G"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_in_redirects_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "H"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_in_echos_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "I"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_in_echo_reps_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "J"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_in_timestamps_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "K"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_in_timestamp_reps_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "L"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_in_addr_masks_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "M"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_in_addr_mask_reps_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "N"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmpmsg_in_type3_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "O"
             }
           ],
-          "title": "IcmpIn Deltas",
+          "title": "guest %CPU (all)",
           "type": "timeseries"
         },
         {
@@ -1068,7 +1137,7 @@
                   "mode": "off"
                 }
               },
-              "decimals": 0,
+              "decimals": 1,
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
@@ -1082,23 +1151,23 @@
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "percent"
             },
             "overrides": []
           },
           "gridPos": {
-            "h": 6,
-            "w": 22,
-            "x": 0,
-            "y": 24
+            "h": 9,
+            "w": 6,
+            "x": 6,
+            "y": 2
           },
-          "id": 16,
+          "id": 17,
           "interval": "${interval}",
           "options": {
             "legend": {
               "calcs": [],
               "displayMode": "list",
-              "placement": "right",
+              "placement": "bottom",
               "showLegend": true
             },
             "tooltip": {
@@ -1113,227 +1182,16 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_out_msgs_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"guest_nice\",cpu=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
+              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
               "range": true,
               "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_out_errors_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_out_dest_unreachs_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "C"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_out_time_excds_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}  >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "D"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_out_parm_probs_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "E"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_out_src_quenchs_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "F"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_in_src_quenchs_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "G"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_out_redirects_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "H"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_out_echos_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "I"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_out_echo_reps_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "J"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_out_timestamps_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "K"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_out_timestamp_reps_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "L"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_out_addr_masks_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "M"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmp_out_addr_mask_reps_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "N"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_icmpmsg_out_type3_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "O"
             }
           ],
-          "title": "IcmpOut Deltas",
+          "title": "guest_nice %CPU (all)",
           "type": "timeseries"
-        }
-      ],
-      "title": "ICMP",
-      "type": "row"
-    },
-    {
-      "collapsed": true,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 2
-      },
-      "id": 18,
-      "panels": [
+        },
         {
           "datasource": {
             "type": "prometheus",
@@ -1374,14 +1232,13 @@
                   "mode": "off"
                 }
               },
-              "decimals": 0,
+              "decimals": 1,
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1389,15 +1246,110 @@
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "percent"
             },
             "overrides": []
           },
           "gridPos": {
-            "h": 6,
-            "w": 22,
-            "x": 0,
-            "y": 3
+            "h": 9,
+            "w": 6,
+            "x": 12,
+            "y": 2
+          },
+          "id": 18,
+          "interval": "${interval}",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"idle\",cpu=\"all\"}",
+              "interval": "${interval}",
+              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "idle %CPU (all)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "decimals": 1,
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 6,
+            "x": 18,
+            "y": 2
           },
           "id": 19,
           "interval": "${interval}",
@@ -1405,7 +1357,7 @@
             "legend": {
               "calcs": [],
               "displayMode": "list",
-              "placement": "right",
+              "placement": "bottom",
               "showLegend": true
             },
             "tooltip": {
@@ -1420,43 +1372,14 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_snmp_tcp_in_segs_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"iowait\",cpu=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
+              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
               "range": true,
               "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_tcp_in_errs_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_tcp_in_csum_errors_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "C"
             }
           ],
-          "title": "TcpIn Deltas",
+          "title": "iowait %CPU (all)",
           "type": "timeseries"
         },
         {
@@ -1499,14 +1422,13 @@
                   "mode": "off"
                 }
               },
-              "decimals": 0,
+              "decimals": 1,
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1514,15 +1436,15 @@
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "percent"
             },
             "overrides": []
           },
           "gridPos": {
-            "h": 6,
-            "w": 22,
+            "h": 9,
+            "w": 6,
             "x": 0,
-            "y": 9
+            "y": 11
           },
           "id": 20,
           "interval": "${interval}",
@@ -1530,7 +1452,7 @@
             "legend": {
               "calcs": [],
               "displayMode": "list",
-              "placement": "right",
+              "placement": "bottom",
               "showLegend": true
             },
             "tooltip": {
@@ -1545,29 +1467,14 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_snmp_tcp_out_segs_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"irq\",cpu=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
+              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
               "range": true,
               "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_tcp_out_rsts_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "B"
             }
           ],
-          "title": "TcpOut Deltas",
+          "title": "irq %CPU (all)",
           "type": "timeseries"
         },
         {
@@ -1610,14 +1517,13 @@
                   "mode": "off"
                 }
               },
-              "decimals": 0,
+              "decimals": 1,
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1625,15 +1531,15 @@
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "percent"
             },
             "overrides": []
           },
           "gridPos": {
-            "h": 6,
-            "w": 22,
-            "x": 0,
-            "y": 15
+            "h": 9,
+            "w": 6,
+            "x": 6,
+            "y": 11
           },
           "id": 21,
           "interval": "${interval}",
@@ -1641,7 +1547,7 @@
             "legend": {
               "calcs": [],
               "displayMode": "list",
-              "placement": "right",
+              "placement": "bottom",
               "showLegend": true
             },
             "tooltip": {
@@ -1656,71 +1562,14 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_snmp_tcp_active_opens_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"nice\",cpu=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
+              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
               "range": true,
               "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_tcp_passive_opens_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_tcp_attempt_fails_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "C"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_tcp_estab_resets_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "D"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_tcp_retrans_segs_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "E"
             }
           ],
-          "title": "Tcp Deltas",
+          "title": "nice %CPU (all)",
           "type": "timeseries"
         },
         {
@@ -1736,8 +1585,8 @@
               "custom": {
                 "axisCenteredZero": false,
                 "axisColorMode": "text",
-                "axisLabel": "Algo",
-                "axisPlacement": "left",
+                "axisLabel": "",
+                "axisPlacement": "auto",
                 "barAlignment": 0,
                 "drawStyle": "line",
                 "fillOpacity": 0,
@@ -1763,14 +1612,13 @@
                   "mode": "off"
                 }
               },
-              "decimals": 0,
+              "decimals": 1,
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1778,32 +1626,15 @@
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "percent"
             },
-            "overrides": [
-              {
-                "matcher": {
-                  "id": "byRegexp",
-                  "options": "/rto_(min|max)/"
-                },
-                "properties": [
-                  {
-                    "id": "custom.axisPlacement",
-                    "value": "right"
-                  },
-                  {
-                    "id": "custom.axisLabel",
-                    "value": "Min/Max"
-                  }
-                ]
-              }
-            ]
+            "overrides": []
           },
           "gridPos": {
-            "h": 5,
-            "w": 9,
-            "x": 0,
-            "y": 21
+            "h": 9,
+            "w": 6,
+            "x": 12,
+            "y": 11
           },
           "id": 22,
           "interval": "${interval}",
@@ -1826,43 +1657,14 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_snmp_tcp_rto_algorithm{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
-              "format": "time_series",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"softirq\",cpu=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
+              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
               "range": true,
               "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_tcp_rto_min{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_tcp_rto_max{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "C"
             }
           ],
-          "title": "TcpRto",
+          "title": "softirq %CPU (all)",
           "type": "timeseries"
         },
         {
@@ -1879,7 +1681,7 @@
                 "axisCenteredZero": false,
                 "axisColorMode": "text",
                 "axisLabel": "",
-                "axisPlacement": "left",
+                "axisPlacement": "auto",
                 "barAlignment": 0,
                 "drawStyle": "line",
                 "fillOpacity": 0,
@@ -1905,14 +1707,13 @@
                   "mode": "off"
                 }
               },
-              "decimals": 0,
+              "decimals": 1,
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1920,15 +1721,15 @@
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "percent"
             },
             "overrides": []
           },
           "gridPos": {
-            "h": 5,
-            "w": 13,
-            "x": 9,
-            "y": 21
+            "h": 9,
+            "w": 6,
+            "x": 18,
+            "y": 11
           },
           "id": 23,
           "interval": "${interval}",
@@ -1951,19 +1752,414 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_snmp_tcp_curr_estab{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
-              "format": "time_series",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"steal\",cpu=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
+              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
               "range": true,
               "refId": "A"
             }
           ],
-          "title": "TcpEstablished",
+          "title": "steal %CPU (all)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "decimals": 1,
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 6,
+            "x": 0,
+            "y": 20
+          },
+          "id": 24,
+          "interval": "${interval}",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"system\",cpu=\"all\"}",
+              "interval": "${interval}",
+              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "system %CPU (all)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "decimals": 1,
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 6,
+            "x": 6,
+            "y": 20
+          },
+          "id": 25,
+          "interval": "${interval}",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"user\",cpu=\"all\"}",
+              "interval": "${interval}",
+              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "user %CPU (all)",
           "type": "timeseries"
         }
       ],
-      "title": "TCP",
+      "title": "all %CPU",
+      "type": "row"
+    },
+    {
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 2
+      },
+      "id": 33,
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "IMPORTANT! Must select a **specific** Instance, Hostname and CPU, \"All\" will NOT work.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 100,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "normal"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "decimals": 1,
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 12,
+            "x": 0,
+            "y": 3
+          },
+          "id": 27,
+          "interval": "${interval}",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "proc_stat_cpu_pct{instance=\"${instance}\",hostname=\"${hostname}\",cpu=\"${cpu}\"}",
+              "interval": "${interval}",
+              "legendFormat": "{{type}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Stacked %CPU for cpu ${cpu}, ${hostname}/${instance}",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "IMPORTANT! Must select a **specific** Instance, Hostname and CPU, \"All\" will NOT work.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 100,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "normal"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "decimals": 1,
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 12,
+            "x": 12,
+            "y": 3
+          },
+          "id": 43,
+          "interval": "${interval}",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "avg_over_time(\n        last_over_time(\n                proc_stat_cpu_pct{instance=\"${instance}\",hostname=\"${hostname}\",cpu=\"${cpu}\"}[5s200ms])[${avg_interval}]\n)",
+              "interval": "${interval}",
+              "legendFormat": "{{type}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Stacked %CPU for cpu ${cpu}, ${hostname}/${instance}, Avg / ${avg_interval}",
+          "type": "timeseries"
+        }
+      ],
+      "title": "%CPU Explorer",
       "type": "row"
     },
     {
@@ -1974,396 +2170,7 @@
         "x": 0,
         "y": 3
       },
-      "id": 25,
-      "panels": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "decimals": 0,
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 6,
-            "w": 22,
-            "x": 0,
-            "y": 4
-          },
-          "id": 26,
-          "interval": "${interval}",
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "right",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_udp_in_datagrams_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_udp_in_errors_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_udp_rcvbuf_errors_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "C"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_udp_ignored_multi_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}  >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "D"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_udp_in_csum_errors_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}  >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "E"
-            }
-          ],
-          "title": "UdpIn Deltas",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "decimals": 0,
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 6,
-            "w": 22,
-            "x": 0,
-            "y": 10
-          },
-          "id": 27,
-          "interval": "${interval}",
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "right",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_udp_out_datagrams_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_udp_sndbuf_errors_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "B"
-            }
-          ],
-          "title": "UdpOut Deltas",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "decimals": 0,
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 6,
-            "w": 22,
-            "x": 0,
-            "y": 16
-          },
-          "id": 28,
-          "interval": "${interval}",
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "right",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_udp_no_ports_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_udp_mem_errors_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "B"
-            }
-          ],
-          "title": "Udp Deltas",
-          "type": "timeseries"
-        }
-      ],
-      "title": "UDP",
-      "type": "row"
-    },
-    {
-      "collapsed": true,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 4
-      },
-      "id": 30,
+      "id": 29,
       "panels": [
         {
           "datasource": {
@@ -2374,70 +2181,295 @@
           "fieldConfig": {
             "defaults": {
               "color": {
-                "mode": "palette-classic"
+                "mode": "thresholds"
               },
               "custom": {
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
                 },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
+                "inspect": false
               },
-              "decimals": 0,
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
                     "value": 80
                   }
                 ]
-              },
-              "unit": "none"
+              }
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Boot Time"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "dateTimeAsIso"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 371
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Uptime"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "ms"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Time"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 188
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Hostname"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 369
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 6,
-            "w": 22,
+            "w": 24,
             "x": 0,
-            "y": 5
+            "y": 4
           },
           "id": 31,
+          "options": {
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "frameIndex": 0,
+            "showHeader": true,
+            "sortBy": []
+          },
+          "pluginVersion": "9.4.7",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "proc_stat_btime_sec{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "proc_stat_uptime_sec{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "B"
+            }
+          ],
+          "title": "Host Boot/Up Time",
+          "transformations": [
+            {
+              "id": "joinByField",
+              "options": {
+                "byField": "instance",
+                "mode": "inner"
+              }
+            },
+            {
+              "id": "joinByField",
+              "options": {
+                "byField": "hostname 1",
+                "mode": "inner"
+              }
+            },
+            {
+              "id": "joinByField",
+              "options": {
+                "byField": "Time 1",
+                "mode": "inner"
+              }
+            },
+            {
+              "id": "calculateField",
+              "options": {
+                "alias": "Boot Time",
+                "binary": {
+                  "left": "Value #A",
+                  "operator": "*",
+                  "reducer": "sum",
+                  "right": "1000"
+                },
+                "mode": "binary",
+                "reduce": {
+                  "reducer": "sum"
+                },
+                "replaceFields": false
+              }
+            },
+            {
+              "id": "calculateField",
+              "options": {
+                "alias": "Uptime",
+                "binary": {
+                  "left": "Value #B",
+                  "operator": "*",
+                  "reducer": "sum",
+                  "right": "1000"
+                },
+                "mode": "binary",
+                "reduce": {
+                  "reducer": "sum"
+                }
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time 2": true,
+                  "Value #A": true,
+                  "Value #B": true,
+                  "__name__ 1": true,
+                  "__name__ 2": true,
+                  "hostname 2": true
+                },
+                "indexByName": {
+                  "Boot Time": 9,
+                  "Time 1": 0,
+                  "Time 2": 5,
+                  "Uptime": 10,
+                  "Value #A": 4,
+                  "Value #B": 8,
+                  "__name__ 1": 3,
+                  "__name__ 2": 6,
+                  "hostname 1": 1,
+                  "hostname 2": 7,
+                  "instance": 2
+                },
+                "renameByName": {
+                  "Time 1": "Time",
+                  "hostname 1": "Hostname",
+                  "instance": "Instance"
+                }
+              }
+            }
+          ],
+          "type": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 8,
+            "x": 0,
+            "y": 10
+          },
+          "id": 35,
           "interval": "${interval}",
           "options": {
             "legend": {
               "calcs": [],
               "displayMode": "list",
-              "placement": "right",
+              "placement": "bottom",
               "showLegend": true
             },
             "tooltip": {
@@ -2452,10 +2484,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_snmp_udplite_in_datagrams_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
+              "expr": "proc_stat_swap_in_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
               "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
+              "legendFormat": "{{__name__}}({{hostname}}/{{instance}})",
               "range": true,
               "refId": "A"
             },
@@ -2465,58 +2496,15 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_snmp_udplite_in_errors_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
+              "expr": "proc_stat_swap_out_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
               "hide": false,
               "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
+              "legendFormat": "{{__name__}}({{hostname}}/{{instance}})",
               "range": true,
               "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_udplite_rcvbuf_errors_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "C"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_udplite_ignored_multi_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}  >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "D"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "proc_net_snmp_udplite_in_csum_errors_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}  >= ${err_threshold}",
-              "format": "time_series",
-              "hide": false,
-              "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
-              "range": true,
-              "refId": "E"
             }
           ],
-          "title": "UdpliteIn Deltas",
+          "title": "Swap In/Out Delta",
           "type": "timeseries"
         },
         {
@@ -2559,38 +2547,35 @@
                   "mode": "off"
                 }
               },
-              "decimals": 0,
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
                     "value": 80
                   }
                 ]
-              },
-              "unit": "none"
+              }
             },
             "overrides": []
           },
           "gridPos": {
             "h": 6,
-            "w": 22,
-            "x": 0,
-            "y": 11
+            "w": 8,
+            "x": 8,
+            "y": 10
           },
-          "id": 32,
+          "id": 38,
           "interval": "${interval}",
           "options": {
             "legend": {
               "calcs": [],
               "displayMode": "list",
-              "placement": "right",
+              "placement": "bottom",
               "showLegend": true
             },
             "tooltip": {
@@ -2605,10 +2590,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_snmp_udplite_out_datagrams_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
+              "expr": "proc_stat_page_in_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
               "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
+              "legendFormat": "{{__name__}}({{hostname}}/{{instance}})",
               "range": true,
               "refId": "A"
             },
@@ -2618,16 +2602,15 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_snmp_udplite_sndbuf_errors_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
+              "expr": "proc_stat_page_out_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
               "hide": false,
               "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
+              "legendFormat": "{{__name__}}({{hostname}}/{{instance}})",
               "range": true,
               "refId": "B"
             }
           ],
-          "title": "UdpliteOut Deltas",
+          "title": "Page In/Out Delta",
           "type": "timeseries"
         },
         {
@@ -2670,38 +2653,35 @@
                   "mode": "off"
                 }
               },
-              "decimals": 0,
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
                     "value": 80
                   }
                 ]
-              },
-              "unit": "none"
+              }
             },
             "overrides": []
           },
           "gridPos": {
             "h": 6,
-            "w": 22,
-            "x": 0,
-            "y": 17
+            "w": 8,
+            "x": 16,
+            "y": 10
           },
-          "id": 33,
+          "id": 37,
           "interval": "${interval}",
           "options": {
             "legend": {
               "calcs": [],
               "displayMode": "list",
-              "placement": "right",
+              "placement": "bottom",
               "showLegend": true
             },
             "tooltip": {
@@ -2716,10 +2696,195 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_snmp_udplite_no_ports_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${data_threshold}",
-              "format": "time_series",
+              "expr": "proc_stat_ctxt_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
               "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
+              "legendFormat": "{{hostname}}/{{instance}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Context Switches Delta",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 8,
+            "x": 0,
+            "y": 16
+          },
+          "id": 40,
+          "interval": "${interval}",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "proc_stat_processes_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+              "interval": "${interval}",
+              "legendFormat": "process#({{hostname}}/{{instance}})",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Fork# Delta",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 8,
+            "x": 8,
+            "y": 16
+          },
+          "id": 41,
+          "interval": "${interval}",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "proc_stat_procs_running_count{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+              "interval": "${interval}",
+              "legendFormat": "running({{hostname}}/{{instance}})",
               "range": true,
               "refId": "A"
             },
@@ -2729,20 +2894,113 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_snmp_udplite_mem_errors_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"} >= ${err_threshold}",
-              "format": "time_series",
+              "expr": "proc_stat_procs_blocked_count{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
               "hide": false,
               "interval": "${interval}",
-              "legendFormat": "{{__name__}}({{instance}}/{{hostname}})",
+              "legendFormat": "blocked({{hostname}}/{{instance}})",
               "range": true,
               "refId": "B"
             }
           ],
-          "title": "Udplite Deltas",
+          "title": "Process Running/Blocked Count",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 8,
+            "x": 16,
+            "y": 16
+          },
+          "id": 42,
+          "interval": "${interval}",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "proc_stat_metrics_delta_sec{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+              "interval": "${interval}",
+              "legendFormat": "process#({{hostname}}/{{instance}})",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Metric Interval",
           "type": "timeseries"
         }
       ],
-      "title": "UDPLite",
+      "title": "Other Metrics",
       "type": "row"
     }
   ],
@@ -2773,11 +3031,15 @@
         "type": "datasource"
       },
       {
-        "allValue": ".*",
+        "allValue": ".+",
         "current": {
-          "selected": false,
-          "text": "All",
-          "value": "$__all"
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
         },
         "datasource": {
           "type": "prometheus",
@@ -2794,14 +3056,14 @@
           "query": "lsvmi_uptime_sec",
           "refId": "StandardVariableQuery"
         },
-        "refresh": 1,
+        "refresh": 2,
         "regex": "/.*instance=\"([^\"]*).*/",
         "skipUrlSync": false,
         "sort": 1,
         "type": "query"
       },
       {
-        "allValue": ".*",
+        "allValue": ".+",
         "current": {
           "selected": true,
           "text": [
@@ -2826,76 +3088,133 @@
           "query": "lsvmi_uptime_sec{instance=~\"${instance}\"}",
           "refId": "StandardVariableQuery"
         },
-        "refresh": 1,
+        "refresh": 2,
         "regex": "/.*hostname=\"([^\"]*).*/",
         "skipUrlSync": false,
         "sort": 1,
         "type": "query"
       },
       {
+        "allValue": ".+",
         "current": {
           "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",cpu=\"all\"}",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Type",
+        "multi": true,
+        "name": "type",
+        "options": [],
+        "query": {
+          "query": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",cpu=\"all\"}",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "/.*type=\"([^\"]*)\".*/",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".+",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "proc_stat_cpu_up{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+        "hide": 0,
+        "includeAll": true,
+        "label": "CPU",
+        "multi": true,
+        "name": "cpu",
+        "options": [],
+        "query": {
+          "query": "proc_stat_cpu_up{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "/.*cpu=\"([^\"]*)\".*/",
+        "skipUrlSync": false,
+        "sort": 3,
+        "type": "query"
+      },
+      {
+        "auto": false,
+        "auto_count": 30,
+        "auto_min": "10s",
+        "current": {
+          "selected": false,
           "text": "1s",
           "value": "1s"
         },
-        "hide": 2,
-        "label": "Interval",
-        "name": "interval",
-        "query": "1s",
+        "hide": 0,
+        "label": "Avg Interval",
+        "name": "avg_interval",
+        "options": [
+          {
+            "selected": true,
+            "text": "1s",
+            "value": "1s"
+          },
+          {
+            "selected": false,
+            "text": "2s",
+            "value": "2s"
+          },
+          {
+            "selected": false,
+            "text": "5s",
+            "value": "5s"
+          },
+          {
+            "selected": false,
+            "text": "10s",
+            "value": "10s"
+          },
+          {
+            "selected": false,
+            "text": "20s",
+            "value": "20s"
+          },
+          {
+            "selected": false,
+            "text": "1m",
+            "value": "1m"
+          }
+        ],
+        "query": "1s,2s,5s,10s,20s,1m",
+        "queryValue": "",
+        "refresh": 2,
         "skipUrlSync": false,
-        "type": "constant"
+        "type": "interval"
       },
       {
         "current": {
           "selected": true,
-          "text": "16s",
-          "value": "16s"
+          "text": "200ms",
+          "value": "200ms"
         },
         "hide": 2,
-        "name": "lookback",
-        "query": "16s",
+        "name": "interval",
+        "query": "200ms",
         "skipUrlSync": false,
         "type": "constant"
-      },
-      {
-        "current": {
-          "selected": false,
-          "text": "0",
-          "value": "0"
-        },
-        "hide": 0,
-        "label": "Data Threshold",
-        "name": "data_threshold",
-        "options": [
-          {
-            "selected": true,
-            "text": "0",
-            "value": "0"
-          }
-        ],
-        "query": "0",
-        "skipUrlSync": false,
-        "type": "textbox"
-      },
-      {
-        "current": {
-          "selected": false,
-          "text": "0",
-          "value": "0"
-        },
-        "hide": 0,
-        "label": "Error Threshold",
-        "name": "err_threshold",
-        "options": [
-          {
-            "selected": true,
-            "text": "0",
-            "value": "0"
-          }
-        ],
-        "query": "0",
-        "skipUrlSync": false,
-        "type": "textbox"
       }
     ]
   },
@@ -2905,8 +3224,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "proc_net_snmp_metrics",
-  "uid": "proc_net_snmp_metrics",
-  "version": 7,
+  "title": "proc_stat_metrics_ref",
+  "uid": "proc_stat_metrics_ref",
+  "version": 30,
   "weekStart": ""
 }

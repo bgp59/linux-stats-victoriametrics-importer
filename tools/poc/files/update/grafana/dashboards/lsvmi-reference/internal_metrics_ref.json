@@ -4070,8 +4070,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "internal_metrics",
-  "uid": "internal_metrics",
+  "title": "internal_metrics_ref",
+  "uid": "internal_metrics_ref",
   "version": 78,
   "weekStart": ""
 }

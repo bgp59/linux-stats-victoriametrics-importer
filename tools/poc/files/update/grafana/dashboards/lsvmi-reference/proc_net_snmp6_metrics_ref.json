@@ -2516,8 +2516,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "proc_net_snmp6_metrics",
-  "uid": "proc_net_snmp6_metrics",
+  "title": "proc_net_snmp6_metrics_ref",
+  "uid": "proc_net_snmp6_metrics_ref",
   "version": 7,
   "weekStart": ""
 }

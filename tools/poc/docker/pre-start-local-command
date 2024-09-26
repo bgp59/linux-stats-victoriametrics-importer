@@ -1,0 +1,16 @@
+#!/bin/bash --noprofile
+
+this_script=${0##*/}
+case "$0" in
+    /*|*/*) 
+        this_dir=$(dirname $(realpath $0))
+    ;;
+    *) 
+        this_dir=$(dirname $(realpath $(which $0)))
+    ;;
+esac
+
+set -ex
+cd $this_dir
+mkdir -p volumes/runtime
+

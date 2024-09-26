@@ -10,7 +10,6 @@ case "$0" in
     ;;
 esac
 
-
 set -e
 cd $this_dir
 
@@ -33,6 +32,9 @@ case "$this_script" in
         if [[ "$this_script" == start* ]]; then
             runargs="$runargs${runargs:+ }--detach"
         fi
+        if [[ -x ./pre-start-local-command ]]; then
+            ./pre-start-local-command
+        fi
         for v in $(/bin/ls -1d volumes/*); do
             v_path=$(realpath $v)
             [[ -z "$v_path" ]] && continue
@@ -48,6 +50,10 @@ case "$this_script" in
     stop-container)
         container_id=$(docker ps --filter name=$(cat name ) --format "{{.ID}}")
         if [[ -n "$container_id" ]]; then
+            set +e
+            if [[ -f pre-stop-command ]]; then
+                (set -x; exec docker exec -it $name $(cat pre-stop-command))
+            fi
             (set -x; docker kill $container_id)
         fi
     ;;

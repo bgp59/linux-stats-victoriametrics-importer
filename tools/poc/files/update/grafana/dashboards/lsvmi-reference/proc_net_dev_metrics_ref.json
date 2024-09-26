@@ -2059,8 +2059,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "proc_net_dev_metrics",
-  "uid": "proc_net_dev_metrics",
+  "title": "proc_net_dev_metrics_ref",
+  "uid": "proc_net_dev_metrics_ref",
   "version": 18,
   "weekStart": ""
 }

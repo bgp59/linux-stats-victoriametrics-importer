@@ -3165,8 +3165,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "proc_pid_metrics",
-  "uid": "proc_pid_metrics",
+  "title": "proc_pid_metrics_ref",
+  "uid": "proc_pid_metrics_ref",
   "version": 50,
   "weekStart": ""
 }

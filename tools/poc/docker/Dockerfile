@@ -20,27 +20,21 @@ ENV TINI_VERSION=v0.19.0
 ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
 RUN chmod +x /tini
 ENTRYPOINT ["/tini", "--"]
-CMD ["sleep", "infinity"]
 
 RUN useradd -U -d /home/ubuntu -m -s /bin/bash ubuntu
 
 WORKDIR /usr/local/lsvmi-poc
 
-RUN ln -fs /volumes/linux-stats-victoriametrics-importer/tools/poc/lsvmi .
-COPY files/common.sh .
 
-COPY files/victoria-metrics victoria-metrics
+COPY files/base/ .
 RUN \
     victoria-metrics/download-victoria-metrics.sh \
     && victoria-metrics/create-victoria-metrics-runtime-symlinks.sh
-
-COPY files/grafana grafana
 RUN \
     grafana/download-grafana.sh \
     && grafana/create-grafana-runtime-symlinks.sh
 
-# Note: dashboard update should be the last command to avoid rebuilding all
-# docker layers.
-COPY files/grafana-dashboards grafana/dashboards
+COPY files/update/ .
 
 USER ubuntu
+CMD ["./run-poc.sh"]

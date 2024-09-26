@@ -24,7 +24,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 13,
+  "id": 12,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -112,14 +112,14 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "proc_softirqs_delta{\n    instance=~\"${instance}\",\n    hostname=~\"${hostname}\",\n    irq=~\"${dev_irq}\",\n    cpu=~\"${cpu}\"\n} >= ${threshold}",
+          "expr": "proc_interrupts_delta{\n    instance=~\"${instance}\",\n    hostname=~\"${hostname}\",\n    irq=~\"${dev_irq}\",\n    dev=~\"${devices}\",\n    cpu=~\"${cpu}\"\n} >= ${threshold}",
           "interval": "${interval}",
-          "legendFormat": "{{irq}}/cpu{{cpu}}/{{hostname}}/{{instance}}",
+          "legendFormat": "IRQ{{irq}} ({{dev}})/cpu{{cpu}}/{{hostname}}/{{instance}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Softirqs# Delta",
+      "title": "Dev Interrupts# Delta",
       "type": "timeseries"
     },
     {
@@ -206,14 +206,202 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "(\n    proc_softirqs_delta{\n        instance=~\"${instance}\",\n        hostname=~\"${hostname}\",\n        irq=~\"${dev_irq}\",\n       cpu=~\"${cpu}\"\n    } >= ${threshold}\n) \n/ on (instance, hostname) group_left\nproc_softirqs_metrics_delta_sec{\n    instance=~\"${instance}\",\n    hostname=~\"${hostname}\"\n}",
+          "expr": "(\n    proc_interrupts_delta{\n        instance=~\"${instance}\",\n        hostname=~\"${hostname}\",\n        irq=~\"${dev_irq}\",\n        dev=~\"${devices}\",\n        cpu=~\"${cpu}\"\n    } >= ${threshold}\n) \n/ on (instance, hostname) group_left\nproc_interrupts_metrics_delta_sec{\n    instance=~\"${instance}\",\n    hostname=~\"${hostname}\"\n}",
+          "interval": "${interval}",
+          "legendFormat": "IRQ{{irq}} ({{dev}})/cpu{{cpu}}/{{hostname}}/{{instance}})",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Dev Interrupts Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 5,
+      "interval": "${interval}",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "proc_interrupts_delta{\n    instance=~\"${instance}\", \n    hostname=~\"${hostname}\", \n    irq=~\"${non_dev_irq}\", \n    dev=\"\", \n    cpu=~\"${cpu}\"\n} >= ${threshold}",
           "interval": "${interval}",
           "legendFormat": "{{irq}}/cpu{{cpu}}/{{hostname}}/{{instance}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Softirqs Rate",
+      "title": "Non Dev Interrupts# Delta",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Int / sec",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 6,
+      "interval": "${interval}",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "(\n    proc_interrupts_delta{\n        instance=~\"${instance}\",\n        hostname=~\"${hostname}\",\n        irq=~\"${non_dev_irq}\",\n        dev=\"\",\n        cpu=~\"${cpu}\"\n    } >= ${threshold}\n)\n/ on (instance, hostname) group_left\nproc_interrupts_metrics_delta_sec{\n    instance=~\"${instance}\",\n    hostname=~\"${hostname}\"\n}",
+          "interval": "${interval}",
+          "legendFormat": "{{irq}}/cpu{{cpu}}/{{hostname}}/{{instance}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Non Dev Interrupts Rate",
       "type": "timeseries"
     }
   ],
@@ -319,7 +507,7 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "proc_softirqs_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+        "definition": "proc_interrupts_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
         "hide": 0,
         "includeAll": true,
         "label": "Devices",
@@ -327,7 +515,7 @@
         "name": "devices",
         "options": [],
         "query": {
-          "query": "proc_softirqs_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+          "query": "proc_interrupts_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
@@ -350,15 +538,15 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "proc_softirqs_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+        "definition": "proc_interrupts_info{instance=~\"${instance}\",hostname=~\"${hostname}\",dev=~\"${devices}\"}",
         "hide": 0,
         "includeAll": true,
-        "label": "IRQ",
+        "label": "Dev IRQ",
         "multi": true,
         "name": "dev_irq",
         "options": [],
         "query": {
-          "query": "proc_softirqs_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+          "query": "proc_interrupts_info{instance=~\"${instance}\",hostname=~\"${hostname}\",dev=~\"${devices}\"}",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
@@ -381,7 +569,38 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "proc_softirqs_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+        "definition": "proc_interrupts_info{instance=~\"${instance}\",hostname=~\"${hostname}\",dev=\"\"}",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Non Dev IRQ",
+        "multi": true,
+        "name": "non_dev_irq",
+        "options": [],
+        "query": {
+          "query": "proc_interrupts_info{instance=~\"${instance}\",hostname=~\"${hostname}\",dev=\"\"}",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "/.*irq=\"([^\"]*)\".*/",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "proc_interrupts_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",irq=\"0\"}",
         "hide": 0,
         "includeAll": true,
         "label": "CPU",
@@ -389,7 +608,7 @@
         "name": "cpu",
         "options": [],
         "query": {
-          "query": "proc_softirqs_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+          "query": "proc_interrupts_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",irq=\"0\"}",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
@@ -399,6 +618,11 @@
         "type": "query"
       },
       {
+        "current": {
+          "selected": true,
+          "text": "1s",
+          "value": "1s"
+        },
         "hide": 2,
         "name": "interval",
         "query": "1s",
@@ -406,6 +630,11 @@
         "type": "constant"
       },
       {
+        "current": {
+          "selected": true,
+          "text": "16s",
+          "value": "16s"
+        },
         "hide": 2,
         "label": "",
         "name": "lookback",
@@ -441,8 +670,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "proc_softirqs_metrics",
-  "uid": "proc_softirqs_metrics",
-  "version": 6,
+  "title": "proc_interrupts_metrics_ref",
+  "uid": "proc_interrupts_metrics_ref",
+  "version": 21,
   "weekStart": ""
 }

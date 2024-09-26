@@ -1083,8 +1083,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "statfs_metrics",
-  "uid": "statfs_metrics",
-  "version": 13,
+  "title": "statfs_metrics_ref",
+  "uid": "statfs_metrics_ref",
+  "version": 0,
   "weekStart": ""
 }
