@@ -20,7 +20,7 @@ usage="
 Usage: $this_script [-r POC_ROOT_DIR] [-R POC_RUNTIME_DIR]
 
 Install VictoriaMetrics & Grafana under POC_ROOT_DIR, default: $lsvmi_poc_root_dir,
-using POC_RUNTIME_DIR as runtime dir, default: POC_RUNTIME_DIR/runtime.
+using POC_RUNTIME_DIR as runtime dir, default: POC_ROOT_DIR/runtime.
 "
 
 while [[ $# -gt 0 ]]; do

@@ -5,12 +5,20 @@ case "$0" in
     /*|*/*) this_dir=$(cd $(dirname $0) && pwd);;
     *) this_dir=$(cd $(dirname $(which $0)) && pwd);;
 esac
-. $this_dir/common.sh
+
+set -e
+. $this_dir/../common.sh
+check_os_arch
+
+for d in /volumes/linux-stats-victoriametrics-importer $(realpath $this_dir/../../../..); do
+    if [[ -d $d/bin/$os_arch ]]; then
+        export PATH="$d/bin/$os_arch:$PATH"
+        break
+    fi
+done
 
 case "$this_script" in
-    start*)
-        set -e
-        check_os_arch 
+    start*)         
         check_if_not_running linux-stats-victoriametrics-importer
         (
             set -x
@@ -25,8 +33,6 @@ case "$this_script" in
         )
     ;;
     run*)
-        set -e
-        check_os_arch 
         set -x
         cd $this_dir
         exec linux-stats-victoriametrics-importer -log-file=stderr "$@"

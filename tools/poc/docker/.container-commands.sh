@@ -3,10 +3,10 @@
 this_script=${0##*/}
 case "$0" in
     /*|*/*) 
-        this_dir=$(dirname $(realpath $0))
+        this_dir=$(cd $(dirname $0) && pwd)
     ;;
     *) 
-        this_dir=$(dirname $(realpath $(which $0)))
+        this_dir=$(cd $(dirname $(which $0)) && pwd)
     ;;
 esac
 
@@ -17,11 +17,19 @@ tag=$(cat $this_dir/tag)
 if [[ -f name ]]; then
     name=$(cat name)
 else
-    name=${tag//:/_}
+    name=${tag//[^a-zA-Z0-9._-]/_}
 fi
 case "$this_script" in
     build-container)
-        docker build -t $tag -f $this_dir/Dockerfile ..
+        if [[ -f context ]]; then
+            context=$(cat context)
+        else
+            context="."
+        fi
+        if [[ -x pre-build-command ]]; then
+            ./pre-build-command
+        fi
+        (set -x; exec docker build -t $tag -f $this_dir/Dockerfile $context)
     ;;
     run-container|start-container)
         if [[ -f runargs ]]; then
@@ -35,7 +43,7 @@ case "$this_script" in
         if [[ -x ./pre-start-local-command ]]; then
             ./pre-start-local-command
         fi
-        for v in $(/bin/ls -1d volumes/*); do
+        for v in $(/bin/ls -1d volumes/* 2>/dev/null); do
             v_path=$(realpath $v)
             [[ -z "$v_path" ]] && continue
             runargs="$runargs${runargs:+ }--volume $v_path:/$v"
@@ -48,7 +56,7 @@ case "$this_script" in
         (set -x; exec docker run -it --rm $runargs --name $name $tag "$@")
     ;;
     stop-container)
-        container_id=$(docker ps --filter name=$(cat name ) --format "{{.ID}}")
+        container_id=$(docker ps --filter name=$name --format "{{.ID}}")
         if [[ -n "$container_id" ]]; then
             set +e
             if [[ -f pre-stop-command ]]; then
@@ -61,10 +69,12 @@ case "$this_script" in
         (set -x; exec docker exec -it $name bash --login)
     ;;
     exec-in-container)
-        (set -x; exec docker exec -it $name "$@")
-    ;;
-    exec-args-in-container)
-        (set -x; exec docker exec -it $name $(cat exec.args) $@)
+        if [[ -f exec-args ]]; then
+            args=$(cat exec-args)
+        else
+            args="$@"
+        fi
+        (set -x; exec docker exec -it $name $args)
     ;;
 esac
 

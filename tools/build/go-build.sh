@@ -29,6 +29,7 @@ is present then a single executable will be built for the native GOOS and GOARCH
 The shortcut - - will indicate the native  GOOS and GOARCH.
 
 For each GOOS and GOARCH the script will generate:
+
     bin/TARGET_ROOT-GOOS-GOARCH[-SEMVER]
     bin/GOOS-GOARCH/TARGET_ROOT -> ../TARGET_ROOT-GOOS-GOARCH[-SEMVER]
 

@@ -3,5 +3,6 @@ buildinfo/
 local/
 runtime/
 testdata/
+volumes/
 go.work
 go.work.*

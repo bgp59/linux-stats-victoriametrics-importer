@@ -23,9 +23,9 @@ case "$this_script" in
         sleep infinity
         ;;
     stop*)
-        ./victoria-metrics/stop-victoria-metrics.sh
-        ./grafana/stop-grafana.sh
         [[ -d lsvmi ]] && ./lsvmi/stop-lsvmi.sh
+        ./grafana/stop-grafana.sh
+        ./victoria-metrics/stop-victoria-metrics.sh
         ;;
 esac
 

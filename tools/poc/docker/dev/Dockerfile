@@ -26,7 +26,7 @@ RUN useradd -U -d /home/ubuntu -m -s /bin/bash ubuntu
 WORKDIR /usr/local/lsvmi-poc
 
 
-COPY files/base/ .
+COPY files/base .
 RUN \
     victoria-metrics/download-victoria-metrics.sh \
     && victoria-metrics/create-victoria-metrics-runtime-symlinks.sh
@@ -35,6 +35,12 @@ RUN \
     && grafana/create-grafana-runtime-symlinks.sh
 
 COPY files/update/ .
+
+RUN \
+    mkdir -p /volumes/runtime \
+    && chown ubuntu:ubuntu /volumes/runtime
+
+VOLUME /volumes/runtime
 
 USER ubuntu
 CMD ["./run-poc.sh"]

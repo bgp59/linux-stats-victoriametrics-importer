@@ -69,7 +69,7 @@ kill_wait_proc() {
 
 create_dir_maybe_symlink() {
     (
-        set +x
+        set +ex
         while [[ $# -gt 0 ]]; do
             target=$(readlink $1)
             if [[ -z "$target" ]]; then
