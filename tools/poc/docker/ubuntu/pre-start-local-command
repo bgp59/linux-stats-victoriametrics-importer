@@ -1,0 +1,21 @@
+#!/bin/bash --noprofile
+
+this_script=${0##*/}
+case "$0" in
+    /*|*/*) 
+        this_dir=$(dirname $(realpath $0))
+    ;;
+    *) 
+        this_dir=$(dirname $(realpath $(which $0)))
+    ;;
+esac
+
+set -ex
+cd $this_dir
+mkdir -p volumes
+lsvmi_dir="../../../../.."
+if [[ "$(readlink volumes/linux-stats-victoriametrics-importer)" != "$lsvmi_dir" ]]; then
+    ln -fs "$lsvmi_dir" volumes/linux-stats-victoriametrics-importer
+fi
+mkdir -p volumes/runtime
+
