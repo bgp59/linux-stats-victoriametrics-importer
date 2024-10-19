@@ -21,13 +21,13 @@ ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
 RUN chmod +x /tini
 ENTRYPOINT ["/tini", "--"]
 
-RUN useradd -U -d /home/lsvmi -m -s /bin/bash lsvmi
+RUN useradd -U -d /home/ubuntu -m -s /bin/bash ubuntu
 RUN \
     mkdir -p /volumes/runtime \
-    && chown lsvmi:lsvmi /volumes/runtime
+    && chown ubuntu:ubuntu /volumes/runtime
 
 VOLUME /volumes/runtime
 
-WORKDIR /home/lsvmi
-USER lsvmi
+WORKDIR /home/ubuntu
+USER ubuntu
 CMD ["sleep", "infinity"]
