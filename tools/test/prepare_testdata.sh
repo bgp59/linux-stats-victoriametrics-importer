@@ -14,6 +14,5 @@ set -ex
 cd $root_dir
 tar xzf testdata.tgz
 cd $this_dir
-./py_prerequisites.sh
 ./generate_pid_tid_list_cache_test_cases.py
 ./generate_metrics_test_cases.py
