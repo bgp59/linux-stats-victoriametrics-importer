@@ -13,5 +13,5 @@ RUN \
 
 COPY files/update/ .
 
-USER ubuntu
+USER lsvmi
 CMD ["./run-poc.sh"]
