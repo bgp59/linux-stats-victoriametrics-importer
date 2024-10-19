@@ -8,7 +8,6 @@ import subprocess
 import sys
 
 from tabulate import tabulate
-
 from testutils import benchmarks_root_dir
 
 # Indexes in result:
