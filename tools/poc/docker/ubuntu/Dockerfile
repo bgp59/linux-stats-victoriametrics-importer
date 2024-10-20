@@ -21,13 +21,15 @@ ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
 RUN chmod +x /tini
 ENTRYPOINT ["/tini", "--"]
 
-RUN useradd -U -d /home/ubuntu -m -s /bin/bash ubuntu
+ENV POC_USER=ubuntu
+
+RUN useradd -U -d /home/${POC_USER} -m -s /bin/bash ${POC_USER}
 RUN \
     mkdir -p /volumes/runtime \
-    && chown ubuntu:ubuntu /volumes/runtime
+    && chown ${POC_USER}:${POC_USER} /volumes/runtime
 
 VOLUME /volumes/runtime
 
-WORKDIR /home/ubuntu
-USER ubuntu
+WORKDIR /home/${POC_USER}
+USER ${POC_USER}
 CMD ["sleep", "infinity"]

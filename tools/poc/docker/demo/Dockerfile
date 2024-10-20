@@ -6,4 +6,4 @@ USER root
 RUN \
     ln -fs /volumes/runtime/lsvmi/out lsvmi \
     && ln -fs /volumes/runtime/lsvmi/log lsvmi
-USER ubuntu
+USER ${POC_USER}
