@@ -84,4 +84,5 @@ The next steps assume that **Docker** is installed and running:
 [^1]: to build a binary, run:
 
     cd .../linux-stats-victoriametrics-importer # project root, that is
+    
     ./build
