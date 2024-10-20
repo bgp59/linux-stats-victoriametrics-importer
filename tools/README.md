@@ -81,8 +81,36 @@ The next steps assume that **Docker** is installed and running:
         ./run-lsvmi-in-container.sh
 
 
+## Grafana Support
+
+To run the **Grafana** UI, point the browser to http://localhost:3000, user: `admin`, password `lsvmi`.
+
+The PoC deployment includes LSVMI specific [provisioned dashboards](https://grafana.com/docs/grafana/latest/administration/provisioning/#dashboards) under the `lsvmi-reference` folder. Such dashboards cannot be edited in place, but rather a copy has to be made first.
+
+* prepare the copy:
+
+        cd tools/grafana
+        ./prepare_grafana_wip_dashboard.py DASHBOARD_TITLE
+        # .e.g.
+        ./prepare_grafana_wip_dashboard.py internal_metrics_ref
+
+  The copy will be renamed `internal_metrics_ref (WIP)` and it will be located under the `General` folder.
+
+* once the copy has been modified in the **Grafana** UI, save it to the project:
+
+        cd tools/grafana
+        ./save_grafana_wip_dashboard.py DASHBOARD_TITLE
+        # .e.g.
+        ./save_grafana_wip_dashboard.py internal_metrics_ref
+
+* rebuild the PoC and restart the container, if in use
+
+For new dasboards, create them under the `General` folder with a name ending in `' (WIP)'`.
+
 [^1]: to build a binary, run:
 
     cd .../linux-stats-victoriametrics-importer # project root, that is
-    
+
     ./build
+
+
