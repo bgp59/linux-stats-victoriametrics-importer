@@ -1,7 +1,9 @@
 bin/
 buildinfo/
 local/
+releases/
 runtime/
+staging/
 testdata/
 volumes/
 go.work

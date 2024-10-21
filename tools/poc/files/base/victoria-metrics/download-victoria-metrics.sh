@@ -24,7 +24,7 @@ if [[ ! -x $vm_install_subdir/victoria-metrics-prod ]]; then
     curl -s -L https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v$vm_ver/victoria-metrics-$os_arch-v$vm_ver.tar.gz | tar -xzf - -C $vm_install_subdir 
 fi
 if [[ ! -x $vm_install_subdir/vmagent-prod ]]; then
-    curl -s -L https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v$vm_ver/vmutils-$os_arch-v$vm_ver.tar.gz | tar -xzf - -C $vm_install_subdir 
+    curl -s -L https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v$vm_ver/vmutils-$os_arch-v$vm_ver.tar.gz | tar -xzf - -C $vm_install_subdir vmagent-prod 
 fi
 mkdir -p bin
 for f in victoria-metrics vmagent; do

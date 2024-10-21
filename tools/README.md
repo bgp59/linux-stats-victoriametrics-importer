@@ -1,4 +1,4 @@
-# Tools For Testing, Development And Showcasing
+# Tools For Testing, Development And Releases
 
 **Note:** All relative paths next are relative to the root of this project, `linux-stats-victoriametrics-importer`.
 
@@ -29,12 +29,12 @@ In practice the above should run on the same host or container. Depending on whe
 * run once:
 
         cd tools/poc
-        ./install-local-poc.sh
+        ./install-lsvmi-infra.sh
 
     It will install **VictoriaMetrics** and **Grafana** under `$HOME/lsvmi-poc` with a runtime directory (for logs and databases) under `$HOME/lsvmi-poc/runtime`. The installation and runtime directory can be changed via command line args:
 
-        ./install-local-poc.sh -h
-        Usage: install-local-poc.sh [-r POC_ROOT_DIR] [-R POC_RUNTIME_DIR]
+        ./install-lsvmi-infra.sh -h
+        Usage: install-lsvmi-infra.sh [-r POC_ROOT_DIR] [-R POC_RUNTIME_DIR]
 
         Install VictoriaMetrics & Grafana under POC_ROOT_DIR, default: $HOME/lsvmi-poc,
         using POC_RUNTIME_DIR as runtime dir, default: POC_ROOT_DIR/runtime.
@@ -105,7 +105,22 @@ The PoC deployment includes LSVMI specific [provisioned dashboards](https://graf
 
 * rebuild the PoC and restart the container, if in use
 
-For new dasboards, create them under the `General` folder with a name ending in `' (WIP)'`.
+For new dashboards, create them under the `General` folder with a name ending in `' (WIP)'`.
+
+## Releases
+
+Release tarballs will be generated under `linux-stats-victoriametrics-importer/releases`.
+
+* un-versioned release for installing **VictoriaMetrics** and **Grafana** infra for PoC:
+
+        cd tools/release
+        ./create-lsvmi-infra-install-release.sh
+
+* versioned releases for **LSVMI** proper:
+
+        cd tools/release
+        ./create-lsvmi-release.sh
+
 
 [^1]: to build a binary, run:
 
