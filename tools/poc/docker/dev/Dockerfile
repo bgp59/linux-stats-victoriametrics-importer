@@ -1,4 +1,4 @@
-FROM lsvmi-base-ubuntu:20.04
+FROM lsvmi-base-ubuntu_20.04
 
 USER root
 WORKDIR /usr/local/lsvmi-poc

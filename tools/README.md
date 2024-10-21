@@ -85,7 +85,7 @@ The next steps assume that **Docker** is installed and running:
 
 To run the **Grafana** UI, point the browser to http://localhost:3000, user: `admin`, password `lsvmi`.
 
-The PoC deployment includes LSVMI specific [provisioned dashboards](https://grafana.com/docs/grafana/latest/administration/provisioning/#dashboards) under the `lsvmi-reference` folder. Such dashboards cannot be edited in place, but rather a copy has to be made first.
+The PoC deployment includes **LSVMI** specific [provisioned dashboards](https://grafana.com/docs/grafana/latest/administration/provisioning/#dashboards) under the `lsvmi-reference` folder. Such dashboards cannot be edited in place, but rather a copy has to be made first.
 
 * prepare the copy:
 
@@ -120,6 +120,19 @@ Release tarballs will be generated under `linux-stats-victoriametrics-importer/r
 
         cd tools/release
         ./create-lsvmi-release.sh
+
+* Docker container w/ demo:
+  * create `linux-stats-victoriametrics-importer/.docker-hub/repo.tx` with your [Docker Hub](https://hub.docker.com/) repository (e.g. mine is `emypar/linux-stats-victoriametrics-importer`). This is a one-off step.
+  * build the local image
+
+        cd tools/poc/docker/demo
+        ./update-tag.sh
+        ./build-container
+  
+  * push the local image to your DH repo; note it will require `docker login`
+
+        cd tools/poc/docker/demo
+        ./push-to-docker-hub.sh
 
 
 [^1]: to build a binary, run:

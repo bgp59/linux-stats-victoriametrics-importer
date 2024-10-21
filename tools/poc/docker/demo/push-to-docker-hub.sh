@@ -1,5 +1,6 @@
 #! /bin/bash --noprofile
 
+this_script=${0##*/}
 case "$0" in
     /*|*/*) 
         this_dir=$(cd $(dirname $0) && pwd)
@@ -9,6 +10,12 @@ case "$0" in
     ;;
 esac
 
-set -ex
-cd $this_dir/../dev
-./build-container
+set -e
+cd $this_dir
+tag=$(cat tag)
+demo_tag=${tag/:demo*/:demo}
+
+set -x
+docker tag $tag $demo_tag
+docker push $tag
+docker push $demo_tag
