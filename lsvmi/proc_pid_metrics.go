@@ -4,11 +4,11 @@ package lsvmi
 
 // PID based metrics generation takes the same approach of producing metrics
 // only for changes or non-zero deltas except every Nth cycle, when all metrics
-// are generated (delta v. full metrics cycles, that is). Because these metrics
+// are generated (partial v. full metrics cycles, that is). Because these metrics
 // are by far the most numerous, an additional reduction mechanism is used based
 // on active processes/threads. A process/thread is deemed active if the sum of
 // STIME + UTIME has an uptick from the previous sample; inactive
-// processes/threads (based on that criterion) will be ignored for delta cycles.
+// processes/threads (based on that criterion) will be ignored for partial cycles.
 
 import (
 	"bytes"
