@@ -18,17 +18,22 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 
 ## Using A Linux Server
 
-* choose a suitable location for installing **VictoriaMetrics** and **Grafana**, e.g. under `$HOME/lsvmi-poc`:/
-  ```
-  cd /tmp
-  curl -s -L \
-      https://github.com/emypar/linux-stats-victoriametrics-importer/releases/download/poc_infra/lsvmi-infra-install.tgz | \
-  tar xfz -
+* extract the installation archive:
+	```
+	cd /tmp
 
-  ./lsvmi-infra-install/install-lsvmi-infra.sh # it will install under $HOME/lsvmi-poc
+	curl -s -L \
+		https://github.com/emypar/linux-stats-victoriametrics-importer/releases/download/poc_infra/lsvmi-infra-install.tgz | \
+		tar xfz -
 
-  rm -rf ./lsvmi-infra-install                 # optional cleanup
-  ```
+	```
+
+```
+
+./lsvmi-infra-install/install-lsvmi-infra.sh # it will install under $HOME/lsvmi-poc
+
+rm -rf ./lsvmi-infra-install                 # optional cleanup
+```
 	If a different location 
 
 ## Using A Containerized Solution
