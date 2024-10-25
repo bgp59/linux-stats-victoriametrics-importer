@@ -1,22 +1,29 @@
 #! /bin/bash
 
-# Apply job code formatting tools:
+# Apply Python code formatting tools:
+
+this_script=${0##*/}
 
 case "$0" in
-    /*|*/*) 
-        this_dir=$(cd $(dirname $0) && pwd)
-        real_dir=$(dirname $(realpath $0))
-    ;;
-    *) 
-        this_dir=$(cd $(dirname $(which $0)) && pwd)
-        real_dir=$(dirname $(realpath $(which $0)))
+    /*|*/*) script_dir=$(dirname $(realpath $0));;
+    *) script_dir=$(dirname $(realpath $(which $0)));;
+esac
+
+case "$1" in
+    -h|--h*)
+        echo >&2 "Usage: $this_script DIR ..."
+        exit 1
     ;;
 esac
 
 set -e
-cd $this_dir
-set -x
-autoflake --in-place --remove-all-unused-imports --ignore-init-module-imports --recursive .
-isort --settings-path $real_dir .
-black .
+for d in ${@:-.}; do
+    (
+        set -x
+        autoflake --in-place --remove-all-unused-imports --ignore-init-module-imports --recursive $d
+        isort --settings-path $script_dir $d
+        black $d
+    )
+done
+
 

@@ -10,11 +10,26 @@ Financial institutions use so called Market Data Platforms for disseminating liv
 
 The widely used approach of scraping for collecting metrics would be suboptimal in this case, given the 100 millisecond .. 1 second time granularity of the latter. 
 
-Since VictoriaMetrics supports the [import](https://docs.victoriametrics.com/Cluster-VictoriaMetrics.html#url-format) paradigm, it is more efficient to collect the granular stats, with the timestamps of the actual collection, into larger batches and to push the latter, in compressed format, to import end points.
+Since **VictoriaMetrics** supports the [import](https://docs.victoriametrics.com/Cluster-VictoriaMetrics.html#url-format) paradigm, it is more efficient to collect the granular stats, with the timestamps of the actual collection, into larger batches and to push the latter, in compressed format, to import end points.
 
 # TL;DR: Quick Start For PoC
 
-The PoC requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI** running on the same Linux server or container
+The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI** running on the same Linux server or container.
+
+## Using A Linux Server
+
+* choose a suitable location for installing **VictoriaMetrics** and **Grafana**, e.g. under `$HOME/lsvmi-poc`:/
+  ```
+  cd /tmp
+  curl -s -L \
+      https://github.com/emypar/linux-stats-victoriametrics-importer/releases/download/poc_infra/lsvmi-infra-install.tgz | \
+  tar xfz -
+
+  ./lsvmi-infra-install/install-lsvmi-infra.sh # it will install under $HOME/lsvmi-poc
+
+  rm -rf ./lsvmi-infra-install                 # optional cleanup
+  ```
+	If a different location 
 
 ## Using A Containerized Solution
 
@@ -29,7 +44,8 @@ The PoC requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI** r
 		--name lsvmi-demo \
 		emypar/linux-stats-victoriametrics-importer:demo 
 	```
-* point browser to http://localhost:3000 for **Grafana** UI, user: `admin`, password: `lsvmi`
+* point a, preferably Chrome (may be in Incognito mode), browser to http://localhost:3000 for **Grafana** UI, user: `admin`, password: `lsvmi`
+
 
 
 # Architecture

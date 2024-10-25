@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 
-# Create multiple %CPU load, each 0..100%, spread over T threads and running for a (random) duration.
+# Create multiple PCPU loads, each random min..max %, spread over random
+# min..max #threads and running for a min..max duration.
 
 import argparse
 import os
@@ -14,10 +15,12 @@ from typing import Optional
 from pcpu_load import CYCLE_INTERVAL_SEC
 
 DEFAULT_NUM_PROC = 1
-DEFAULT_NUM_THREADS = 1
-DEFAULT_TARGET_PCPU = 1
-DEFAULT_MIN_RUNTIME_SEC = 5
-DEFAULT_MAX_RUNTIME_SEC = 15
+DEFAULT_MIN_THREADS = 1
+DEFAULT_MAX_THREADS = 0  # i.e. constant #thread
+DEFAULT_MIN_PCPU = 1
+DEFAULT_MAX_PCPU = 0  # i.e. constant %CPU
+DEFAULT_MIN_RUNTIME_SEC = 15
+DEFAULT_MAX_RUNTIME_SEC = 30
 
 LOAD_UTIL = "pcpu_load.py"
 
@@ -53,20 +56,38 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-t",
-        "--num-threads",
-        default=DEFAULT_NUM_THREADS,
+        "--min-threads",
+        default=DEFAULT_MIN_THREADS,
         type=int,
-        metavar="T",
-        help="""The number of threads per process. Default: %(default)s""",
+        metavar="MIN_T",
+        help="""The minimum number of threads per process. Default: %(default)s""",
+    )
+    parser.add_argument(
+        "-T",
+        "--max-threads",
+        default=DEFAULT_MAX_THREADS,
+        type=int,
+        metavar="MAX_T",
+        help="""The maximum number of threads per process. If <= 0 then
+             MIN_T is used as constant #threads. Default: %(default)s""",
     )
     parser.add_argument(
         "-p",
-        "--target-pcpu",
-        default=DEFAULT_TARGET_PCPU,
-        metavar="%CPU",
+        "--min-pcpu",
+        default=DEFAULT_MIN_PCPU,
+        metavar="MIN_PCPU",
         type=float,
-        help="""The target %%CPU, per process. The usage will be spread evenly
+        help="""The minimum %CPU, per process. The usage will be spread evenly
              across the threads. Default: %(default)s""",
+    )
+    parser.add_argument(
+        "-P",
+        "--max-pcpu",
+        default=DEFAULT_MAX_PCPU,
+        metavar="MAX_PCPU",
+        type=float,
+        help="""The maximum %CPU, per process. If <= 0 then MIN_PCPU is used
+             as constant load. Default: %(default)s""",
     )
     parser.add_argument(
         "-r",
@@ -82,16 +103,15 @@ if __name__ == "__main__":
         default=DEFAULT_MAX_RUNTIME_SEC,
         metavar="MAX_SEC",
         type=float,
-        help="""Max runtime for the process, in sec. If <= 0 then min-runtime is
+        help="""Max runtime for the process, in sec. If <= 0 then MIN_SEC is
              used as runtime in all cases. Default: %(default)s""",
     )
 
     args = parser.parse_args()
     num_proc = args.num_proc
-    num_threads = args.num_threads
-    target_pcpu = args.target_pcpu
-    min_runtime = args.min_runtime
-    max_runtime = args.max_runtime
+    min_threads, max_threads = args.min_threads, args.max_threads
+    min_pcpu, max_pcpu = args.min_pcpu, args.max_pcpu
+    min_runtime, max_runtime = args.min_runtime, args.max_runtime
 
     for signum in [signal.SIGINT, signal.SIGHUP, signal.SIGTERM]:
         signal.signal(signum, sig_handler)
@@ -99,6 +119,17 @@ if __name__ == "__main__":
     running = {}
     while True:
         while len(running) < num_proc:
+            if max_threads > min_threads:
+                num_threads = int(
+                    min_threads + random.random() * (max_threads - min_threads + 1)
+                )
+                num_threads = min(num_threads, max_threads)
+            else:
+                num_threads = min_threads
+            if max_pcpu > min_pcpu:
+                target_pcpu = min_pcpu + random.random() * (max_pcpu - min_pcpu)
+            else:
+                target_pcpu = min_pcpu
             if max_runtime > min_runtime:
                 runtime = (
                     int(
@@ -112,7 +143,7 @@ if __name__ == "__main__":
             args = [
                 LOAD_UTIL,
                 f"--num-threads={num_threads}",
-                f"--target-pcpu={target_pcpu}",
+                f"--target-pcpu={target_pcpu:.1f}",
                 f"--runtime={runtime:.2f}",
             ]
             p = subprocess.Popen(
