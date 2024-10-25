@@ -1,4 +1,4 @@
-FROM lsvmi-victoria-metrics-grafana-ubuntu:20.04
+FROM lsvmi-victoria-metrics-grafana-ubuntu_20.04
 
 COPY tools/poc/files/lsvmi lsvmi
 COPY bin lsvmi/bin

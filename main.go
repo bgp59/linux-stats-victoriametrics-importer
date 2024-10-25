@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	SHUTDOWN_TIMEOUT = 5 * time.Second
+	SHUTDOWN_TIMEOUT = 3 * time.Second
 )
 
 var mainLog = lsvmi.NewCompLogger("main")
@@ -84,10 +84,8 @@ func main() {
 		lsvmi.GlobalMetricsQueue = lsvmi.GlobalCompressorPool
 
 		lsvmi.GlobalCompressorPool.Start(lsvmi.GlobalHttpEndpointPool)
-		// N.B. stop the HTTP pool *before* the compressor pool, otherwise the
-		// latter may be stuck in send:
+		defer lsvmi.GlobalHttpEndpointPool.Shutdown() // may timeout if all endpoints are down
 		defer lsvmi.GlobalCompressorPool.Shutdown()
-		defer lsvmi.GlobalHttpEndpointPool.Shutdown()
 	} else {
 		// Simulated queue w/ metrics displayed to stdout:
 		lsvmi.GlobalMetricsQueue, err = lsvmi.NewStdoutMetricsQueue(lsvmi.GlobalLsvmiConfig)

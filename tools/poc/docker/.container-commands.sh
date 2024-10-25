@@ -60,8 +60,40 @@ case "$this_script" in
         if [[ -n "$container_id" ]]; then
             set +e
             if [[ -f pre-stop-command ]]; then
-                (set -x; exec docker exec -it $name $(cat pre-stop-command))
+                (
+                    set -x
+                    docker exec -it $name $(cat pre-stop-command)
+                    docker kill $container_id
+                )
+            else
+                if [[ -f killsig ]]; then
+                    killsig=$(cat killsig)
+                else
+                    killsig=SIGTERM
+                fi
+                (set -x; docker kill --signal=$killsig $container_id)
+                if [[ -f max_wait ]]; then
+                    max_wait=$(cat max_wait)
+                else
+                    max_wait=5
+                fi
+                echo >&2 "$this_script - Waiting at most $max_wait sec for the container to terminate..."
+                for ((k=1; k<=$max_wait; k++)); do
+                    sleep 1
+                    container_id=$(docker ps --filter name=$name --format "{{.ID}}")
+                    [[ -z "$container_id" ]] && break
+                done
+                if [[ -n "$container_id" ]]; then
+                    echo >&2 "$this_script - Force killing the container, not a clean shutdown"
+                    (set -x; docker kill $container_id)
+                fi
             fi
+        fi
+    ;;
+    kill-container)
+        container_id=$(docker ps --filter name=$name --format "{{.ID}}")
+        if [[ -n "$container_id" ]]; then
+            echo >&2 "$this_script - Force killing the container, not a clean shutdown"
             (set -x; docker kill $container_id)
         fi
     ;;

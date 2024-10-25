@@ -6,11 +6,30 @@ An utility for importing granular Linux stats, such as those provided by <a href
 
 Financial institutions use so called Market Data Platforms for disseminating live financial information. Such platforms may be latency sensitive, in that the data transition time between producers (typically external feeds) and consumers (typically an automated trading systems) has to be less than a given threshold at all times, typically < 1 millisecond. Latency spikes are usually created by resource bound conditions, leading to queuing, or by errors/discards, leading to retransmissions. Given the low threshold of latency, the telemetry data for the systems have to be sufficiently granular, time wise, to be of any use. For instance a 100% CPU condition for a thread that lasts 1 second could explain a 20 millisecond latency jump. If the sampling period were 5 seconds, the same thread would show 20% CPU utilization, thus masking the resource bound condition.
 
-<a href="https://docs.victoriametrics.com/Cluster-VictoriaMetrics.html" target="_blank">VictoriaMetrics</a> does en excellent job (based on our experience at <a href="https://openai.com/" target="_blank">OpenAI</a>) in handling large numbers of time series and given its integration w/ <a href="https://grafana.com/grafana/" target="_blank">Grafana</a> and its query language, <a href="https://docs.victoriametrics.com/MetricsQL.html" target="_blank">MetricsQL</a>, a superset of <a href="https://prometheus.io/docs/prometheus/latest/querying/basics/" target="_blank">PromQL</a>, it is a  perfect candidate for storing the metrics.
+[VictoriaMetrics](https://docs.victoriametrics.com/Cluster-VictoriaMetrics.html) does en excellent job based on our experience at [OpenAI](https://openai.com) in handling large numbers of time series and given its integration w/ [Grafana](https://grafana.com/grafana/) and its query language, [MetricsQL](https://docs.victoriametrics.com/MetricsQL.html), a superset of [PromQL](https://prometheus.io/docs/prometheus/latest/querying/basics/), it is a perfect candidate for storing the metrics.
 
 The widely used approach of scraping for collecting metrics would be suboptimal in this case, given the 100 millisecond .. 1 second time granularity of the latter. 
 
 Since VictoriaMetrics supports the [import](https://docs.victoriametrics.com/Cluster-VictoriaMetrics.html#url-format) paradigm, it is more efficient to collect the granular stats, with the timestamps of the actual collection, into larger batches and to push the latter, in compressed format, to import end points.
+
+# TL;DR: Quick Start For PoC
+
+The PoC requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI** running on the same Linux server or container
+
+## Using A Containerized Solution
+
+* have  [Docker](https://docs.docker.com/get-started/get-docker/) installed
+* invoke:
+	```
+	docker run \
+		-it \
+		--rm \
+		--detach \
+		--publish 3000:3000 \
+		--name lsvmi-demo \
+		emypar/linux-stats-victoriametrics-importer:demo 
+	```
+* point browser to http://localhost:3000 for **Grafana** UI, user: `admin`, password: `lsvmi`
 
 
 # Architecture
@@ -28,7 +47,7 @@ A Golang channel storing the tasks, written by the **Scheduler** and read by wor
 
 ### Task, TaskActivity And Metrics Generators
 
-The **Tasks** is the abstraction used for scheduling. It contains a **TaskActivity** which, for scheduling purposes, is an interface with an `Execute` method.
+The **Task** is the abstraction used for scheduling. It contains a **TaskActivity** which, for scheduling purposes, is an interface with an `Execute` method.
 
 In its actual implementation the **TaskActivity** is a metrics generator with its context, most notably the cache of previous values used for deltas.
 
@@ -64,17 +83,19 @@ The **Bandwidth Control** implements a credit based mechanism to ensure that the
 
 ## Resource Utilization Mitigation Techniques
 
-### Minimal Parsing
+### Custom Parsers
+#### Minimal Parsing
 
 Most stats are presented in text format via <a href="https://linux.die.net/man/5/proc" target="_blank">procfs</a> file system. The generated metrics are also in text format, stored in `[]byte` buffers. For parsed data used as-is, either as label or metric values, the most efficient parsing is none whatsoever, in that the file is read into a `[]byte` buffer and the parser simply splits it into `[][]byte` fields.
 
-For the reason above custom parsers were created under the [procfs](procfs) dir of this project, rather than using those from the Prometheus public package <a href="https://github.com/prometheus/procfs" target="_blank">procfs</a>.
 
-### Reusable Objects And The Double Buffer
+#### Reusable Objects And The Double Buffer
 
 Typical stats parsers will create and return a new object w/ the parsed data for every invocation. However most of the stats have a fixed structure [^1] so the data could be stored in a previously created object, thus avoiding the pressure on the garbage collector.
 
 Additionally certain metrics generators may need to refer the previous scan values. The double buffer approach will rely on a `parser [2]*ParserType` array in the generator context together with a `currentIndex` integer that's toggled between `0` and `1` at every scan. `parser[currentIndex]` will be passed to the parser to retrieve the latest data and `parser[1 - currentIndex]` will represent the previous scan.
+
+For the reason above custom parsers were created under the [procfs](procfs).
 
 [^1]: The fixed structure applies for a given kernel version, i.e. it is fixed for the uptime of a given host. 
 
