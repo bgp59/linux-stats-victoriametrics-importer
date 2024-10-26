@@ -52,7 +52,7 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 	lsvmi_rel=$lsvmi_os_arch-$lsvmi_ver
 	```
 	```
-	cd HOME/lsvmi-poc
+	cd $HOME/lsvmi-poc
 	curl \
 		-s \
 		-L \
