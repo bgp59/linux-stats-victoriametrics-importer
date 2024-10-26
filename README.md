@@ -66,8 +66,9 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 	```
 * start evrything:
 	```
-	cd HOME/lsvmi-poc
+	cd $HOME/lsvmi-poc
 	./start-poc.sh		# logs and output under runtime/
+
 	```
 * point a, preferably Chrome (may be in Incognito mode), browser to http://_linux_host_:3000 for **Grafana** UI, user: `admin`, password: `lsvmi`
 
