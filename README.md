@@ -21,7 +21,9 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 * extract the installation archive:
 	```
 	cd /tmp
-	curl -s -L \
+	curl \
+		-s \
+		-L \
 		https://github.com/emypar/linux-stats-victoriametrics-importer/releases/download/poc_infra/lsvmi-infra-install.tgz | \
 		tar xfz -
 	```
@@ -41,9 +43,30 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 	Optional cleanup:
 	```
 	cd
-	rm -rf /tmp/lsvmi-infra-install/lsvmi-infra-install
+	rm -rf /tmp/lsvmi-infra-install
 	```
-* install the release:
+* install the desired release for OS, architecture and version under the same **PoC** location:
+	```
+	lsvmi_os_arch=linux-amd64
+	lsvmi_ver=v0.0.1
+	lsvmi_rel=$lsvmi_os_arch-$lsvmi_ver
+	```
+	```
+	cd HOME/lsvmi-poc
+	curl \
+		-s \
+		-L \
+		https://github.com/emypar/linux-stats-victoriametrics-importer/releases/download/$lsvmi_ver/lsvmi-$lsvmi_rel.tgz | \
+		tar xzf -
+	ln -fs lsvmi-$lsvmi_rel lsvmi	# such that start-poc.sh will start lsvmi too
+	```
+* start evrything:
+	```
+	cd HOME/lsvmi-poc
+	./start-poc.sh		# logs and output under runtime/
+	```
+* point a, preferably Chrome (may be in Incognito mode), browser to http://_linux_host_:3000 for **Grafana** UI, user: `admin`, password: `lsvmi`
+
 
 ## Using A Containerized Solution
 
@@ -58,6 +81,24 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 		--name lsvmi-demo \
 		emypar/linux-stats-victoriametrics-importer:demo 
 	```
+	Note that the above will not persist neither **VictoriaMetrics** time sreices not **Grafana** custom dashboards between container restarts. If persistence is desirable then mount `runtime` volume.
+	* select a convenient location:
+		```
+		lsvmi_runtime_dir=$HOME/lsvmi-poc/runtime
+		```
+	* start the container with a volume:
+		```
+		mkdir -p $lsvmi_runtime_dir
+		docker run \
+			-it \
+			--rm \
+			--detach \
+			--publish 3000:3000 \
+			--name lsvmi-demo \
+			--volume $lsvmi_runtime_dir:/volumes/runtime \
+			emypar/linux-stats-victoriametrics-importer:demo 
+		```
+
 * point a, preferably Chrome (may be in Incognito mode), browser to http://localhost:3000 for **Grafana** UI, user: `admin`, password: `lsvmi`
 
 
