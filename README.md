@@ -31,6 +31,7 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 * install the **PoC** supporting **VictoriaMetrics** and **Grafana** under `$HOME/lsvmi-poc`, using `$HOME/lsvmi-poc/runtime` as working area for databases, logs, etc.:
 	```
 	/tmp/lsvmi-infra-install/install-lsvmi-infra.sh
+
 	```
 
 	If a different location is desired, the installer supports specific locations for both the directories above:
@@ -64,7 +65,7 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 	ln -fs lsvmi-$lsvmi_rel lsvmi
 
 	```
-* start evrything:
+* start everything:
 	```
 	cd $HOME/lsvmi-poc
 	./start-poc.sh		# logs and output under runtime/
@@ -84,12 +85,14 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 		--detach \
 		--publish 3000:3000 \
 		--name lsvmi-demo \
-		emypar/linux-stats-victoriametrics-importer:demo 
+		emypar/linux-stats-victoriametrics-importer:demo
+
 	```
 	Note that the above will not persist neither **VictoriaMetrics** time sreices not **Grafana** custom dashboards between container restarts. If persistence is desirable then mount `runtime` volume.
 	* select a convenient location:
 		```
 		lsvmi_runtime_dir=$HOME/lsvmi-poc/runtime
+		
 		```
 	* start the container with a volume:
 		```
@@ -101,7 +104,8 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 			--publish 3000:3000 \
 			--name lsvmi-demo \
 			--volume $lsvmi_runtime_dir:/volumes/runtime \
-			emypar/linux-stats-victoriametrics-importer:demo 
+			emypar/linux-stats-victoriametrics-importer:demo
+
 		```
 
 * point a, preferably Chrome (may be in Incognito mode), browser to http://localhost:3000 for **Grafana** UI, user: `admin`, password: `lsvmi`
