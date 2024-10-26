@@ -91,8 +91,8 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 	Note that the above will not persist neither **VictoriaMetrics** time sreices not **Grafana** custom dashboards between container restarts. If persistence is desirable then mount `runtime` volume.
 	* select a convenient location:
 		```
-		lsvmi_runtime_dir=$HOME/lsvmi-poc/runtime
-		
+		lsvmi_runtime_dir=$HOME/docker/volumes/lsvmi-poc/runtime
+
 		```
 	* start the container with a volume:
 		```
@@ -107,9 +107,39 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 			emypar/linux-stats-victoriametrics-importer:demo
 
 		```
+	* log files are now accessible on the host running **Docker**:
+		```
+		cd $lsvmi_runtime_dir/victoria-metrics/out
+		cat victoria-metrics.err
 
+		```
+
+		```
+		cd $lsvmi_runtime_dir/grafana/log
+		cat grafana.log
+
+		```
+
+		```
+		cd $lsvmi_runtime_dir/lsvmi/log
+		cat linux-stats-victoriametrics-importer.log
+
+		```
 * point a, preferably Chrome (may be in Incognito mode), browser to http://localhost:3000 for **Grafana** UI, user: `admin`, password: `lsvmi`
 
+* it is a good practice to stop the container gracefully, really required if the persistent volume is used:
+	```
+	docker \
+		kill --signal='SIGTERM' \
+		$(docker ps --filter name=lsvmi-demo --format "{{.ID}}")
+
+	```
+
+* to log on the container, run:
+	```
+	docker exec -it lsvmi-demo bash --login
+	
+	```
 
 
 # Architecture
