@@ -51,8 +51,10 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
     Optional cleanup:
 
     ```bash
+    
     cd
     rm -rf /tmp/lsvmi-infra-install
+    
     ```
 
 * install the desired release for OS, architecture and version under the same **PoC** location:
@@ -88,6 +90,15 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 
 * point a, preferably Chrome (may be in Incognito mode), browser to http://_linux_host_:3000 for **Grafana** UI, user: `admin`, password: `lsvmi`
 
+* gracefully shutdown **PoC** to save **VictoriaMetrics** time series and.or **Grafana** custom dashboards:
+
+    ```bash
+
+    cd $HOME/lsvmi-poc
+    ./stop-poc.sh
+
+    ```
+
 ## Using A Containerized Solution
 
 * have  [Docker](https://docs.docker.com/get-started/get-docker/) installed
@@ -104,7 +115,7 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 
     ```
 
-    Note that the above will not persist neither **VictoriaMetrics** time sreices not **Grafana** custom dashboards between container restarts. If persistence is desirable then mount `runtime` volume.
+    Note that the above will not persist neither **VictoriaMetrics** time series not **Grafana** custom dashboards between container restarts. If persistence is desirable then mount `runtime` volume.
 
 * select a convenient location:
 
@@ -119,7 +130,7 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
     ```bash
 
     mkdir -p $lsvmi_runtime_dir
-        docker run \
+    docker run \
         --rm \
         --detach \
         --publish 3000:3000 \
@@ -257,13 +268,13 @@ Counters are typically used for deltas and rates, rather than as-is. While the t
 package main
 
 import (
- "fmt"
- "math"
+    "fmt"
+    "math"
 )
 
 func main() {
- var crt, prev uint64 = 0, math.MaxUint64
- fmt.Println(crt - prev)
+    var crt, prev uint64 = 0, math.MaxUint64
+    fmt.Println(crt - prev)
 }
 
 ```
