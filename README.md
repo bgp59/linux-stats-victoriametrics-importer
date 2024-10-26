@@ -26,6 +26,7 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 		-L \
 		https://github.com/emypar/linux-stats-victoriametrics-importer/releases/download/poc_infra/lsvmi-infra-install.tgz | \
 		tar xfz -
+	
 	```
 * install the **PoC** supporting **VictoriaMetrics** and **Grafana** under `$HOME/lsvmi-poc`, using `$HOME/lsvmi-poc/runtime` as working area for databases, logs, etc.:
 	```
@@ -44,12 +45,14 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 	```
 	cd
 	rm -rf /tmp/lsvmi-infra-install
+
 	```
 * install the desired release for OS, architecture and version under the same **PoC** location:
 	```
 	lsvmi_os_arch=linux-amd64
 	lsvmi_ver=v0.0.1
 	lsvmi_rel=$lsvmi_os_arch-$lsvmi_ver
+
 	```
 	```
 	cd $HOME/lsvmi-poc
@@ -58,7 +61,8 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 		-L \
 		https://github.com/emypar/linux-stats-victoriametrics-importer/releases/download/$lsvmi_ver/lsvmi-$lsvmi_rel.tgz | \
 		tar xzf -
-	ln -fs lsvmi-$lsvmi_rel lsvmi	# such that start-poc.sh will start lsvmi too
+	ln -fs lsvmi-$lsvmi_rel lsvmi
+
 	```
 * start evrything:
 	```
