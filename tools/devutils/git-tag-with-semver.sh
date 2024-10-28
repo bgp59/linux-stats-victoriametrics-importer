@@ -53,8 +53,8 @@ if ! check-git-state.sh; then
     exit 1
 fi
 
-git $force tag $semver
-git push origin tag $semver $force
+git tag $force $semver
+git push $force origin tag $semver 
 
 
  

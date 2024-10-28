@@ -47,7 +47,7 @@ mkdir -p $release_dir
 
 apply_git_tag() {
     git tag --force $1
-    git push origin tag $1 --force
+    git push --force origin tag $1
 }
 
 # The executable:
