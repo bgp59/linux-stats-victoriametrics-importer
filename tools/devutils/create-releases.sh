@@ -10,7 +10,7 @@ release_dir=releases
 semver_file=semver.txt
 staging_dir=staging
 tools_dir=tools
-tools_build_dir=$tools_dir/build
+tools_devutils_dir=$tools_dir/devutils
 tools_poc_dir=$tools_dir/poc
 
 # Common functions, etc:
@@ -23,7 +23,7 @@ project_root_dir=$(realpath $this_dir/../..)
 
 set -e
 set -x; cd $project_root_dir; set +x
-export PATH="$(realpath $tools_build_dir)${PATH+:}${PATH}"
+export PATH="$(realpath $tools_devutils_dir)${PATH+:}${PATH}"
 
 # Must have semver:
 semver=$(cat $semver_file)
