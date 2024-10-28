@@ -65,7 +65,7 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
     curl \
             -s \
             -L \
-            https://github.com/emypar/linux-stats-victoriametrics-importer/releases/download/$lsvmi_ver-poc-infra/lsvmi-infra-install.tgz | \
+            https://github.com/emypar/linux-stats-victoriametrics-importer/releases/download/$lsvmi_ver-poc-infra/lsvmi-poc-infra-$lsvmi_ver.tgz | \
         tar xfz -
 
     ```

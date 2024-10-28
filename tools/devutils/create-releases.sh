@@ -78,7 +78,7 @@ done
 
 # PoC supporting infra:
 git_tag="$semver-poc-infra"
-release_staging_dir="$staging_dir/lsvmi-infra-$semver"
+release_staging_dir="$staging_dir/lsvmi-poc-infra-$semver"
 
 rm -rf $release_staging_dir
 mkdir -p $release_staging_dir
