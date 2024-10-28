@@ -36,8 +36,6 @@ case "$0" in
 esac
 project_root_dir=$(realpath $this_dir/../..)
 
-force="$@"
-
 set -e
 set -x; cd $project_root_dir; set +x
 export PATH="$(realpath $tools_devutils_dir)${PATH+:}${PATH}"
