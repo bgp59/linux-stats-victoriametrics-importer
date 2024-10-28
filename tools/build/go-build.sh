@@ -109,23 +109,11 @@ do_build() {
 }
 
 if [[ -r $go_os_arch_targets_file ]]; then
-    built_for=
-    while read goos goarch_list; do
-        if [[ -n "$goos" && "$goos" != "#"* && -n "$goarch_list" ]]; then
-            if [[ "$goos" = "-" ]]; then
-                goos=$(go env GOOS)
-            fi
-            for goarch in $goarch_list; do
-                if [[ "$goarch" = "-" ]]; then
-                    goarch=$(go env GOARCH)
-                fi
-                if [[ "$built_for" != *":$goos-$goarch:"* ]]; then
-                    GOOS=$goos GOARCH=$goarch do_build
-                    built_for="$built_for:$goos-$goarch:"
-                fi
-            done
-        fi
-    done < $go_os_arch_targets_file
+    real_script_dir=$(dirname $(realpath $0))
+    $real_script_dir/list-os-arch.sh $go_os_arch_targets_file | while read GOOS GOARCH; do
+        export GOOS GOARCH
+        do_build
+    done
 else
     do_build
 fi

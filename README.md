@@ -1,12 +1,42 @@
-# linux-stats-victoriametrics-importer
+# linux-stats-victoriametrics-importer (AKA LSVMI)
 
 An utility for importing granular Linux stats, such as those provided by [procfs](https://linux.die.net/man/5/proc") into [VictoriaMetrics](https://docs.victoriametrics.com/Cluster-VictoriaMetrics.html)
 
+<!-- TOC -->
+
+- [linux-stats-victoriametrics-importer (AKA LSVMI)](#linux-stats-victoriametrics-importer-aka-lsvmi)
+  - [Motivation And Solution](#motivation-and-solution)
+  - [TL;DR: Quick Start For PoC](#tldr-quick-start-for-poc)
+    - [Using A Linux Server](#using-a-linux-server)
+    - [Using A Containerized Solution](#using-a-containerized-solution)
+  - [Architecture](#architecture)
+    - [Diagram](#diagram)
+    - [Components](#components)
+      - [Scheduler](#scheduler)
+      - [TODO Queue](#todo-queue)
+      - [Task, TaskActivity And Metrics Generators](#task-taskactivity-and-metrics-generators)
+      - [Compressor Queue](#compressor-queue)
+      - [Compressor Workers](#compressor-workers)
+      - [HTTP Sender Pool](#http-sender-pool)
+      - [Bandwidth Control](#bandwidth-control)
+  - [Implementation Considerations](#implementation-considerations)
+    - [The Three Laws Of Stats Collection](#the-three-laws-of-stats-collection)
+    - [Resource Utilization Mitigation Techniques](#resource-utilization-mitigation-techniques)
+      - [Custom Parsers](#custom-parsers)
+        - [Minimal Parsing](#minimal-parsing)
+        - [Reusable Objects And The Double Buffer](#reusable-objects-and-the-double-buffer)
+      - [Handling Counters](#handling-counters)
+      - [Reducing The Number Of Data Points](#reducing-the-number-of-data-points)
+        - [Partial V. Full Metrics](#partial-v-full-metrics)
+        - [Active Processes/Threads](#active-processesthreads)
+
+<!-- /TOC -->
+
 ## Motivation And Solution
 
-Financial institutions use so called Market Data Platforms for disseminating live financial information. Such platforms may be latency sensitive, in that the data transition time between producers (typically external feeds) and consumers (typically an automated trading systems) has to be less than a given threshold at all times, typically < 1 millisecond. Latency spikes are usually created by resource bound conditions, leading to queuing, or by errors/discards, leading to retransmissions. Given the low threshold of latency, the telemetry data for the systems have to be sufficiently granular, time wise, to be of any use. For instance a 100% CPU condition for a thread that lasts 1 second could explain a 20 millisecond latency jump. If the sampling period were 5 seconds, the same thread would show 20% CPU utilization, thus masking the resource bound condition.
+Financial institutions use so called Market Data Platforms for disseminating live financial information. Such platforms may be latency sensitive, in that the time in transit between producers (typically external feeds) and consumers (typically an automated trading systems) has to be less than a given threshold at all times, typically < 1 millisecond. Latency spikes are usually created by resource bound conditions, leading to queuing, or by errors/discards, leading to retransmissions. Given the low threshold of latency, the telemetry data for the systems have to be sufficiently granular, time wise, to be of any use. For instance a 100% CPU condition for a thread that lasts 1 second could explain a 20 millisecond latency jump. If the sampling period were 5 seconds, the same thread would show 20% CPU utilization, thus masking the resource bound condition.
 
-[VictoriaMetrics](https://docs.victoriametrics.com/Cluster-VictoriaMetrics.html) does en excellent job based on our experience at [OpenAI](https://openai.com) in handling large numbers of time series and given its integration w/ [Grafana](https://grafana.com/grafana/) and its query language, [MetricsQL](https://docs.victoriametrics.com/MetricsQL.html), a superset of [PromQL](https://prometheus.io/docs/prometheus/latest/querying/basics/), it is a perfect candidate for storing the metrics.
+[VictoriaMetrics](https://docs.victoriametrics.com/Cluster-VictoriaMetrics.html) does en excellent job, based on our experience at [OpenAI](https://openai.com), in handling large numbers of time series and given its integration w/ [Grafana](https://grafana.com/grafana/) and its query language, [MetricsQL](https://docs.victoriametrics.com/MetricsQL.html), a superset of [PromQL](https://prometheus.io/docs/prometheus/latest/querying/basics/), it is a perfect candidate for storing the metrics.
 
 The widely used approach of scraping for collecting metrics would be suboptimal in this case, given the 100 millisecond .. 1 second time granularity of the latter.
 
@@ -16,26 +46,35 @@ Since **VictoriaMetrics** supports the [import](https://docs.victoriametrics.com
 
 The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI** running on the same Linux server or container.
 
-## Using A Linux Server
+### Using A Linux Server
 
-* extract the installation archive:
+- **NOTE!** The instructions below refer to semver, OS and architecture. Each shell command block is supposed to have have been prefixed by the following definitions:
+
+    ```bash
+
+        lsvmi_os_arch=linux-amd64
+        lsvmi_ver=v0.0.1
+
+    ```
+
+- extract the infra installation archive:
 
     ```bash
     
     cd /tmp
     curl \
-        -s \
-        -L \
-        https://github.com/emypar/linux-stats-victoriametrics-importer/releases/download/poc_infra/lsvmi-infra-install.tgz | \
-    tar xfz -
+            -s \
+            -L \
+            https://github.com/emypar/linux-stats-victoriametrics-importer/releases/download/$lsvmi_ver-poc-infra/lsvmi-infra-install.tgz | \
+        tar xfz -
 
     ```
 
-* install the **PoC** supporting **VictoriaMetrics** and **Grafana** under `$HOME/lsvmi-poc`, using `$HOME/lsvmi-poc/runtime` as working area for databases, logs, etc.:
+- install the **PoC** supporting **VictoriaMetrics** and **Grafana** under `$HOME/lsvmi-poc`, using `$HOME/lsvmi-poc/runtime` as working area for databases, logs, etc.:
 
     ```bash
     
-    /tmp/lsvmi-infra-install/install-lsvmi-infra.sh
+    /tmp/lsvmi-infra-install-$lsvmi_ver/install-lsvmi-infra.sh
 
     ```
 
@@ -57,29 +96,21 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
     
     ```
 
-* install the desired release for OS, architecture and version under the same **PoC** location:
-
-    ```bash
-
-    lsvmi_os_arch=linux-amd64
-    lsvmi_ver=v0.0.1
-    lsvmi_rel=$lsvmi_os_arch-$lsvmi_ver
-
-    ```
+- install the desired release for OS, architecture and version under the same **PoC** location:
 
     ```bash
 
     cd $HOME/lsvmi-poc
     curl \
-        -s \
-        -L \
-        https://github.com/emypar/linux-stats-victoriametrics-importer/releases/download/$lsvmi_ver/lsvmi-$lsvmi_rel.tgz | \
+            -s \
+            -L \
+            https://github.com/emypar/linux-stats-victoriametrics-importer/releases/download/$lsvmi_ver-$lsvmi_os_arch/lsvmi-$lsvmi_os_arch-$lsvmi_rel.tgz | \
         tar xzf -
     ln -fs lsvmi-$lsvmi_rel lsvmi
 
     ```
 
-* start everything:
+- start everything:
 
     ```bash
 
@@ -88,9 +119,9 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 
     ```
 
-* point a, preferably Chrome (may be in Incognito mode), browser to http://_linux_host_:3000 for **Grafana** UI, user: `admin`, password: `lsvmi`
+- point a, preferably Chrome (may be in Incognito mode), browser to http://_linux_host_:3000 for **Grafana** UI, user: `admin`, password: `lsvmi`
 
-* gracefully shutdown **PoC** to save **VictoriaMetrics** time series and.or **Grafana** custom dashboards:
+- gracefully shutdown **PoC** to save **VictoriaMetrics** time series and.or **Grafana** custom dashboards:
 
     ```bash
 
@@ -99,10 +130,10 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 
     ```
 
-## Using A Containerized Solution
+### Using A Containerized Solution
 
-* have  [Docker](https://docs.docker.com/get-started/get-docker/) installed
-* invoke:
+- have  [Docker](https://docs.docker.com/get-started/get-docker/) installed
+- invoke:
 
     ```bash
 
@@ -115,9 +146,9 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 
     ```
 
-    Note that the above will not persist neither **VictoriaMetrics** time series not **Grafana** custom dashboards between container restarts. If persistence is desirable then mount `runtime` volume.
+    Note that the above will persist neither **VictoriaMetrics** time series not **Grafana** custom dashboards between container restarts. If persistence is desirable then mount `runtime` volume.
 
-* select a convenient location:
+- select a convenient location:
 
     ```bash
 
@@ -125,7 +156,7 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 
     ```
 
-* start the container with a volume:
+- start the container with a volume:
 
     ```bash
 
@@ -140,7 +171,7 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 
     ```
 
-* log files are now accessible on the host running **Docker**:
+- log files are now accessible on the host running **Docker**:
 
     ```bash
 
@@ -163,9 +194,9 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 
     ```
 
-* point a, preferably Chrome (may be in Incognito mode), browser to <http://localhost:3000> for **Grafana** UI, user: `admin`, password: `lsvmi`
+- point a, preferably Chrome (may be in Incognito mode), browser to <http://localhost:3000> for **Grafana** UI, user: `admin`, password: `lsvmi`
 
-* it is a good practice to stop the container gracefully, really required if the persistent volume is used:
+- it is a good practice to stop the container gracefully, really required if the persistent volume is used:
 
     ```bash
 
@@ -175,7 +206,7 @@ The **PoC** requires an instance of **VictoriaMetrics**, **Grafana** and **LSVMI
 
     ```
 
-* to log on the container, run:
+- to log on the container, run:
 
     ```bash
 
@@ -213,8 +244,8 @@ The generated metrics are packed into buffers, until the latter reach ~ 64k in s
 
 A Golang channel with metrics holding buffers from all metrics generator functions, which are its writers. The readers are gzip compressor workers. This approach has 2 benefits:
 
-* it supports the parallelization of compression
-* it allows more efficient packing by consolidating metrics across all generator functions, compared to individual compression inside the latter.
+- it supports the parallelization of compression
+- it allows more efficient packing by consolidating metrics across all generator functions, compared to individual compression inside the latter.
 
 #### Compressor Workers
 
@@ -258,8 +289,8 @@ For the reason above custom parsers were created under the [procfs](procfs).
 
 Counters are typically used for deltas and rates, rather than as-is. While the time series database can compute those in the query, there are 2 issues with storing counters directly:
 
-* most counters are `uint64` while Prometheus values are `float64`. Converting the former to the latter results in a loss of precision for large values that may generate misleading 0 deltas.
-* counters may roll over resulting in unrealistic, large in absolute value, negative deltas and rates, due to the `float64` arithmetic.
+- most counters are `uint64` while Prometheus values are `float64`. Converting the former to the latter results in a loss of precision for large values that may generate misleading 0 deltas.
+- counters may roll over resulting in unrealistic, large in absolute value, negative deltas and rates, due to the `float64` arithmetic.
 
 `Golang` native integer arithmetic handles correctly the rollover, e.g.
 
@@ -297,4 +328,4 @@ It should be noted that for delta values the partial approach is implemented as 
 
 ##### Active Processes/Threads
 
-In addition to the change only approach, process/thread metrics use the concept of active process to further reduce the number of metrics. PIDs/TIDs are classified into active/inactive based upon whether they used and CPU since the previous scan. Inactive processes/threads are ignored for partial cycles.
+In addition to the change only approach, process/thread metrics use the concept of active process to further reduce the number of metrics. PIDs/TIDs are classified into active/inactive based upon whether they used any CPU since the previous scan. Inactive processes/threads are ignored for partial cycles.
