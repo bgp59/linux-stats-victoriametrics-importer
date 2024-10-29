@@ -55,7 +55,7 @@ if [[ -n "$check_tag" ]]; then
     fi
     current_commit=$(git log -n 1 --format=oneline | awk '(NR == 1){print $1}')
     if [[ "$tag_commit" != "$current_commit" ]]; then
-        echo >&2 "$this_script: current_commit: '$current_commit', want: '$tag_commit' matching '$check_tag' tag"
+        echo >&2 "$this_script: current commit: '$current_commit', want: '$tag_commit', matching '$check_tag' tag"
         exit 1
     fi
 fi
