@@ -59,6 +59,7 @@ list-os-arch.sh $os_arch_file | while read os arch; do
     rm -rf $release_staging_dir
     mkdir -p $release_staging_dir
 
+
     mkdir -p $release_staging_dir/bin
     rsync -plrtHS \
         $bin_dir/$os_arch \
@@ -66,9 +67,11 @@ list-os-arch.sh $os_arch_file | while read os arch; do
         $release_staging_dir/bin
 
     rsync -plrtHS \
-        relnotes.txt \
         $tools_poc_dir/files/lsvmi/ \
         $release_staging_dir
+
+    cp -p relnotes.txt $release_staging_dir
+
     archive=$release_dir/$(basename $release_staging_dir).tgz
     tar czf $archive -C $(dirname $release_staging_dir) $(basename $release_staging_dir)
     rm -rf $release_staging_dir
@@ -86,10 +89,12 @@ mkdir -p $release_staging_dir
 rsync \
     -plrtHS \
     --exclude=lsvmi/ \
-    relnotes.txt \
     $tools_poc_dir/files \
     $tools_poc_dir/install-lsvmi-infra.sh \
     $release_staging_dir
+
+cp -p relnotes.txt $release_staging_dir
+
 archive=$release_dir/$(basename $release_staging_dir).tgz
 tar czf $archive -C $(dirname $release_staging_dir) $(basename $release_staging_dir)
 rm -rf $release_staging_dir
