@@ -82,10 +82,9 @@ var lsvmiConfigFile = flag.String(
 var hostnameArg = flag.String(
 	"hostname",
 	"",
-	FormatFlagUsage(`
-		Override the "global_config.instance" config setting. If the latter 
-		is empty then the value returned by hostname syscall is used
-	`),
+	FormatFlagUsage(
+		`Override the the value returned by hostname syscall`,
+	),
 )
 
 var instanceArg = flag.String(

@@ -2620,7 +2620,7 @@
               "refId": "A"
             }
           ],
-          "title": "Metrics Generator Actual Metrics# Delta",
+          "title": "Metrics Generator Actual Saample# Delta",
           "type": "timeseries"
         },
         {
@@ -2628,6 +2628,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "This panel displays the percentage of actual sample delta v. the theoretical max. \n\nThis can be used to assess:\n* the efficiency of the partial metrics generation (i.e. generate only for changes) \n* how evenly the full cycles are spread across all metrics\n\n**Note** the internal metrics do  **not** implement delta v. full metrics cycle, therefore the  sample rate is 100%.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -2715,7 +2716,7 @@
               "refId": "A"
             }
           ],
-          "title": "Metrics Generator Actual Metrics%",
+          "title": "Metrics Generator Actual Sample%",
           "type": "timeseries"
         },
         {
@@ -2731,7 +2732,7 @@
               "custom": {
                 "axisCenteredZero": false,
                 "axisColorMode": "text",
-                "axisLabel": "metrics/sec",
+                "axisLabel": "sample/sec",
                 "axisPlacement": "auto",
                 "barAlignment": 0,
                 "drawStyle": "line",
@@ -2809,7 +2810,7 @@
               "refId": "A"
             }
           ],
-          "title": "Metrics Generator Metrics/sec",
+          "title": "Metrics Generator Sample Rate",
           "type": "timeseries"
         },
         {
@@ -3061,8 +3062,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3181,8 +3181,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3287,8 +3286,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3381,8 +3379,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3476,8 +3473,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3584,8 +3580,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3691,8 +3686,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3787,8 +3781,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -4072,6 +4065,6 @@
   "timezone": "",
   "title": "internal_metrics_ref",
   "uid": "internal_metrics_ref",
-  "version": 1729295884,
+  "version": 1730242979,
   "weekStart": ""
 }
