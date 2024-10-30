@@ -49,7 +49,7 @@ The **Bandwidth Control** implements a credit based mechanism to ensure that the
 
 ### The Three Laws Of Stats Collection
 
-1. **First Do No Harm:** The collectors should have a light footprint in terms of resources: no CPU or memory hogs[^2], no I/O blasters, no DDoS attack on the metrics database,  etc. Anyone who has had the computer rendered irresponsive by a "lightweight" virus scanner, will intuitively understand and relate.
+1. **First Do No Harm:** The collectors should have a light footprint in terms of resources: no CPU or memory hogs[^1], no I/O blasters, no DDoS attack on the metrics database,  etc. Anyone who has had the computer rendered irresponsive by a "lightweight" virus scanner, will intuitively understand and relate.
 1. **Be Useful:** Collect only data that might have a use case.
 1. **Be Comprehensive:** Collect **all** potentially useful data, even if it may be needed once in the lifetime of the system; that single use may save the day.
 
@@ -63,7 +63,7 @@ Most stats are presented in text format via [procfs](https://linux.die.net/man/5
 
 ##### Reusable Objects And The Double Buffer
 
-Typical stats parsers will create and return a new object w/ the parsed data for every invocation. However most of the stats have a fixed structure [^1] so the data could be stored in a previously created object, thus avoiding the pressure on the garbage collector.
+Typical stats parsers will create and return a new object w/ the parsed data for every invocation. However most of the stats have a fixed structure [^2] so the data could be stored in a previously created object, thus avoiding the pressure on the garbage collector.
 
 Additionally certain metrics generators may need to refer the previous scan values. The double buffer approach will rely on a `parser [2]*ParserType` array in the generator context together with a `currentIndex` integer that's toggled between `0` and `1` at every scan. `parser[currentIndex]` will be passed to the parser to retrieve the latest data and `parser[1 - currentIndex]` will represent the previous scan.
 
@@ -114,6 +114,6 @@ It should be noted that for delta values the partial approach is implemented as 
 
 In addition to the change only approach, process/thread metrics use the concept of active process to further reduce the number of metrics. PIDs/TIDs are classified into active/inactive based upon whether they used any CPU since the previous scan. Inactive processes/threads are ignored for partial cycles.
 
-[^1]: The fixed structure applies for a given kernel version, i.e. it is fixed for the uptime of a given host.
+[^1]: Except for `VSZ` (the virtual size), Go runtime allocates a large size upfront as per [A note about virtual memory](https://go.dev/doc/gc-guide#A_note_about_virtual_memory): `Because virtual memory is just a mapping maintained by the operating system, it is typically very cheap to make large virtual memory reservations that don't map to physical memory.`
 
-[^2]: Except for `VSZ` (the virtual size), Go runtime allocates a large size upfront as per [A note about virtual memory](https://go.dev/doc/gc-guide#A_note_about_virtual_memory): `Because virtual memory is just a mapping maintained by the operating system, it is typically very cheap to make large virtual memory reservations that don't map to physical memory.`
+[^2]: The fixed structure applies for a given kernel version, i.e. it is fixed for the uptime of a given host.
