@@ -1,13 +1,16 @@
 # LSVMI Metrics
 
-- [LSVMI Metrics](#lsvmi-metrics)
-  - [Applicable To All Metrics](#applicable-to-all-metrics)
-  - [Internal Metrics](#internal-metrics)
-    - [lsvmi_uptime_sec](#lsvmi_uptime_sec)
-    - [os_info](#os_info)
-    - [os_btime_sec](#os_btime_sec)
-    - [os_uptime_sec](#os_uptime_sec)
-    - [lsvmi_internal_metrics_delta_sec](#lsvmi_internal_metrics_delta_sec)
+<!-- TOC tocDepth:2..3 chapterDepth:2..6 -->
+
+- [Applicable To All Metrics](#applicable-to-all-metrics)
+- [Internal Metrics](#internal-metrics)
+  - [lsvmi_internal_metrics_delta_sec](#lsvmi_internal_metrics_delta_sec)
+  - [lsvmi_uptime_sec](#lsvmi_uptime_sec)
+  - [os_info](#os_info)
+  - [os_uptime_sec](#os_uptime_sec)
+  - [os_btime_sec](#os_btime_sec)
+
+<!-- /TOC -->
 
 ## Applicable To All Metrics
 
@@ -24,62 +27,52 @@ All metrics have the following labels:
 
 ## Internal Metrics
 
+### lsvmi_internal_metrics_delta_sec
+
+  The actual time delta, in seconds, since last internal metrics generation. This may be different than the scan `interval`, the latter is the desired, theoretical value.
+
+  | Label Name | Value(s)/Info |
+  | --- | --- |
+  | instance | _instance_ |
+  | hostname | _hostname_ |
+
 ### lsvmi_uptime_sec
 
-- labels:
-
-  | name | value |
-  | ---   | --- |
+  Time, in seconds, since the agent was started.
+  
+  | Label Name | Value(s)/Info |
+  | --- | --- |
   | instance | _instance_ |
   | hostname | _hostname_ |
   | version | semver of the agent |
   | gitinfo | git describe based |
 
-- value: time, in seconds, since the agent was started
-
 ### os_info
 
-- labels:
+  Categorical (constant `1`) with [uname](https://linux.die.net/man/1/uname) like info:
 
-  | name | value |
-  | ---   | --- |
+  | Label Name | Value(s)/Info |
+  | --- | --- |
   | instance | _instance_ |
   | hostname | _hostname_ |
   | sys_name | \`uname -s\` |
   | sys_release | \`uname -r\` |
   | sys_version | \'uname -v\` |
 
-- value: `1`
+### os_uptime_sec
+
+  Time, in seconds, since OS boot
+
+  | Label Name | Value(s)/Info |
+  | --- | --- |
+  | instance | _instance_ |
+  | hostname | _hostname_ |
 
 ### os_btime_sec
 
-- labels:
+  Boot time, in seconds.
 
-  | name | value |
-  | ---   | --- |
+  | Label Name | Value(s)/Info |
+  | --- | --- |
   | instance | _instance_ |
   | hostname | _hostname_ |
-
-- value: boot time, in seconds
-
-### os_uptime_sec
-
-- labels:
-
-  | name | value |
-  | ---   | --- |
-  | instance | _instance_ |
-  | hostname | _hostname_ |
-
-- value: time, in seconds, since OS boot
-
-### lsvmi_internal_metrics_delta_sec
-
-- labels:
-
-  | name | value |
-  | ---   | --- |
-  | instance | _instance_ |
-  | hostname | _hostname_ |
-
-- value: the actual time delta, in seconds, since last internal metrics generation. This may be different than the scan `interval`
