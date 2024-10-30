@@ -1,6 +1,6 @@
 # LSVMI Proof Of Concept Demo
 
-While this is intended as a `TL;DR`, some glancing familiarity w/ the following concepts is required:
+While this is intended as a `TL;DR`, some familiarity with the following is required:
 
 * [Prometheus Metrics](https://prometheus.io/docs/concepts/data_model/)
 * [VictoriaMetrics / Single version](https://docs.victoriametrics.com/single-server-victoriametrics/)

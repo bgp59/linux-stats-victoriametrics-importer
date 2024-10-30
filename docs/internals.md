@@ -116,8 +116,4 @@ In addition to the change only approach, process/thread metrics use the concept 
 
 [^1]: The fixed structure applies for a given kernel version, i.e. it is fixed for the uptime of a given host.
 
-[^2]: Except for `VSZ` (the virtual size), Go runtime allocates a large size upfront as per [A note about virtual memory](https://go.dev/doc/gc-guide#A_note_about_virtual_memory):
-
-```text
-Because virtual memory is just a mapping maintained by the operating system, it is typically very cheap to make large virtual memory reservations that don't map to physical memory.
-```
+[^2]: Except for `VSZ` (the virtual size), Go runtime allocates a large size upfront as per [A note about virtual memory](https://go.dev/doc/gc-guide#A_note_about_virtual_memory): `Because virtual memory is just a mapping maintained by the operating system, it is typically very cheap to make large virtual memory reservations that don't map to physical memory.`
