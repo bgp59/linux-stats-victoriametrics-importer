@@ -114,6 +114,59 @@ It should be noted that for delta values the partial approach is implemented as 
 
 In addition to the change only approach, process/thread metrics use the concept of active process to further reduce the number of metrics. PIDs/TIDs are classified into active/inactive based upon whether they used any CPU since the previous scan. Inactive processes/threads are ignored for partial cycles.
 
+##### Pseudo-categorical Metrics
+
+A canonical implementation for categorical metrics has a value of `1` for the current combination of labels and `0` for all others. For instance `proc_pid_stat_state` has `state` label with possible values from the `RSDZTW` choices. A `R` running process should be describes by the following set:
+
+```text
+
+proc_pid_stat_state{state="R"} 1 TIMESTAMP1
+proc_pid_stat_state{state="S"} 0 TIMESTAMP1
+proc_pid_stat_state{state="D"} 0 TIMESTAMP1
+proc_pid_stat_state{state="Z"} 0 TIMESTAMP1
+proc_pid_stat_state{state="T"} 0 TIMESTAMP1
+proc_pid_stat_state{state="W"} 0 TIMESTAMP1
+
+```
+
+If in the next scan the process transitions to `S`, the set becomes:
+
+```text
+
+proc_pid_stat_state{state="R"} 0 TIMESTAMP2
+proc_pid_stat_state{state="S"} 1 TIMESTAMP2
+proc_pid_stat_state{state="D"} 0 TIMESTAMP2
+proc_pid_stat_state{state="Z"} 0 TIMESTAMP2
+proc_pid_stat_state{state="T"} 0 TIMESTAMP2
+proc_pid_stat_state{state="W"} 0 TIMESTAMP2
+
+```
+
+Rather than generating `N = N1 * N2 * N3 * ... * Nk` metrics everytime (`k` categories, each with `Nj` possible values), the pseudo-categorical approach handles transitions by invalidating the previous state by publishing `0` at the same time when the new state is published with `1` value.
+
+The transition above `R` -> `S` becomes:
+
+```text
+
+proc_pid_stat_state{state="R"} 1 TIMESTAMP1
+
+```
+
+```text
+
+proc_pid_stat_state{state="R"} 0 TIMESTAMP2
+proc_pid_stat_state{state="S"} 1 TIMESTAMP2
+
+```
+
+While this reduces the number of data points, queries should be a little more complex, for instance to determine the state:
+
+```text
+
+last_over_time(proc_pid_stat_state) > 0
+
+```
+
 [^1]: Except for `VSZ` (the virtual size), Go runtime allocates a large size upfront as per [A note about virtual memory](https://go.dev/doc/gc-guide#A_note_about_virtual_memory): `Because virtual memory is just a mapping maintained by the operating system, it is typically very cheap to make large virtual memory reservations that don't map to physical memory.`
 
 [^2]: The fixed structure applies for a given kernel version, i.e. it is fixed for the uptime of a given host.
