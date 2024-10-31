@@ -100,7 +100,8 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 ### Using A Containerized Solution
 
 * have  [Docker](https://docs.docker.com/get-started/get-docker/) installed
-* invoke:
+* run the demo image:
+  * without persistence (neither [VictoriaMetrics](https://docs.victoriametrics.com/single-server-victoriametrics/) time series nor [Grafana's](https://grafana.com/docs/grafana/latest/getting-started/) custom dashboards will be saved between container restarts):
 
     ```bash
 
@@ -114,54 +115,53 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
     ```
 
-    Note that the above will persist neither [VictoriaMetrics](https://docs.victoriametrics.com/single-server-victoriametrics/) time series nor [Grafana's](https://grafana.com/docs/grafana/latest/getting-started/) custom dashboards between container restarts. If persistence is desirable then mount `runtime` volume.
+  * with persistence:
+    * select a convenient location:
 
-* select a convenient location:
+        ```bash
 
-    ```bash
+        lsvmi_runtime_dir=$HOME/docker/volumes/lsvmi-poc/runtime
 
-    lsvmi_runtime_dir=$HOME/docker/volumes/lsvmi-poc/runtime
+        ```
 
-    ```
+    * start the container with a volume:
 
-* start the container with a volume:
+        ```bash
 
-    ```bash
+        mkdir -p $lsvmi_runtime_dir
+        docker run \
+            --rm \
+            --detach \
+            --publish 3000:3000 \
+            --publish 8428:8428 \
+            --name lsvmi-demo \
+            --volume $lsvmi_runtime_dir:/volumes/runtime \
+            emypar/linux-stats-victoriametrics-importer:demo
 
-    mkdir -p $lsvmi_runtime_dir
-    docker run \
-        --rm \
-        --detach \
-        --publish 3000:3000 \
-        --publish 8428:8428 \
-        --name lsvmi-demo \
-        --volume $lsvmi_runtime_dir:/volumes/runtime \
-        emypar/linux-stats-victoriametrics-importer:demo
+        ```
 
-    ```
+    * log files are now accessible on the host running **Docker**:
 
-* log files are now accessible on the host running **Docker**:
+        ```bash
 
-    ```bash
+        cd $lsvmi_runtime_dir/victoria-metrics/out
+        cat victoria-metrics.err
 
-    cd $lsvmi_runtime_dir/victoria-metrics/out
-    cat victoria-metrics.err
+        ```
 
-    ```
+        ```bash
 
-    ```bash
+        cd $lsvmi_runtime_dir/grafana/log
+        cat grafana.log
 
-    cd $lsvmi_runtime_dir/grafana/log
-    cat grafana.log
+        ```
 
-    ```
+        ```bash
 
-    ```bash
+        cd $lsvmi_runtime_dir/lsvmi/log
+        cat linux-stats-victoriametrics-importer.log
 
-    cd $lsvmi_runtime_dir/lsvmi/log
-    cat linux-stats-victoriametrics-importer.log
-
-    ```
+        ```
 
 * point a, preferably Chrome (may be in Incognito mode), browser to <http://localhost:3000> for [Grafana](https://grafana.com/docs/grafana/latest/getting-started/) UI, user: `admin`, password: `lsvmi`
 

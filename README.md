@@ -17,5 +17,3 @@ Financial institutions use so called Market Data Platforms for disseminating liv
 The widely used approach of scraping for collecting metrics would be suboptimal in this case, given the 100 millisecond .. 1 second time granularity of the latter.
 
 Since [VictoriaMetrics](https://docs.victoriametrics.com/) supports the [import](https://docs.victoriametrics.com/Cluster-VictoriaMetrics.html#url-format) paradigm, it is more efficient to collect the granular stats, with the timestamps of the actual collection, into larger batches and to push the latter, in compressed format, to import end points.
-
-## Additional Information
