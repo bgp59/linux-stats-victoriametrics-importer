@@ -3,13 +3,13 @@
 <!-- markdownlint-disable -->
 <!-- TOC tocDepth:2..3 chapterDepth:2..6 -->
 
-- [Applicable To All Metrics](#user-content-applicable-to-all-metrics)
-- [Internal Metrics](#user-content-internal-metrics)
-  - [lsvmi_internal_metrics_delta_sec](#user-content-lsvmi_internal_metrics_delta_sec)
-  - [lsvmi_uptime_sec](#user-content-lsvmi_uptime_sec)
-  - [os_info](#user-content-os_info)
-  - [os_uptime_sec](#user-content-os_uptime_sec)
-  - [os_btime_sec](#user-content-os_btime_sec)
+- [Applicable To All Metrics](#applicable-to-all-metrics)
+- [Internal Metrics](#internal-metrics)
+  - [lsvmi_internal_metrics_delta_sec](#lsvmi_internal_metrics_delta_sec)
+  - [lsvmi_uptime_sec](#lsvmi_uptime_sec)
+  - [os_info](#os_info)
+  - [os_uptime_sec](#os_uptime_sec)
+  - [os_btime_sec](#os_btime_sec)
 
 <!-- /TOC -->
 <!-- markdownlint-restore -->
