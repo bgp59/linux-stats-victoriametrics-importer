@@ -1,14 +1,33 @@
 # LSVMI Metrics
 
-<!-- TOC tocDepth:2..4 chapterDepth:2..6 -->
+<!-- TOC tocDepth:2..6 chapterDepth:2..6 -->
 
-- [Information Applicable To All Metrics](#information-applicable-to-all-metrics)
-  - [Common Labels](#common-labels)
+- [Common Labels](#common-labels)
+- [Timestamps](#timestamps)
+- [The List Of Metrics, By Metrics Generators](#the-list-of-metrics-by-metrics-generators)
 
 <!-- /TOC -->
 
+## Common Labels
+
+All metrics have the following labels:
+
+- `instance` with the associated value identifying a specific [LSVMI](../README.md). The value, in decreasing order of precedence:
+  - `-instance INSTANCE` command line arg
+  - `global_config.instance` in config file
+  - `lsvmi` built-in default
+- `hostname` with the associated value identifying a host where [LSVMI](../README.md) runs. The value, in decreasing order of precedence:
+  - `-hostname HOSTNAME` command line arg
+  - the value returned by `hostname` syscall
+  The value may be stripped of domain part, depending upon `global_config.use_short_hostname: true|false` config
+
+## Timestamps
+
+The generated metrics use specific timestamps from when the parser(s) returned the new data. If multiple sources were involved, the timestamp is from when **all** the needed data was parsed. For instance `PID` metrics may require `/proc/[PID]/stat`, `/proc/[PID]/status` and `/proc/[PID]/cmdline` parsing; the timestamp is from when all 3 of them returned.
+
+## The List Of Metrics, By Metrics Generators
 <!-- internal_metrics.md -->
-- [LSVMI Internal Metrics](internal_metrics.md#lsvmi-internal-metrics)
+- [LSVMI Internal Metrics (id: `internal_metrics`)](internal_metrics.md#lsvmi-internal-metrics-id-internal_metrics)
   - [Agent Metrics](internal_metrics.md#agent-metrics)
     - [lsvmi_internal_metrics_delta_sec](internal_metrics.md#lsvmi_internal_metrics_delta_sec)
     - [lsvmi_uptime_sec](internal_metrics.md#lsvmi_uptime_sec)
@@ -61,18 +80,3 @@
     - [lsvmi_task_executed_delta](internal_metrics.md#lsvmi_task_executed_delta)
     - [lsvmi_task_deadline_hack_delta](internal_metrics.md#lsvmi_task_deadline_hack_delta)
     - [lsvmi_task_interval_avg_runtime_sec](internal_metrics.md#lsvmi_task_interval_avg_runtime_sec)
-
-## Information Applicable To All Metrics
-
-### Common Labels
-
-All metrics have the following labels:
-
-- `instance` with the associated value identifying a specific [LSVMI](../README.md). The value, in decreasing order of precedence:
-  - `-instance INSTANCE` command line arg
-  - `global_config.instance` in config file
-  - `lsvmi` built-in default
-- `hostname` with the associated value identifying a host where [LSVMI](../README.md) runs. The value, in decreasing order of precedence:
-  - `-hostname HOSTNAME` command line arg
-  - the value returned by `hostname` syscall
-  The value may be stripped of domain part, depending upon `global_config.use_short_hostname: true|false` config
