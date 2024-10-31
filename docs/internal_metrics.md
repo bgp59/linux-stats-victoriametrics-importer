@@ -111,31 +111,31 @@ Virtual memory resident size, in bytes.
 
 ### lsvmi_compressor_read_delta
 
-The number of reads from the queue since last scan.
+The number of reads from the queue since the last scan.
 
 ### lsvmi_compressor_read_byte_delta
 
-The number of read bytes from the queue since last scan.
+The number of read bytes from the queue since the last scan.
 
 ### lsvmi_compressor_send_delta
 
-The number of sends since last scan.
+The number of sends since the last scan.
 
 ### lsvmi_compressor_send_byte_delta
 
-The number of sent bytes since last scan.
+The number of sent bytes since the last scan.
 
 ### lsvmi_compressor_send_error_delta
 
-The number of send errors since last scan.
+The number of send errors since the last scan.
 
 ### lsvmi_compressor_tout_flush_delta
 
-The number of timeout (timed based, that is) flushes since last scan.
+The number of timeout (timed based, that is) flushes since the last scan.
 
 ### lsvmi_compressor_write_error_delta
 
-The number of write (to compressor stream) errors since last scan.
+The number of write (to compressor stream) errors since the last scan.
 
 ### lsvmi_compressor_compression_factor
 
@@ -186,15 +186,15 @@ The number of bytes for all the generated metrics, since the last scan.
 
 ### lsvmi_go_mem_free_delta
 
-The number of `free` calls since last scan.
+The number of `free` calls since the last scan.
 
 ### lsvmi_go_mem_gc_delta
 
-The number of garbage collector calls since last scan.
+The number of garbage collector calls since the last scan.
 
 ### lsvmi_go_mem_malloc_delta
 
-The number of `malloc` calls since last scan.
+The number of `malloc` calls since the last scan.
 
 ### lsvmi_go_num_goroutine
 
@@ -277,7 +277,7 @@ The number of endpoint errors since the last scan.
   | hostname | _hostname_ |
   | sys_name | \`uname -s\` |
   | sys_release | \`uname -r\` |
-  | sys_version | \'uname -v\` |
+  | sys_version | \`uname -v\` |
   | ID<br>NAME<br>PRETTY_NAME<br>VERSION<br>VERSION_CODENAME<br>VERSION_ID | See the eponymous fields in [os-release](https://man7.org/linux/man-pages/man5/os-release.5.html) |
 
 ### os_btime_sec
