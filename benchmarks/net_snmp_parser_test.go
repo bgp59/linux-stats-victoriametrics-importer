@@ -42,14 +42,6 @@ func BenchmarkNetSnmpParserProm(b *testing.B) {
 	}
 }
 
-// goos: darwin
-// goarch: amd64
-// pkg: github.com/emypar/linux-stats-victoriametrics-importer/benchmarks
-// cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
-// BenchmarkNetSnmpParserIO   	   46872	     23890 ns/op	     136 B/op	       3 allocs/op
-// BenchmarkNetSnmpParser     	   49552	     24751 ns/op	     160 B/op	       4 allocs/op
-// BenchmarkNetSnmpParserProm 	   25368	     43392 ns/op	   11960 B/op	     117 allocs/op
-
 func BenchmarkNetSnmpFileRead(b *testing.B) {
 	for op, name := range benchFileReadOpMap {
 		b.Run(
@@ -60,13 +52,3 @@ func BenchmarkNetSnmpFileRead(b *testing.B) {
 		)
 	}
 }
-
-// goos: darwin
-// goarch: amd64
-// pkg: github.com/emypar/linux-stats-victoriametrics-importer/benchmarks
-// cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
-// BenchmarkNetSnmpFileRead/BENCH_FILE_READ         			   49275	     24469 ns/op	     136 B/op	       3 allocs/op
-// BenchmarkNetSnmpFileRead/BENCH_FILE_SCAN_BYTES              	   45414	     26200 ns/op	    4232 B/op	       4 allocs/op
-// BenchmarkNetSnmpFileRead/BENCH_FILE_READ_SCAN_TEXT          	   45985	     26449 ns/op	    5384 B/op	      12 allocs/op
-// BenchmarkNetSnmpFileRead/BENCH_FILE_READ_SCAN_BYTES         	   44721	     26475 ns/op	    4232 B/op	       4 allocs/op
-// BenchmarkNetSnmpFileRead/BENCH_FILE_SCAN_TEXT               	   45552	     26968 ns/op	    5384 B/op	      12 allocs/op

@@ -2620,7 +2620,7 @@
               "refId": "A"
             }
           ],
-          "title": "Metrics Generator Actual Saample# Delta",
+          "title": "Metrics Generator Actual Sample# Delta",
           "type": "timeseries"
         },
         {

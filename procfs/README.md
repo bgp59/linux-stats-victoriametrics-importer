@@ -2,13 +2,16 @@
 
 ## Rationale For Custom Parsers
 
-This stats collector is intended to be very granular time-wise, with sampling intervals of 1 second or even hundreds of milliseconds. 
+This stats collector is intended to be very granular time-wise, with sampling intervals of 1 second or even hundreds of milliseconds.
 
 To ensure minimal %CPU utilization, the parsers have to be optimized for minimum processing.
 
-The tests in [benchmarks](../benchmarks) directory illustrate the performance gains v. the established [prometheus/procfs](https://github.com/prometheus/procfs); the `..._parser_test.go` files have a comment section with benchmark results showing the performance of raw file read (the baseline), the one of this package parser and that of the Prometheus `procfs` package. For instance [diskstats_parser_test.go](../benchmarks/diskstats_parser_test.go#L41-L47) shows that the overhead of this parser is ~ 4 µsec whereas the Prometheus one is ~ 84 µsec.
+The tests in [benchmarks](../benchmarks) directory illustrate the performance gains v. the established [prometheus/procfs](https://github.com/prometheus/procfs). The results are compiled on a per H/W and OS basis as follows:
 
-The performance gains come at a cost though:
+* `MacBook Pro 15 Intel 2.2 GHz` [results](../docs/parser-bench-macos-10.16-x86_64-i386-64bit.md)
+
+The performance gains require some compromises:
+
 * the code is less modular/readable; e.g. long-ish loops with no function calls inside (TODO: explore Go [inline](https://pkg.go.dev/golang.org/x/tools/internal/refactor/inline) package, maybe once it matures)
 * data presentation (i.e. parsed data) may be in raw format, for instance `[]byte` instead of `int`
 

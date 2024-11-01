@@ -83,33 +83,6 @@ func benchmarkFileRead(fPath string, op int, b *testing.B) {
 	}
 }
 
-func getPidTidList(procfsRoot string, pidOnly bool) ([]PidTid, error) {
-	dirEntries, err := os.ReadDir(procfsRoot)
-	if err != nil {
-		return nil, err
-	}
-	pidTidList := make([]PidTid, 0)
-	for _, dirEntry := range dirEntries {
-		name := dirEntry.Name()
-		pid, err := strconv.Atoi(name)
-		if err == nil && pid > 0 {
-			pidTidList = append(pidTidList, PidTid{pid, procfs.PID_ONLY_TID})
-			if !pidOnly {
-				dirEntries, err := os.ReadDir(path.Join(procfsRoot, name, "task"))
-				if err == nil {
-					for _, dirEntry := range dirEntries {
-						tid, err := strconv.Atoi(dirEntry.Name())
-						if err == nil && tid > 0 {
-							pidTidList = append(pidTidList, PidTid{pid, tid})
-						}
-					}
-				}
-			}
-		}
-	}
-	return pidTidList, nil
-}
-
 func buildPidTidLists(procfsRoot string, pidOnly bool) ([]PidTid, []string, error) {
 	dirEntries, err := os.ReadDir(procfsRoot)
 	if err != nil {
