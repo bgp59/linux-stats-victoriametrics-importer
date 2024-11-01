@@ -8,7 +8,7 @@ To ensure minimal %CPU utilization, the parsers have to be optimized for minimum
 
 The tests in [benchmarks](../benchmarks) directory illustrate the performance gains v. the established [prometheus/procfs](https://github.com/prometheus/procfs). The results are compiled on a per H/W and OS basis as follows:
 
-* `MacBook Pro 15 Intel 2.2 GHz` [results](../docs/parser-bench-macos-10.16-x86_64-i386-64bit.md)
+* `MacBook Pro 15 Intel 2.2 GHz` [results](../docs/parser-bench-macos-15.1-x86_64-i386-64bit.md)
 
 The performance gains require some compromises:
 
