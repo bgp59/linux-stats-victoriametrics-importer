@@ -140,6 +140,7 @@ PROC_PID_INTERVAL_METRIC = "proc_pid_metrics_delta_sec"
 # special value is needed to signify nil, as opposed to empty:
 PID_PARSER_NIL_BSF = "<nil>"
 
+
 # Based on lsvmi/proc_pid_metrics_utils_test.go:
 @dataclass
 class TestPidStatParsedData:
@@ -1256,9 +1257,9 @@ def generate_proc_pid_metrics_execute_test_case(
     pid_metrics_info_data_by_pid_tid = {}
     if pid_metrics_info_data_list:
         for pid_metrics_info_data in pid_metrics_info_data_list:
-            pid_metrics_info_data_by_pid_tid[
-                pid_metrics_info_data.PidTid
-            ] = pid_metrics_info_data
+            pid_metrics_info_data_by_pid_tid[pid_metrics_info_data.PidTid] = (
+                pid_metrics_info_data
+            )
 
     pid_tid_list_result = []
     all_metrics = []

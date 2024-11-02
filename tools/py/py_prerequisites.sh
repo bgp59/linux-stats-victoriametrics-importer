@@ -11,5 +11,5 @@ set -e
 cd $this_dir
 ./check_python_ver.py
 pip3 install --upgrade pip
-pip3 install -r requirements.txt
+pip3 install --upgrade -r requirements.txt
 

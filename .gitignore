@@ -7,6 +7,7 @@ runtime/
 staging/
 testdata/
 volumes/
+**/volumes
 go.work
 go.work.*
 # Editors and IDE:
