@@ -1,5 +1,4 @@
 // Compressor pool for sending metrics:
-// go:build exclude
 package lsvmi
 
 import (
