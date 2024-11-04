@@ -51,14 +51,22 @@ case "$1" in
 esac
 
 case "$0" in
-    /*|*/*) script_dir=$(cd $(dirname $0) && pwd);;
-    *) script_dir=$(cd $(dirname $(which $0)) && pwd);;
+    /*|*/*) 
+        script_dir=$(cd $(dirname $0) && pwd)
+        real_script_dir=$(dirname $(realpath $0))
+    ;;
+    *) 
+        script_dir=$(cd $(dirname $(which $0)) && pwd)
+        real_script_dir=$(dirname $(realpath $(which $0)))
+    ;;
 esac
 
 if [[ -z "$script_dir" ]]; then
     echo >&2 "$this_script: cannot infer location from invocation"
     exit 1
 fi
+
+export PATH="$real_script_dir${PATH:+:}$PATH"
 
 set -e
 cd $script_dir
@@ -109,8 +117,7 @@ do_build() {
 }
 
 if [[ -r $go_os_arch_targets_file ]]; then
-    real_script_dir=$(dirname $(realpath $0))
-    $real_script_dir/list-os-arch.sh $go_os_arch_targets_file | while read GOOS GOARCH; do
+    list-os-arch.sh $go_os_arch_targets_file | while read GOOS GOARCH; do
         export GOOS GOARCH
         do_build
     done

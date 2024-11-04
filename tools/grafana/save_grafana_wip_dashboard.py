@@ -121,6 +121,6 @@ if __name__ == "__main__":
         json.dump(dashboard, f, indent=2)
         f.write("\n")
     print(
-        f'Dashboard "{wip_folder}/{wip_dashboard_title}" saved into "{out_file}"',
+        f'Dashboard "{wip_folder}/{wip_dashboard_title}" saved into "{out_file}" using "{dashboard["title"]}" title',
         file=sys.stderr,
     )

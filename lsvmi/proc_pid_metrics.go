@@ -58,6 +58,8 @@ const (
 	PROC_PID_STAT_TPGID_LABEL_NAME   = "tpgid"
 	PROC_PID_STAT_FLAGS_LABEL_NAME   = "flags"
 
+	PROC_PID_STAT_NUM_THREADS_METRIC = "proc_pid_stat_num_threads" // PID only
+
 	PROC_PID_STAT_PRIORITY_METRIC        = "proc_pid_stat_prio" // PID + TID
 	PROC_PID_STAT_PRIORITY_LABEL_NAME    = "prio"
 	PROC_PID_STAT_NICE_LABEL_NAME        = "nice"
@@ -284,15 +286,16 @@ type ProcPidMetrics struct {
 	intialized bool
 
 	// PidStat based metric formats:
-	pidStatStateMetricFmt    string
-	pidStatCommMetricFmt     string
-	pidStatInfoMetricFmt     string
-	pidStatPriorityMetricFmt string
-	pidStatCpuNumMetricFmt   string
-	pidStatRssMetricFmt      string
-	pidStatMemoryMetricFmt   []*ProcPidMetricsIndexFmt
-	pidStatPcpuMetricFmt     []*ProcPidMetricsIndexFmt
-	pidStatFltMetricFmt      []*ProcPidMetricsIndexFmt
+	pidStatStateMetricFmt       string
+	pidStatCommMetricFmt        string
+	pidStatInfoMetricFmt        string
+	pidStatNumThreadsMetricsFmt string
+	pidStatPriorityMetricFmt    string
+	pidStatCpuNumMetricFmt      string
+	pidStatRssMetricFmt         string
+	pidStatMemoryMetricFmt      []*ProcPidMetricsIndexFmt
+	pidStatPcpuMetricFmt        []*ProcPidMetricsIndexFmt
+	pidStatFltMetricFmt         []*ProcPidMetricsIndexFmt
 
 	// PidStatus based metric formats:
 	pidStatusInfoMetricFmt          string
@@ -457,6 +460,12 @@ func (pm *ProcPidMetrics) initMetricsCache() {
 		PROC_PID_STAT_TTY_NR_LABEL_NAME,
 		PROC_PID_STAT_TPGID_LABEL_NAME,
 		PROC_PID_STAT_FLAGS_LABEL_NAME,
+	)
+	pm.perPidOnlyMetricCount++
+
+	pm.pidStatNumThreadsMetricsFmt = pm.buildMetricFmt(
+		PROC_PID_STAT_NUM_THREADS_METRIC,
+		"%s",
 	)
 	pm.perPidOnlyMetricCount++
 
@@ -997,6 +1006,18 @@ func (pm *ProcPidMetrics) generateMetrics(
 			currPidStatBSF[procfs.PID_STAT_TPGID],
 			currPidStatBSF[procfs.PID_STAT_FLAGS],
 			'1',
+			ts,
+		)
+		actualMetricsCount++
+	}
+
+	if fullMetricsNoPrev ||
+		!bytes.Equal(currPidStatBSF[procfs.PID_STAT_NUM_THREADS], prevPidStatBSF[procfs.PID_STAT_NUM_THREADS]) {
+		fmt.Fprintf(
+			buf,
+			pm.pidStatNumThreadsMetricsFmt,
+			pidTidMetricsInfo.pidTidLabels,
+			currPidStatBSF[procfs.PID_STAT_NUM_THREADS],
 			ts,
 		)
 		actualMetricsCount++

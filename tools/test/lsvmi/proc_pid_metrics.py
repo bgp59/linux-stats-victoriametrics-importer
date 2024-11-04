@@ -51,6 +51,8 @@ PROC_PID_STAT_TTY_NR_LABEL_NAME = "tty"
 PROC_PID_STAT_TPGID_LABEL_NAME = "tpgid"
 PROC_PID_STAT_FLAGS_LABEL_NAME = "flags"
 
+PROC_PID_STAT_NUM_THREADS_METRIC = "proc_pid_stat_num_threads"  # PID only
+
 PROC_PID_STAT_PRIORITY_METRIC = "proc_pid_stat_prio"  # PID + TID
 PROC_PID_STAT_PRIORITY_LABEL_NAME = "prio"
 PROC_PID_STAT_NICE_LABEL_NAME = "nice"
@@ -520,12 +522,22 @@ def generate_proc_pid_metrics(
                 metrics.append(
                     f"{PROC_PID_STAT_INFO_METRIC}{{{common_labels},{pid_stat_info_labels}}} 1 {curr_prom_ts}"
                 )
+
+            ### PROC_PID_STAT_NUM_THREADS_METRIC:
+            crt_val = curr_pid_stat_bsf[procfs.PID_STAT_NUM_THREADS]
+            if (
+                pid_stat_full_metrics
+                or crt_val != prev_pid_stat_bsf[procfs.PID_STAT_NUM_THREADS]
+            ):
+                metrics.append(
+                    f"{PROC_PID_STAT_NUM_THREADS_METRIC}{{{common_labels}}} {crt_val} {curr_prom_ts}"
+                )
+
             #### PROC_PID_STAT_RSS_METRIC:
             crt_val = curr_pid_stat_nf[procfs.PID_STAT_RSS]
             if (
                 pid_stat_full_metrics
-                or has_prev
-                and crt_val != prev_pid_stat_nf[procfs.PID_STAT_RSS]
+                or crt_val != prev_pid_stat_nf[procfs.PID_STAT_RSS]
             ):
                 metrics.append(
                     f"{PROC_PID_STAT_RSS_METRIC}{{{common_labels}}} {crt_val*page_size} {curr_prom_ts}"
@@ -537,11 +549,7 @@ def generate_proc_pid_metrics(
                 (procfs.PID_STAT_RSSLIM, PROC_PID_STAT_RSSLIM_METRIC),
             ]:
                 crt_val = curr_pid_stat_bsf[index]
-                if (
-                    pid_stat_full_metrics
-                    or has_prev
-                    and crt_val != prev_pid_stat_bsf[index]
-                ):
+                if pid_stat_full_metrics or crt_val != prev_pid_stat_bsf[index]:
                     metrics.append(
                         f"{metric_name}{{{common_labels}}} {crt_val} {curr_prom_ts}"
                     )
@@ -613,9 +621,7 @@ def generate_proc_pid_metrics(
             if metric_name in proc_pid_status_pid_tid_vm_metrics or is_pid:
                 crt_val, unit = curr_pid_status_bsf[index], curr_pid_status_bsu[index]
                 if crt_val != PID_PARSER_NIL_BSF and (
-                    pid_status_full_metrics
-                    or has_prev
-                    and crt_val != prev_pid_status_bsf[index]
+                    pid_status_full_metrics or crt_val != prev_pid_status_bsf[index]
                 ):
                     metrics.append(
                         f'{metric_name}{{{common_labels},{PROC_PID_STATUS_VM_UNIT_LABEL_NAME}="{unit}"}} {crt_val} {curr_prom_ts}'
