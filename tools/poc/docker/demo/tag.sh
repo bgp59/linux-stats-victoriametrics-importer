@@ -10,9 +10,9 @@ case "$0" in
     ;;
 esac
 
-docker_hub_dir=../../../../.docker-hub
 set -e
 cd $this_dir
-echo "$(cat $docker_hub_dir/repo.txt):demo-$(cat ../../../../semver.txt)" > $docker_hub_dir/tag
-ln -fs $docker_hub_dir/tag .
+echo "$(cat repo.txt):demo-$(cat ../../../../semver.txt)"
+
+
 

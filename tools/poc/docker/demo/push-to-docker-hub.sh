@@ -12,7 +12,12 @@ esac
 
 set -e
 cd $this_dir
-tag=$(cat tag)
+if [[ -x tag ]]; then
+    tag=$(./tag)
+else
+    tag=$(cat tag)
+fi
+
 demo_tag=${tag/:demo*/:demo}
 
 set -x
