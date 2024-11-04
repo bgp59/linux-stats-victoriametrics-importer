@@ -11,11 +11,13 @@ set -e
 check_os_arch
 
 for d in /volumes/linux-stats-victoriametrics-importer $(realpath $this_dir/../../../..); do
-    if [[ -d $d/bin/$os_arch ]]; then
+    if [[ -x $d/bin/$os_arch ]]; then
+        ls -1 $d/bin/$os_arch # Hack required for run-lsvmi-in-container.sh (stale cache?!)
         export PATH="$d/bin/$os_arch:$PATH"
         break
     fi
 done
+
 
 case "$this_script" in
     start*)         
