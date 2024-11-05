@@ -10,7 +10,7 @@ import (
 )
 
 // Reference:
-// https://man7.org/linux/man-pages/man5/proc.5.html
+// https://man7.org/linux/man-pages/man5/proc_pid_mountinfo.5.html
 
 const (
 	// 0 based indices for mountinfo file fields as well as for the parsed

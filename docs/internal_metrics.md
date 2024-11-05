@@ -2,6 +2,7 @@
 
 <!-- TOC tocDepth:2..6 chapterDepth:2..6 -->
 
+- [Summary](#summary)
 - [Agent Metrics](#agent-metrics)
   - [lsvmi_internal_metrics_delta_sec](#lsvmi_internal_metrics_delta_sec)
   - [lsvmi_uptime_sec](#lsvmi_uptime_sec)
@@ -57,11 +58,13 @@
 
 <!-- /TOC -->
 
-Metrics relating to the agent itself. There is no partial/full cycle approach for these metrics, the entire set is generated for every cycle.
+## Summary
+
+These are metrics relating to the agent itself. There is no partial/full cycle approach for these metrics, the entire set is generated for every cycle.
 
 ## Agent Metrics
 
-**NOTE!** Unless otherwise stated, these metrics have the following label set:
+**NOTE!** Unless otherwise stated, the metrics in this paragraph have the following label set:
 
   | Label Name | Value(s)/Info |
   | --- | --- |
@@ -101,7 +104,7 @@ Virtual memory resident size, in bytes.
 
 ## Compressor Pool Metrics
 
-**NOTE!** They all have the same label set:
+**NOTE!** Unless otherwise stated, the metrics in this paragraph have the following label set:
 
   | Label Name | Value(s)/Info |
   | --- | --- |
@@ -151,7 +154,7 @@ For instance the `proc_stats` metrics may be generated every 0.2 sec while the i
 
 This approach make the generator metrics comparable side-by-side, since they refer a common interval.
 
-**NOTE!** They all have the same label set:
+**NOTE!** Unless otherwise stated, the metrics in this paragraph have the following label set:
 
   | Label Name | Value(s)/Info |
   | --- | --- |
@@ -177,7 +180,7 @@ The number of bytes for all the generated metrics, since the last scan.
 
 ## Go Specific Metrics
 
-**NOTE!** They all have the same label set:
+**NOTE!** Unless otherwise stated, the metrics in this paragraph have the following label set:
 
   | Label Name | Value(s)/Info |
   | --- | --- |
@@ -216,7 +219,7 @@ The size of various memory pools, in bytes.
 
 ### Per Endpoint Metrics
 
-**NOTE!** They all have the same label set:
+**NOTE!** Unless otherwise stated, the metrics in this paragraph have the following label set:
 
   | Label Name | Value(s)/Info |
   | --- | --- |
@@ -250,7 +253,7 @@ The state of this URL, `0`: `HealthCheck`, `1`: `Healthy`, `2`: `AtHead`
 
 ### Per Pool Metrics
 
-**NOTE!** They all have the same label set:
+**NOTE!** Unless otherwise stated, the metrics in this paragraph have the following label set:
 
   | Label Name | Value(s)/Info |
   | --- | --- |
@@ -266,6 +269,13 @@ The cumulative number of rotations.
 The number of endpoint errors since the last scan.
 
 ## OS Metrics
+
+**NOTE!** Unless otherwise stated, the metrics in this paragraph have the following label set:
+
+  | Label Name | Value(s)/Info |
+  | --- | --- |
+  | instance | _instance_ |
+  | hostname | _hostname_ |
 
 ### os_info
 
@@ -284,19 +294,9 @@ The number of endpoint errors since the last scan.
 
   Boot time, in seconds.
 
-  | Label Name | Value(s)/Info |
-  | --- | --- |
-  | instance | _instance_ |
-  | hostname | _hostname_ |
-
 ### os_uptime_sec
 
   Time, in seconds, since OS boot
-
-  | Label Name | Value(s)/Info |
-  | --- | --- |
-  | instance | _instance_ |
-  | hostname | _hostname_ |
 
 ## Scheduler Metrics
 

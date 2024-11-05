@@ -31,191 +31,27 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "PD27EBB47A0602685"
       },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "align": "auto",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Time"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 190
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Instance"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 84
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Hostname"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 231
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Disk Name"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 94
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Maj:Min"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 81
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Mount Source"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 160
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Mount Point"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 297
-              }
-            ]
-          }
-        ]
-      },
+      "description": "",
       "gridPos": {
-        "h": 8,
-        "w": 20,
+        "h": 4,
+        "w": 24,
         "x": 0,
         "y": 0
       },
-      "id": 4,
+      "id": 22,
       "options": {
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
         },
-        "showHeader": true,
-        "sortBy": []
+        "content": "**NOTES:** \n\n1. See [LSVMI Disk Stats And Mount Info Metrics](https://github.com/emypar/linux-stats-victoriametrics-importer/blob/main/docs/proc_diskstats_metrics.md) for metrics description.\n1. All panels requires specifc `instance` and `hostname`\n",
+        "mode": "markdown"
       },
       "pluginVersion": "9.4.7",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "editorMode": "code",
-          "exemplar": false,
-          "expr": "last_over_time(\n  proc_diskstats_info{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]\n)\n* on (instance, hostname, maj_min) group_left(mount_point, source, fs_type)\nlast_over_time(\n  proc_mountinfo{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]\n) > 0\nor on (instance, hostname, maj_min)\nlast_over_time(\n  proc_diskstats_info{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]\n) * (1 - ${mounted_only}) > 0\n",
-          "format": "table",
-          "instant": true,
-          "legendFormat": "__auto",
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "title": "Disk Info For ${hostname} (Mounted Only = ${mounted_only})",
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true,
-              "Value": true
-            },
-            "indexByName": {
-              "Time": 0,
-              "Value": 8,
-              "fs_type": 7,
-              "hostname": 2,
-              "instance": 1,
-              "maj_min": 3,
-              "mount_point": 5,
-              "name": 4,
-              "source": 6
-            },
-            "renameByName": {
-              "fs_type": "FS Type",
-              "hostname": "Hostname",
-              "instance": "Instance",
-              "maj_min": "Maj:Min",
-              "mount_point": "Mount Point",
-              "name": "Disk Name",
-              "source": "Mount Source"
-            }
-          }
-        }
-      ],
-      "type": "table"
+      "type": "text"
     },
     {
       "collapsed": true,
@@ -223,7 +59,210 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 8
+        "y": 4
+      },
+      "id": 24,
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "inspect": false
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Time"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 190
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Instance"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 84
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Hostname"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 231
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Disk Name"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 94
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Maj:Min"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 81
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Mount Source"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 160
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Mount Point"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 297
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 20,
+            "x": 0,
+            "y": 5
+          },
+          "id": 4,
+          "options": {
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true,
+            "sortBy": []
+          },
+          "pluginVersion": "9.4.7",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "last_over_time(\n  proc_diskstats_info{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]\n)\n* on (instance, hostname, maj_min) group_left(mount_point, source, fs_type)\nlast_over_time(\n  proc_mountinfo{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]\n) > 0\nor on (instance, hostname, maj_min)\nlast_over_time(\n  proc_diskstats_info{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]\n) * (1 - ${mounted_only}) > 0\n",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "A"
+            }
+          ],
+          "title": "Mount Info For ${instance}/${hostname} (Mounted Only = ${mounted_only})",
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "Value": true
+                },
+                "indexByName": {
+                  "Time": 0,
+                  "Value": 8,
+                  "fs_type": 7,
+                  "hostname": 2,
+                  "instance": 1,
+                  "maj_min": 3,
+                  "mount_point": 5,
+                  "name": 4,
+                  "source": 6
+                },
+                "renameByName": {
+                  "fs_type": "FS Type",
+                  "hostname": "Hostname",
+                  "instance": "Instance",
+                  "maj_min": "Maj:Min",
+                  "mount_point": "Mount Point",
+                  "name": "Disk Name",
+                  "source": "Mount Source"
+                }
+              }
+            }
+          ],
+          "type": "table"
+        }
+      ],
+      "title": "Mount Info For ${instance}/${hostname}",
+      "type": "row"
+    },
+    {
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
       },
       "id": 14,
       "panels": [
@@ -232,7 +271,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "IMPORTANT! Must select a specific **Hostname**",
+          "description": "",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -306,7 +345,7 @@
             "h": 8,
             "w": 10,
             "x": 0,
-            "y": 9
+            "y": 6
           },
           "id": 7,
           "interval": "${interval}",
@@ -329,7 +368,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_diskstats_num_reads_completed_delta{\n  instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n} >= ${delta_threshold}\nand on (instance, hostname, maj_min)\n(\n  last_over_time(proc_mountinfo{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${lookback}]) * ${mounted_only}\n  or\n  last_over_time(proc_diskstats_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n) > 0",
+              "expr": "proc_diskstats_num_reads_completed_delta{\n  instance=\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n} >= ${delta_threshold}\nand on (instance, hostname, maj_min)\n(\n  last_over_time(proc_mountinfo{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n  or\n  last_over_time(proc_diskstats_info{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n) > 0",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "completed(dev={{name}},maj_min={{maj_min}},host={{hostname}},inst={{instance}})",
@@ -342,7 +381,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_diskstats_num_reads_merged_delta{\n  instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n} >= ${delta_threshold}\nand on (instance, hostname, maj_min)\n(\n  last_over_time(proc_mountinfo{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${lookback}]) * ${mounted_only}\n  or\n  last_over_time(proc_diskstats_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n) > 0",
+              "expr": "proc_diskstats_num_reads_merged_delta{\n  instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n} >= ${delta_threshold}\nand on (instance, hostname, maj_min)\n(\n  last_over_time(proc_mountinfo{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n  or\n  last_over_time(proc_diskstats_info{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n) > 0",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "merged(dev={{name}},maj_min={{maj_min}},host={{hostname}},inst={{instance}})",
@@ -355,7 +394,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_diskstats_num_read_sectors_delta{\n  instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n} >= ${delta_threshold}\nand on (instance, hostname, maj_min)\n(\n  last_over_time(proc_mountinfo{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${lookback}]) * ${mounted_only}\n  or\n  last_over_time(proc_diskstats_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n) > 0",
+              "expr": "proc_diskstats_num_read_sectors_delta{\n  instance=\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n} >= ${delta_threshold}\nand on (instance, hostname, maj_min)\n(\n  last_over_time(proc_mountinfo{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n  or\n  last_over_time(proc_diskstats_info{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n) > 0",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "sectors(dev={{name}},maj_min={{maj_min}},host={{hostname}},inst={{instance}})",
@@ -363,7 +402,7 @@
               "refId": "C"
             }
           ],
-          "title": "Read Deltas/${hostname}, MntOnly: ${mounted_only}",
+          "title": "Read Deltas For ${instance}/${hostname}, MntOnly: ${mounted_only}",
           "type": "timeseries"
         },
         {
@@ -371,7 +410,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "IMPORTANT! Must select a specific **Hostname**",
+          "description": "",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -445,7 +484,7 @@
             "h": 8,
             "w": 10,
             "x": 10,
-            "y": 9
+            "y": 6
           },
           "id": 8,
           "interval": "${interval}",
@@ -468,7 +507,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "(\n  proc_diskstats_num_reads_completed_delta{\n    instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n  }\n  and on (instance, hostname, maj_min)\n  (\n    last_over_time(proc_mountinfo{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n    or\n    last_over_time(proc_diskstats_info{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n  ) > 0\n) / on (instance, host) group_left()\n(\n  proc_diskstats_metrics_delta_sec{instance=~\"${instance}\",hostname=\"${hostname}\"} > 0\n) >= ${rate_threshold}",
+              "expr": "(\n  proc_diskstats_num_reads_completed_delta{\n    instance=\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n  }\n  and on (instance, hostname, maj_min)\n  (\n    last_over_time(proc_mountinfo{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n    or\n    last_over_time(proc_diskstats_info{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n  ) > 0\n) / on (instance, host) group_left()\n(\n  proc_diskstats_metrics_delta_sec{instance=\"${instance}\",hostname=\"${hostname}\"} > 0\n) >= ${rate_threshold}",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "completed(dev={{name}},maj_min={{maj_min}},host={{hostname}},inst={{instance}})",
@@ -481,7 +520,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "(\n  proc_diskstats_num_reads_merged_delta{\n    instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n  }\n  and on (instance, hostname, maj_min)\n  (\n    last_over_time(proc_mountinfo{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n    or\n    last_over_time(proc_diskstats_info{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n  ) > 0\n) / on (instance, host) group_left()\n(\n  proc_diskstats_metrics_delta_sec{instance=~\"${instance}\",hostname=\"${hostname}\"} > 0\n) >= ${rate_threshold}",
+              "expr": "(\n  proc_diskstats_num_reads_merged_delta{\n    instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n  }\n  and on (instance, hostname, maj_min)\n  (\n    last_over_time(proc_mountinfo{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n    or\n    last_over_time(proc_diskstats_info{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n  ) > 0\n) / on (instance, host) group_left()\n(\n  proc_diskstats_metrics_delta_sec{instance=\"${instance}\",hostname=\"${hostname}\"} > 0\n) >= ${rate_threshold}",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "merged(dev={{name}},maj_min={{maj_min}},host={{hostname}},inst={{instance}})",
@@ -494,7 +533,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "(\n  proc_diskstats_num_read_sectors_delta{\n    instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n  }\n  and on (instance, hostname, maj_min)\n  (\n    last_over_time(proc_mountinfo{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n    or\n    last_over_time(proc_diskstats_info{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n  ) > 0\n) / on (instance, host) group_left()\n(\n  proc_diskstats_metrics_delta_sec{instance=~\"${instance}\",hostname=\"${hostname}\"} > 0\n) >= ${rate_threshold}",
+              "expr": "(\n  proc_diskstats_num_read_sectors_delta{\n    instance=\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n  }\n  and on (instance, hostname, maj_min)\n  (\n    last_over_time(proc_mountinfo{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n    or\n    last_over_time(proc_diskstats_info{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n  ) > 0\n) / on (instance, host) group_left()\n(\n  proc_diskstats_metrics_delta_sec{instance=\"${instance}\",hostname=\"${hostname}\"} > 0\n) >= ${rate_threshold}",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "sectors(dev={{name}},maj_min={{maj_min}},host={{hostname}},inst={{instance}})",
@@ -502,7 +541,7 @@
               "refId": "C"
             }
           ],
-          "title": "Read Rates/${hostname}, MntOnly: ${mounted_only}",
+          "title": "Read Rates For ${instance}/${hostname}, MntOnly: ${mounted_only}",
           "type": "timeseries"
         },
         {
@@ -510,7 +549,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "IMPORTANT! Must select a specific **Hostname**",
+          "description": "",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -584,7 +623,7 @@
             "h": 8,
             "w": 10,
             "x": 0,
-            "y": 17
+            "y": 14
           },
           "id": 11,
           "interval": "${interval}",
@@ -607,7 +646,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_diskstats_num_writes_completed_delta{\n  instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n} >= ${delta_threshold}\nand on (instance, hostname, maj_min)\n(\n  last_over_time(proc_mountinfo{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${lookback}]) * ${mounted_only}\n  or\n  last_over_time(proc_diskstats_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n) > 0",
+              "expr": "proc_diskstats_num_writes_completed_delta{\n  instance=\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n} >= ${delta_threshold}\nand on (instance, hostname, maj_min)\n(\n  last_over_time(proc_mountinfo{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n  or\n  last_over_time(proc_diskstats_info{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n) > 0",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "completed(dev={{name}},maj_min={{maj_min}},host={{hostname}},inst={{instance}})",
@@ -620,7 +659,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_diskstats_num_writes_merged_delta{\n  instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n} >= ${delta_threshold}\nand on (instance, hostname, maj_min)\n(\n  last_over_time(proc_mountinfo{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${lookback}]) * ${mounted_only}\n  or\n  last_over_time(proc_diskstats_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n) > 0",
+              "expr": "proc_diskstats_num_writes_merged_delta{\n  instance=\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n} >= ${delta_threshold}\nand on (instance, hostname, maj_min)\n(\n  last_over_time(proc_mountinfo{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n  or\n  last_over_time(proc_diskstats_info{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n) > 0",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "merged(dev={{name}},maj_min={{maj_min}},host={{hostname}},inst={{instance}})",
@@ -633,7 +672,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_diskstats_num_write_sectors_delta{\n  instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n} >= ${delta_threshold}\nand on (instance, hostname, maj_min)\n(\n  last_over_time(proc_mountinfo{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${lookback}]) * ${mounted_only}\n  or\n  last_over_time(proc_diskstats_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n) > 0",
+              "expr": "proc_diskstats_num_write_sectors_delta{\n  instance=\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n} >= ${delta_threshold}\nand on (instance, hostname, maj_min)\n(\n  last_over_time(proc_mountinfo{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n  or\n  last_over_time(proc_diskstats_info{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n) > 0",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "sectors(dev={{name}},maj_min={{maj_min}},host={{hostname}},inst={{instance}})",
@@ -641,7 +680,7 @@
               "refId": "C"
             }
           ],
-          "title": "Write Deltas/${hostname}, MntOnly: ${mounted_only}",
+          "title": "Write Deltas For ${instance}/${hostname}, MntOnly: ${mounted_only}",
           "type": "timeseries"
         },
         {
@@ -649,7 +688,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "IMPORTANT! Must select a specific **Hostname**",
+          "description": "",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -723,7 +762,7 @@
             "h": 8,
             "w": 10,
             "x": 10,
-            "y": 17
+            "y": 14
           },
           "id": 10,
           "interval": "${interval}",
@@ -746,7 +785,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "(\n  proc_diskstats_num_writes_completed_delta{\n    instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n  }\n  and on (instance, hostname, maj_min)\n  (\n    last_over_time(proc_mountinfo{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n    or\n    last_over_time(proc_diskstats_info{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n  ) > 0\n) / on (instance, host) group_left()\n(\n  proc_diskstats_metrics_delta_sec{instance=~\"${instance}\",hostname=\"${hostname}\"} > 0\n) >= ${rate_threshold}",
+              "expr": "(\n  proc_diskstats_num_writes_completed_delta{\n    instance=\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n  }\n  and on (instance, hostname, maj_min)\n  (\n    last_over_time(proc_mountinfo{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n    or\n    last_over_time(proc_diskstats_info{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n  ) > 0\n) / on (instance, host) group_left()\n(\n  proc_diskstats_metrics_delta_sec{instance=\"${instance}\",hostname=\"${hostname}\"} > 0\n) >= ${rate_threshold}",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "completed(dev={{name}},maj_min={{maj_min}},host={{hostname}},inst={{instance}})",
@@ -759,7 +798,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "(\n  proc_diskstats_num_writes_merged_delta{\n    instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n  }\n  and on (instance, hostname, maj_min)\n  (\n    last_over_time(proc_mountinfo{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n    or\n    last_over_time(proc_diskstats_info{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n  ) > 0\n) / on (instance, host) group_left()\n(\n  proc_diskstats_metrics_delta_sec{instance=~\"${instance}\",hostname=\"${hostname}\"} > 0\n) >= ${rate_threshold}",
+              "expr": "(\n  proc_diskstats_num_writes_merged_delta{\n    instance=\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n  }\n  and on (instance, hostname, maj_min)\n  (\n    last_over_time(proc_mountinfo{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n    or\n    last_over_time(proc_diskstats_info{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n  ) > 0\n) / on (instance, host) group_left()\n(\n  proc_diskstats_metrics_delta_sec{instance=~\"${instance}\",hostname=\"${hostname}\"} > 0\n) >= ${rate_threshold}",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "merged(dev={{name}},maj_min={{maj_min}},host={{hostname}},inst={{instance}})",
@@ -772,7 +811,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "(\n  proc_diskstats_num_write_sectors_delta{\n    instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n  }\n  and on (instance, hostname, maj_min)\n  (\n    last_over_time(proc_mountinfo{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n    or\n    last_over_time(proc_diskstats_info{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n  ) > 0\n) / on (instance, host) group_left()\n(\n  proc_diskstats_metrics_delta_sec{instance=~\"${instance}\",hostname=\"${hostname}\"} > 0\n) >= ${rate_threshold}",
+              "expr": "(\n  proc_diskstats_num_write_sectors_delta{\n    instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n  }\n  and on (instance, hostname, maj_min)\n  (\n    last_over_time(proc_mountinfo{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n    or\n    last_over_time(proc_diskstats_info{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n  ) > 0\n) / on (instance, host) group_left()\n(\n  proc_diskstats_metrics_delta_sec{instance=\"${instance}\",hostname=\"${hostname}\"} > 0\n) >= ${rate_threshold}",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "sectors(dev={{name}},maj_min={{maj_min}},host={{hostname}},inst={{instance}})",
@@ -780,7 +819,7 @@
               "refId": "C"
             }
           ],
-          "title": "Write Rates/${hostname}, MntOnly: ${mounted_only}",
+          "title": "Write Rates For ${instance}/${hostname}, MntOnly: ${mounted_only}",
           "type": "timeseries"
         },
         {
@@ -788,7 +827,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "IMPORTANT! Must select a specific **Hostname**",
+          "description": "",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -862,7 +901,7 @@
             "h": 8,
             "w": 10,
             "x": 0,
-            "y": 25
+            "y": 22
           },
           "id": 9,
           "interval": "${interval}",
@@ -885,7 +924,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_diskstats_num_discards_completed_delta{\n  instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n} >= ${delta_threshold}\nand on (instance, hostname, maj_min)\n(\n  last_over_time(proc_mountinfo{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${lookback}]) * ${mounted_only}\n  or\n  last_over_time(proc_diskstats_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n) > 0",
+              "expr": "proc_diskstats_num_discards_completed_delta{\n  instance=\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n} >= ${delta_threshold}\nand on (instance, hostname, maj_min)\n(\n  last_over_time(proc_mountinfo{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n  or\n  last_over_time(proc_diskstats_info{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n) > 0",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "completed(dev={{name}},maj_min={{maj_min}},host={{hostname}},inst={{instance}})",
@@ -898,7 +937,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_diskstats_num_discards_merged_delta{\n  instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n} >= ${delta_threshold}\nand on (instance, hostname, maj_min)\n(\n  last_over_time(proc_mountinfo{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${lookback}]) * ${mounted_only}\n  or\n  last_over_time(proc_diskstats_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n) > 0",
+              "expr": "proc_diskstats_num_discards_merged_delta{\n  instance=\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n} >= ${delta_threshold}\nand on (instance, hostname, maj_min)\n(\n  last_over_time(proc_mountinfo{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n  or\n  last_over_time(proc_diskstats_info{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n) > 0",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "merged(dev={{name}},maj_min={{maj_min}},host={{hostname}},inst={{instance}})",
@@ -911,7 +950,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_diskstats_num_discard_sectors_delta{\n  instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n} >= ${delta_threshold}\nand on (instance, hostname, maj_min)\n(\n  last_over_time(proc_mountinfo{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${lookback}]) * ${mounted_only}\n  or\n  last_over_time(proc_diskstats_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n) > 0",
+              "expr": "proc_diskstats_num_discard_sectors_delta{\n  instance=\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n} >= ${delta_threshold}\nand on (instance, hostname, maj_min)\n(\n  last_over_time(proc_mountinfo{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n  or\n  last_over_time(proc_diskstats_info{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n) > 0",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "sectors(dev={{name}},maj_min={{maj_min}},host={{hostname}},inst={{instance}})",
@@ -919,7 +958,7 @@
               "refId": "C"
             }
           ],
-          "title": "Discard Deltas/${hostname}, MntOnly: ${mounted_only}",
+          "title": "Discard Deltas For ${instance}/${hostname}, MntOnly: ${mounted_only}",
           "type": "timeseries"
         },
         {
@@ -927,7 +966,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "IMPORTANT! Must select a specific **Hostname**",
+          "description": "",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1001,7 +1040,7 @@
             "h": 8,
             "w": 10,
             "x": 10,
-            "y": 25
+            "y": 22
           },
           "id": 12,
           "interval": "${interval}",
@@ -1024,7 +1063,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "(\n  proc_diskstats_num_discards_completed_delta{\n    instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n  }\n  and on (instance, hostname, maj_min)\n  (\n    last_over_time(proc_mountinfo{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n    or\n    last_over_time(proc_diskstats_info{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n  ) > 0\n) / on (instance, host) group_left()\n(\n  proc_diskstats_metrics_delta_sec{instance=~\"${instance}\",hostname=\"${hostname}\"} > 0\n) >= ${rate_threshold}",
+              "expr": "(\n  proc_diskstats_num_discards_completed_delta{\n    instance=\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n  }\n  and on (instance, hostname, maj_min)\n  (\n    last_over_time(proc_mountinfo{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n    or\n    last_over_time(proc_diskstats_info{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n  ) > 0\n) / on (instance, host) group_left()\n(\n  proc_diskstats_metrics_delta_sec{instance=\"${instance}\",hostname=\"${hostname}\"} > 0\n) >= ${rate_threshold}",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "completed(dev={{name}},maj_min={{maj_min}},host={{hostname}},inst={{instance}})",
@@ -1037,7 +1076,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "(\n  proc_diskstats_num_discards_merged_delta{\n    instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n  }\n  and on (instance, hostname, maj_min)\n  (\n    last_over_time(proc_mountinfo{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n    or\n    last_over_time(proc_diskstats_info{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n  ) > 0\n) / on (instance, host) group_left()\n(\n  proc_diskstats_metrics_delta_sec{instance=~\"${instance}\",hostname=\"${hostname}\"} > 0\n) >= ${rate_threshold}",
+              "expr": "(\n  proc_diskstats_num_discards_merged_delta{\n    instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n  }\n  and on (instance, hostname, maj_min)\n  (\n    last_over_time(proc_mountinfo{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n    or\n    last_over_time(proc_diskstats_info{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n  ) > 0\n) / on (instance, host) group_left()\n(\n  proc_diskstats_metrics_delta_sec{instance=~\"${instance}\",hostname=\"${hostname}\"} > 0\n) >= ${rate_threshold}",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "merged(dev={{name}},maj_min={{maj_min}},host={{hostname}},inst={{instance}})",
@@ -1050,7 +1089,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "(\n  proc_diskstats_num_discard_sectors_delta{\n    instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n  }\n  and on (instance, hostname, maj_min)\n  (\n    last_over_time(proc_mountinfo{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n    or\n    last_over_time(proc_diskstats_info{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n  ) > 0\n) / on (instance, host) group_left()\n(\n  proc_diskstats_metrics_delta_sec{instance=~\"${instance}\",hostname=\"${hostname}\"} > 0\n) >= ${rate_threshold}",
+              "expr": "(\n  proc_diskstats_num_discard_sectors_delta{\n    instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n  }\n  and on (instance, hostname, maj_min)\n  (\n    last_over_time(proc_mountinfo{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n    or\n    last_over_time(proc_diskstats_info{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n  ) > 0\n) / on (instance, host) group_left()\n(\n  proc_diskstats_metrics_delta_sec{instance=\"${instance}\",hostname=\"${hostname}\"} > 0\n) >= ${rate_threshold}",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "sectors(dev={{name}},maj_min={{maj_min}},host={{hostname}},inst={{instance}})",
@@ -1058,7 +1097,7 @@
               "refId": "C"
             }
           ],
-          "title": "Discard Rates/${hostname}, MntOnly: ${mounted_only}",
+          "title": "Discard Rates For ${instance}/${hostname}, MntOnly: ${mounted_only}",
           "type": "timeseries"
         },
         {
@@ -1066,7 +1105,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "IMPORTANT! Must select a specific **Hostname**",
+          "description": "",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1123,7 +1162,7 @@
             "h": 8,
             "w": 10,
             "x": 0,
-            "y": 33
+            "y": 30
           },
           "id": 19,
           "interval": "${interval}",
@@ -1146,7 +1185,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_diskstats_num_flush_requests_delta{\n  instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n} >= ${delta_threshold}\nand on (instance, hostname, maj_min)\n(\n  last_over_time(proc_mountinfo{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${lookback}]) * ${mounted_only}\n  or\n  last_over_time(proc_diskstats_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n) > 0",
+              "expr": "proc_diskstats_num_flush_requests_delta{\n  instance=\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n} >= ${delta_threshold}\nand on (instance, hostname, maj_min)\n(\n  last_over_time(proc_mountinfo{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n  or\n  last_over_time(proc_diskstats_info{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n) > 0",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "flush(dev={{name}},maj_min={{maj_min}},host={{hostname}},inst={{instance}})",
@@ -1154,7 +1193,7 @@
               "refId": "A"
             }
           ],
-          "title": "Flush Rq Deltas/${hostname}, MntOnly: ${mounted_only}",
+          "title": "Flush Rq Deltas For ${instance}/${hostname}, MntOnly: ${mounted_only}",
           "type": "timeseries"
         },
         {
@@ -1162,7 +1201,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "IMPORTANT! Must select a specific **Hostname**",
+          "description": "",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1219,7 +1258,7 @@
             "h": 8,
             "w": 10,
             "x": 10,
-            "y": 33
+            "y": 30
           },
           "id": 20,
           "interval": "${interval}",
@@ -1242,7 +1281,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "(\n  proc_diskstats_num_flush_requests_delta{\n    instance=~\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n  }\n  and on (instance, hostname, maj_min)\n  (\n    last_over_time(proc_mountinfo{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n    or\n    last_over_time(proc_diskstats_info{instance=~\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n  ) > 0\n) / on (instance, host) group_left()\n(\n  proc_diskstats_metrics_delta_sec{instance=~\"${instance}\",hostname=\"${hostname}\"} > 0\n) >= ${rate_threshold}",
+              "expr": "(\n  proc_diskstats_num_flush_requests_delta{\n    instance=\"${instance}\",hostname=\"${hostname}\",maj_min=~\"${maj_min}\",name=~\"${disk_name}\"\n  }\n  and on (instance, hostname, maj_min)\n  (\n    last_over_time(proc_mountinfo{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * ${mounted_only}\n    or\n    last_over_time(proc_diskstats_info{instance=\"${instance}\",hostname=\"${hostname}\"}[${lookback}]) * (1 - ${mounted_only})\n  ) > 0\n) / on (instance, host) group_left()\n(\n  proc_diskstats_metrics_delta_sec{instance=\"${instance}\",hostname=\"${hostname}\"} > 0\n) >= ${rate_threshold}",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "flush(dev={{name}},maj_min={{maj_min}},host={{hostname}},inst={{instance}})",
@@ -1250,11 +1289,11 @@
               "refId": "A"
             }
           ],
-          "title": "Flush Rq Rates/${hostname}, MntOnly: ${mounted_only}",
+          "title": "Flush Rq Rates For ${instance}/${hostname}, MntOnly: ${mounted_only}",
           "type": "timeseries"
         }
       ],
-      "title": "Deltas And Rates For A Specific Hostname (${hostname})",
+      "title": "Deltas And Rates For ${instance}/${hostname}",
       "type": "row"
     },
     {
@@ -1263,7 +1302,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 9
+        "y": 6
       },
       "id": 16,
       "panels": [
@@ -1272,7 +1311,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "IMPORTANT! Must select a specific **Hostname** and **Disk Name**",
+          "description": "",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1330,7 +1369,7 @@
             "h": 9,
             "w": 14,
             "x": 0,
-            "y": 10
+            "y": 7
           },
           "id": 18,
           "interval": "${interval}",
@@ -1353,7 +1392,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_diskstats_read_pct{instance=~\"${instance}\",hostname=\"${hostname}\",name=\"${disk_name}\"}",
+              "expr": "proc_diskstats_read_pct{instance=\"${instance}\",hostname=\"${hostname}\",name=\"${disk_name}\"}",
               "hide": false,
               "legendFormat": "read",
               "range": true,
@@ -1365,7 +1404,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_diskstats_write_pct{instance=~\"${instance}\",hostname=\"${hostname}\",name=\"${disk_name}\"}",
+              "expr": "proc_diskstats_write_pct{instance=\"${instance}\",hostname=\"${hostname}\",name=\"${disk_name}\"}",
               "hide": false,
               "legendFormat": "write",
               "range": true,
@@ -1377,7 +1416,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_diskstats_io_pct{instance=~\"${instance}\",hostname=\"${hostname}\",name=\"${disk_name}\"}",
+              "expr": "proc_diskstats_io_pct{instance=\"${instance}\",hostname=\"${hostname}\",name=\"${disk_name}\"}",
               "hide": false,
               "legendFormat": "io",
               "range": true,
@@ -1389,7 +1428,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_diskstats_discard_pct{instance=~\"${instance}\",hostname=\"${hostname}\",name=\"${disk_name}\"}",
+              "expr": "proc_diskstats_discard_pct{instance=\"${instance}\",hostname=\"${hostname}\",name=\"${disk_name}\"}",
               "hide": false,
               "legendFormat": "discard",
               "range": true,
@@ -1401,18 +1440,18 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_diskstats_flush_pct{instance=~\"${instance}\",hostname=\"${hostname}\",name=\"${disk_name}\"}",
+              "expr": "proc_diskstats_flush_pct{instance=\"${instance}\",hostname=\"${hostname}\",name=\"${disk_name}\"}",
               "hide": false,
               "legendFormat": "flush",
               "range": true,
               "refId": "E"
             }
           ],
-          "title": "% Time for ${disk_name} on ${hostname}",
+          "title": "% Time For ${disk_name} On ${instance}/${hostname}",
           "type": "timeseries"
         }
       ],
-      "title": "Percentage Time For A Specific Disk Name / Hostname (${disk_name}/${hostname})",
+      "title": "Percentage Time For Disk ${disk_name} On  ${instance}/${hostname}",
       "type": "row"
     }
   ],
@@ -1445,13 +1484,9 @@
       {
         "allValue": ".*",
         "current": {
-          "selected": true,
-          "text": [
-            "All"
-          ],
-          "value": [
-            "$__all"
-          ]
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
         },
         "datasource": {
           "type": "prometheus",
@@ -1461,7 +1496,7 @@
         "hide": 0,
         "includeAll": true,
         "label": "Instance",
-        "multi": true,
+        "multi": false,
         "name": "instance",
         "options": [],
         "query": {
@@ -1478,8 +1513,8 @@
         "allValue": ".*",
         "current": {
           "selected": false,
-          "text": "9676dc62ec5e",
-          "value": "9676dc62ec5e"
+          "text": "All",
+          "value": "$__all"
         },
         "datasource": {
           "type": "prometheus",
@@ -1487,7 +1522,7 @@
         },
         "definition": "lsvmi_uptime_sec{instance=~\"${instance}\"}",
         "hide": 0,
-        "includeAll": false,
+        "includeAll": true,
         "label": "Hostname",
         "multi": false,
         "name": "hostname",
@@ -1545,7 +1580,7 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "proc_diskstats_info{instance=~\"${instance}\",hostname=\"${hostname}\"}",
+        "definition": "proc_diskstats_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
         "hide": 0,
         "includeAll": true,
         "label": "Maj:Min",
@@ -1553,7 +1588,7 @@
         "name": "maj_min",
         "options": [],
         "query": {
-          "query": "proc_diskstats_info{instance=~\"${instance}\",hostname=\"${hostname}\"}",
+          "query": "proc_diskstats_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
@@ -1577,7 +1612,7 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "proc_diskstats_info{instance=~\"${instance}\",hostname=\"${hostname}\"}",
+        "definition": "proc_diskstats_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
         "hide": 0,
         "includeAll": true,
         "label": "DiskName",
@@ -1585,7 +1620,7 @@
         "name": "disk_name",
         "options": [],
         "query": {
-          "query": "proc_diskstats_info{instance=~\"${instance}\",hostname=\"${hostname}\"}",
+          "query": "proc_diskstats_info{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
@@ -1609,7 +1644,7 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "proc_mountinfo{instance=~\"${instance}\",hostname=\"${hostname}\"}",
+        "definition": "proc_mountinfo{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
         "hide": 0,
         "includeAll": true,
         "label": "Mount Point",
@@ -1617,7 +1652,7 @@
         "name": "mount_point",
         "options": [],
         "query": {
-          "query": "proc_mountinfo{instance=~\"${instance}\",hostname=\"${hostname}\"}",
+          "query": "proc_mountinfo{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
@@ -1711,6 +1746,6 @@
   "timezone": "",
   "title": "proc_diskstats_metrics_ref",
   "uid": "proc_diskstats_metrics_ref",
-  "version": 29,
+  "version": 1730844920,
   "weekStart": ""
 }

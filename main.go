@@ -128,6 +128,9 @@ func main() {
 		lsvmi.GlobalScheduler.AddNewTask(task)
 	}
 
+	// Log instance and hostname, useful for dashboard variable selection:
+	mainLog.Infof("Instance: %s, Hostname: %s", lsvmi.GlobalInstance, lsvmi.GlobalHostname)
+
 	// Block until a signal is received:
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)

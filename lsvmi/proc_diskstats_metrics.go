@@ -30,7 +30,7 @@ const (
 	PROC_DISKSTATS_NUM_WRITES_MERGED_DELTA_METRIC      = "proc_diskstats_num_writes_merged_delta"
 	PROC_DISKSTATS_NUM_WRITE_SECTORS_DELTA_METRIC      = "proc_diskstats_num_write_sectors_delta"
 	PROC_DISKSTATS_WRITE_PCT_METRIC                    = "proc_diskstats_write_pct"
-	PROC_DISKSTATS_NUM_IO_IN_PROGRESS_DELTA_METRIC     = "proc_diskstats_num_io_in_progress_delta"
+	PROC_DISKSTATS_NUM_IO_IN_PROGRESS_METRIC           = "proc_diskstats_num_io_in_progress"
 	PROC_DISKSTATS_IO_PCT_METRIC                       = "proc_diskstats_io_pct"
 	PROC_DISKSTATS_IO_WEIGTHED_PCT_METRIC              = "proc_diskstats_io_weigthed_pct"
 	PROC_DISKSTATS_NUM_DISCARDS_COMPLETED_DELTA_METRIC = "proc_diskstats_num_discards_completed_delta"
@@ -60,6 +60,34 @@ const (
 	PROC_DISKSTATS_INTERVAL_METRIC = "proc_diskstats_metrics_delta_sec"
 )
 
+var procDiskstatsMetricsLog = NewCompLogger(PROC_DISKSTATS_METRICS_ID)
+
+// Diskstats index to metrics name map; indexes not in the map will be ignored:
+var procDiskstatsIndexToMetricNameMap = map[int]string{
+	procfs.DISKSTATS_NUM_READS_COMPLETED:    PROC_DISKSTATS_NUM_READS_COMPLETED_DELTA_METRIC,
+	procfs.DISKSTATS_NUM_READS_MERGED:       PROC_DISKSTATS_NUM_READS_MERGED_DELTA_METRIC,
+	procfs.DISKSTATS_NUM_READ_SECTORS:       PROC_DISKSTATS_NUM_READ_SECTORS_DELTA_METRIC,
+	procfs.DISKSTATS_READ_MILLISEC:          PROC_DISKSTATS_READ_PCT_METRIC,
+	procfs.DISKSTATS_NUM_WRITES_COMPLETED:   PROC_DISKSTATS_NUM_WRITES_COMPLETED_DELTA_METRIC,
+	procfs.DISKSTATS_NUM_WRITES_MERGED:      PROC_DISKSTATS_NUM_WRITES_MERGED_DELTA_METRIC,
+	procfs.DISKSTATS_NUM_WRITE_SECTORS:      PROC_DISKSTATS_NUM_WRITE_SECTORS_DELTA_METRIC,
+	procfs.DISKSTATS_WRITE_MILLISEC:         PROC_DISKSTATS_WRITE_PCT_METRIC,
+	procfs.DISKSTATS_NUM_IO_IN_PROGRESS:     PROC_DISKSTATS_NUM_IO_IN_PROGRESS_METRIC,
+	procfs.DISKSTATS_IO_MILLISEC:            PROC_DISKSTATS_IO_PCT_METRIC,
+	procfs.DISKSTATS_IO_WEIGTHED_MILLISEC:   PROC_DISKSTATS_IO_WEIGTHED_PCT_METRIC,
+	procfs.DISKSTATS_NUM_DISCARDS_COMPLETED: PROC_DISKSTATS_NUM_DISCARDS_COMPLETED_DELTA_METRIC,
+	procfs.DISKSTATS_NUM_DISCARDS_MERGED:    PROC_DISKSTATS_NUM_DISCARDS_MERGED_DELTA_METRIC,
+	procfs.DISKSTATS_NUM_DISCARD_SECTORS:    PROC_DISKSTATS_NUM_DISCARD_SECTORS_DELTA_METRIC,
+	procfs.DISKSTATS_DISCARD_MILLISEC:       PROC_DISKSTATS_DISCARD_PCT_METRIC,
+	procfs.DISKSTATS_NUM_FLUSH_REQUESTS:     PROC_DISKSTATS_NUM_FLUSH_REQUESTS_DELTA_METRIC,
+	procfs.DISKSTATS_FLUSH_MILLISEC:         PROC_DISKSTATS_FLUSH_PCT_METRIC,
+}
+
+// Certain values are gauges:
+var procDiskstatsIndexIsGauge = [procfs.DISKSTATS_VALUE_FIELDS_NUM]bool{
+	procfs.DISKSTATS_NUM_IO_IN_PROGRESS: true,
+}
+
 // Certain values are used to generate %pct:
 type ProcDiskstatsPctMetric struct {
 	factor float64 // dVal/dTime * factor
@@ -73,29 +101,6 @@ var procDiskstatsIndexPctMetric = [procfs.DISKSTATS_VALUE_FIELDS_NUM]*ProcDiskst
 	procfs.DISKSTATS_IO_WEIGTHED_MILLISEC: {100. / 1000., 2},
 	procfs.DISKSTATS_DISCARD_MILLISEC:     {100. / 1000., 2},
 	procfs.DISKSTATS_FLUSH_MILLISEC:       {100. / 1000., 2},
-}
-
-var procDiskstatsMetricsLog = NewCompLogger(PROC_DISKSTATS_METRICS_ID)
-
-// Diskstats index to metrics name map; indexes not in the map will be ignored:
-var procDiskstatsIndexToMetricNameMap = map[int]string{
-	procfs.DISKSTATS_NUM_READS_COMPLETED:    PROC_DISKSTATS_NUM_READS_COMPLETED_DELTA_METRIC,
-	procfs.DISKSTATS_NUM_READS_MERGED:       PROC_DISKSTATS_NUM_READS_MERGED_DELTA_METRIC,
-	procfs.DISKSTATS_NUM_READ_SECTORS:       PROC_DISKSTATS_NUM_READ_SECTORS_DELTA_METRIC,
-	procfs.DISKSTATS_READ_MILLISEC:          PROC_DISKSTATS_READ_PCT_METRIC,
-	procfs.DISKSTATS_NUM_WRITES_COMPLETED:   PROC_DISKSTATS_NUM_WRITES_COMPLETED_DELTA_METRIC,
-	procfs.DISKSTATS_NUM_WRITES_MERGED:      PROC_DISKSTATS_NUM_WRITES_MERGED_DELTA_METRIC,
-	procfs.DISKSTATS_NUM_WRITE_SECTORS:      PROC_DISKSTATS_NUM_WRITE_SECTORS_DELTA_METRIC,
-	procfs.DISKSTATS_WRITE_MILLISEC:         PROC_DISKSTATS_WRITE_PCT_METRIC,
-	procfs.DISKSTATS_NUM_IO_IN_PROGRESS:     PROC_DISKSTATS_NUM_IO_IN_PROGRESS_DELTA_METRIC,
-	procfs.DISKSTATS_IO_MILLISEC:            PROC_DISKSTATS_IO_PCT_METRIC,
-	procfs.DISKSTATS_IO_WEIGTHED_MILLISEC:   PROC_DISKSTATS_IO_WEIGTHED_PCT_METRIC,
-	procfs.DISKSTATS_NUM_DISCARDS_COMPLETED: PROC_DISKSTATS_NUM_DISCARDS_COMPLETED_DELTA_METRIC,
-	procfs.DISKSTATS_NUM_DISCARDS_MERGED:    PROC_DISKSTATS_NUM_DISCARDS_MERGED_DELTA_METRIC,
-	procfs.DISKSTATS_NUM_DISCARD_SECTORS:    PROC_DISKSTATS_NUM_DISCARD_SECTORS_DELTA_METRIC,
-	procfs.DISKSTATS_DISCARD_MILLISEC:       PROC_DISKSTATS_DISCARD_PCT_METRIC,
-	procfs.DISKSTATS_NUM_FLUSH_REQUESTS:     PROC_DISKSTATS_NUM_FLUSH_REQUESTS_DELTA_METRIC,
-	procfs.DISKSTATS_FLUSH_MILLISEC:         PROC_DISKSTATS_FLUSH_PCT_METRIC,
 }
 
 // List of Mountinfo indexes used for labels; to ensure predictable label order,
@@ -383,19 +388,29 @@ func (pdsm *ProcDiskstatsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) 
 			if metric == nil {
 				continue
 			}
-			delta := currStats[i] - prevStats[i]
-			if delta != 0 || fullData || !zeroDelta[i] {
-				buf.Write(metric)
-				if pctMetric := procDiskstatsIndexPctMetric[i]; pctMetric != nil {
-					buf.WriteString(strconv.FormatFloat(
-						float64(delta)*pctMetric.factor/deltaSec, 'f', pctMetric.prec, 64))
-				} else {
-					buf.WriteString(strconv.FormatUint(uint64(delta), 10))
+			crtVal := currStats[i]
+			if procDiskstatsIndexIsGauge[i] {
+				if fullData || crtVal != prevStats[i] {
+					buf.Write(metric)
+					buf.WriteString(strconv.FormatUint(uint64(crtVal), 10))
+					buf.Write(promTs)
+					actualMetricsCount++
 				}
-				buf.Write(promTs)
-				actualMetricsCount++
+			} else {
+				delta := crtVal - prevStats[i]
+				if fullData || delta != 0 || !zeroDelta[i] {
+					buf.Write(metric)
+					if pctMetric := procDiskstatsIndexPctMetric[i]; pctMetric != nil {
+						buf.WriteString(strconv.FormatFloat(
+							float64(delta)*pctMetric.factor/deltaSec, 'f', pctMetric.prec, 64))
+					} else {
+						buf.WriteString(strconv.FormatUint(uint64(delta), 10))
+					}
+					buf.Write(promTs)
+					actualMetricsCount++
+				}
+				zeroDelta[i] = delta == 0
 			}
-			zeroDelta[i] = delta == 0
 		}
 
 		if fullData {
