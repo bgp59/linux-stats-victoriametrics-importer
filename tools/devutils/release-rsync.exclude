@@ -1,0 +1,11 @@
+__pycache__/
+
+\#*
+*~
+*.bak
+.*~
+.*.bak
+.vscode/
+
+.DS_Store
+

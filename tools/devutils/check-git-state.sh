@@ -29,7 +29,7 @@ esac
 git_curr_branch=$(git branch --show-current)
 if [[ "$git_curr_branch" != "$git_required_branch" ]]; then
     echo >&2 "$this_script: current git branch: '$git_curr_branch', want: '$git_required_branch'"
-    #exit 1
+    exit 1
 fi
 
 git_status=$(git status --porcelain)

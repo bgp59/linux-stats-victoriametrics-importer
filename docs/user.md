@@ -32,7 +32,7 @@ Usage of ./linux-stats-victoriametrics-importer:
 
 ## Configuration
 
-The configuration file is in `YAML` format (it supports comments!) and the file [lsvmi-config.yaml](../tools/poc/files/lsvmi/lsvmi-config.yaml), distributed with the release package, is a good primer. The file itself is self-explanatory and most likely it requires little to no changes.
+The configuration file is in `YAML` format (it supports comments!) and the file [lsvmi-config-reference.yaml](../lsvmi/lsvmi-config-reference.yaml), distributed with the release package, is a good primer. The file itself is self-explanatory and most likely it requires little to no changes.
 
 The most likely variants from one host to another are HTTP Pool endpoints used for import and those can be accommodated at invocation time via a command line argument.
 
