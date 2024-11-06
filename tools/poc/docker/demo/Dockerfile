@@ -1,6 +1,6 @@
 FROM lsvmi-victoria-metrics-grafana-ubuntu_20.04
 
-COPY tools/poc/files/lsvmi lsvmi
+COPY tools/poc/files/lsvmi/*lsvmi* lsvmi/
 COPY bin lsvmi/bin
 USER root
 RUN \

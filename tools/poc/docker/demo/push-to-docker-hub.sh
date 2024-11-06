@@ -18,9 +18,14 @@ else
     tag=$(cat tag)
 fi
 
-demo_tag=${tag/:demo*/:demo}
+(set -x; docker push $tag)
 
-set -x
-docker tag $tag $demo_tag
-docker push $tag
-docker push $demo_tag
+semver=$(cat ../../../../semver.txt)
+demo_tag=${tag%%-$semver}
+if [[ "$demo_tag" != "$tag" ]]; then
+    (
+        set -x
+        docker tag $tag $demo_tag
+        docker push $demo_tag
+    )
+fi
