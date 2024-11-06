@@ -69,6 +69,7 @@ import (
 
 const (
 	SCHEDULER_CONFIG_NUM_WORKERS_DEFAULT = -1
+	SCHEDULER_MAX_NUM_WORKERS            = 8
 )
 
 const (
@@ -216,6 +217,9 @@ func NewScheduler(cfg any) (*Scheduler, error) {
 	numWorkers := schedulerCfg.NumWorkers
 	if numWorkers <= 0 {
 		numWorkers = utils.AvailableCpusCount
+	}
+	if numWorkers > SCHEDULER_MAX_NUM_WORKERS {
+		numWorkers = SCHEDULER_MAX_NUM_WORKERS
 	}
 
 	ctx, cancelFn := context.WithCancel(context.Background())

@@ -1,4 +1,4 @@
-# Configuration file template for LSVMI. Copy to an actual file and set the
+# Configuration file reference for LSVMI. Copy to an actual file and set the
 # desired values. The settings below are set for the default values.
 
 ###############################################
@@ -171,7 +171,7 @@ scheduler_config:
   # The number of workers in the pool controls the level of concurrency of task
   # execution and it allows for short tasks to be executed without having to
   # wait for a long one to complete. If set to -1 it will match the number of
-  # available cores:
+  # available cores but not more than SCHEDULER_MAX_NUM_WORKERS.
   num_workers: -1
 
 ###############################################
@@ -179,7 +179,7 @@ scheduler_config:
 ###############################################
 compressor_pool_config:
   # The number of compressors. If set to -1 it will match the number of
-  # available cores but not more than COMPRESSOR_POOL_NUM_COMPRESSORS_MAX:
+  # available cores but not more than COMPRESSOR_POOL_MAX_NUM_COMPRESSORS:
   num_compressors: -1
   # Buffer pool max size; buffers are pulled by metrics generators as needed and
   # they are returned after they are compressed. The pool max size controls only

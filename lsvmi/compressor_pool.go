@@ -33,7 +33,7 @@ var compressorLog = NewCompLogger("compressor")
 const (
 	COMPRESSOR_POOL_CONFIG_COMPRESSION_LEVEL_DEFAULT    = gzip.DefaultCompression
 	COMPRESSOR_POOL_CONFIG_NUM_COMPRESSORS_DEFAULT      = -1
-	COMPRESSOR_POOL_CONFIG_NUM_COMPRESSORS_MAX          = 4
+	COMPRESSOR_POOL_MAX_NUM_COMPRESSORS                 = 4
 	COMPRESSOR_POOL_CONFIG_BUFFER_POOL_MAX_SIZE_DEFAULT = 64
 	COMPRESSOR_POOL_CONFIG_METRICS_QUEUE_SIZE_DEFAULT   = 64
 	COMPRESSOR_POOL_CONFIG_BATCH_TARGET_SIZE_DEFAULT    = "64k"
@@ -120,7 +120,7 @@ type CompressorPool struct {
 
 type CompressorPoolConfig struct {
 	// The number of compressors. If set to -1 it will match the number of
-	// available cores but not more than COMPRESSOR_POOL_CONFIG_NUM_COMPRESSORS_MAX:
+	// available cores but not more than COMPRESSOR_POOL_MAX_NUM_COMPRESSORS:
 	NumCompressors int `yaml:"num_compressors"`
 	// Buffer pool size; buffers are pulled by metrics generators as needed and
 	// they are returned after they are compressed. The pool max size controls
@@ -199,8 +199,8 @@ func NewCompressorPool(cfg any) (*CompressorPool, error) {
 	if numCompressors <= 0 {
 		numCompressors = utils.AvailableCpusCount
 	}
-	if numCompressors > COMPRESSOR_POOL_CONFIG_NUM_COMPRESSORS_MAX {
-		numCompressors = COMPRESSOR_POOL_CONFIG_NUM_COMPRESSORS_MAX
+	if numCompressors > COMPRESSOR_POOL_MAX_NUM_COMPRESSORS {
+		numCompressors = COMPRESSOR_POOL_MAX_NUM_COMPRESSORS
 	}
 
 	pool := &CompressorPool{

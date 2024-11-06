@@ -248,7 +248,7 @@ func TestCompressorPoolCreate(t *testing.T) {
 			NumCompressors: 1,
 		},
 		{
-			NumCompressors: COMPRESSOR_POOL_CONFIG_NUM_COMPRESSORS_MAX,
+			NumCompressors: COMPRESSOR_POOL_MAX_NUM_COMPRESSORS,
 		},
 		{
 			NumCompressors: -1,
@@ -289,9 +289,9 @@ func TestCompressorPoolQueue(t *testing.T) {
 			numQueuedBuffers: 15,
 		},
 		{
-			NumCompressors:   COMPRESSOR_POOL_CONFIG_NUM_COMPRESSORS_MAX,
+			NumCompressors:   COMPRESSOR_POOL_MAX_NUM_COMPRESSORS,
 			FlushInterval:    "0",
-			numQueuedBuffers: 15 * COMPRESSOR_POOL_CONFIG_NUM_COMPRESSORS_MAX,
+			numQueuedBuffers: 15 * COMPRESSOR_POOL_MAX_NUM_COMPRESSORS,
 		},
 		{
 			NumCompressors:   1,
@@ -300,10 +300,10 @@ func TestCompressorPoolQueue(t *testing.T) {
 			numQueuedBuffers: 15,
 		},
 		{
-			NumCompressors:   COMPRESSOR_POOL_CONFIG_NUM_COMPRESSORS_MAX,
+			NumCompressors:   COMPRESSOR_POOL_MAX_NUM_COMPRESSORS,
 			FlushInterval:    "0.5s",
 			BatchTargetSize:  "1k",
-			numQueuedBuffers: 15 * COMPRESSOR_POOL_CONFIG_NUM_COMPRESSORS_MAX,
+			numQueuedBuffers: 15 * COMPRESSOR_POOL_MAX_NUM_COMPRESSORS,
 		},
 	} {
 		t.Run(
