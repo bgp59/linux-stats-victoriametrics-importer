@@ -31,6 +31,30 @@
     {
       "datasource": {
         "type": "prometheus",
+        "uid": "PD27EBB47A0602685"
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 8,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "**NOTES:** \n\n1. See [LSVMI Interrupts Metrics](https://github.com/emypar/linux-stats-victoriametrics-importer/blob/main/docs/proc_interrupts_metrics.md) for metrics description.\n1. All panels requires specifc `instance` and `hostname`\n",
+        "mode": "markdown"
+      },
+      "pluginVersion": "9.4.7",
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
         "uid": "${datasource}"
       },
       "fieldConfig": {
@@ -89,7 +113,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 0
+        "y": 3
       },
       "id": 2,
       "interval": "${interval}",
@@ -112,14 +136,14 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "proc_interrupts_delta{\n    instance=~\"${instance}\",\n    hostname=~\"${hostname}\",\n    irq=~\"${dev_irq}\",\n    dev=~\"${devices}\",\n    cpu=~\"${cpu}\"\n} >= ${threshold}",
+          "expr": "proc_interrupts_delta{\n    instance=\"${instance}\",\n    hostname=\"${hostname}\",\n    irq=~\"${dev_irq}\",\n    dev=~\"${devices}\",\n    cpu=~\"${cpu}\"\n} >= ${threshold}",
           "interval": "${interval}",
-          "legendFormat": "IRQ{{irq}} ({{dev}})/cpu{{cpu}}/{{hostname}}/{{instance}}",
+          "legendFormat": "IRQ{{irq}}(dev={{dev}}, cpu={{cpu}}, host={{hostname}},inst={{instance}})",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Dev Interrupts# Delta",
+      "title": "Dev Interrupts# Delta For ${instance}/${hostname}",
       "type": "timeseries"
     },
     {
@@ -183,7 +207,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 0
+        "y": 3
       },
       "id": 4,
       "interval": "${interval}",
@@ -206,14 +230,14 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "(\n    proc_interrupts_delta{\n        instance=~\"${instance}\",\n        hostname=~\"${hostname}\",\n        irq=~\"${dev_irq}\",\n        dev=~\"${devices}\",\n        cpu=~\"${cpu}\"\n    } >= ${threshold}\n) \n/ on (instance, hostname) group_left\nproc_interrupts_metrics_delta_sec{\n    instance=~\"${instance}\",\n    hostname=~\"${hostname}\"\n}",
+          "expr": "(\n    proc_interrupts_delta{\n        instance=\"${instance}\",\n        hostname=\"${hostname}\",\n        irq=~\"${dev_irq}\",\n        dev=~\"${devices}\",\n        cpu=~\"${cpu}\"\n    } >= ${threshold}\n) \n/ on (instance, hostname) group_left\nproc_interrupts_metrics_delta_sec{\n    instance=\"${instance}\",\n    hostname=\"${hostname}\"\n}",
           "interval": "${interval}",
-          "legendFormat": "IRQ{{irq}} ({{dev}})/cpu{{cpu}}/{{hostname}}/{{instance}})",
+          "legendFormat": "IRQ{{irq}}(dev={{dev}}, cpu={{cpu}}, host={{hostname}},inst={{instance}})",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Dev Interrupts Rate",
+      "title": "Dev Interrupts Rate For ${instance}/${hostname}",
       "type": "timeseries"
     },
     {
@@ -277,7 +301,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 8
+        "y": 11
       },
       "id": 5,
       "interval": "${interval}",
@@ -300,14 +324,14 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "proc_interrupts_delta{\n    instance=~\"${instance}\", \n    hostname=~\"${hostname}\", \n    irq=~\"${non_dev_irq}\", \n    dev=\"\", \n    cpu=~\"${cpu}\"\n} >= ${threshold}",
+          "expr": "proc_interrupts_delta{\n    instance=\"${instance}\", \n    hostname=\"${hostname}\", \n    irq=~\"${non_dev_irq}\", \n    dev=\"\", \n    cpu=~\"${cpu}\"\n} >= ${threshold}",
           "interval": "${interval}",
-          "legendFormat": "{{irq}}/cpu{{cpu}}/{{hostname}}/{{instance}}",
+          "legendFormat": "IRQ{{irq}}(dev={{dev}}, cpu={{cpu}}, host={{hostname}},inst={{instance}})",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Non Dev Interrupts# Delta",
+      "title": "Non Dev Interrupts# Delta For ${instance}/${hostname}",
       "type": "timeseries"
     },
     {
@@ -371,7 +395,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 8
+        "y": 11
       },
       "id": 6,
       "interval": "${interval}",
@@ -394,18 +418,18 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "(\n    proc_interrupts_delta{\n        instance=~\"${instance}\",\n        hostname=~\"${hostname}\",\n        irq=~\"${non_dev_irq}\",\n        dev=\"\",\n        cpu=~\"${cpu}\"\n    } >= ${threshold}\n)\n/ on (instance, hostname) group_left\nproc_interrupts_metrics_delta_sec{\n    instance=~\"${instance}\",\n    hostname=~\"${hostname}\"\n}",
+          "expr": "(\n    proc_interrupts_delta{\n        instance=\"${instance}\",\n        hostname=\"${hostname}\",\n        irq=~\"${non_dev_irq}\",\n        dev=\"\",\n        cpu=~\"${cpu}\"\n    } >= ${threshold}\n)\n/ on (instance, hostname) group_left\nproc_interrupts_metrics_delta_sec{\n    instance=\"${instance}\",\n    hostname=\"${hostname}\"\n}",
           "interval": "${interval}",
-          "legendFormat": "{{irq}}/cpu{{cpu}}/{{hostname}}/{{instance}}",
+          "legendFormat": "IRQ{{irq}}(dev={{dev}}, cpu={{cpu}}, host={{hostname}},inst={{instance}})",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Non Dev Interrupts Rate",
+      "title": "Non Dev Interrupts Rate For ${instance}/${hostname}",
       "type": "timeseries"
     }
   ],
-  "refresh": "5s",
+  "refresh": "10s",
   "revision": 1,
   "schemaVersion": 38,
   "style": "dark",
@@ -432,14 +456,11 @@
         "type": "datasource"
       },
       {
+        "allValue": ".*",
         "current": {
-          "selected": true,
-          "text": [
-            "All"
-          ],
-          "value": [
-            "$__all"
-          ]
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
         },
         "datasource": {
           "type": "prometheus",
@@ -449,7 +470,7 @@
         "hide": 0,
         "includeAll": true,
         "label": "Instance",
-        "multi": true,
+        "multi": false,
         "name": "instance",
         "options": [],
         "query": {
@@ -463,14 +484,11 @@
         "type": "query"
       },
       {
+        "allValue": ".*",
         "current": {
-          "selected": true,
-          "text": [
-            "All"
-          ],
-          "value": [
-            "$__all"
-          ]
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
         },
         "datasource": {
           "type": "prometheus",
@@ -480,7 +498,7 @@
         "hide": 0,
         "includeAll": true,
         "label": "Hostname",
-        "multi": true,
+        "multi": false,
         "name": "hostname",
         "options": [],
         "query": {
@@ -494,6 +512,7 @@
         "type": "query"
       },
       {
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": [
@@ -525,6 +544,7 @@
         "type": "query"
       },
       {
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": [
@@ -587,6 +607,7 @@
         "type": "query"
       },
       {
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": [
@@ -665,13 +686,13 @@
     ]
   },
   "time": {
-    "from": "now-30m",
+    "from": "now-15m",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "proc_interrupts_metrics_ref",
   "uid": "proc_interrupts_metrics_ref",
-  "version": 21,
+  "version": 1730860881,
   "weekStart": ""
 }
