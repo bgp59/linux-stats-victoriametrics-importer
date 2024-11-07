@@ -130,7 +130,7 @@ Based on [/proc/PID/mountinfo](https://man7.org/linux/man-pages/man5/proc_pid_mo
 
 ### proc_diskstats_metrics_delta_sec
 
-Time in seconds since the last scan. The actual value corresponding to the configured desired `interval`.
+Time in seconds since the last scan. The real life counterpart (i.e. measured value) to the desired (configured) `interval`.
 
 | Label Name | Value(s)/Info |
 | --- | --- |

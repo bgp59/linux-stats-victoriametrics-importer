@@ -33,17 +33,17 @@ TEST_UPTIME_VALUE = 123.456789
 
 PROC_STAT_CPU_PCT_METRIC = "proc_stat_cpu_pct"
 
-PROC_STAT_CPU_PCT_TYPE_LABEL_NAME = "type"
-PROC_STAT_CPU_PCT_TYPE_USER = "user"
-PROC_STAT_CPU_PCT_TYPE_NICE = "nice"
-PROC_STAT_CPU_PCT_TYPE_SYSTEM = "system"
-PROC_STAT_CPU_PCT_TYPE_IDLE = "idle"
-PROC_STAT_CPU_PCT_TYPE_IOWAIT = "iowait"
-PROC_STAT_CPU_PCT_TYPE_IRQ = "irq"
-PROC_STAT_CPU_PCT_TYPE_SOFTIRQ = "softirq"
-PROC_STAT_CPU_PCT_TYPE_STEAL = "steal"
-PROC_STAT_CPU_PCT_TYPE_GUEST = "guest"
-PROC_STAT_CPU_PCT_TYPE_GUEST_NICE = "guest_nice"
+PROC_STAT_CPU_PCT_MODE_LABEL_NAME = "mode"
+PROC_STAT_CPU_PCT_MODE_USER = "user"
+PROC_STAT_CPU_PCT_MODE_NICE = "nice"
+PROC_STAT_CPU_PCT_MODE_SYSTEM = "system"
+PROC_STAT_CPU_PCT_MODE_IDLE = "idle"
+PROC_STAT_CPU_PCT_MODE_IOWAIT = "iowait"
+PROC_STAT_CPU_PCT_MODE_IRQ = "irq"
+PROC_STAT_CPU_PCT_MODE_SOFTIRQ = "softirq"
+PROC_STAT_CPU_PCT_MODE_STEAL = "steal"
+PROC_STAT_CPU_PCT_MODE_GUEST = "guest"
+PROC_STAT_CPU_PCT_MODE_GUEST_NICE = "guest_nice"
 
 PROC_STAT_CPU_UP_METRIC = "proc_stat_cpu_up"
 
@@ -100,16 +100,16 @@ class ProcStatMetricsTestCase:
 
 # Map procfs.Stat PROC_STAT_CPU_ indexes into type label value:
 proc_stat_cpu_index_type_label_val_map = {
-    procfs.STAT_CPU_USER_TICKS: PROC_STAT_CPU_PCT_TYPE_USER,
-    procfs.STAT_CPU_NICE_TICKS: PROC_STAT_CPU_PCT_TYPE_NICE,
-    procfs.STAT_CPU_SYSTEM_TICKS: PROC_STAT_CPU_PCT_TYPE_SYSTEM,
-    procfs.STAT_CPU_IDLE_TICKS: PROC_STAT_CPU_PCT_TYPE_IDLE,
-    procfs.STAT_CPU_IOWAIT_TICKS: PROC_STAT_CPU_PCT_TYPE_IOWAIT,
-    procfs.STAT_CPU_IRQ_TICKS: PROC_STAT_CPU_PCT_TYPE_IRQ,
-    procfs.STAT_CPU_SOFTIRQ_TICKS: PROC_STAT_CPU_PCT_TYPE_SOFTIRQ,
-    procfs.STAT_CPU_STEAL_TICKS: PROC_STAT_CPU_PCT_TYPE_STEAL,
-    procfs.STAT_CPU_GUEST_TICKS: PROC_STAT_CPU_PCT_TYPE_GUEST,
-    procfs.STAT_CPU_GUEST_NICE_TICKS: PROC_STAT_CPU_PCT_TYPE_GUEST_NICE,
+    procfs.STAT_CPU_USER_TICKS: PROC_STAT_CPU_PCT_MODE_USER,
+    procfs.STAT_CPU_NICE_TICKS: PROC_STAT_CPU_PCT_MODE_NICE,
+    procfs.STAT_CPU_SYSTEM_TICKS: PROC_STAT_CPU_PCT_MODE_SYSTEM,
+    procfs.STAT_CPU_IDLE_TICKS: PROC_STAT_CPU_PCT_MODE_IDLE,
+    procfs.STAT_CPU_IOWAIT_TICKS: PROC_STAT_CPU_PCT_MODE_IOWAIT,
+    procfs.STAT_CPU_IRQ_TICKS: PROC_STAT_CPU_PCT_MODE_IRQ,
+    procfs.STAT_CPU_SOFTIRQ_TICKS: PROC_STAT_CPU_PCT_MODE_SOFTIRQ,
+    procfs.STAT_CPU_STEAL_TICKS: PROC_STAT_CPU_PCT_MODE_STEAL,
+    procfs.STAT_CPU_GUEST_TICKS: PROC_STAT_CPU_PCT_MODE_GUEST,
+    procfs.STAT_CPU_GUEST_NICE_TICKS: PROC_STAT_CPU_PCT_MODE_GUEST_NICE,
 }
 
 # Map procfs.NumericFields indexes into delta metrics name:
@@ -177,7 +177,7 @@ def generate_proc_stat_metrics(
                         [
                             f'{INSTANCE_LABEL_NAME}="{instance}"',
                             f'{HOSTNAME_LABEL_NAME}="{hostname}"',
-                            f'{PROC_STAT_CPU_PCT_TYPE_LABEL_NAME}="{type_label_val}"',
+                            f'{PROC_STAT_CPU_PCT_MODE_LABEL_NAME}="{type_label_val}"',
                             f'{PROC_STAT_CPU_LABEL_NAME}="{cpu_label_val}"',
                         ]
                     )
@@ -190,7 +190,7 @@ def generate_proc_stat_metrics(
                             [
                                 f'{INSTANCE_LABEL_NAME}="{instance}"',
                                 f'{HOSTNAME_LABEL_NAME}="{hostname}"',
-                                f'{PROC_STAT_CPU_PCT_TYPE_LABEL_NAME}="{type_label_val}"',
+                                f'{PROC_STAT_CPU_PCT_MODE_LABEL_NAME}="{type_label_val}"',
                                 f'{PROC_STAT_CPU_LABEL_NAME}="{PROC_STAT_CPU_AVG_LABEL_VALUE}"',
                             ]
                         )

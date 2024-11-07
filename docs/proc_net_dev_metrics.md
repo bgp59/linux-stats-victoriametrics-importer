@@ -116,7 +116,7 @@ The number of transmit compressed packets since the last scan.
 
 ### proc_net_dev_metrics_delta_sec
 
-Time in seconds since the last scan. The actual value corresponding to the configured desired `interval`.
+Time in seconds since the last scan. The real life counterpart (i.e. measured value) to the desired (configured) `interval`.
 
 | Label Name | Value(s)/Info |
 | --- | --- |
