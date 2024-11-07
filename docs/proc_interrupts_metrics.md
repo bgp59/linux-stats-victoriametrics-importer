@@ -2,6 +2,7 @@
 
 <!-- TOC tocDepth:2..3 chapterDepth:2..6 -->
 
+- [General Information](#general-information)
 - [Metrics](#metrics)
   - [proc_interrupts_delta](#proc_interrupts_delta)
   - [proc_interrupts_info](#proc_interrupts_info)
@@ -9,11 +10,15 @@
 
 <!-- /TOC -->
 
+## General Information
+
+Based on [/proc/interrupts](https://man7.org/linux/man-pages/man5/proc_interrupts.5.html) and [What is this column in /proc/interrupts?](https://serverfault.com/questions/896551/what-is-this-column-in-proc-interrupts).
+
 ## Metrics
 
 ### proc_interrupts_delta
 
-Number of interrupts since the last scan. Based on [/proc/interrupts](https://man7.org/linux/man-pages/man5/proc_interrupts.5.html) and [What is this column in /proc/interrupts?](https://serverfault.com/questions/896551/what-is-this-column-in-proc-interrupts).
+Number of interrupts since the last scan.
 
 | Label Name | Value(s)/Info |
 | --- | --- |

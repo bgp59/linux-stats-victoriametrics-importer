@@ -23,7 +23,6 @@ const (
 	// METRIC{instance="INSTANCE",hostname="HOSTNAME",irq="IRQ",cpu="CPU"}:
 	PROC_SOFTIRQS_DELTA_METRIC   = "proc_softirqs_delta"
 	PROC_SOFTIRQS_IRQ_LABEL_NAME = "irq"
-	PROC_SOFTIRQS_DEV_LABEL_NAME = "dev"
 	PROC_SOFTIRQS_CPU_LABEL_NAME = "cpu"
 
 	// METRIC{instance="INSTANCE",hostname="HOSTNAME",irq="IRQ"}:
