@@ -2,7 +2,7 @@
 
 <!-- TOC tocDepth:2..3 chapterDepth:2..6 -->
 
-- [General Info](#general-info)
+- [General Information](#general-information)
 - [Metrics](#metrics)
   - [proc_net_snmp6_ip6_in_receives_delta](#proc_net_snmp6_ip6_in_receives_delta)
   - [proc_net_snmp6_ip6_in_hdr_errors_delta](#proc_net_snmp6_ip6_in_hdr_errors_delta)
@@ -95,7 +95,7 @@
 
 <!-- /TOC -->
 
-## General Info
+## General Information
 
 The `/proc/net/snmp` syntax is:
 

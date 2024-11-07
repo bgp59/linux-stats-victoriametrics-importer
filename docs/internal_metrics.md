@@ -2,7 +2,7 @@
 
 <!-- TOC tocDepth:2..6 chapterDepth:2..6 -->
 
-- [Summary](#summary)
+- [General Information](#general-information)
 - [Agent Metrics](#agent-metrics)
   - [lsvmi_internal_metrics_delta_sec](#lsvmi_internal_metrics_delta_sec)
   - [lsvmi_uptime_sec](#lsvmi_uptime_sec)
@@ -58,7 +58,7 @@
 
 <!-- /TOC -->
 
-## Summary
+## General Information
 
 These are metrics relating to the agent itself. There is no partial/full cycle approach for these metrics, the entire set is generated for every cycle.
 
