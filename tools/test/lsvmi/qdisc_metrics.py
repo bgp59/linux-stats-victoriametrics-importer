@@ -33,7 +33,7 @@ QDISC_REQUEUES_DELTA_METRIC = "qdisc_requeues_delta"
 QDISC_OVERLIMITS_DELTA_METRIC = "qdisc_overlimits_delta"
 QDISC_QLEN_METRIC = "qdisc_qlen"
 QDISC_BACKLOG_METRIC = "qdisc_backlog"
-QDISC_GCLOWS_DELTA_METRIC = "qdisc_gclows_delta"
+QDISC_GCFLOWS_DELTA_METRIC = "qdisc_gcflows_delta"
 QDISC_THROTTLED_DELTA_METRIC = "qdisc_throttled_delta"
 QDISC_FLOWSPLIMIT_DELTA_METRIC = "qdisc_flowsplimit_delta"
 
@@ -60,7 +60,7 @@ qdisc_uint32_index_to_metric_name_map = {
 
 qdisc_uint64_index_to_delta_metric_name_map = {
     qdisc.QDISC_BYTES: QDISC_RATE_METRICS,
-    qdisc.QDISC_GCFLOWS: QDISC_GCLOWS_DELTA_METRIC,
+    qdisc.QDISC_GCFLOWS: QDISC_GCFLOWS_DELTA_METRIC,
     qdisc.QDISC_THROTTLED: QDISC_THROTTLED_DELTA_METRIC,
     qdisc.QDISC_FLOWSPLIMIT: QDISC_FLOWSPLIMIT_DELTA_METRIC,
 }

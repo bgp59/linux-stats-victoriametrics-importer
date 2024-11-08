@@ -104,15 +104,15 @@ The number of transmit compressed packets since the last scan.
 
 ### proc_net_dev_present
 
-[Pseudo-categorical](internals.md#pseudo-categorical-metrics ) metric indicating the presence (value `1`) or disappearance (value `0`) of an interface. This metric could be used as a qualifier for the values above, since interfaces are hot plug-able. When an interface is unplugged it last metrics may still linger in queries due to lookback interval. For a more precise cutoff point, the metrics can by qualified as follows:
+[Pseudo-categorical](internals.md#pseudo-categorical-metrics ) metric indicating the presence (value `1`) or disappearance (value `0`) of an interface. This metric could be used as a qualifier for the values above, since interfaces are hot plug-able. When an interface is unplugged its last metrics may still linger in queries due to lookback interval. For a more precise cutoff point, the metrics can by qualified as follows:
 
-    ```text
-    
-    proc_net_dev_rx_kbps \
-    and on (instance, hostname, dev) \
-    (last_over_time(proc_net_dev_present) > 0)
+  ```text
+  
+  proc_net_dev_rx_kbps \
+  and on (instance, hostname, dev) \
+  (last_over_time(proc_net_dev_present) > 0)
 
-    ```
+  ```
 
 ### proc_net_dev_metrics_delta_sec
 
