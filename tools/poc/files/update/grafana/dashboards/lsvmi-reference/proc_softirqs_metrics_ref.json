@@ -31,6 +31,30 @@
     {
       "datasource": {
         "type": "prometheus",
+        "uid": "PD27EBB47A0602685"
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 8,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "**NOTES:** \n\n1. See [LSVMI Softirqs Metrics](https://github.com/emypar/linux-stats-victoriametrics-importer/blob/main/docs/proc_softirqs_metrics.md) for metrics description.\n1. All panels requires specifc `instance` and `hostname`\n",
+        "mode": "markdown"
+      },
+      "pluginVersion": "9.4.7",
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
         "uid": "${datasource}"
       },
       "fieldConfig": {
@@ -112,9 +136,9 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "proc_softirqs_delta{\n    instance=~\"${instance}\",\n    hostname=~\"${hostname}\",\n    irq=~\"${dev_irq}\",\n    cpu=~\"${cpu}\"\n} >= ${threshold}",
+          "expr": "proc_softirqs_delta{\n    instance=\"${instance}\",\n    hostname=\"${hostname}\",\n    irq=~\"${dev_irq}\",\n    cpu=~\"${cpu}\"\n} >= ${threshold}",
           "interval": "${interval}",
-          "legendFormat": "{{irq}}/cpu{{cpu}}/{{hostname}}/{{instance}}",
+          "legendFormat": "irq={{irq}},cpu={{cpu}},host={{hostname}},inst={{instance}}",
           "range": true,
           "refId": "A"
         }
@@ -206,9 +230,9 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "(\n    proc_softirqs_delta{\n        instance=~\"${instance}\",\n        hostname=~\"${hostname}\",\n        irq=~\"${dev_irq}\",\n       cpu=~\"${cpu}\"\n    } >= ${threshold}\n) \n/ on (instance, hostname) group_left\nproc_softirqs_metrics_delta_sec{\n    instance=~\"${instance}\",\n    hostname=~\"${hostname}\"\n}",
+          "expr": "(\n    proc_softirqs_delta{\n        instance=\"${instance}\",\n        hostname=\"${hostname}\",\n        irq=~\"${dev_irq}\",\n       cpu=~\"${cpu}\"\n    } >= ${threshold}\n) \n/ on (instance, hostname) group_left\nproc_softirqs_metrics_delta_sec{\n    instance=\"${instance}\",\n    hostname=\"${hostname}\"\n}",
           "interval": "${interval}",
-          "legendFormat": "{{irq}}/cpu{{cpu}}/{{hostname}}/{{instance}}",
+          "legendFormat": "irq={{irq}},cpu={{cpu}},host={{hostname}},inst={{instance}}",
           "range": true,
           "refId": "A"
         }
@@ -244,6 +268,7 @@
         "type": "datasource"
       },
       {
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": [
@@ -261,7 +286,7 @@
         "hide": 0,
         "includeAll": true,
         "label": "Instance",
-        "multi": true,
+        "multi": false,
         "name": "instance",
         "options": [],
         "query": {
@@ -275,6 +300,7 @@
         "type": "query"
       },
       {
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": [
@@ -292,7 +318,7 @@
         "hide": 0,
         "includeAll": true,
         "label": "Hostname",
-        "multi": true,
+        "multi": false,
         "name": "hostname",
         "options": [],
         "query": {
@@ -306,6 +332,7 @@
         "type": "query"
       },
       {
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": [
@@ -337,6 +364,7 @@
         "type": "query"
       },
       {
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": [
@@ -368,6 +396,7 @@
         "type": "query"
       },
       {
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": [

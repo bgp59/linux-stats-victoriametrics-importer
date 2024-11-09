@@ -29,6 +29,30 @@
   "liveNow": false,
   "panels": [
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PD27EBB47A0602685"
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 8,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "**NOTES:** \n\n1. See [LSVMI Network Interface Metrics](https://github.com/emypar/linux-stats-victoriametrics-importer/blob/main/docs/proc_net_dev_metrics.md) for metrics description.\n1. All panels requires specifc `instance` and `hostname`\n",
+        "mode": "markdown"
+      },
+      "pluginVersion": "9.4.7",
+      "type": "text"
+    },
+    {
       "collapsed": true,
       "gridPos": {
         "h": 1,
@@ -123,9 +147,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_dev_rx_kbps{instance=~\"${instance}\",hostname=~\"${hostname}\",dev=~\"${dev}\"} >= ${rate_threshold}",
+              "expr": "proc_net_dev_rx_kbps{instance=\"${instance}\",hostname=\"${hostname}\",dev=~\"${dev}\"} >= ${rate_threshold}",
               "interval": "${interval}",
-              "legendFormat": "{{dev}}({{hostname}}/{{instance}})",
+              "legendFormat": "{{__name__}}(dev={{dev}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -218,9 +242,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_dev_rx_pkts_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
+              "expr": "proc_net_dev_rx_pkts_delta{instance=\"${instance}\",hostname=\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
               "interval": "${interval}",
-              "legendFormat": "{{dev}}({{hostname}}/{{instance}})",
+              "legendFormat": "{{__name__}}(dev={{dev}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -313,9 +337,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "(\n    last_over_time(\n        proc_net_dev_rx_pkts_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",dev=~\"${dev}\"}[$lookback]\n    ) \n    / on (instance, hostname) group_left()\n    (\n        proc_net_dev_metrics_delta_sec{instance=~\"${instance}\",hostname=~\"${hostname}\"} > 0\n    )\n) >= ${pps_threshold}",
+              "expr": "(\n    last_over_time(\n        proc_net_dev_rx_pkts_delta{instance=\"${instance}\",hostname=\"${hostname}\",dev=~\"${dev}\"}[$lookback]\n    ) \n    / on (instance, hostname) group_left()\n    (\n        proc_net_dev_metrics_delta_sec{instance=\"${instance}\",hostname=\"${hostname}\"} > 0\n    )\n) >= ${pps_threshold}",
               "interval": "${interval}",
-              "legendFormat": "{{dev}}({{hostname}}/{{instance}})",
+              "legendFormat": "{{__name__}}(dev={{dev}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -408,9 +432,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_dev_rx_compressed_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
+              "expr": "proc_net_dev_rx_compressed_delta{instance=\"${instance}\",hostname=\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
               "interval": "${interval}",
-              "legendFormat": "{{dev}}({{hostname}}/{{instance}})",
+              "legendFormat": "{{__name__}}(dev={{dev}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -503,9 +527,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_dev_rx_mcast_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
+              "expr": "proc_net_dev_rx_mcast_delta{instance=\"${instance}\",hostname=\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
               "interval": "${interval}",
-              "legendFormat": "{{dev}}({{hostname}}/{{instance}})",
+              "legendFormat": "{{__name__}}(dev={{dev}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -598,9 +622,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "(\n    last_over_time(\n        proc_net_dev_rx_mcast_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",dev=~\"${dev}\"}[$lookback]\n    ) \n    / on (instance, hostname) group_left()\n    (\n        proc_net_dev_metrics_delta_sec{instance=~\"${instance}\",hostname=~\"${hostname}\"} > 0\n    )\n) >= ${pps_threshold}",
+              "expr": "(\n    last_over_time(\n        proc_net_dev_rx_mcast_delta{instance=\"${instance}\",hostname=\"${hostname}\",dev=~\"${dev}\"}[$lookback]\n    ) \n    / on (instance, hostname) group_left()\n    (\n        proc_net_dev_metrics_delta_sec{instance=\"${instance}\",hostname=\"${hostname}\"} > 0\n    )\n) >= ${pps_threshold}",
               "interval": "${interval}",
-              "legendFormat": "{{dev}}({{hostname}}/{{instance}})",
+              "legendFormat": "{{__name__}}(dev={{dev}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -693,9 +717,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_dev_rx_errs_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
+              "expr": "proc_net_dev_rx_errs_delta{instance=\"${instance}\",hostname=\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
               "interval": "${interval}",
-              "legendFormat": "{{dev}}({{hostname}}/{{instance}})",
+              "legendFormat": "{{__name__}}(dev={{dev}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -788,9 +812,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_dev_rx_drop_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
+              "expr": "proc_net_dev_rx_drop_delta{instance=\"${instance}\",hostname=\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
               "interval": "${interval}",
-              "legendFormat": "{{dev}}({{hostname}}/{{instance}})",
+              "legendFormat": "{{__name__}}(dev={{dev}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -883,9 +907,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_dev_rx_fifo_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
+              "expr": "proc_net_dev_rx_fifo_delta{instance=\"${instance}\",hostname=\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
               "interval": "${interval}",
-              "legendFormat": "{{dev}}({{hostname}}/{{instance}})",
+              "legendFormat": "{{__name__}}(dev={{dev}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -978,9 +1002,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_dev_rx_frame_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
+              "expr": "proc_net_dev_rx_frame_delta{instance=\"${instance}\",hostname=\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
               "interval": "${interval}",
-              "legendFormat": "{{dev}}({{hostname}}/{{instance}})",
+              "legendFormat": "{{__name__}}(dev={{dev}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -1087,9 +1111,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_dev_tx_kbps{instance=~\"${instance}\",hostname=~\"${hostname}\",dev=~\"${dev}\"} >= ${rate_threshold}",
+              "expr": "proc_net_dev_tx_kbps{instance=\"${instance}\",hostname=\"${hostname}\",dev=~\"${dev}\"} >= ${rate_threshold}",
               "interval": "${interval}",
-              "legendFormat": "{{dev}}({{hostname}}/{{instance}})",
+              "legendFormat": "{{__name__}}(dev={{dev}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -1182,9 +1206,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_dev_tx_pkts_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
+              "expr": "proc_net_dev_tx_pkts_delta{instance=\"${instance}\",hostname=\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
               "interval": "${interval}",
-              "legendFormat": "{{dev}}({{hostname}}/{{instance}})",
+              "legendFormat": "{{__name__}}(dev={{dev}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -1277,9 +1301,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "(\n    last_over_time(\n        proc_net_dev_tx_pkts_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",dev=~\"${dev}\"}[$lookback]\n    ) \n    / on (instance, hostname) group_left()\n    (\n        proc_net_dev_metrics_delta_sec{instance=~\"${instance}\",hostname=~\"${hostname}\"} > 0\n    )\n)  >= ${pps_threshold}",
+              "expr": "(\n    last_over_time(\n        proc_net_dev_tx_pkts_delta{instance=\"${instance}\",hostname=\"${hostname}\",dev=~\"${dev}\"}[$lookback]\n    ) \n    / on (instance, hostname) group_left()\n    (\n        proc_net_dev_metrics_delta_sec{instance=\"${instance}\",hostname=\"${hostname}\"} > 0\n    )\n)  >= ${pps_threshold}",
               "interval": "${interval}",
-              "legendFormat": "{{dev}}({{hostname}}/{{instance}})",
+              "legendFormat": "{{__name__}}(dev={{dev}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -1372,9 +1396,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_dev_tx_compressed_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
+              "expr": "proc_net_dev_tx_compressed_delta{instance=\"${instance}\",hostname=\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
               "interval": "${interval}",
-              "legendFormat": "{{dev}}({{hostname}}/{{instance}})",
+              "legendFormat": "{{__name__}}(dev={{dev}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -1467,9 +1491,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_dev_tx_errs_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
+              "expr": "proc_net_dev_tx_errs_delta{instance=\"${instance}\",hostname=\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
               "interval": "${interval}",
-              "legendFormat": "{{dev}}({{hostname}}/{{instance}})",
+              "legendFormat": "{{__name__}}(dev={{dev}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -1562,9 +1586,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_dev_tx_drop_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
+              "expr": "proc_net_dev_tx_drop_delta{instance=\"${instance}\",hostname=\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
               "interval": "${interval}",
-              "legendFormat": "{{dev}}({{hostname}}/{{instance}})",
+              "legendFormat": "{{__name__}}(dev={{dev}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -1657,9 +1681,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_dev_tx_fifo_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
+              "expr": "proc_net_dev_tx_fifo_delta{instance=\"${instance}\",hostname=\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
               "interval": "${interval}",
-              "legendFormat": "{{dev}}({{hostname}}/{{instance}})",
+              "legendFormat": "{{__name__}}(dev={{dev}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -1752,9 +1776,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_dev_tx_colls_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
+              "expr": "proc_net_dev_tx_colls_delta{instance=\"${instance}\",hostname=\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
               "interval": "${interval}",
-              "legendFormat": "{{dev}}({{hostname}}/{{instance}})",
+              "legendFormat": "{{__name__}}(dev={{dev}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -1847,9 +1871,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_net_dev_tx_carrier_delta{instance=~\"${instance}\",hostname=~\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
+              "expr": "proc_net_dev_tx_carrier_delta{instance=\"${instance}\",hostname=\"${hostname}\",dev=~\"${dev}\"} >= ${delta_threshold}",
               "interval": "${interval}",
-              "legendFormat": "{{dev}}({{hostname}}/{{instance}})",
+              "legendFormat": "{{__name__}}(dev={{dev}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -1889,6 +1913,7 @@
         "type": "datasource"
       },
       {
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": [
@@ -1906,7 +1931,7 @@
         "hide": 0,
         "includeAll": true,
         "label": "Instance",
-        "multi": true,
+        "multi": false,
         "name": "instance",
         "options": [],
         "query": {
@@ -1920,6 +1945,7 @@
         "type": "query"
       },
       {
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": [
@@ -1937,7 +1963,7 @@
         "hide": 0,
         "includeAll": true,
         "label": "Hostname",
-        "multi": true,
+        "multi": false,
         "name": "hostname",
         "options": [],
         "query": {
@@ -1951,6 +1977,7 @@
         "type": "query"
       },
       {
+        "allValue": ".*",
         "current": {
           "selected": false,
           "text": "All",
@@ -1960,7 +1987,7 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "proc_net_dev_present{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+        "definition": "proc_net_dev_present{instance=\"${instance}\",hostname=\"${hostname}\"}",
         "hide": 0,
         "includeAll": true,
         "label": "Dev",
@@ -1968,7 +1995,7 @@
         "name": "dev",
         "options": [],
         "query": {
-          "query": "proc_net_dev_present{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+          "query": "proc_net_dev_present{instance=\"${instance}\",hostname=\"${hostname}\"}",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
