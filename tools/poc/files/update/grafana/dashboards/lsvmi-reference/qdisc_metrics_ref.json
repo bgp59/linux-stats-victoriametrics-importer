@@ -29,6 +29,30 @@
   "liveNow": false,
   "panels": [
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PD27EBB47A0602685"
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 8,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "**NOTES:** \n\n1. See [LSVMI Qdics Metrics](https://github.com/emypar/linux-stats-victoriametrics-importer/blob/main/docs/qdisc_metrics.md) for metrics description.\n1. All panels requires specifc `instance` and `hostname`\n",
+        "mode": "markdown"
+      },
+      "pluginVersion": "9.4.7",
+      "type": "text"
+    },
+    {
       "collapsed": true,
       "gridPos": {
         "h": 1,
@@ -123,9 +147,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "qdisc_rate_kbps{\n    instance=~\"${instance}\",hostname=~\"${hostname}\",\n    kind=~\"${kind}\",handle=~\"${handle}\",parent=~\"${parent}\",if=~\"${if}\",\n}",
+              "expr": "qdisc_rate_kbps{\n    instance=\"${instance}\",hostname=\"${hostname}\",\n    kind=~\"${kind}\",handle=~\"${handle}\",parent=~\"${parent}\",if=~\"${if}\",\n}",
               "interval": "${interval}",
-              "legendFormat": "qdisc(if={{if}},handle={{handle}},kind={{kind}},parent={{parent}}) on {{hostname}}/{{instance}}",
+              "legendFormat": "{{__name__}}(if={{if}},handle={{handle}},kind={{kind}},parent={{parent}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -232,9 +256,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "qdisc_drops_delta{\n    instance=~\"${instance}\",hostname=~\"${hostname}\",\n    kind=~\"${kind}\",handle=~\"${handle}\",parent=~\"${parent}\",if=~\"${if}\",\n}",
+              "expr": "qdisc_drops_delta{\n    instance=\"${instance}\",hostname=\"${hostname}\",\n    kind=~\"${kind}\",handle=~\"${handle}\",parent=~\"${parent}\",if=~\"${if}\",\n}",
               "interval": "${interval}",
-              "legendFormat": "qdisc(if={{if}},handle={{handle}},kind={{kind}},parent={{parent}}) on {{hostname}}/{{instance}}",
+              "legendFormat": "{{__name__}}(if={{if}},handle={{handle}},kind={{kind}},parent={{parent}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -327,9 +351,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "qdisc_packets_delta{\n    instance=~\"${instance}\",hostname=~\"${hostname}\",\n    kind=~\"${kind}\",handle=~\"${handle}\",parent=~\"${parent}\",if=~\"${if}\",\n}",
+              "expr": "qdisc_packets_delta{\n    instance=\"${instance}\",hostname=\"${hostname}\",\n    kind=~\"${kind}\",handle=~\"${handle}\",parent=~\"${parent}\",if=~\"${if}\",\n}",
               "interval": "${interval}",
-              "legendFormat": "qdisc(if={{if}},handle={{handle}},kind={{kind}},parent={{parent}}) on {{hostname}}/{{instance}}",
+              "legendFormat": "{{__name__}}(if={{if}},handle={{handle}},kind={{kind}},parent={{parent}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -422,9 +446,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "qdisc_overlimits_delta{\n    instance=~\"${instance}\",hostname=~\"${hostname}\",\n    kind=~\"${kind}\",handle=~\"${handle}\",parent=~\"${parent}\",if=~\"${if}\",\n}",
+              "expr": "qdisc_overlimits_delta{\n    instance=\"${instance}\",hostname=\"${hostname}\",\n    kind=~\"${kind}\",handle=~\"${handle}\",parent=~\"${parent}\",if=~\"${if}\",\n}",
               "interval": "${interval}",
-              "legendFormat": "qdisc(if={{if}},handle={{handle}},kind={{kind}},parent={{parent}}) on {{hostname}}/{{instance}}",
+              "legendFormat": "{{__name__}}(if={{if}},handle={{handle}},kind={{kind}},parent={{parent}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -517,9 +541,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "qdisc_requeues_delta{\n    instance=~\"${instance}\",hostname=~\"${hostname}\",\n    kind=~\"${kind}\",handle=~\"${handle}\",parent=~\"${parent}\",if=~\"${if}\",\n}",
+              "expr": "qdisc_requeues_delta{\n    instance=\"${instance}\",hostname=\"${hostname}\",\n    kind=~\"${kind}\",handle=~\"${handle}\",parent=~\"${parent}\",if=~\"${if}\",\n}",
               "interval": "${interval}",
-              "legendFormat": "qdisc(if={{if}},handle={{handle}},kind={{kind}},parent={{parent}}) on {{hostname}}/{{instance}}",
+              "legendFormat": "{{__name__}}(if={{if}},handle={{handle}},kind={{kind}},parent={{parent}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -612,9 +636,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "qdisc_throttled_delta{\n    instance=~\"${instance}\",hostname=~\"${hostname}\",\n    kind=~\"${kind}\",handle=~\"${handle}\",parent=~\"${parent}\",if=~\"${if}\",\n}",
+              "expr": "qdisc_throttled_delta{\n    instance=\"${instance}\",hostname=\"${hostname}\",\n    kind=~\"${kind}\",handle=~\"${handle}\",parent=~\"${parent}\",if=~\"${if}\",\n}",
               "interval": "${interval}",
-              "legendFormat": "qdisc(if={{if}},handle={{handle}},kind={{kind}},parent={{parent}}) on {{hostname}}/{{instance}}",
+              "legendFormat": "{{__name__}}(if={{if}},handle={{handle}},kind={{kind}},parent={{parent}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -707,9 +731,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "qdisc_flowsplimit_delta{\n    instance=~\"${instance}\",hostname=~\"${hostname}\",\n    kind=~\"${kind}\",handle=~\"${handle}\",parent=~\"${parent}\",if=~\"${if}\",\n}",
+              "expr": "qdisc_flowsplimit_delta{\n    instance=\"${instance}\",hostname=\"${hostname}\",\n    kind=~\"${kind}\",handle=~\"${handle}\",parent=~\"${parent}\",if=~\"${if}\",\n}",
               "interval": "${interval}",
-              "legendFormat": "qdisc(if={{if}},handle={{handle}},kind={{kind}},parent={{parent}}) on {{hostname}}/{{instance}}",
+              "legendFormat": "{{__name__}}(if={{if}},handle={{handle}},kind={{kind}},parent={{parent}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -816,9 +840,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "qdisc_qlen{\n    instance=~\"${instance}\",hostname=~\"${hostname}\",\n    kind=~\"${kind}\",handle=~\"${handle}\",parent=~\"${parent}\",if=~\"${if}\",\n}",
+              "expr": "qdisc_qlen{\n    instance=\"${instance}\",hostname=\"${hostname}\",\n    kind=~\"${kind}\",handle=~\"${handle}\",parent=~\"${parent}\",if=~\"${if}\",\n}",
               "interval": "${interval}",
-              "legendFormat": "qdisc(if={{if}},handle={{handle}},kind={{kind}},parent={{parent}}) on {{hostname}}/{{instance}}",
+              "legendFormat": "{{__name__}}(if={{if}},handle={{handle}},kind={{kind}},parent={{parent}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -911,9 +935,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "qdisc_backlog{\n    instance=~\"${instance}\",hostname=~\"${hostname}\",\n    kind=~\"${kind}\",handle=~\"${handle}\",parent=~\"${parent}\",if=~\"${if}\",\n}",
+              "expr": "qdisc_backlog{\n    instance=\"${instance}\",hostname=\"${hostname}\",\n    kind=~\"${kind}\",handle=~\"${handle}\",parent=~\"${parent}\",if=~\"${if}\",\n}",
               "interval": "${interval}",
-              "legendFormat": "qdisc(if={{if}},handle={{handle}},kind={{kind}},parent={{parent}}) on {{hostname}}/{{instance}}",
+              "legendFormat": "{{__name__}}(if={{if}},handle={{handle}},kind={{kind}},parent={{parent}},host={{hostname}},inst={{instance}})",
               "range": true,
               "refId": "A"
             }
@@ -971,7 +995,7 @@
         "hide": 0,
         "includeAll": true,
         "label": "Instance",
-        "multi": true,
+        "multi": false,
         "name": "instance",
         "options": [],
         "query": {
@@ -1003,7 +1027,7 @@
         "hide": 0,
         "includeAll": true,
         "label": "Hostname",
-        "multi": true,
+        "multi": false,
         "name": "hostname",
         "options": [],
         "query": {
@@ -1145,7 +1169,7 @@
     ]
   },
   "time": {
-    "from": "now-6h",
+    "from": "now-30m",
     "to": "now"
   },
   "timepicker": {},
