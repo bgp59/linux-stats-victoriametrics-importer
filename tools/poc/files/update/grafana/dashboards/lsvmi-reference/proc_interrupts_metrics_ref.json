@@ -456,11 +456,10 @@
         "type": "datasource"
       },
       {
-        "allValue": ".*",
         "current": {
           "selected": false,
-          "text": "All",
-          "value": "$__all"
+          "text": "",
+          "value": ""
         },
         "datasource": {
           "type": "prometheus",
@@ -468,7 +467,7 @@
         },
         "definition": "lsvmi_uptime_sec",
         "hide": 0,
-        "includeAll": true,
+        "includeAll": false,
         "label": "Instance",
         "multi": false,
         "name": "instance",
@@ -484,11 +483,10 @@
         "type": "query"
       },
       {
-        "allValue": ".*",
         "current": {
           "selected": false,
-          "text": "All",
-          "value": "$__all"
+          "text": "",
+          "value": ""
         },
         "datasource": {
           "type": "prometheus",
@@ -496,7 +494,7 @@
         },
         "definition": "lsvmi_uptime_sec{instance=~\"${instance}\"}",
         "hide": 0,
-        "includeAll": true,
+        "includeAll": false,
         "label": "Hostname",
         "multi": false,
         "name": "hostname",

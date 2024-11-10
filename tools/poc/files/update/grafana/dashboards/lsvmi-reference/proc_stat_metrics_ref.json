@@ -123,9 +123,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"guest\",cpu=~\"${cpu}\",cpu!=\"all\"}",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",mode=\"guest\",cpu=~\"${cpu}\",cpu!=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "legendFormat": "cpu={{cpu}},host={{hostname}},inst={{instance}}",
               "range": true,
               "refId": "A"
             }
@@ -218,9 +218,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"guest_nice\",cpu=~\"${cpu}\",cpu!=\"all\"}",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",mode=\"guest_nice\",cpu=~\"${cpu}\",cpu!=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "legendFormat": "cpu={{cpu}},host={{hostname}},inst={{instance}}",
               "range": true,
               "refId": "A"
             }
@@ -313,9 +313,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"idle\",cpu=~\"${cpu}\",cpu!=\"all\"}",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",mode=\"idle\",cpu=~\"${cpu}\",cpu!=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "legendFormat": "cpu={{cpu}},host={{hostname}},inst={{instance}}",
               "range": true,
               "refId": "A"
             }
@@ -408,9 +408,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"iowait\",cpu=~\"${cpu}\",cpu!=\"all\"}",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",mode=\"iowait\",cpu=~\"${cpu}\",cpu!=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "legendFormat": "cpu={{cpu}},host={{hostname}},inst={{instance}}",
               "range": true,
               "refId": "A"
             }
@@ -503,9 +503,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"irq\",cpu=~\"${cpu}\",cpu!=\"all\"}",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",mode=\"irq\",cpu=~\"${cpu}\",cpu!=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "legendFormat": "cpu={{cpu}},host={{hostname}},inst={{instance}}",
               "range": true,
               "refId": "A"
             }
@@ -598,9 +598,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"nice\",cpu=~\"${cpu}\",cpu!=\"all\"}",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",mode=\"nice\",cpu=~\"${cpu}\",cpu!=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "legendFormat": "cpu={{cpu}},host={{hostname}},inst={{instance}}",
               "range": true,
               "refId": "A"
             }
@@ -693,9 +693,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"softirq\",cpu=~\"${cpu}\",cpu!=\"all\"}",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",mode=\"softirq\",cpu=~\"${cpu}\",cpu!=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "legendFormat": "cpu={{cpu}},host={{hostname}},inst={{instance}}",
               "range": true,
               "refId": "A"
             }
@@ -788,9 +788,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"steal\",cpu=~\"${cpu}\",cpu!=\"all\"}",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",mode=\"steal\",cpu=~\"${cpu}\",cpu!=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "legendFormat": "cpu={{cpu}},host={{hostname}},inst={{instance}}",
               "range": true,
               "refId": "A"
             }
@@ -883,9 +883,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"system\",cpu=~\"${cpu}\",cpu!=\"all\"}",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",mode=\"system\",cpu=~\"${cpu}\",cpu!=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "legendFormat": "cpu={{cpu}},host={{hostname}},inst={{instance}}",
               "range": true,
               "refId": "A"
             }
@@ -978,9 +978,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"user\",cpu=~\"${cpu}\",cpu!=\"all\"}",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",mode=\"user\",cpu=~\"${cpu}\",cpu!=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "legendFormat": "cpu={{cpu}},host={{hostname}},inst={{instance}}",
               "range": true,
               "refId": "A"
             }
@@ -1087,9 +1087,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"guest\",cpu=\"all\"}",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",mode=\"guest\",cpu=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "legendFormat": "cpu={{cpu}},host={{hostname}},inst={{instance}}",
               "range": true,
               "refId": "A"
             }
@@ -1182,9 +1182,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"guest_nice\",cpu=\"all\"}",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",mode=\"guest_nice\",cpu=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "legendFormat": "cpu={{cpu}},host={{hostname}},inst={{instance}}",
               "range": true,
               "refId": "A"
             }
@@ -1277,9 +1277,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"idle\",cpu=\"all\"}",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",mode=\"idle\",cpu=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "legendFormat": "cpu={{cpu}},host={{hostname}},inst={{instance}}",
               "range": true,
               "refId": "A"
             }
@@ -1372,9 +1372,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"iowait\",cpu=\"all\"}",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",mode=\"iowait\",cpu=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "legendFormat": "cpu={{cpu}},host={{hostname}},inst={{instance}}",
               "range": true,
               "refId": "A"
             }
@@ -1467,9 +1467,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"irq\",cpu=\"all\"}",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",mode=\"irq\",cpu=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "legendFormat": "cpu={{cpu}},host={{hostname}},inst={{instance}}",
               "range": true,
               "refId": "A"
             }
@@ -1562,9 +1562,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"nice\",cpu=\"all\"}",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",mode=\"nice\",cpu=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "legendFormat": "cpu={{cpu}},host={{hostname}},inst={{instance}}",
               "range": true,
               "refId": "A"
             }
@@ -1657,9 +1657,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"softirq\",cpu=\"all\"}",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",mode=\"softirq\",cpu=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "legendFormat": "cpu={{cpu}},host={{hostname}},inst={{instance}}",
               "range": true,
               "refId": "A"
             }
@@ -1752,9 +1752,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"steal\",cpu=\"all\"}",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",mode=\"steal\",cpu=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "legendFormat": "cpu={{cpu}},host={{hostname}},inst={{instance}}",
               "range": true,
               "refId": "A"
             }
@@ -1847,9 +1847,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"system\",cpu=\"all\"}",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",mode=\"system\",cpu=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "legendFormat": "cpu={{cpu}},host={{hostname}},inst={{instance}}",
               "range": true,
               "refId": "A"
             }
@@ -1942,9 +1942,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",type=\"user\",cpu=\"all\"}",
+              "expr": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",mode=\"user\",cpu=\"all\"}",
               "interval": "${interval}",
-              "legendFormat": "cpu{{cpu}}({{hostname}}/{{instance}})",
+              "legendFormat": "cpu={{cpu}},host={{hostname}},inst={{instance}}",
               "range": true,
               "refId": "A"
             }
@@ -2054,12 +2054,12 @@
               "editorMode": "code",
               "expr": "proc_stat_cpu_pct{instance=\"${instance}\",hostname=\"${hostname}\",cpu=\"${cpu}\"}",
               "interval": "${interval}",
-              "legendFormat": "{{type}}",
+              "legendFormat": "{{mode}}",
               "range": true,
               "refId": "A"
             }
           ],
-          "title": "Stacked %CPU for cpu ${cpu}, ${hostname}/${instance}",
+          "title": "Stacked %CPU for CPU ${cpu}, ${instance}/${hostname}",
           "type": "timeseries"
         },
         {
@@ -2150,12 +2150,12 @@
               "editorMode": "code",
               "expr": "avg_over_time(\n        last_over_time(\n                proc_stat_cpu_pct{instance=\"${instance}\",hostname=\"${hostname}\",cpu=\"${cpu}\"}[5s200ms])[${avg_interval}]\n)",
               "interval": "${interval}",
-              "legendFormat": "{{type}}",
+              "legendFormat": "{{mode}}",
               "range": true,
               "refId": "A"
             }
           ],
-          "title": "Stacked %CPU for cpu ${cpu}, ${hostname}/${instance}, Avg / ${avg_interval}",
+          "title": "Stacked Avg  %CPU Over ${avg_interval} For CPU ${cpu} On ${instance}/${hostname}",
           "type": "timeseries"
         }
       ],
@@ -2288,7 +2288,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "proc_stat_btime_sec{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+              "expr": "proc_stat_btime_sec{instance=\"${instance}\",hostname=\"${hostname}\"}",
               "format": "table",
               "instant": true,
               "legendFormat": "__auto",
@@ -2302,7 +2302,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "proc_stat_uptime_sec{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+              "expr": "proc_stat_uptime_sec{instance=\"${instance}\",hostname=\"${hostname}\"}",
               "format": "table",
               "hide": false,
               "instant": true,
@@ -2484,7 +2484,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_swap_in_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+              "expr": "proc_stat_swap_in_delta{instance=\"${instance}\",hostname=\"${hostname}\"}",
               "interval": "${interval}",
               "legendFormat": "{{__name__}}({{hostname}}/{{instance}})",
               "range": true,
@@ -2496,7 +2496,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_swap_out_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+              "expr": "proc_stat_swap_out_delta{instance=\"${instance}\",hostname=\"${hostname}\"}",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "{{__name__}}({{hostname}}/{{instance}})",
@@ -2590,7 +2590,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_page_in_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+              "expr": "proc_stat_page_in_delta{instance=\"${instance}\",hostname=\"${hostname}\"}",
               "interval": "${interval}",
               "legendFormat": "{{__name__}}({{hostname}}/{{instance}})",
               "range": true,
@@ -2602,7 +2602,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_page_out_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+              "expr": "proc_stat_page_out_delta{instance=\"${instance}\",hostname=\"${hostname}\"}",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "{{__name__}}({{hostname}}/{{instance}})",
@@ -2696,7 +2696,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_ctxt_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+              "expr": "proc_stat_ctxt_delta{instance=\"${instance}\",hostname=\"${hostname}\"}",
               "interval": "${interval}",
               "legendFormat": "{{hostname}}/{{instance}}",
               "range": true,
@@ -2789,7 +2789,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_processes_delta{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+              "expr": "proc_stat_processes_delta{instance=\"${instance}\",hostname=\"${hostname}\"}",
               "interval": "${interval}",
               "legendFormat": "process#({{hostname}}/{{instance}})",
               "range": true,
@@ -2882,7 +2882,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_procs_running_count{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+              "expr": "proc_stat_procs_running_count{instance=\"${instance}\",hostname=\"${hostname}\"}",
               "interval": "${interval}",
               "legendFormat": "running({{hostname}}/{{instance}})",
               "range": true,
@@ -2894,7 +2894,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_procs_blocked_count{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+              "expr": "proc_stat_procs_blocked_count{instance=\"${instance}\",hostname=\"${hostname}\"}",
               "hide": false,
               "interval": "${interval}",
               "legendFormat": "blocked({{hostname}}/{{instance}})",
@@ -2989,7 +2989,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "proc_stat_metrics_delta_sec{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+              "expr": "proc_stat_metrics_delta_sec{instance=\"${instance}\",hostname=\"${hostname}\"}",
               "interval": "${interval}",
               "legendFormat": "process#({{hostname}}/{{instance}})",
               "range": true,
@@ -3031,15 +3031,10 @@
         "type": "datasource"
       },
       {
-        "allValue": ".+",
         "current": {
-          "selected": true,
-          "text": [
-            "All"
-          ],
-          "value": [
-            "$__all"
-          ]
+          "selected": false,
+          "text": "",
+          "value": ""
         },
         "datasource": {
           "type": "prometheus",
@@ -3047,9 +3042,9 @@
         },
         "definition": "lsvmi_uptime_sec",
         "hide": 0,
-        "includeAll": true,
+        "includeAll": false,
         "label": "Instance",
-        "multi": true,
+        "multi": false,
         "name": "instance",
         "options": [],
         "query": {
@@ -3063,15 +3058,10 @@
         "type": "query"
       },
       {
-        "allValue": ".+",
         "current": {
-          "selected": true,
-          "text": [
-            "All"
-          ],
-          "value": [
-            "$__all"
-          ]
+          "selected": false,
+          "text": "",
+          "value": ""
         },
         "datasource": {
           "type": "prometheus",
@@ -3079,9 +3069,9 @@
         },
         "definition": "lsvmi_uptime_sec{instance=~\"${instance}\"}",
         "hide": 0,
-        "includeAll": true,
+        "includeAll": false,
         "label": "Hostname",
-        "multi": true,
+        "multi": false,
         "name": "hostname",
         "options": [],
         "query": {
@@ -3112,16 +3102,16 @@
         "definition": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",cpu=\"all\"}",
         "hide": 0,
         "includeAll": true,
-        "label": "Type",
+        "label": "Mode",
         "multi": true,
-        "name": "type",
+        "name": "mode",
         "options": [],
         "query": {
           "query": "proc_stat_cpu_pct{instance=~\"${instance}\",hostname=~\"${hostname}\",cpu=\"all\"}",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
-        "regex": "/.*type=\"([^\"]*)\".*/",
+        "regex": "/.*mode=\"([^\"]*)\".*/",
         "skipUrlSync": false,
         "sort": 1,
         "type": "query"
@@ -3137,7 +3127,7 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "proc_stat_cpu_up{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+        "definition": "proc_stat_cpu_up{instance=\"${instance}\",hostname=\"${hostname}\"}",
         "hide": 0,
         "includeAll": true,
         "label": "CPU",
@@ -3145,7 +3135,7 @@
         "name": "cpu",
         "options": [],
         "query": {
-          "query": "proc_stat_cpu_up{instance=~\"${instance}\",hostname=~\"${hostname}\"}",
+          "query": "proc_stat_cpu_up{instance=\"${instance}\",hostname=\"${hostname}\"}",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
