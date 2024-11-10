@@ -67,7 +67,7 @@ Typical stats parsers will create and return a new object w/ the parsed data for
 
 Additionally certain metrics generators may need to refer the previous scan values. The double buffer approach will rely on a `parser [2]*ParserType` array in the generator context together with a `currentIndex` integer that's toggled between `0` and `1` at every scan. `parser[currentIndex]` will be passed to the parser to retrieve the latest data and `parser[1 - currentIndex]` will represent the previous scan.
 
-For the reason above custom parsers were created under the [procfs](procfs).
+For the reason above custom parsers were created under the [procfs](../procfs).
 
 #### Handling Counters
 
