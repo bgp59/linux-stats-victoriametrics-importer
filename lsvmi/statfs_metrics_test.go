@@ -104,19 +104,19 @@ func testUpdateStatfsInfo(tc *UpdateStatfsInfoTestCase, t *testing.T) {
 	sfsm.instance = tc.instance
 	sfsm.hostname = tc.hostname
 
-	wantOutOfScopeEnabledMetrics := make(map[string]bool)
+	wantOutOfScopePresentMetrics := make(map[string]bool)
 	if tc.primeStatfsMountinfo != nil {
 		primeMountinfoParsedLinesForStatfsTest(sfsm, tc.primeStatfsMountinfo)
 		sfsm.updateStatfsInfo()
 	}
 	if tc.statfsMountinfo != nil {
 		for _, statfsInfo := range sfsm.statfsInfo {
-			wantOutOfScopeEnabledMetrics[string(statfsInfo.enabledMetric)] = true
+			wantOutOfScopePresentMetrics[string(statfsInfo.enabledMetric)] = true
 		}
 		primeMountinfoParsedLinesForStatfsTest(sfsm, tc.statfsMountinfo)
 		sfsm.updateStatfsInfo()
 		for _, statfsInfo := range sfsm.statfsInfo {
-			delete(wantOutOfScopeEnabledMetrics, string(statfsInfo.enabledMetric))
+			delete(wantOutOfScopePresentMetrics, string(statfsInfo.enabledMetric))
 		}
 	}
 
@@ -156,20 +156,20 @@ func testUpdateStatfsInfo(tc *UpdateStatfsInfoTestCase, t *testing.T) {
 			fmt.Fprintf(errBuf, "\n.statfsInfo[%q]: unexpected", mountSource)
 		}
 	}
-	for i, metric := range sfsm.outOfScopeEnabledMetrics {
+	for i, metric := range sfsm.outOfScopePresentMetrics {
 		gotMetric := string(metric)
-		if !wantOutOfScopeEnabledMetrics[gotMetric] {
+		if !wantOutOfScopePresentMetrics[gotMetric] {
 			fmt.Fprintf(
 				errBuf,
-				"\n.outOfScopeEnabledMetrics[%d]=%q: unexpected",
+				"\n.outOfScopePresentMetrics[%d]=%q: unexpected",
 				i, gotMetric,
 			)
 		} else {
-			delete(wantOutOfScopeEnabledMetrics, gotMetric)
+			delete(wantOutOfScopePresentMetrics, gotMetric)
 		}
 	}
-	for metric := range wantOutOfScopeEnabledMetrics {
-		fmt.Fprintf(errBuf, "\n.outOfScopeEnabledMetrics: %q missing", metric)
+	for metric := range wantOutOfScopePresentMetrics {
+		fmt.Fprintf(errBuf, "\n.outOfScopePresentMetrics: %q missing", metric)
 	}
 
 	if errBuf.Len() > 0 {

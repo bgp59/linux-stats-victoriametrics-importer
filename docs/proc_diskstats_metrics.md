@@ -113,7 +113,7 @@ Based on [/proc/PID/mountinfo](https://man7.org/linux/man-pages/man5/proc_pid_mo
 
 ### proc_mountinfo
 
-[Pseudo-categorical](internals.md#pseudo-categorical-metrics ) metric containing information about the mounted file systems.
+[Pseudo-categorical](internals.md#pseudo-categorical-metrics) metric containing information about the mounted file systems.
 
 | Label Name | Value(s)/Info |
 | --- | --- |

@@ -1,4 +1,4 @@
-# LSVMI Qdics Metrics (id: `proc_qdisc_metrics`)
+# LSVMI Qdics Metrics (id: `qdisc_metrics`)
 
 <!-- TOC tocDepth:2..3 chapterDepth:2..6 -->
 
@@ -80,7 +80,7 @@ Number of split flows since the last scan.
 
 ### qdisc_present
 
-Metric indicating the presence (value `1`) or disappearance (value `0`) of a qdisc. This metric could be used as a qualifier for the values above, since qdisc's can be added/deleted at any time. When a qdisc is deleted its last metrics may still linger in queries due to lookback interval. For a more precise cutoff point, the metrics can by qualified as follows:
+[Pseudo-categorical](internals.md#pseudo-categorical-metrics) metric indicating the presence (value `1`) or disappearance (value `0`) of a qdisc. This metric could be used as a qualifier for the values above, since qdisc's can be added/deleted at any time. When a qdisc is deleted its last metrics may still linger in queries due to lookback interval. For a more precise cutoff point, the metrics can by qualified as follows:
 
   ```text
   

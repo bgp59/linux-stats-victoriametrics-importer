@@ -53,6 +53,13 @@ if __name__ == "__main__":
         help="""Grafana folder, default: %(default)r.""",
     )
     parser.add_argument(
+        "-k",
+        "--keep",
+        default=False,
+        help="""Keep Instance and Hostname var selection. By default they are
+             either cleared or set to All if the latter is enabled.""",
+    )
+    parser.add_argument(
         "-t",
         "--title",
         help=f"""
@@ -116,6 +123,32 @@ if __name__ == "__main__":
     dashboard["uid"] = norm_title
     dashboard["title"] = title
     dashboard["version"] = int(time.time())
+    if not args.keep and "templating" in dashboard:
+        templates = dashboard["templating"].get("list", [])
+        for template in templates:
+            if template.get("name", "").lower() not in {"instance", "hostname"}:
+                continue
+            if template.get("includeAll"):
+                template["allValue"] = ".*"
+                if template["multi"]:
+                    current = {
+                        "selected": True,
+                        "text": ["All"],
+                        "value": ["$__all"],
+                    }
+                else:
+                    current = {
+                        "selected": True,
+                        "text": "All",
+                        "value": "$__all",
+                    }
+            else:
+                current = {
+                    "selected": False,
+                    "text": "",
+                    "value": "",
+                }
+            template["current"] = current
     os.makedirs(dash_out_dir, exist_ok=True)
     with open(out_file, "wt") as f:
         json.dump(dashboard, f, indent=2)

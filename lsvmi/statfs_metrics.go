@@ -33,8 +33,9 @@ const (
 	STATFS_FREE_SIZE_METRIC  = "statfs_free_size_kb"
 	STATFS_AVAIL_SIZE_METRIC = "statfs_avail_size_kb"
 	STATFS_FREE_PCT_METRIC   = "statfs_free_pct"
+	STATFS_AVAIL_PCT_METRIC  = "statfs_avail_pct"
 
-	STATFS_ENABLED_METRIC = "statfs_enabled"
+	STATFS_PRESENCE_METRIC = "statfs_present"
 
 	STATFS_DEVICE_NUM_METRICS = 11
 
@@ -46,7 +47,8 @@ const (
 )
 
 const (
-	STATFS_FREE_PCT_METRIC_PREC = 1
+	STATFS_FREE_PCT_METRIC_PREC  = 1
+	STATFS_AVAIL_PCT_METRIC_PREC = 1
 )
 
 var statfsMetricsLog = NewCompLogger(STATFS_METRICS_ID)
@@ -97,6 +99,7 @@ type StatfsInfo struct {
 	freeSizeMetric  []byte
 	availSizeMetric []byte
 	freePctMetric   []byte
+	availPctMetric  []byte
 	enabledMetric   []byte
 	// Cycle#:
 	cycleNum int
@@ -116,9 +119,9 @@ type StatfsMetrics struct {
 	// Stats indexed by mount source; there can be multiple mounts for the same
 	// source, the first one encountered will be considered:
 	statfsInfo map[string]*StatfsInfo
-	// The list of out-of-scope ..._enabled metrics, they should be published w/
+	// The list of out-of-scope present metrics, they should be published w/
 	// 0 status:
-	outOfScopeEnabledMetrics [][]byte
+	outOfScopePresentMetrics [][]byte
 	// Timestamp when the stats were collected:
 	statfsTs [2]time.Time
 	// Whether there is a prev timestamp or not, essentially not first time
@@ -244,7 +247,7 @@ func (sfsm *StatfsMetrics) updateStatfsInfo() {
 		hostname = sfsm.hostname
 	}
 
-	sfsm.outOfScopeEnabledMetrics = nil
+	sfsm.outOfScopePresentMetrics = nil
 
 	mountSources := make(map[string]bool)
 	for _, parsedLine := range sfsm.procMountinfo.ParsedLines {
@@ -274,7 +277,7 @@ func (sfsm *StatfsMetrics) updateStatfsInfo() {
 		} else if statfsInfo.mountPoint != mountPoint ||
 			statfsInfo.mountSource != mountSource ||
 			statfsInfo.fsType != fsType {
-			sfsm.outOfScopeEnabledMetrics = append(sfsm.outOfScopeEnabledMetrics, statfsInfo.enabledMetric)
+			sfsm.outOfScopePresentMetrics = append(sfsm.outOfScopePresentMetrics, statfsInfo.enabledMetric)
 			statfsInfo.mountPoint = mountPoint
 			statfsInfo.mountSource = mountSource
 			statfsInfo.fsType = fsType
@@ -327,9 +330,13 @@ func (sfsm *StatfsMetrics) updateStatfsInfo() {
 			`%s{%s} `, // N.B. space before value included
 			STATFS_FREE_PCT_METRIC, labels,
 		))
+		statfsInfo.availPctMetric = []byte(fmt.Sprintf(
+			`%s{%s} `, // N.B. space before value included
+			STATFS_AVAIL_PCT_METRIC, labels,
+		))
 		statfsInfo.enabledMetric = []byte(fmt.Sprintf(
 			`%s{%s} `, // N.B. space before value included
-			STATFS_ENABLED_METRIC, labels,
+			STATFS_PRESENCE_METRIC, labels,
 		))
 	}
 
@@ -337,7 +344,7 @@ func (sfsm *StatfsMetrics) updateStatfsInfo() {
 	for mountSource, statfsInfo := range sfsm.statfsInfo {
 		if !mountSources[mountSource] {
 			if !statfsInfo.wasDisabled {
-				sfsm.outOfScopeEnabledMetrics = append(sfsm.outOfScopeEnabledMetrics, statfsInfo.enabledMetric)
+				sfsm.outOfScopePresentMetrics = append(sfsm.outOfScopePresentMetrics, statfsInfo.enabledMetric)
 			}
 			delete(sfsm.statfsInfo, mountSource)
 		}
@@ -388,7 +395,7 @@ func (sfsm *StatfsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 				actualMetricsCount += 1
 			}
 
-			updateFreePct := false
+			updateFreePct, updateAvailPct := false, false
 			if allMetrics || currStatfsBuf.Blocks != prevStatfsBuf.Blocks {
 				buf.Write(statfsInfo.blocksMetric)
 				buf.WriteString(strconv.FormatUint(currStatfsBuf.Blocks, 10))
@@ -424,6 +431,7 @@ func (sfsm *StatfsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 				buf.WriteString(strconv.FormatUint(currStatfsBuf.Bavail*bsize/KBYTE, 10))
 				buf.Write(promTs)
 
+				updateAvailPct = true
 				actualMetricsCount += 2
 			}
 
@@ -432,6 +440,16 @@ func (sfsm *StatfsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 				buf.WriteString(strconv.FormatFloat(
 					float64(currStatfsBuf.Bfree)/float64(currStatfsBuf.Blocks)*100,
 					'f', STATFS_FREE_PCT_METRIC_PREC, 64,
+				))
+				buf.Write(promTs)
+				actualMetricsCount += 1
+			}
+
+			if updateAvailPct {
+				buf.Write(statfsInfo.availPctMetric)
+				buf.WriteString(strconv.FormatFloat(
+					float64(currStatfsBuf.Bavail)/float64(currStatfsBuf.Blocks)*100,
+					'f', STATFS_AVAIL_PCT_METRIC_PREC, 64,
 				))
 				buf.Write(promTs)
 				actualMetricsCount += 1
@@ -470,14 +488,14 @@ func (sfsm *StatfsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 		}
 	}
 
-	if sfsm.outOfScopeEnabledMetrics != nil {
-		for _, metric := range sfsm.outOfScopeEnabledMetrics {
+	if sfsm.outOfScopePresentMetrics != nil {
+		for _, metric := range sfsm.outOfScopePresentMetrics {
 			buf.Write(metric)
 			buf.WriteByte('0')
 			buf.Write(promTs)
 			actualMetricsCount += 1
 		}
-		sfsm.outOfScopeEnabledMetrics = nil
+		sfsm.outOfScopePresentMetrics = nil
 	}
 
 	if sfsm.validPrevTs {

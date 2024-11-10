@@ -300,6 +300,18 @@
                 "value": 98
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "% Avail"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 73
+              }
+            ]
           }
         ]
       },
@@ -307,7 +319,7 @@
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 0
+        "y": 3
       },
       "id": 6,
       "options": {
@@ -488,6 +500,21 @@
           "legendFormat": "__auto",
           "range": false,
           "refId": "present"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum by (instance, hostname, fs, fs_type, mount_point) (statfs_avail_pct{instance=\"${instance}\",hostname=\"${hostname}\",fs=~\"${fs}\"})",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "avail_pct"
         }
       ],
       "title": "Filesystems For ${instance}/${hostname} At A Glance",
@@ -502,24 +529,26 @@
             "excludeByName": {},
             "indexByName": {
               "Time": 0,
+              "Value #avail_pct": 9,
               "Value #avail_size_mb": 7,
-              "Value #bavail": 13,
-              "Value #bfree": 12,
-              "Value #blocks": 11,
-              "Value #bsize": 10,
-              "Value #ffree": 15,
-              "Value #files": 14,
+              "Value #bavail": 14,
+              "Value #bfree": 13,
+              "Value #blocks": 12,
+              "Value #bsize": 11,
+              "Value #ffree": 16,
+              "Value #files": 15,
               "Value #free_pct": 8,
               "Value #free_size_mb": 6,
-              "Value #present": 16,
+              "Value #present": 17,
               "Value #total_size_mb": 5,
               "fs": 3,
-              "fs_type": 9,
+              "fs_type": 10,
               "hostname": 1,
               "instance": 2,
               "mount_point": 4
             },
             "renameByName": {
+              "Value #avail_pct": "% Avail",
               "Value #avail_size_mb": "AvailSz (MB)",
               "Value #bavail": "Avail Blk#",
               "Value #bfree": "Free Blk#",
@@ -604,9 +633,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
+        "w": 12,
         "x": 0,
-        "y": 7
+        "y": 10
       },
       "id": 2,
       "interval": "${interval}",
@@ -726,9 +755,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 7
+        "w": 12,
+        "x": 12,
+        "y": 10
       },
       "id": 4,
       "interval": "${interval}",
@@ -832,42 +861,13 @@
           },
           "unit": "kbytes"
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/%free/"
-            },
-            "properties": [
-              {
-                "id": "custom.axisPlacement",
-                "value": "right"
-              },
-              {
-                "id": "unit",
-                "value": "percent"
-              },
-              {
-                "id": "min",
-                "value": 0
-              },
-              {
-                "id": "max",
-                "value": 100
-              },
-              {
-                "id": "custom.axisLabel",
-                "value": "%Free"
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 7
+        "w": 12,
+        "x": 0,
+        "y": 18
       },
       "id": 3,
       "interval": "${interval}",
@@ -921,7 +921,92 @@
           "legendFormat": "avail(fs={{fs}},mnt={{mount_point}},host={{hostname}},inst={{instance}})",
           "range": true,
           "refId": "C"
+        }
+      ],
+      "title": "Size Stats For ${fs} On ${instance}/${hostname}",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent"
         },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 18
+      },
+      "id": 9,
+      "interval": "${interval}",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
         {
           "datasource": {
             "type": "prometheus",
@@ -934,9 +1019,22 @@
           "legendFormat": "%free(fs={{fs}},mnt={{mount_point}},host={{hostname}},inst={{instance}})",
           "range": true,
           "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "statfs_avail_pct{instance=\"${instance}\",hostname=\"${hostname}\",fs=~\"${fs}\"}",
+          "hide": false,
+          "interval": "${interval}",
+          "legendFormat": "%avail(fs={{fs}},mnt={{mount_point}},host={{hostname}},inst={{instance}})",
+          "range": true,
+          "refId": "A"
         }
       ],
-      "title": "Size Stats For ${fs} On ${instance}/${hostname}",
+      "title": "Size % For ${fs} On ${instance}/${hostname}",
       "type": "timeseries"
     }
   ],
@@ -1076,6 +1174,6 @@
   "timezone": "",
   "title": "statfs_metrics_ref",
   "uid": "statfs_metrics_ref",
-  "version": 1731267296,
+  "version": 1731275159,
   "weekStart": ""
 }
