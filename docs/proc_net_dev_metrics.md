@@ -1,4 +1,5 @@
 # LSVMI Network Interface Metrics (id: `proc_net_dev_metrics`)
+
 <!-- TOC tocDepth:2..3 chapterDepth:2..6 -->
 
 - [General Information](#general-information)

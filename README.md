@@ -16,6 +16,6 @@ Since [VictoriaMetrics](https://docs.victoriametrics.com/) supports the [import]
 
 - [The List Of Metrics](docs/metrics.md)
 - [User Guide](docs/user_guide.md)
-- [Running The PoC](docs/poc.md)
+- [Running The Proof Of Concept](docs/poc.md)
 - [Developer Guide](docs/dev_guide.md)
 - [Internals](docs/internals.md)
