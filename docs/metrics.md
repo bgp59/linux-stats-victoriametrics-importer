@@ -4,7 +4,7 @@
 
 - [Common Labels](#common-labels)
 - [Timestamps](#timestamps)
-- [The List Of Metrics, By Metrics Generators](#the-list-of-metrics-by-metrics-generators)
+- [The Complete List Of Metrics](#the-complete-list-of-metrics)
 
 <!-- /TOC -->
 
@@ -25,4 +25,8 @@ All metrics have the following labels:
 
 The generated metrics use specific timestamps from when the parser(s) returned the new data. If multiple sources were involved, the timestamp is from when **all** the needed data was parsed. For instance `PID` metrics may require `/proc/[PID]/stat`, `/proc/[PID]/status` and `/proc/[PID]/cmdline` parsing; the timestamp is from when all 3 of them returned.
 
-## The List Of Metrics, By Metrics Generators
+## The Complete List Of Metrics
+
+- [by generator](metrics_by_generator.md)
+
+- [alphabetically](metrics_alphabetically.md)

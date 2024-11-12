@@ -1,11 +1,23 @@
 # LSVMI Proof Of Concept Demo
 
+<!-- TOC tocDepth:2..3 chapterDepth:2..6 -->
+
+- [Note](#note)
+- [TL;DR: Quick Start For PoC](#tldr-quick-start-for-poc)
+  - [Using A Linux Server](#using-a-linux-server)
+  - [Using A Containerized Solution](#using-a-containerized-solution)
+- [Browsing The Reference Dashboards](#browsing-the-reference-dashboards)
+
+<!-- /TOC -->
+
+## Note
+
 While this is intended as a `TL;DR`, some familiarity with the following is required:
 
-* [Prometheus Metrics](https://prometheus.io/docs/concepts/data_model/)
-* [VictoriaMetrics / Single version](https://docs.victoriametrics.com/single-server-victoriametrics/)
-* [Grafana](https://grafana.com/docs/grafana/latest/getting-started/)
-* [LSVI Metrics](metrics.md)
+- [Prometheus Metrics](https://prometheus.io/docs/concepts/data_model/)
+- [VictoriaMetrics / Single version](https://docs.victoriametrics.com/single-server-victoriametrics/)
+- [Grafana](https://grafana.com/docs/grafana/latest/getting-started/)
+- [LSVI Metrics](metrics.md)
 
 Or one could just dive in and get all the way to the reference dashboards just by following the instructions.
 
@@ -15,7 +27,7 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
 ### Using A Linux Server
 
-* **NOTE!** The instructions below refer to semver, OS and architecture. Each shell command block is supposed to have been prefixed by the following definitions:
+- **NOTE!** The instructions below refer to semver, OS and architecture. Each shell command block is supposed to have been prefixed by the following definitions:
 
     ```bash
 
@@ -24,7 +36,7 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
     ```
 
-* extract the infra installation archive:
+- extract the infra installation archive:
 
     ```bash
     
@@ -37,11 +49,12 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
     ```
 
-* install the **PoC** supporting [VictoriaMetrics](https://docs.victoriametrics.com/single-server-victoriametrics/) and [Grafana](https://grafana.com/docs/grafana/latest/getting-started/) under `$HOME/lsvmi-poc`, using `$HOME/lsvmi-poc/runtime` as working area for databases, logs, etc.:
+- install the **PoC** supporting [VictoriaMetrics](https://docs.victoriametrics.com/single-server-victoriametrics/) and [Grafana](https://grafana.com/docs/grafana/latest/getting-started/) under `$HOME/lsvmi-poc`, using `$HOME/lsvmi-poc/runtime` as working area for databases, logs, etc.:
 
     ```bash
     
-    /tmp/lsvmi-poc-infra-$lsvmi_ver/install-lsvmi-infra.sh
+    cd /tmp/lsvmi-poc-infra-$lsvmi_ver
+    ./install-lsvmi-infra.sh
 
     ```
 
@@ -63,7 +76,7 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
     
     ```
 
-* install the desired release for OS, architecture and version under the same **PoC** location:
+- install the desired release for OS, architecture and version under the same **PoC** location:
 
     ```bash
 
@@ -77,18 +90,18 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
     ```
 
-* start everything:
+- start everything:
 
     ```bash
 
-    cd $HOME/lsvmi-poc
-    ./start-poc.sh  # logs and output under runtime/
+    cd $HOME/lsvmi-poc      # or POC_ROOT_DIR if custom dir
+    ./start-poc.sh          # logs and output under runtime/
 
     ```
 
-* point a, preferably Chrome (may be in Incognito mode), browser to http://_linux_host_:3000 for [Grafana](https://grafana.com/docs/grafana/latest/getting-started/) UI, user: `admin`, password: `lsvmi`
+- point a, preferably Chrome (may be in Incognito mode), browser to http://_linux_host_:3000 for [Grafana](https://grafana.com/docs/grafana/latest/getting-started/) UI, user: `admin`, password: `lsvmi`
 
-* gracefully shutdown **PoC** to save [VictoriaMetrics](https://docs.victoriametrics.com/single-server-victoriametrics/) time series and.or [Grafana](https://grafana.com/docs/grafana/latest/getting-started/) custom dashboards:
+- gracefully shutdown **PoC** to save [VictoriaMetrics](https://docs.victoriametrics.com/single-server-victoriametrics/) time series and.or [Grafana](https://grafana.com/docs/grafana/latest/getting-started/) custom dashboards:
 
     ```bash
 
@@ -97,11 +110,19 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
     ```
 
+Cleanup:
+
+   ```bash
+
+   rm -rf $HOME/lsvmi-poc   # or rm -rf POC_ROOT_DIR POC_RUNTIME_DIR if custom dirs
+
+   ```
+
 ### Using A Containerized Solution
 
-* have  [Docker](https://docs.docker.com/get-started/get-docker/) installed
-* run the demo image:
-  * without persistence (neither [VictoriaMetrics](https://docs.victoriametrics.com/single-server-victoriametrics/) time series nor [Grafana's](https://grafana.com/docs/grafana/latest/getting-started/) custom dashboards will be saved between container restarts):
+- have  [Docker](https://docs.docker.com/get-started/get-docker/) installed
+- run the demo image:
+  - without persistence (neither [VictoriaMetrics](https://docs.victoriametrics.com/single-server-victoriametrics/) time series nor [Grafana's](https://grafana.com/docs/grafana/latest/getting-started/) custom dashboards will be saved between container restarts):
 
     ```bash
 
@@ -115,8 +136,8 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
     ```
 
-  * with persistence:
-    * select a convenient location:
+  - with persistence:
+    - select a convenient location:
 
         ```bash
 
@@ -124,7 +145,7 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
         ```
 
-    * start the container with a volume:
+    - start the container with a volume:
 
         ```bash
 
@@ -140,7 +161,7 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
         ```
 
-    * log files are now accessible on the host running **Docker**:
+    - log files are now accessible on the host running **Docker**:
 
         ```bash
 
@@ -163,9 +184,9 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
         ```
 
-* point a, preferably Chrome (may be in Incognito mode), browser to <http://localhost:3000> for [Grafana](https://grafana.com/docs/grafana/latest/getting-started/) UI, user: `admin`, password: `lsvmi`
+- point a, preferably Chrome (may be in Incognito mode), browser to <http://localhost:3000> for [Grafana](https://grafana.com/docs/grafana/latest/getting-started/) UI, user: `admin`, password: `lsvmi`
 
-* it is a good practice to stop the container gracefully, really required if the persistent volume is used:
+- it is a good practice to stop the container gracefully, really required if the persistent volume is used:
 
     ```bash
 
@@ -175,7 +196,7 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
     ```
 
-* to log on the container, run:
+- to log on the container, run:
 
     ```bash
 
@@ -186,3 +207,5 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 ## Browsing The Reference Dashboards
 
 Once the **PoC** is up and running, the [LSVMI](../README.md) relevant dashboards can be found under `lsvmi-reference` folder. Note that they are  [provisioned dashboards](https://grafana.com/docs/grafana/latest/administration/provisioning/#dashboards) and as such they cannot be modified directly.
+
+![lsvmi-reference](images/lsvmi-ref-dashes.jpg)
