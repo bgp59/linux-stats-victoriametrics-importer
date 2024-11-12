@@ -1520,7 +1520,7 @@
         },
         "definition": "lsvmi_uptime_sec{instance=~\"${instance}\"}",
         "hide": 0,
-        "includeAll": true,
+        "includeAll": false,
         "label": "Hostname",
         "multi": false,
         "name": "hostname",
