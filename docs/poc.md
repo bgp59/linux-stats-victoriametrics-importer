@@ -209,5 +209,5 @@ Cleanup:
 Once the **PoC** is up and running, the [LSVMI](../README.md) relevant dashboards can be found under `lsvmi-reference` folder. Note that they are  [provisioned dashboards](https://grafana.com/docs/grafana/latest/administration/provisioning/#dashboards) and as such they cannot be modified directly.
 
 <!-- markdownlint-disable MD033 -->
-<img src="images/lsvmi-ref-dashes.jpg" alt="lsvmi-reference" width="450">
+<img src="images/lsvmi-ref-dashes.jpg" alt="lsvmi-reference" width="800">
 <!-- markdownlint-enable -->
