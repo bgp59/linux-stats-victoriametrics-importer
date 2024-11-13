@@ -37,9 +37,7 @@ PROC_DISKSTATS_NUM_WRITES_COMPLETED_DELTA_METRIC = (
 PROC_DISKSTATS_NUM_WRITES_MERGED_DELTA_METRIC = "proc_diskstats_num_writes_merged_delta"
 PROC_DISKSTATS_NUM_WRITE_SECTORS_DELTA_METRIC = "proc_diskstats_num_write_sectors_delta"
 PROC_DISKSTATS_WRITE_PCT_METRIC = "proc_diskstats_write_pct"
-PROC_DISKSTATS_NUM_IO_IN_PROGRESS_METRIC = (
-    "proc_diskstats_num_io_in_progress"
-)
+PROC_DISKSTATS_NUM_IO_IN_PROGRESS_METRIC = "proc_diskstats_num_io_in_progress"
 PROC_DISKSTATS_IO_PCT_METRIC = "proc_diskstats_io_pct"
 PROC_DISKSTATS_IO_WEIGTHED_PCT_METRIC = "proc_diskstats_io_weigthed_pct"
 PROC_DISKSTATS_NUM_DISCARDS_COMPLETED_DELTA_METRIC = (
@@ -72,9 +70,11 @@ PROC_MOUNTINFO_MOUNT_SOURCE_LABEL_NAME = "source"
 
 PROC_DISKSTATS_INTERVAL_METRIC = "proc_diskstats_metrics_delta_sec"
 
-procDiskstatsIndexIsGauge = set([
-    procfs.DISKSTATS_NUM_IO_IN_PROGRESS,
-])
+procDiskstatsIndexIsGauge = set(
+    [
+        procfs.DISKSTATS_NUM_IO_IN_PROGRESS,
+    ]
+)
 
 procDiskstatsIndexPctMetric = {
     procfs.DISKSTATS_READ_MILLISEC: (100.0 / 1000.0, 2),
@@ -129,9 +129,7 @@ def make_zero_delta(val: bool = False) -> ZeroDeltaType:
 @dataclass
 class ProcDiskstatsMetricsInfoTest:
     CycleNum: int = 0
-    ZeroDelta: ZeroDeltaType = field(
-        default_factory=make_zero_delta
-    )
+    ZeroDelta: ZeroDeltaType = field(default_factory=make_zero_delta)
     MetricsCache: Optional[List[str]] = None
     InfoMetric: Optional[str] = None
 

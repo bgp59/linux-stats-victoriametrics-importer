@@ -388,7 +388,11 @@ func (sfsm *StatfsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 		allMetrics := prevStatfsBuf == nil || statfsInfo.cycleNum == 0
 		if !statfsInfo.disabled {
 			bsize := uint64(currStatfsBuf.Bsize)
-			if allMetrics || bsize != uint64(prevStatfsBuf.Bsize) {
+			// If bsize changes then force a full cycle:
+			if !allMetrics && bsize != uint64(prevStatfsBuf.Bsize) {
+				allMetrics = true
+			}
+			if allMetrics {
 				buf.Write(statfsInfo.bsizeMetric)
 				buf.WriteString(strconv.FormatUint(bsize, 10))
 				buf.Write(promTs)
@@ -405,6 +409,7 @@ func (sfsm *StatfsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 				buf.WriteString(strconv.FormatUint(currStatfsBuf.Blocks*bsize/KBYTE, 10))
 				buf.Write(promTs)
 
+				updateAvailPct = true
 				updateFreePct = true
 				actualMetricsCount += 2
 			}

@@ -18,10 +18,8 @@ case "$1" in
     ;;
 esac
 
-set -e
-
 for d in ${@:-.}; do
-    real_d=$(realpath $d)
+    real_d=$(realpath $d) || continue
     if [[ "$real_d" != "$project_root_dir" && "$real_d" != "$project_root_dir/"* ]]; then
         echo >&2 "$this_script: '$d' ignored, its real path '$real_d' is outside '$project_root_dir', the project root"
         continue
