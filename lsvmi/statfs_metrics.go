@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
-	"strconv"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -34,21 +33,20 @@ const (
 	STATFS_AVAIL_SIZE_METRIC = "statfs_avail_size_kb"
 	STATFS_FREE_PCT_METRIC   = "statfs_free_pct"
 	STATFS_AVAIL_PCT_METRIC  = "statfs_avail_pct"
+	STATFS_PRESENCE_METRIC   = "statfs_present"
 
-	STATFS_PRESENCE_METRIC = "statfs_present"
+	STATFS_MOUNTINFO_FS_LABEL_NAME          = "fs"          // All the metrics above
+	STATFS_MOUNTINFO_FS_TYPE_LABEL_NAME     = "fs_type"     // Presence only
+	STATFS_MOUNTINFO_MOUNT_POINT_LABEL_NAME = "mount_point" // Presence only
 
-	STATFS_DEVICE_NUM_METRICS = 11
-
-	STATFS_MOUNT_POINT_LABEL_NAME   = "mount_point"
-	STATFS_MOUNT_FS_LABEL_NAME      = "fs"
-	STATFS_MOUNT_FS_TYPE_LABEL_NAME = "fs_type"
+	STATFS_DEVICE_NUM_METRICS = 12 // 36-25+1, based on line# arithmetic
 
 	STATFS_INTERVAL_METRIC = "statfs_metrics_delta_sec"
 )
 
 const (
-	STATFS_FREE_PCT_METRIC_PREC  = 1
-	STATFS_AVAIL_PCT_METRIC_PREC = 1
+	STATFS_FREE_PCT_METRIC_FMT  = ".1f"
+	STATFS_AVAIL_PCT_METRIC_FMT = ".1f"
 )
 
 var statfsMetricsLog = NewCompLogger(STATFS_METRICS_ID)
@@ -80,34 +78,18 @@ func DefaultStatfsMetricsConfig() *StatfsMetricsConfig {
 	return cfg
 }
 
-// Per mount source info:
+type StatfsMountinfo struct {
+	fs, mountPoint, fsType string
+}
+
+// Indexed by StatfsMountinfo:
 type StatfsInfo struct {
-	// Relevant mount info:
-	mountPoint  string
-	mountSource string
-	fsType      string
 	// Dual buffer for the sys call:
 	statfsBuf [2]*unix.Statfs_t
-	// Metrics cache:
-	bsizeMetric     []byte
-	blocksMetric    []byte
-	bfreeMetric     []byte
-	bavailMetric    []byte
-	filesMetric     []byte
-	ffreeMetric     []byte
-	totalSizeMetric []byte
-	freeSizeMetric  []byte
-	availSizeMetric []byte
-	freePctMetric   []byte
-	availPctMetric  []byte
-	enabledMetric   []byte
-	// Cycle#:
+	// Cycle#, used for partial/full metric cycle:
 	cycleNum int
-	// If statfs reports an error, mark this mount point as disabled:
-	disabled bool
-	// Whether this was disabled before, needed to detect the transition to
-	// disabled:
-	wasDisabled bool
+	// Scan#, used to detect out-of-scope FS:
+	scanNum int
 }
 
 type StatfsMetrics struct {
@@ -116,34 +98,48 @@ type StatfsMetrics struct {
 	// Scan interval:
 	interval time.Duration
 
-	// Stats indexed by mount source; there can be multiple mounts for the same
-	// source, the first one encountered will be considered:
-	statfsInfo map[string]*StatfsInfo
-	// The list of out-of-scope present metrics, they should be published w/
-	// 0 status:
-	outOfScopePresentMetrics [][]byte
+	// Stats indexed by FS:
+	statfsInfo map[StatfsMountinfo]*StatfsInfo
 	// Timestamp when the stats were collected:
 	statfsTs [2]time.Time
-	// Whether there is a prev timestamp or not, essentially not first time
-	// invocation:
-	validPrevTs bool
 	// Index for current stats, toggled after each use:
 	currIndex int
+
+	// Whether this is 1st time invocation or not:
+	firstTime bool
 
 	// Mountinfo:
 	mountinfoPid      int
 	procMountinfo     *procfs.Mountinfo
 	mountinfoCycleNum int
 
-	// Filesystem types to include/exclude. A nil list means no restriction.
+	// Filesystem types to include/exclude.
+	// A nil list means no restriction.
 	// Exclude takes precedence over include.
 	includeFilesystemTypes, excludeFilesystemTypes map[string]bool
 
 	// Full metric factor:
 	fullMetricsFactor int
 
-	// Interval metric:
-	intervalMetric []byte
+	// Scan# used to detect no longer valid mounts. Increased before each scan,
+	// it is copied into individual statfsInfo scan# if stats were successfully
+	// retrieved; FS's whose scan# was not updated will be removed.
+	scanNum int
+
+	// Metric formats:
+	bsizeMetricFmt     string
+	blocksMetricFmt    string
+	bfreeMetricFmt     string
+	bavailMetricFmt    string
+	filesMetricFmt     string
+	ffreeMetricFmt     string
+	totalSizeMetricFmt string
+	freeSizeMetricFmt  string
+	availSizeMetricFmt string
+	freePctMetricFmt   string
+	availPctMetricFmt  string
+	presenceMetricFmt  string
+	intervalMetricFmt  string
 
 	// A buffer for the timestamp suffix:
 	tsSuffixBuf *bytes.Buffer
@@ -180,7 +176,7 @@ func NewStatfsMetrics(cfg any) (*StatfsMetrics, error) {
 	statfsMetrics := &StatfsMetrics{
 		id:                STATFS_METRICS_ID,
 		interval:          interval,
-		statfsInfo:        make(map[string]*StatfsInfo),
+		statfsInfo:        make(map[StatfsMountinfo]*StatfsInfo),
 		mountinfoPid:      statfsMetricsCfg.MountinfoPid,
 		mountinfoCycleNum: initialCycleNum.Get(statfsMetricsCfg.FullMetricsFactor),
 		fullMetricsFactor: statfsMetricsCfg.FullMetricsFactor,
@@ -238,7 +234,7 @@ func (sfsm *StatfsMetrics) keepFsType(fsType string) bool {
 		(sfsm.includeFilesystemTypes == nil || sfsm.includeFilesystemTypes[fsType]))
 }
 
-func (sfsm *StatfsMetrics) updateStatfsInfo() {
+func (sfsm *StatfsMetrics) updateMetricsCache() {
 	instance, hostname := GlobalInstance, GlobalHostname
 	if sfsm.instance != "" {
 		instance = sfsm.instance
@@ -247,129 +243,49 @@ func (sfsm *StatfsMetrics) updateStatfsInfo() {
 		hostname = sfsm.hostname
 	}
 
-	sfsm.outOfScopePresentMetrics = nil
-
-	mountSources := make(map[string]bool)
-	for _, parsedLine := range sfsm.procMountinfo.ParsedLines {
-		fsType := string(parsedLine[procfs.MOUNTINFO_FS_TYPE])
-		if !sfsm.keepFsType(fsType) {
-			continue
-		}
-
-		mountSource := string(parsedLine[procfs.MOUNTINFO_MOUNT_SOURCE])
-		if mountSources[mountSource] {
-			continue // already encountered
-		}
-		mountSources[mountSource] = true
-
-		mountPoint := string(parsedLine[procfs.MOUNTINFO_MOUNT_POINT])
-		statfsInfo := sfsm.statfsInfo[mountSource]
-		if statfsInfo == nil {
-			statfsInfo = &StatfsInfo{
-				cycleNum:    initialCycleNum.Get(sfsm.fullMetricsFactor),
-				mountPoint:  mountPoint,
-				mountSource: mountSource,
-				fsType:      fsType,
-			}
-			sfsm.statfsInfo[mountSource] = statfsInfo
-		} else if statfsInfo.disabled {
-			continue
-		} else if statfsInfo.mountPoint != mountPoint ||
-			statfsInfo.mountSource != mountSource ||
-			statfsInfo.fsType != fsType {
-			sfsm.outOfScopePresentMetrics = append(sfsm.outOfScopePresentMetrics, statfsInfo.enabledMetric)
-			statfsInfo.mountPoint = mountPoint
-			statfsInfo.mountSource = mountSource
-			statfsInfo.fsType = fsType
-		}
-		labels := fmt.Sprintf(
-			`%s="%s",%s="%s",%s="%s",%s="%s",%s="%s"`,
+	buildMetricsFmt := func(name, valFmt string, labels ...string) string {
+		metricFmt := fmt.Sprintf(
+			`%s{%s="%s",%s="%s"`,
+			name,
 			INSTANCE_LABEL_NAME, instance,
 			HOSTNAME_LABEL_NAME, hostname,
-			STATFS_MOUNT_POINT_LABEL_NAME, statfsInfo.mountPoint,
-			STATFS_MOUNT_FS_LABEL_NAME, statfsInfo.mountSource,
-			STATFS_MOUNT_FS_TYPE_LABEL_NAME, statfsInfo.fsType,
 		)
-		statfsInfo.bsizeMetric = []byte(fmt.Sprintf(
-			`%s{%s} `, // N.B. space before value included
-			STATFS_BSIZE_METRIC, labels,
-		))
-		statfsInfo.blocksMetric = []byte(fmt.Sprintf(
-			`%s{%s} `, // N.B. space before value included
-			STATFS_BLOCKS_METRIC, labels,
-		))
-		statfsInfo.bfreeMetric = []byte(fmt.Sprintf(
-			`%s{%s} `, // N.B. space before value included
-			STATFS_BFREE_METRIC, labels,
-		))
-		statfsInfo.bavailMetric = []byte(fmt.Sprintf(
-			`%s{%s} `, // N.B. space before value included
-			STATFS_BAVAIL_METRIC, labels,
-		))
-		statfsInfo.filesMetric = []byte(fmt.Sprintf(
-			`%s{%s} `, // N.B. space before value included
-			STATFS_FILES_METRIC, labels,
-		))
-		statfsInfo.ffreeMetric = []byte(fmt.Sprintf(
-			`%s{%s} `, // N.B. space before value included
-			STATFS_FFREE_METRIC, labels,
-		))
-		statfsInfo.totalSizeMetric = []byte(fmt.Sprintf(
-			`%s{%s} `, // N.B. space before value included
-			STATFS_TOTAL_SIZE_METRIC, labels,
-		))
-		statfsInfo.freeSizeMetric = []byte(fmt.Sprintf(
-			`%s{%s} `, // N.B. space before value included
-			STATFS_FREE_SIZE_METRIC, labels,
-		))
-		statfsInfo.availSizeMetric = []byte(fmt.Sprintf(
-			`%s{%s} `, // N.B. space before value included
-			STATFS_AVAIL_SIZE_METRIC, labels,
-		))
-		statfsInfo.freePctMetric = []byte(fmt.Sprintf(
-			`%s{%s} `, // N.B. space before value included
-			STATFS_FREE_PCT_METRIC, labels,
-		))
-		statfsInfo.availPctMetric = []byte(fmt.Sprintf(
-			`%s{%s} `, // N.B. space before value included
-			STATFS_AVAIL_PCT_METRIC, labels,
-		))
-		statfsInfo.enabledMetric = []byte(fmt.Sprintf(
-			`%s{%s} `, // N.B. space before value included
-			STATFS_PRESENCE_METRIC, labels,
-		))
-	}
 
-	// Handle out of scope mount sources:
-	for mountSource, statfsInfo := range sfsm.statfsInfo {
-		if !mountSources[mountSource] {
-			if !statfsInfo.wasDisabled {
-				sfsm.outOfScopePresentMetrics = append(sfsm.outOfScopePresentMetrics, statfsInfo.enabledMetric)
-			}
-			delete(sfsm.statfsInfo, mountSource)
+		for _, label := range labels {
+			metricFmt += fmt.Sprintf(`,%s="%%s"`, label)
 		}
-	}
-}
 
-func (sfsm *StatfsMetrics) updateIntervalMetricsCache() {
-	instance, hostname := GlobalInstance, GlobalHostname
-	if sfsm.instance != "" {
-		instance = sfsm.instance
-	}
-	if sfsm.hostname != "" {
-		hostname = sfsm.hostname
+		metricFmt += fmt.Sprintf("} %s %%s\n", valFmt)
+		return metricFmt
 	}
 
-	sfsm.intervalMetric = []byte(fmt.Sprintf(
-		`%s{%s="%s",%s="%s"} `, // N.B. include space before val
-		STATFS_INTERVAL_METRIC,
-		INSTANCE_LABEL_NAME, instance,
-		HOSTNAME_LABEL_NAME, hostname,
-	))
+	sfsm.bsizeMetricFmt = buildMetricsFmt(STATFS_BSIZE_METRIC, "%d", STATFS_MOUNTINFO_FS_LABEL_NAME)
+	sfsm.blocksMetricFmt = buildMetricsFmt(STATFS_BLOCKS_METRIC, "%d", STATFS_MOUNTINFO_FS_LABEL_NAME)
+	sfsm.bfreeMetricFmt = buildMetricsFmt(STATFS_BFREE_METRIC, "%d", STATFS_MOUNTINFO_FS_LABEL_NAME)
+	sfsm.bavailMetricFmt = buildMetricsFmt(STATFS_BAVAIL_METRIC, "%d", STATFS_MOUNTINFO_FS_LABEL_NAME)
+	sfsm.filesMetricFmt = buildMetricsFmt(STATFS_FILES_METRIC, "%d", STATFS_MOUNTINFO_FS_LABEL_NAME)
+	sfsm.ffreeMetricFmt = buildMetricsFmt(STATFS_FFREE_METRIC, "%d", STATFS_MOUNTINFO_FS_LABEL_NAME)
+	sfsm.totalSizeMetricFmt = buildMetricsFmt(STATFS_TOTAL_SIZE_METRIC, "%d", STATFS_MOUNTINFO_FS_LABEL_NAME)
+	sfsm.freeSizeMetricFmt = buildMetricsFmt(STATFS_FREE_SIZE_METRIC, "%d", STATFS_MOUNTINFO_FS_LABEL_NAME)
+	sfsm.availSizeMetricFmt = buildMetricsFmt(STATFS_AVAIL_SIZE_METRIC, "%d", STATFS_MOUNTINFO_FS_LABEL_NAME)
+	sfsm.freePctMetricFmt = buildMetricsFmt(STATFS_FREE_PCT_METRIC, STATFS_FREE_PCT_METRIC_FMT, STATFS_MOUNTINFO_FS_LABEL_NAME)
+	sfsm.availPctMetricFmt = buildMetricsFmt(STATFS_AVAIL_PCT_METRIC, STATFS_AVAIL_PCT_METRIC_FMT, STATFS_MOUNTINFO_FS_LABEL_NAME)
+	sfsm.presenceMetricFmt = buildMetricsFmt(
+		STATFS_PRESENCE_METRIC,
+		"%d",
+		STATFS_MOUNTINFO_FS_LABEL_NAME,
+		STATFS_MOUNTINFO_FS_TYPE_LABEL_NAME,
+		STATFS_MOUNTINFO_MOUNT_POINT_LABEL_NAME,
+	)
+	sfsm.intervalMetricFmt = buildMetricsFmt(STATFS_INTERVAL_METRIC, "%.6f")
 }
 
 func (sfsm *StatfsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
-	const KBYTE = 1024
+	const KBYTE = 1000 // not KiB, this is disk storage folks!
+
+	if sfsm.firstTime {
+		sfsm.updateMetricsCache()
+	}
 
 	currIndex := sfsm.currIndex
 	prevIndex := 1 - currIndex
@@ -382,110 +298,87 @@ func (sfsm *StatfsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 	promTs := sfsm.tsSuffixBuf.Bytes()
 
 	actualMetricsCount := 0
-	totalMetricsCount := len(sfsm.statfsInfo)*STATFS_DEVICE_NUM_METRICS + 1
-	for _, statfsInfo := range sfsm.statfsInfo {
+	scanNum := sfsm.scanNum
+	for mountinfo, statfsInfo := range sfsm.statfsInfo {
+		if statfsInfo.scanNum != scanNum {
+			// Out of scope FS:
+			fmt.Fprintf(buf, sfsm.presenceMetricFmt, mountinfo.fs, mountinfo.fsType, mountinfo.mountPoint, 0, promTs)
+			actualMetricsCount++
+			delete(sfsm.statfsInfo, mountinfo)
+			continue
+		}
+
 		currStatfsBuf, prevStatfsBuf := statfsInfo.statfsBuf[currIndex], statfsInfo.statfsBuf[prevIndex]
 		allMetrics := prevStatfsBuf == nil || statfsInfo.cycleNum == 0
-		if !statfsInfo.disabled {
-			bsize := uint64(currStatfsBuf.Bsize)
-			// If bsize changes then force a full cycle:
-			if !allMetrics && bsize != uint64(prevStatfsBuf.Bsize) {
-				allMetrics = true
-			}
-			if allMetrics {
-				buf.Write(statfsInfo.bsizeMetric)
-				buf.WriteString(strconv.FormatUint(bsize, 10))
-				buf.Write(promTs)
-				actualMetricsCount += 1
-			}
 
-			updateFreePct, updateAvailPct := false, false
-			if allMetrics || currStatfsBuf.Blocks != prevStatfsBuf.Blocks {
-				buf.Write(statfsInfo.blocksMetric)
-				buf.WriteString(strconv.FormatUint(currStatfsBuf.Blocks, 10))
-				buf.Write(promTs)
-
-				buf.Write(statfsInfo.totalSizeMetric)
-				buf.WriteString(strconv.FormatUint(currStatfsBuf.Blocks*bsize/KBYTE, 10))
-				buf.Write(promTs)
-
-				updateAvailPct = true
-				updateFreePct = true
-				actualMetricsCount += 2
-			}
-
-			if allMetrics || currStatfsBuf.Bfree != prevStatfsBuf.Bfree {
-				buf.Write(statfsInfo.bfreeMetric)
-				buf.WriteString(strconv.FormatUint(currStatfsBuf.Bfree, 10))
-				buf.Write(promTs)
-
-				buf.Write(statfsInfo.freeSizeMetric)
-				buf.WriteString(strconv.FormatUint(currStatfsBuf.Bfree*bsize/KBYTE, 10))
-				buf.Write(promTs)
-
-				updateFreePct = true
-				actualMetricsCount += 2
-			}
-
-			if allMetrics || currStatfsBuf.Bavail != prevStatfsBuf.Bavail {
-				buf.Write(statfsInfo.bavailMetric)
-				buf.WriteString(strconv.FormatUint(currStatfsBuf.Bavail, 10))
-				buf.Write(promTs)
-
-				buf.Write(statfsInfo.availSizeMetric)
-				buf.WriteString(strconv.FormatUint(currStatfsBuf.Bavail*bsize/KBYTE, 10))
-				buf.Write(promTs)
-
-				updateAvailPct = true
-				actualMetricsCount += 2
-			}
-
-			if updateFreePct {
-				buf.Write(statfsInfo.freePctMetric)
-				buf.WriteString(strconv.FormatFloat(
-					float64(currStatfsBuf.Bfree)/float64(currStatfsBuf.Blocks)*100,
-					'f', STATFS_FREE_PCT_METRIC_PREC, 64,
-				))
-				buf.Write(promTs)
-				actualMetricsCount += 1
-			}
-
-			if updateAvailPct {
-				buf.Write(statfsInfo.availPctMetric)
-				buf.WriteString(strconv.FormatFloat(
-					float64(currStatfsBuf.Bavail)/float64(currStatfsBuf.Blocks)*100,
-					'f', STATFS_AVAIL_PCT_METRIC_PREC, 64,
-				))
-				buf.Write(promTs)
-				actualMetricsCount += 1
-			}
-
-			if allMetrics || currStatfsBuf.Files != prevStatfsBuf.Files {
-				buf.Write(statfsInfo.filesMetric)
-				buf.WriteString(strconv.FormatUint(currStatfsBuf.Files, 10))
-				buf.Write(promTs)
-				actualMetricsCount += 1
-			}
-
-			if allMetrics || currStatfsBuf.Ffree != prevStatfsBuf.Ffree {
-				buf.Write(statfsInfo.ffreeMetric)
-				buf.WriteString(strconv.FormatUint(currStatfsBuf.Ffree, 10))
-				buf.Write(promTs)
-				actualMetricsCount += 1
-			}
-
-			if allMetrics {
-				buf.Write(statfsInfo.enabledMetric)
-				buf.WriteByte('1')
-				buf.Write(promTs)
-				actualMetricsCount += 1
-			}
-		} else if allMetrics || !statfsInfo.wasDisabled {
-			buf.Write(statfsInfo.enabledMetric)
-			buf.WriteByte('0')
-			buf.Write(promTs)
+		bsize := uint64(currStatfsBuf.Bsize)
+		// If bsize changes then force a full cycle:
+		if !allMetrics && bsize != uint64(prevStatfsBuf.Bsize) {
+			allMetrics = true
+		}
+		if allMetrics {
+			fmt.Fprintf(buf, sfsm.bsizeMetricFmt, mountinfo.fs, bsize, promTs)
 			actualMetricsCount += 1
-			statfsInfo.wasDisabled = true
+		}
+
+		updateFreePct, updateAvailPct := false, false
+		if allMetrics || currStatfsBuf.Blocks != prevStatfsBuf.Blocks {
+			fmt.Fprintf(buf, sfsm.blocksMetricFmt, mountinfo.fs, currStatfsBuf.Blocks, promTs)
+			fmt.Fprintf(buf, sfsm.totalSizeMetricFmt, mountinfo.fs, currStatfsBuf.Blocks*bsize/KBYTE, promTs)
+			actualMetricsCount += 2
+			updateAvailPct = true
+			updateFreePct = true
+		}
+
+		if allMetrics || currStatfsBuf.Bfree != prevStatfsBuf.Bfree {
+			fmt.Fprintf(buf, sfsm.bfreeMetricFmt, mountinfo.fs, currStatfsBuf.Bfree, promTs)
+			fmt.Fprintf(buf, sfsm.freeSizeMetricFmt, mountinfo.fs, currStatfsBuf.Bfree*bsize/KBYTE, promTs)
+			actualMetricsCount += 2
+			updateFreePct = true
+		}
+
+		if allMetrics || currStatfsBuf.Bavail != prevStatfsBuf.Bavail {
+			fmt.Fprintf(buf, sfsm.bavailMetricFmt, mountinfo.fs, currStatfsBuf.Bavail, promTs)
+			fmt.Fprintf(buf, sfsm.availSizeMetricFmt, mountinfo.fs, currStatfsBuf.Bavail*bsize/KBYTE, promTs)
+			actualMetricsCount += 2
+			updateAvailPct = true
+		}
+
+		if updateFreePct {
+			fmt.Fprintf(
+				buf,
+				sfsm.freePctMetricFmt,
+				mountinfo.fs,
+				float64(currStatfsBuf.Bfree)/float64(currStatfsBuf.Blocks)*100,
+				promTs,
+			)
+			actualMetricsCount += 1
+		}
+
+		if updateAvailPct {
+			fmt.Fprintf(
+				buf,
+				sfsm.availPctMetricFmt,
+				mountinfo.fs,
+				float64(currStatfsBuf.Bavail)/float64(currStatfsBuf.Blocks)*100,
+				promTs,
+			)
+			actualMetricsCount += 1
+		}
+
+		if allMetrics || currStatfsBuf.Files != prevStatfsBuf.Files {
+			fmt.Fprintf(buf, sfsm.filesMetricFmt, mountinfo.fs, currStatfsBuf.Files, promTs)
+			actualMetricsCount += 1
+		}
+
+		if allMetrics || currStatfsBuf.Ffree != prevStatfsBuf.Ffree {
+			fmt.Fprintf(buf, sfsm.ffreeMetricFmt, mountinfo.fs, currStatfsBuf.Ffree, promTs)
+			actualMetricsCount += 1
+		}
+
+		if allMetrics {
+			fmt.Fprintf(buf, sfsm.presenceMetricFmt, mountinfo.fs, mountinfo.fsType, mountinfo.mountPoint, 1, promTs)
+			actualMetricsCount += 1
 		}
 
 		if statfsInfo.cycleNum += 1; statfsInfo.cycleNum >= sfsm.fullMetricsFactor {
@@ -493,29 +386,15 @@ func (sfsm *StatfsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 		}
 	}
 
-	if sfsm.outOfScopePresentMetrics != nil {
-		for _, metric := range sfsm.outOfScopePresentMetrics {
-			buf.Write(metric)
-			buf.WriteByte('0')
-			buf.Write(promTs)
-			actualMetricsCount += 1
-		}
-		sfsm.outOfScopePresentMetrics = nil
-	}
-
-	if sfsm.validPrevTs {
+	if !sfsm.firstTime {
 		deltaSec := currTs.Sub(sfsm.statfsTs[prevIndex]).Seconds()
-		if sfsm.intervalMetric == nil {
-			sfsm.updateIntervalMetricsCache()
-		}
-		buf.Write(sfsm.intervalMetric)
-		buf.WriteString(strconv.FormatFloat(deltaSec, 'f', 6, 64))
-		buf.Write(promTs)
+		fmt.Fprintf(buf, sfsm.intervalMetricFmt, deltaSec, promTs)
 		actualMetricsCount++
 	}
 
 	sfsm.currIndex = 1 - sfsm.currIndex
 
+	totalMetricsCount := len(sfsm.statfsInfo)*STATFS_DEVICE_NUM_METRICS + 1
 	return actualMetricsCount, totalMetricsCount
 }
 
@@ -551,34 +430,68 @@ func (sfsm *StatfsMetrics) Execute() bool {
 		sfsm.mountinfoCycleNum = 0
 	}
 
-	if firstTime || sfsm.procMountinfo.Changed {
-		sfsm.updateStatfsInfo()
+	currIndex := sfsm.currIndex
+	sfsm.scanNum++
+	scanNum := sfsm.scanNum
+
+	mountinfoChanged := firstTime || sfsm.procMountinfo.Changed
+
+	if mountinfoChanged {
+		mountinfo := StatfsMountinfo{}
+
+		foundFs := make(map[string]bool)
+
+		// Build/re-evaluate statfsInfo cache:
+		for _, parsedLine := range sfsm.procMountinfo.ParsedLines {
+			fsType := string(parsedLine[procfs.MOUNTINFO_FS_TYPE])
+			if !sfsm.keepFsType(fsType) {
+				continue
+			}
+			fs := string(parsedLine[procfs.MOUNTINFO_MOUNT_SOURCE])
+			if foundFs[fs] {
+				// The same FS may be mounted multiple times, keep the 1st mount!
+				continue
+			}
+			foundFs[fs] = true
+			mountinfo.fs = fs
+			mountinfo.fsType = fsType
+			mountinfo.mountPoint = string(parsedLine[procfs.MOUNTINFO_MOUNT_POINT])
+			statfsInfo := sfsm.statfsInfo[mountinfo]
+			if statfsInfo == nil {
+				statfsInfo = &StatfsInfo{}
+				sfsm.statfsInfo[mountinfo] = statfsInfo
+			}
+			statfsInfo.scanNum = scanNum
+		}
 	}
 
-	currIndex := sfsm.currIndex
-
-	for _, statfsInfo := range sfsm.statfsInfo {
-		if statfsInfo.disabled {
+	for mountinfo, statfsInfo := range sfsm.statfsInfo {
+		if mountinfoChanged && statfsInfo.scanNum != scanNum {
+			// Leftover from a previous mount, ignore:
 			continue
 		}
+
 		statfsBuf := statfsInfo.statfsBuf[currIndex]
+
 		if statfsBuf == nil {
 			statfsBuf = &unix.Statfs_t{}
 			statfsInfo.statfsBuf[currIndex] = statfsBuf
 		}
-		err := unix.Statfs(statfsInfo.mountPoint, statfsBuf)
-		if err != nil {
+		err := unix.Statfs(mountinfo.mountPoint, statfsBuf)
+		if err == nil {
+			statfsInfo.scanNum = scanNum
+		} else {
 			statfsMetricsLog.Warnf(
-				"statfs(%q): %v, statfs for %q, %q will be disabled",
-				statfsInfo.mountPoint, err,
-				statfsInfo.mountSource, statfsInfo.fsType,
+				"statfs(%q): %v, statfs for fs=%q, type=%q will be disabled",
+				mountinfo.mountPoint, err,
+				mountinfo.fs, mountinfo.fsType,
 			)
-			statfsInfo.disabled = true
+			statfsInfo.scanNum = scanNum - 1 // mark this for deletion
 		}
 	}
 
 	sfsm.statfsTs[currIndex] = timeNowFn()
-	sfsm.validPrevTs = !firstTime
+	sfsm.firstTime = firstTime
 
 	buf := metricsQueue.GetBuf()
 	actualMetricsCount, totalMetricsCount := sfsm.generateMetrics(buf)

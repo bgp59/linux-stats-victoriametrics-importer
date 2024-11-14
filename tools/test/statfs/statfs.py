@@ -2,7 +2,6 @@
 
 # JSON serialize-able Statfs, matching unix.Statfs_t:
 
-import sys
 from dataclasses import dataclass, field
 from typing import List
 

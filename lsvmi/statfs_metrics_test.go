@@ -21,21 +21,10 @@ type StatfsMetricsKeepFsTypeTestCase struct {
 }
 
 type StatfsInfoTestData struct {
-	MountPoint            string
-	MountSource           string
-	FsType                string
-	Statfs                *unix.Statfs_t
-	CycleNum              int
-	Disabled, WasDisabled bool
-}
-
-type UpdateStatfsInfoTestCase struct {
-	name                 string
-	instance             string
-	hostname             string
-	primeStatfsMountinfo []*StatfsInfoTestData
-	statfsMountinfo      []*StatfsInfoTestData
-	wantStatfsInfo       map[string]*StatfsInfo
+	Fs, MountPoint, FsType string
+	Statfs                 *unix.Statfs_t
+	CycleNum               int
+	ScanNum                int
 }
 
 type StatfsMetricsTestCase struct {
@@ -101,137 +90,24 @@ func testStatfsKeepFsType(tc *StatfsMetricsKeepFsTypeTestCase, t *testing.T) {
 	}
 }
 
-func initStatfsMetricsStatfsInfo(sfsm *StatfsMetrics, sfsiTd []*StatfsInfoTestData, update bool) {
-	sfsm.procMountinfo.ParsedLines = make([]*procfs.MountinfoParsedLine, len(sfsiTd))
-	for i, sfsi := range sfsiTd {
-		mountinfoParsedLine := procfs.MountinfoParsedLine{}
-		mountinfoParsedLine[procfs.MOUNTINFO_MOUNT_POINT] = []byte(sfsi.MountPoint)
-		mountinfoParsedLine[procfs.MOUNTINFO_MOUNT_SOURCE] = []byte(sfsi.MountSource)
-		mountinfoParsedLine[procfs.MOUNTINFO_FS_TYPE] = []byte(sfsi.FsType)
-		sfsm.procMountinfo.ParsedLines[i] = &mountinfoParsedLine
-	}
-	if update {
-		sfsm.updateStatfsInfo()
-	}
-
-	for _, primeSfsi := range sfsiTd {
-		sfsi := sfsm.statfsInfo[primeSfsi.MountSource]
-		if primeSfsi.Statfs != nil {
-			sfsi.statfsBuf[sfsm.currIndex] = new(unix.Statfs_t)
-			*sfsi.statfsBuf[sfsm.currIndex] = *primeSfsi.Statfs
-		} else {
-			sfsi.statfsBuf[sfsm.currIndex] = nil
+func initStatfsMetricsStatfsInfo(sfsm *StatfsMetrics, sfsiList []*StatfsInfoTestData) {
+	sfsm.statfsInfo = make(map[StatfsMountinfo]*StatfsInfo)
+	for _, sfsi := range sfsiList {
+		mountinfo := StatfsMountinfo{
+			fs:         sfsi.Fs,
+			mountPoint: sfsi.MountPoint,
+			fsType:     sfsi.FsType,
 		}
-		sfsi.cycleNum = primeSfsi.CycleNum
-		sfsi.disabled = primeSfsi.Disabled
-		sfsi.wasDisabled = primeSfsi.WasDisabled
-	}
-}
-
-func testUpdateStatfsInfo(tc *UpdateStatfsInfoTestCase, t *testing.T) {
-	tlc := testutils.NewTestLogCollect(t, Log, nil)
-	defer tlc.RestoreLog()
-
-	statfsMetrics, err := NewStatfsMetrics(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	statfsMetrics.procMountinfo = procfs.NewMountinfo("", 0)
-	statfsMetrics.instance = tc.instance
-	statfsMetrics.hostname = tc.hostname
-
-	wantOutOfScopePresentMetrics := make(map[string]bool)
-	if tc.primeStatfsMountinfo != nil {
-		initStatfsMetricsStatfsInfo(statfsMetrics, tc.primeStatfsMountinfo, true)
-	}
-	if tc.statfsMountinfo != nil {
-		for _, statfsInfo := range statfsMetrics.statfsInfo {
-			wantOutOfScopePresentMetrics[string(statfsInfo.enabledMetric)] = true
+		sfsm.statfsInfo[mountinfo] = &StatfsInfo{
+			cycleNum: sfsi.CycleNum,
+			scanNum:  sfsi.ScanNum,
 		}
-		initStatfsMetricsStatfsInfo(statfsMetrics, tc.statfsMountinfo, true)
-		for _, statfsInfo := range statfsMetrics.statfsInfo {
-			delete(wantOutOfScopePresentMetrics, string(statfsInfo.enabledMetric))
+		if sfsi.Statfs != nil {
+			statfsBuf := &unix.Statfs_t{}
+			*statfsBuf = *sfsi.Statfs
+			sfsm.statfsInfo[mountinfo].statfsBuf[sfsm.currIndex] = statfsBuf
 		}
 	}
-
-	errBuf := &bytes.Buffer{}
-
-	for mountSource, wantStatfsInfo := range tc.wantStatfsInfo {
-		gotStatfsInfo := statfsMetrics.statfsInfo[mountSource]
-		if gotStatfsInfo == nil {
-			fmt.Fprintf(errBuf, "\n.statfsInfo[%q]: missing", mountSource)
-			continue
-		}
-		if wantStatfsInfo.mountSource != gotStatfsInfo.mountSource {
-			fmt.Fprintf(
-				errBuf,
-				"\n.statfsInfo[%q]: mountSource: want: %q, got %q",
-				mountSource, wantStatfsInfo.mountSource, gotStatfsInfo.mountSource,
-			)
-		}
-		if wantStatfsInfo.mountPoint != gotStatfsInfo.mountPoint {
-			fmt.Fprintf(
-				errBuf,
-				"\n.statfsInfo[%q]: mountPoint: want: %q, got %q",
-				mountSource, wantStatfsInfo.mountPoint, gotStatfsInfo.mountPoint,
-			)
-		}
-		if wantStatfsInfo.fsType != gotStatfsInfo.fsType {
-			fmt.Fprintf(
-				errBuf,
-				"\n.statfsInfo[%q]: fsType: want: %q, got %q",
-				mountSource, wantStatfsInfo.fsType, gotStatfsInfo.fsType,
-			)
-		}
-	}
-
-	for mountSource := range statfsMetrics.statfsInfo {
-		if tc.wantStatfsInfo[mountSource] == nil {
-			fmt.Fprintf(errBuf, "\n.statfsInfo[%q]: unexpected", mountSource)
-		}
-	}
-	for i, metric := range statfsMetrics.outOfScopePresentMetrics {
-		gotMetric := string(metric)
-		if !wantOutOfScopePresentMetrics[gotMetric] {
-			fmt.Fprintf(
-				errBuf,
-				"\n.outOfScopePresentMetrics[%d]=%q: unexpected",
-				i, gotMetric,
-			)
-		} else {
-			delete(wantOutOfScopePresentMetrics, gotMetric)
-		}
-	}
-	for metric := range wantOutOfScopePresentMetrics {
-		fmt.Fprintf(errBuf, "\n.outOfScopePresentMetrics: %q missing", metric)
-	}
-
-	if errBuf.Len() > 0 {
-		t.Fatal(errBuf)
-	}
-}
-
-func testStatfsMountinfoChanged(currSfsiTd, prevSfsiTd []*StatfsInfoTestData) bool {
-	if len(currSfsiTd) != len(prevSfsiTd) {
-		return true
-	}
-
-	byMountSource := map[string]*StatfsInfoTestData{}
-	for _, sfsi := range currSfsiTd {
-		byMountSource[sfsi.MountSource] = sfsi
-	}
-
-	// Look for new/changes:
-	for _, prevSfsi := range prevSfsiTd {
-		currSfsi := byMountSource[prevSfsi.MountSource]
-		if currSfsi == nil || currSfsi.MountPoint != prevSfsi.MountPoint || currSfsi.FsType != prevSfsi.FsType {
-			return true
-		}
-		delete(byMountSource, prevSfsi.MountSource)
-	}
-
-	// Look for disappearances:
-	return len(byMountSource) > 0
 }
 
 func testStatfsMetrics(tc *StatfsMetricsTestCase, t *testing.T) {
@@ -250,15 +126,9 @@ func testStatfsMetrics(tc *StatfsMetricsTestCase, t *testing.T) {
 
 	if tc.PrevStatfsInfo != nil {
 		statfsMetrics.currIndex = 1 - statfsMetrics.currIndex
-		initStatfsMetricsStatfsInfo(statfsMetrics, tc.PrevStatfsInfo, true)
+		initStatfsMetricsStatfsInfo(statfsMetrics, tc.PrevStatfsInfo)
 		statfsMetrics.currIndex = 1 - statfsMetrics.currIndex
 	}
-
-	initStatfsMetricsStatfsInfo(
-		statfsMetrics,
-		tc.CurrStatfsInfo,
-		testStatfsMountinfoChanged(tc.CurrStatfsInfo, tc.PrevStatfsInfo),
-	)
 
 	wantCurrIndex := 1 - statfsMetrics.currIndex
 	testMetricsQueue := testutils.NewTestMetricsQueue(0)
@@ -347,84 +217,6 @@ func TestStatfsKeepFsType(t *testing.T) {
 		t.Run(
 			tc.name,
 			func(t *testing.T) { testStatfsKeepFsType(tc, t) },
-		)
-	}
-}
-
-func TestUpdateStatfsInfo(t *testing.T) {
-	instance, hostname := "test_lsvmi", "test-lsvmi"
-	for _, tc := range []*UpdateStatfsInfoTestCase{
-		{
-			name:     "new",
-			instance: instance,
-			hostname: hostname,
-			statfsMountinfo: []*StatfsInfoTestData{
-				{MountPoint: "/m1", MountSource: "/dev/1", FsType: "fs1"},
-			},
-			wantStatfsInfo: map[string]*StatfsInfo{
-				"/dev/1": {
-					mountPoint:  "/m1",
-					mountSource: "/dev/1",
-					fsType:      "fs1",
-				},
-			},
-		},
-		{
-			name:     "duplicate_mount_source",
-			instance: instance,
-			hostname: hostname,
-			statfsMountinfo: []*StatfsInfoTestData{
-				{MountPoint: "/m1", MountSource: "/dev/1", FsType: "fs1"},
-				{MountPoint: "/m1-1", MountSource: "/dev/1", FsType: "fs1"},
-			},
-			wantStatfsInfo: map[string]*StatfsInfo{
-				"/dev/1": {
-					mountPoint:  "/m1",
-					mountSource: "/dev/1",
-					fsType:      "fs1",
-				},
-			},
-		},
-		{
-			name:     "update_mount_source",
-			instance: instance,
-			hostname: hostname,
-			primeStatfsMountinfo: []*StatfsInfoTestData{
-				{MountPoint: "/m1-before", MountSource: "/dev/1", FsType: "fs1-before"},
-			},
-			statfsMountinfo: []*StatfsInfoTestData{
-				{MountPoint: "/m1", MountSource: "/dev/1", FsType: "fs1"},
-			},
-			wantStatfsInfo: map[string]*StatfsInfo{
-				"/dev/1": {
-					mountPoint:  "/m1",
-					mountSource: "/dev/1",
-					fsType:      "fs1",
-				},
-			},
-		},
-		{
-			name:     "remove_mount_source",
-			instance: instance,
-			hostname: hostname,
-			primeStatfsMountinfo: []*StatfsInfoTestData{
-				{MountPoint: "/m2", MountSource: "/dev/2", FsType: "fs2"},
-			},
-			statfsMountinfo: []*StatfsInfoTestData{
-				{MountPoint: "/m1", MountSource: "/dev/1", FsType: "fs1"},
-			},
-			wantStatfsInfo: map[string]*StatfsInfo{
-				"/dev/1": {
-					mountPoint:  "/m1",
-					mountSource: "/dev/1",
-					fsType:      "fs1",
-				},
-			},
-		},
-	} {
-		t.Run(
-			tc.name,
-			func(t *testing.T) { testUpdateStatfsInfo(tc, t) },
 		)
 	}
 }
