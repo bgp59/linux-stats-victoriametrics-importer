@@ -2,9 +2,9 @@
 
 # Generate test cases for lsvmi/statfs_metrics_test.go
 
+import time
 from copy import deepcopy
 from dataclasses import dataclass
-import time
 from typing import List, Optional
 
 from statfs import statfs
@@ -16,12 +16,11 @@ from . import (
     INSTANCE_LABEL_NAME,
     lsvmi_test_cases_root_dir,
     save_test_cases,
-    uint64_delta,
 )
 
 # The following should match lsvmi/statfs_metrics.go:
 
-DEFAULT_STATFS_INTERVAL_SEC           = 5
+DEFAULT_STATFS_INTERVAL_SEC = 5
 DEFAULT_STATFS_FULL_METRICS_FACTOR = 12
 
 
@@ -44,10 +43,10 @@ STATFS_MOUNTINFO_MOUNT_POINT_LABEL_NAME = "mount_point"
 
 STATFS_INTERVAL_METRIC = "statfs_metrics_delta_sec"
 
-STATFS_FREE_PCT_METRIC_FMT  = ".1f"
+STATFS_FREE_PCT_METRIC_FMT = ".1f"
 STATFS_AVAIL_PCT_METRIC_FMT = ".1f"
 
-KBYTE = 1000 # not KiB, this is disk storage folks!
+KBYTE = 1000  # not KiB, this is disk storage folks!
 
 test_cases_file = "statfs.json"
 
@@ -59,6 +58,7 @@ class StatfsInfoTestData:
     MountPoint: Optional[str] = None
     Statfs: Optional[statfs.Statfs] = None
     CycleNum: int = 0
+
 
 @dataclass
 class StatfsMetricsTestCase:
@@ -87,15 +87,21 @@ def generate_one_fstat_metrics_set(
     curr_statfs = curr_statfs_info.Statfs
     prev_statfs = prev_statfs_info.Statfs if prev_statfs_info is not None else None
     all_metrics = (
-        curr_statfs_info.CycleNum == 0 
-        or prev_statfs is None 
+        curr_statfs_info.CycleNum == 0
+        or prev_statfs is None
         or curr_statfs.Bsize != prev_statfs.Bsize
     )
     update_avail_pct = False
     update_free_pct = False
 
-    statfs_labels=(
-        f'{INSTANCE_LABEL_NAME}="{instance}",{HOSTNAME_LABEL_NAME}="{hostname}",{STATFS_MOUNTINFO_FS_LABEL_NAME}="{curr_statfs_info.Fs}"'
+    statfs_labels = ",".join(
+        [
+            f'{INSTANCE_LABEL_NAME}="{instance}"',
+            f'{HOSTNAME_LABEL_NAME}="{hostname}"',
+            f'{STATFS_MOUNTINFO_FS_LABEL_NAME}="{curr_statfs_info.Fs}"',
+            f'{STATFS_MOUNTINFO_FS_TYPE_LABEL_NAME}="{curr_statfs_info.FsType}"',
+            f'{STATFS_MOUNTINFO_MOUNT_POINT_LABEL_NAME}="{curr_statfs_info.MountPoint}"',
+        ]
     )
     if all_metrics:
         metrics.append(
@@ -143,12 +149,7 @@ def generate_one_fstat_metrics_set(
             f"{STATFS_FFREE_METRIC}{{{statfs_labels}}} {curr_statfs.Ffree} {curr_prom_ts}"
         )
     if all_metrics:
-        metrics.append(
-            f'{STATFS_PRESENCE_METRIC}{{{statfs_labels}'
-            + f',{STATFS_MOUNTINFO_FS_TYPE_LABEL_NAME}="{curr_statfs_info.FsType}"'
-            + f',{STATFS_MOUNTINFO_MOUNT_POINT_LABEL_NAME}="{curr_statfs_info.MountPoint}"'
-            + f'}} 1 {curr_prom_ts}'
-        )
+        metrics.append(f"{STATFS_PRESENCE_METRIC}{{{statfs_labels}}} 1 {curr_prom_ts}")
     return metrics
 
 
@@ -161,7 +162,7 @@ def generate_fstat_metrics(
     hostname: str = DEFAULT_TEST_HOSTNAME,
 ) -> List[str]:
     metrics = []
-    
+
     prev_statfs_info_by_mountinfo = {
         (sfsi.Fs, sfsi.FsType, sfsi.MountPoint): sfsi
         for sfsi in prev_statfs_info_list or []
@@ -184,22 +185,25 @@ def generate_fstat_metrics(
     for mountinfo_key in prev_statfs_info_by_mountinfo:
         if mountinfo_key not in curr_mountinfo:
             fs, fs_type, mount_point = mountinfo_key
-            metrics.append(
-                f'{STATFS_PRESENCE_METRIC}{{'
-                + f'{INSTANCE_LABEL_NAME}="{instance}"'
-                + f',{HOSTNAME_LABEL_NAME}="{hostname}"'
-                + f',{STATFS_MOUNTINFO_FS_LABEL_NAME}="{fs}"'
-                + f',{STATFS_MOUNTINFO_FS_TYPE_LABEL_NAME}="{fs_type}"'
-                + f',{STATFS_MOUNTINFO_MOUNT_POINT_LABEL_NAME}="{mount_point}"'
-                + f'}} 0 {curr_prom_ts}'
+            statfs_labels = ",".join(
+                [
+                    f'{INSTANCE_LABEL_NAME}="{instance}"',
+                    f'{HOSTNAME_LABEL_NAME}="{hostname}"',
+                    f'{STATFS_MOUNTINFO_FS_LABEL_NAME}="{fs}"',
+                    f'{STATFS_MOUNTINFO_FS_TYPE_LABEL_NAME}="{fs_type}"',
+                    f'{STATFS_MOUNTINFO_MOUNT_POINT_LABEL_NAME}="{mount_point}"',
+                ]
             )
-    
+            metrics.append(
+                f"{STATFS_PRESENCE_METRIC}{{{statfs_labels}}} 0 {curr_prom_ts}"
+            )
+
     if prev_statfs_info_list:
         metrics.append(
             f'{STATFS_INTERVAL_METRIC}{{{INSTANCE_LABEL_NAME}="{instance}",{HOSTNAME_LABEL_NAME}="{hostname}"}}'
-            + f' {(curr_prom_ts - prev_prom_ts) / 1000:.6f} {curr_prom_ts}'
+            + f" {(curr_prom_ts - prev_prom_ts) / 1000:.6f} {curr_prom_ts}"
         )
-    
+
     return metrics
 
 
@@ -239,13 +243,14 @@ def generate_fstat_test_case(
         ReportExtra=True,
     )
 
+
 def make_ref_statfs_info(num: int = 0, cycle_num: int = 0) -> StatfsInfoTestData:
     bsize = (num + 1) * 512
     blocks = (num + 1) * 10000
-    bfree = int(blocks * ((num % 10) + 1)/ 10)
-    bavail = int(bfree * .9)
+    bfree = int(blocks * ((num % 10) + 1) / 10)
+    bavail = int(bfree * 0.9)
     files = (num + 1) * 1000
-    ffree = int(files * ((num % 10)  + 1)/ 10 )
+    ffree = int(files * ((num % 10) + 1) / 10)
     return StatfsInfoTestData(
         Fs=f"fs{num}",
         FsType=f"fs_type{num}",
@@ -270,11 +275,10 @@ def generate_statfs_metrics_test_cases(
     ts = time.time()
 
     test_cases = []
-    tc_num = 0    
+    tc_num = 0
 
     ref_statfs_info_list = [
-        make_ref_statfs_info(num=num, cycle_num=num)
-        for num in range(2)
+        make_ref_statfs_info(num=num, cycle_num=num) for num in range(2)
     ]
 
     name = "all_new"
@@ -289,9 +293,9 @@ def generate_statfs_metrics_test_cases(
 
     name = "no_change"
     for cycle_num in [0, 1]:
-        curr_statfs_info_list=deepcopy(ref_statfs_info_list)
+        curr_statfs_info_list = deepcopy(ref_statfs_info_list)
         for statfs_info in curr_statfs_info_list:
-            statfs_info.CycleNum = cycle_num 
+            statfs_info.CycleNum = cycle_num
         test_cases.append(
             generate_fstat_test_case(
                 f"{name}/{tc_num:04d}",
@@ -308,7 +312,7 @@ def generate_statfs_metrics_test_cases(
     for statfs_info in prev_statfs_info_list:
         statfs_info.CycleNum = 1
     for k in range(len(prev_statfs_info_list)):
-        for statfs_attr in ['Bsize', 'Blocks', 'Bfree', 'Bavail', 'Files', 'Ffree']:
+        for statfs_attr in ["Bsize", "Blocks", "Bfree", "Bavail", "Files", "Ffree"]:
             curr_statfs_info_list = deepcopy(prev_statfs_info_list)
             statfs_info = curr_statfs_info_list[k]
             statfs = statfs_info.Statfs
@@ -322,7 +326,7 @@ def generate_statfs_metrics_test_cases(
                     description=f"fs={statfs_info.Fs},attr={statfs_attr}",
                 )
             )
-            tc_num += 1        
+            tc_num += 1
 
     name = "new_fs"
     curr_statfs_info_list = deepcopy(ref_statfs_info_list)
@@ -331,7 +335,8 @@ def generate_statfs_metrics_test_cases(
     for k in range(len(curr_statfs_info_list)):
         prev_statfs_info_list = [
             statfs_info
-            for (i, statfs_info) in enumerate(ref_statfs_info_list) if i != k
+            for (i, statfs_info) in enumerate(ref_statfs_info_list)
+            if i != k
         ]
         test_cases.append(
             generate_fstat_test_case(
@@ -344,13 +349,12 @@ def generate_statfs_metrics_test_cases(
         )
         tc_num += 1
 
-
     name = "out_of_scope_mountinfo"
     for k in range(len(ref_statfs_info_list)):
-        for mount_attr in ['Fs', 'FsType', 'MountPoint']:
+        for mount_attr in ["Fs", "FsType", "MountPoint"]:
             prev_statfs_info_list = deepcopy(ref_statfs_info_list)
             fs_info = prev_statfs_info_list[k]
-            setattr(fs_info, mount_attr, getattr(fs_info, mount_attr) + '-out')
+            setattr(fs_info, mount_attr, getattr(fs_info, mount_attr) + "-out")
             test_cases.append(
                 generate_fstat_test_case(
                     f"{name}/{tc_num:04d}",
@@ -360,7 +364,7 @@ def generate_statfs_metrics_test_cases(
                     description=f"fs={statfs_info.Fs},attr={mount_attr}",
                 )
             )
-            tc_num += 1        
+            tc_num += 1
 
     save_test_cases(
         test_cases, test_cases_file, test_cases_root_dir=test_cases_root_dir

@@ -128,8 +128,6 @@ func testStatfsMetrics(tc *StatfsMetricsTestCase, t *testing.T) {
 	sfsm.hostname = tc.Hostname
 	sfsm.scanNum = 100
 	if tc.PrevStatfsInfoList != nil {
-		sfsm.updateMetricsCache()
-
 		sfsm.currIndex = 1 - sfsm.currIndex
 		sfsm.scanNum--
 		initStatfsMetricsStatfsInfo(sfsm, tc.PrevStatfsInfoList)

@@ -32,9 +32,9 @@ Unless otherwise specified all metrics in this section have the following label 
 | --- | --- |
 | instance | _instance_ |
 | hostname | _hostname_ |
-| mount_point | _path_ for the mount |
 | fs | filesystem specific info, e.g. device path <br>Called `mount source` in [/proc/PID/mountinfo](https://man7.org/linux/man-pages/man5/proc_pid_mountinfo.5.html) |
 | fs_type | _type\[.subtype\]_ |
+| mount_point | _path_ for the mount |
 
 ### statfs_bsize
 
@@ -87,7 +87,7 @@ Available size percentage.
   ```text
   
   statfs_free_size_kb \
-  and on (instance, hostname, mount_point, fs, fs_type) \
+  and on (instance, hostname, fs, fs_type, mount_point) \
   (last_over_time(statfs_present) > 0)
 
   ```
