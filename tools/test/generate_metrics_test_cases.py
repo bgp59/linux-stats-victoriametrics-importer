@@ -15,6 +15,7 @@ from lsvmi.proc_pid_metrics import (
 from lsvmi.proc_softirqs_metrics import generate_proc_softirqs_metrics_test_cases
 from lsvmi.proc_stat_metrics import generate_proc_stat_metrics_test_cases
 from lsvmi.qdisc_metrics import generate_qdisc_metrics_test_cases
+from lsvmi.statfs_metrics import generate_statfs_metrics_test_cases
 from testutils import (
     DEFAULT_TEST_HOSTNAME,
     DEFAULT_TEST_INSTANCE,
@@ -27,11 +28,12 @@ testcase_generator_fn_map = {
     "proc_net_dev": generate_proc_net_dev_metrics_test_cases,
     "proc_net_snmp": generate_proc_net_snmp_metrics_test_cases,
     "proc_net_snmp6": generate_proc_net_snmp6_metrics_test_cases,
+    "proc_pid_exe": generate_proc_pid_metrics_execute_test_cases,
+    "proc_pid_gen": generate_proc_pid_metrics_generate_test_cases,
     "proc_softirqs": generate_proc_softirqs_metrics_test_cases,
     "proc_stat": generate_proc_stat_metrics_test_cases,
     "qdisc": generate_qdisc_metrics_test_cases,
-    "proc_pid_gen": generate_proc_pid_metrics_generate_test_cases,
-    "proc_pid_exe": generate_proc_pid_metrics_execute_test_cases,
+    "statfs": generate_statfs_metrics_test_cases,
 }
 
 testcase_generator_fn_map.update(internal_metrics_generators)

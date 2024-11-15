@@ -45,8 +45,8 @@ const (
 )
 
 const (
-	STATFS_FREE_PCT_METRIC_FMT  = ".1f"
-	STATFS_AVAIL_PCT_METRIC_FMT = ".1f"
+	STATFS_FREE_PCT_METRIC_FMT  = "%.1f"
+	STATFS_AVAIL_PCT_METRIC_FMT = "%.1f"
 )
 
 var statfsMetricsLog = NewCompLogger(STATFS_METRICS_ID)
@@ -79,7 +79,7 @@ func DefaultStatfsMetricsConfig() *StatfsMetricsConfig {
 }
 
 type StatfsMountinfo struct {
-	fs, mountPoint, fsType string
+	fs, fsType, mountPoint string
 }
 
 // Indexed by StatfsMountinfo:
@@ -293,7 +293,7 @@ func (sfsm *StatfsMetrics) generateMetrics(buf *bytes.Buffer) (int, int) {
 	currTs := sfsm.statfsTs[currIndex]
 	sfsm.tsSuffixBuf.Reset()
 	fmt.Fprintf(
-		sfsm.tsSuffixBuf, " %d\n", currTs.UnixMilli(),
+		sfsm.tsSuffixBuf, "%d\n", currTs.UnixMilli(),
 	)
 	promTs := sfsm.tsSuffixBuf.Bytes()
 
@@ -458,7 +458,9 @@ func (sfsm *StatfsMetrics) Execute() bool {
 			mountinfo.mountPoint = string(parsedLine[procfs.MOUNTINFO_MOUNT_POINT])
 			statfsInfo := sfsm.statfsInfo[mountinfo]
 			if statfsInfo == nil {
-				statfsInfo = &StatfsInfo{}
+				statfsInfo = &StatfsInfo{
+					cycleNum: initialCycleNum.Get(sfsm.fullMetricsFactor),
+				}
 				sfsm.statfsInfo[mountinfo] = statfsInfo
 			}
 			statfsInfo.scanNum = scanNum

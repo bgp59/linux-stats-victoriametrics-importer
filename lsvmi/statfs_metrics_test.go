@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path"
 	"testing"
+	"time"
 
 	"golang.org/x/sys/unix"
 
@@ -24,18 +25,18 @@ type StatfsInfoTestData struct {
 	Fs, MountPoint, FsType string
 	Statfs                 *unix.Statfs_t
 	CycleNum               int
-	ScanNum                int
 }
 
 type StatfsMetricsTestCase struct {
-	Name                           string
-	Description                    string
-	Instance                       string
-	Hostname                       string
-	CurrStatfsInfo, PrevStatfsInfo []*StatfsInfoTestData
-	WantMetricsCount               int
-	WantMetrics                    []string
-	ReportExtra                    bool
+	Name                                   string
+	Description                            string
+	Instance                               string
+	Hostname                               string
+	CurrStatfsInfoList, PrevStatfsInfoList []*StatfsInfoTestData
+	CurrPromTs, PrevPromTs                 int64
+	WantMetricsCount                       int
+	WantMetrics                            []string
+	ReportExtra                            bool
 }
 
 var statfsMetricsTestCasesFile = path.Join(
@@ -57,7 +58,7 @@ func testStatfsKeepFsType(tc *StatfsMetricsKeepFsTypeTestCase, t *testing.T) {
 		copy(cfg.ExcludeFilesystemTypes, tc.excludeList)
 	}
 
-	statfsMetrics, err := NewStatfsMetrics(cfg)
+	sfsm, err := NewStatfsMetrics(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +68,7 @@ func testStatfsKeepFsType(tc *StatfsMetricsKeepFsTypeTestCase, t *testing.T) {
 
 	errFsType = errFsType[:0]
 	for _, fsType := range tc.wantKeep {
-		if !statfsMetrics.keepFsType(fsType) {
+		if !sfsm.keepFsType(fsType) {
 			errFsType = append(errFsType, fsType)
 		}
 	}
@@ -77,7 +78,7 @@ func testStatfsKeepFsType(tc *StatfsMetricsKeepFsTypeTestCase, t *testing.T) {
 
 	errFsType = errFsType[:0]
 	for _, fsType := range tc.wantNotKeep {
-		if statfsMetrics.keepFsType(fsType) {
+		if sfsm.keepFsType(fsType) {
 			errFsType = append(errFsType, fsType)
 		}
 	}
@@ -90,22 +91,24 @@ func testStatfsKeepFsType(tc *StatfsMetricsKeepFsTypeTestCase, t *testing.T) {
 	}
 }
 
-func initStatfsMetricsStatfsInfo(sfsm *StatfsMetrics, sfsiList []*StatfsInfoTestData) {
-	sfsm.statfsInfo = make(map[StatfsMountinfo]*StatfsInfo)
-	for _, sfsi := range sfsiList {
+func initStatfsMetricsStatfsInfo(sfsm *StatfsMetrics, sfsiTdList []*StatfsInfoTestData) {
+	for _, sfsiTd := range sfsiTdList {
 		mountinfo := StatfsMountinfo{
-			fs:         sfsi.Fs,
-			mountPoint: sfsi.MountPoint,
-			fsType:     sfsi.FsType,
+			fs:         sfsiTd.Fs,
+			mountPoint: sfsiTd.MountPoint,
+			fsType:     sfsiTd.FsType,
 		}
-		sfsm.statfsInfo[mountinfo] = &StatfsInfo{
-			cycleNum: sfsi.CycleNum,
-			scanNum:  sfsi.ScanNum,
+		sfsi := sfsm.statfsInfo[mountinfo]
+		if sfsi == nil {
+			sfsi = &StatfsInfo{}
+			sfsm.statfsInfo[mountinfo] = sfsi
 		}
-		if sfsi.Statfs != nil {
+		sfsi.cycleNum = sfsiTd.CycleNum
+		sfsi.scanNum = sfsm.scanNum
+		if sfsiTd.Statfs != nil {
 			statfsBuf := &unix.Statfs_t{}
-			*statfsBuf = *sfsi.Statfs
-			sfsm.statfsInfo[mountinfo].statfsBuf[sfsm.currIndex] = statfsBuf
+			*statfsBuf = *sfsiTd.Statfs
+			sfsi.statfsBuf[sfsm.currIndex] = statfsBuf
 		}
 	}
 }
@@ -116,29 +119,38 @@ func testStatfsMetrics(tc *StatfsMetricsTestCase, t *testing.T) {
 
 	t.Logf("Description: %s", tc.Description)
 
-	statfsMetrics, err := NewStatfsMetrics(nil)
+	sfsm, err := NewStatfsMetrics(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	statfsMetrics.procMountinfo = procfs.NewMountinfo("", 0)
-	statfsMetrics.instance = tc.Instance
-	statfsMetrics.hostname = tc.Hostname
+	sfsm.procMountinfo = procfs.NewMountinfo("", 0)
+	sfsm.instance = tc.Instance
+	sfsm.hostname = tc.Hostname
+	sfsm.scanNum = 100
+	if tc.PrevStatfsInfoList != nil {
+		sfsm.updateMetricsCache()
 
-	if tc.PrevStatfsInfo != nil {
-		statfsMetrics.currIndex = 1 - statfsMetrics.currIndex
-		initStatfsMetricsStatfsInfo(statfsMetrics, tc.PrevStatfsInfo)
-		statfsMetrics.currIndex = 1 - statfsMetrics.currIndex
+		sfsm.currIndex = 1 - sfsm.currIndex
+		sfsm.scanNum--
+		initStatfsMetricsStatfsInfo(sfsm, tc.PrevStatfsInfoList)
+		sfsm.statfsTs[sfsm.currIndex] = time.UnixMilli(tc.PrevPromTs)
+		sfsm.currIndex = 1 - sfsm.currIndex
+		sfsm.scanNum++
+	} else {
+		sfsm.firstTime = true
 	}
+	initStatfsMetricsStatfsInfo(sfsm, tc.CurrStatfsInfoList)
+	sfsm.statfsTs[sfsm.currIndex] = time.UnixMilli(tc.CurrPromTs)
 
-	wantCurrIndex := 1 - statfsMetrics.currIndex
+	wantCurrIndex := 1 - sfsm.currIndex
 	testMetricsQueue := testutils.NewTestMetricsQueue(0)
 	buf := testMetricsQueue.GetBuf()
-	gotMetricsCount, _ := statfsMetrics.generateMetrics(buf)
+	gotMetricsCount, _ := sfsm.generateMetrics(buf)
 	testMetricsQueue.QueueBuf(buf)
 
 	errBuf := &bytes.Buffer{}
 
-	gotCurrIndex := statfsMetrics.currIndex
+	gotCurrIndex := sfsm.currIndex
 	if wantCurrIndex != gotCurrIndex {
 		fmt.Fprintf(
 			errBuf,

@@ -660,7 +660,7 @@
           "editorMode": "code",
           "expr": "statfs_blocks{instance=\"${instance}\",hostname=\"${hostname}\",fs=~\"${fs}\"}",
           "interval": "${interval}",
-          "legendFormat": "total(fs={{fs}},mnt={{mount_point}},host={{hostname}},inst={{instance}})",
+          "legendFormat": "total(fs={{fs}},host={{hostname}},inst={{instance}})",
           "range": true,
           "refId": "A"
         },
@@ -673,7 +673,7 @@
           "expr": "statfs_bfree{instance=\"${instance}\",hostname=\"${hostname}\",fs=~\"${fs}\"}",
           "hide": false,
           "interval": "${interval}",
-          "legendFormat": "free(fs={{fs}},mnt={{mount_point}},host={{hostname}},inst={{instance}})",
+          "legendFormat": "free(fs={{fs}},host={{hostname}},inst={{instance}})",
           "range": true,
           "refId": "B"
         },
@@ -686,7 +686,7 @@
           "expr": "statfs_bavail{instance=\"${instance}\",hostname=\"${hostname}\",fs=~\"${fs}\"}",
           "hide": false,
           "interval": "${interval}",
-          "legendFormat": "avail(fs={{fs}},mnt={{mount_point}},host={{hostname}},inst={{instance}})",
+          "legendFormat": "avail(fs={{fs}},host={{hostname}},inst={{instance}})",
           "range": true,
           "refId": "C"
         }
@@ -782,7 +782,7 @@
           "editorMode": "code",
           "expr": "statfs_files{instance=\"${instance}\",hostname=\"${hostname}\",fs=~\"${fs}\"}",
           "interval": "${interval}",
-          "legendFormat": "total(fs={{fs}},mnt={{mount_point}},host={{hostname}},inst={{instance}})",
+          "legendFormat": "total(fs={{fs}},host={{hostname}},inst={{instance}})",
           "range": true,
           "refId": "A"
         },
@@ -795,7 +795,7 @@
           "expr": "statfs_ffree{instance=\"${instance}\",hostname=\"${hostname}\",fs=~\"${fs}\"}",
           "hide": false,
           "interval": "${interval}",
-          "legendFormat": "free(fs={{fs}},mnt={{mount_point}},host={{hostname}},inst={{instance}})",
+          "legendFormat": "free(fs={{fs}},host={{hostname}},inst={{instance}})",
           "range": true,
           "refId": "B"
         }
@@ -892,7 +892,7 @@
           "editorMode": "code",
           "expr": "statfs_total_size_kb{instance=\"${instance}\",hostname=\"${hostname}\",fs=~\"${fs}\"}",
           "interval": "${interval}",
-          "legendFormat": "total(fs={{fs}},mnt={{mount_point}},host={{hostname}},inst={{instance}})",
+          "legendFormat": "total(fs={{fs}},host={{hostname}},inst={{instance}})",
           "range": true,
           "refId": "A"
         },
@@ -905,7 +905,7 @@
           "expr": "statfs_free_size_kb{instance=\"${instance}\",hostname=\"${hostname}\",fs=~\"${fs}\"}",
           "hide": false,
           "interval": "${interval}",
-          "legendFormat": "free(fs={{fs}},mnt={{mount_point}},host={{hostname}},inst={{instance}})",
+          "legendFormat": "free(fs={{fs}},host={{hostname}},inst={{instance}})",
           "range": true,
           "refId": "B"
         },
@@ -918,7 +918,7 @@
           "expr": "statfs_avail_size_kb{instance=\"${instance}\",hostname=\"${hostname}\",fs=~\"${fs}\"}",
           "hide": false,
           "interval": "${interval}",
-          "legendFormat": "avail(fs={{fs}},mnt={{mount_point}},host={{hostname}},inst={{instance}})",
+          "legendFormat": "avail(fs={{fs}},host={{hostname}},inst={{instance}})",
           "range": true,
           "refId": "C"
         }
@@ -1016,7 +1016,7 @@
           "expr": "statfs_free_pct{instance=\"${instance}\",hostname=\"${hostname}\",fs=~\"${fs}\"}",
           "hide": false,
           "interval": "${interval}",
-          "legendFormat": "%free(fs={{fs}},mnt={{mount_point}},host={{hostname}},inst={{instance}})",
+          "legendFormat": "%free(fs={{fs}},host={{hostname}},inst={{instance}})",
           "range": true,
           "refId": "D"
         },
@@ -1029,7 +1029,7 @@
           "expr": "statfs_avail_pct{instance=\"${instance}\",hostname=\"${hostname}\",fs=~\"${fs}\"}",
           "hide": false,
           "interval": "${interval}",
-          "legendFormat": "%avail(fs={{fs}},mnt={{mount_point}},host={{hostname}},inst={{instance}})",
+          "legendFormat": "%avail(fs={{fs}},host={{hostname}},inst={{instance}})",
           "range": true,
           "refId": "A"
         }
