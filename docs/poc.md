@@ -118,7 +118,7 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
     ```bash
 
-    ps -ef | grep --color=never -E 'victoria-metric[s]|grafan[a]|linux-stats-victoriametrics-importe[r]|CM[D]'
+    pgrep -fa 'victoria-metrics|grafana|linux-stats-victoriametrics-importer'
 
     ```
 
@@ -126,10 +126,9 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
     ```text
 
-        UID        PID  PPID  C STIME TTY          TIME CMD
-    lsvmi      131     1  1 03:05 ?        00:00:03 victoria-metrics -storageDataPath data -retentionPeriod 2d -selfScrapeInterval=10s
-    lsvmi      156     1  1 03:05 ?        00:00:04 grafana server
-    lsvmi      185     1  1 03:05 pts/1    00:00:03 linux-stats-victoriametrics-importer -log-file=log/linux-stats-victoriametrics-importer.log
+    131 victoria-metrics -storageDataPath data -retentionPeriod 2d -selfScrapeInterval=10s
+    156 grafana server
+    188 linux-stats-victoriametrics-importer -log-file=log/linux-stats-victoriametrics-importer.log
 
 
     ```
