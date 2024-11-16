@@ -19,3 +19,7 @@ Since [VictoriaMetrics](https://docs.victoriametrics.com/) supports the [import]
 - [Running The Proof Of Concept](docs/poc.md)
 - [Developer Guide](docs/dev_guide.md)
 - [Internals](docs/internals.md)
+
+## License
+
+See [LICENSE](LICENSE.txt) for rights and limitations (MIT).

@@ -1,5 +1,15 @@
 # LSVMI User Guide
 
+<!-- TOC tocDepth:2..3 chapterDepth:2..6 -->
+
+- [Command Line Args](#command-line-args)
+- [Configuration](#configuration)
+- [Deployment](#deployment)
+- [Grafana Reference Dashboards](#grafana-reference-dashboards)
+- [Using The Data Programmatically](#using-the-data-programmatically)
+
+<!-- /TOC -->
+
 ## Command Line Args
 
 ```text
@@ -58,7 +68,7 @@ Once **N** (the number of [vmagent](https://docs.victoriametrics.com/vmagent/) i
 
 Depending upon how the [vmagent](https://docs.victoriametrics.com/vmagent/) pool is setup, the agent configuration should be as follows:
 
-* [vmagent](https://docs.victoriametrics.com/vmagent/) as a DNS pool with **M** members, presented as a virtual hostname. At any given times **N** (<= **M** ) members are supposed to be functional.
+- [vmagent](https://docs.victoriametrics.com/vmagent/) as a DNS pool with **M** members, presented as a virtual hostname. At any given times **N** (<= **M** ) members are supposed to be functional.
 
     ```yaml
 
@@ -70,7 +80,7 @@ Depending upon how the [vmagent](https://docs.victoriametrics.com/vmagent/) pool
 
     ```
 
-* [vmagent](https://docs.victoriametrics.com/vmagent/) as pool with **M** individual members, each with its own hostname. At any given times **N** (<= **M** ) members are supposed to be functional.
+- [vmagent](https://docs.victoriametrics.com/vmagent/) as pool with **M** individual members, each with its own hostname. At any given times **N** (<= **M** ) members are supposed to be functional.
 
     ```yaml
 
@@ -87,8 +97,14 @@ Depending upon how the [vmagent](https://docs.victoriametrics.com/vmagent/) pool
 
 Note the `shuffle: true` above which will ensure that the active connections will spread (pseudo-)randomly and hopefully evenly across all the members.
 
-## [Grafana](https://grafana.com/docs/grafana/latest) Dashboards
+## Grafana Reference Dashboards
 
 [Provisioned](https://grafana.com/docs/grafana/latest/administration/provisioning/#dashboards)  dashboards can be found under [tools/poc/files/update/grafana/dashboards/lsvmi-reference](../tools/poc/files/update/grafana/dashboards/lsvmi-reference), or they are included into `LSVMI PoC Infra ...` [releases](https://github.com/emypar/linux-stats-victoriametrics-importer/releases).
 
 They illustrate all the available metrics and they can be used as a starting point for actual dashboards.
+
+## Using The Data Programmatically
+
+- [Query data](https://docs.victoriametrics.com/keyconcepts/#query-data)
+- [How to export time series](https://docs.victoriametrics.com/#how-to-export-time-series)
+- [Prometheus querying API usage](https://docs.victoriametrics.com/single-server-victoriametrics/#prometheus-querying-api-usage)

@@ -27,7 +27,7 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
 ### Using A Linux Server
 
-- **NOTE!** For security conscious tester create a Poc acct:
+- **NOTE!** For the security conscious tester, create a PoC acct:
 
     ```bash
 
@@ -66,8 +66,9 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
     ```text
     Usage: install-lsvmi-infra.sh [-r POC_ROOT_DIR] [-R POC_RUNTIME_DIR]
 
-    Install VictoriaMetrics & Grafana under POC_ROOT_DIR, default: /home/ubuntu/lsvmi-poc,
+    Install VictoriaMetrics & Grafana under POC_ROOT_DIR, default: HOME/lsvmi-poc,
     using POC_RUNTIME_DIR as runtime dir, default: POC_ROOT_DIR/runtime.
+    
     ```
 
     Optional cleanup:
@@ -133,7 +134,7 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
     ```
 
-- point a, preferably Chrome (may be in Incognito mode), browser to http://_linux_host_:3000 for [Grafana](https://grafana.com/docs/grafana/latest/getting-started/) UI, user: `admin`, password: `lsvmi`
+- point a browser to <http://localhost:3000> (or http://_poc_linux_host_:3000, if the PoC is not running on the local host) for [Grafana](https://grafana.com/docs/grafana/latest/getting-started/) UI, user: `admin`, password: `lsvmi`. Private browsing works too, e.g. `Chrome` in `Incognito` mode.
 
 - gracefully shutdown **PoC** to save [VictoriaMetrics](https://docs.victoriametrics.com/single-server-victoriametrics/) time series and.or [Grafana](https://grafana.com/docs/grafana/latest/getting-started/) custom dashboards:
 
@@ -222,7 +223,7 @@ Cleanup:
 
         ```
 
-- point a, preferably Chrome (may be in Incognito mode), browser to <http://localhost:3000> for [Grafana](https://grafana.com/docs/grafana/latest/getting-started/) UI, user: `admin`, password: `lsvmi`
+- point a browser to <http://localhost:3000> (or http://_docker_host_:3000, if the PoC is not running on the local host) for [Grafana](https://grafana.com/docs/grafana/latest/getting-started/) UI, user: `admin`, password: `lsvmi`. Private browsing works too, e.g. `Chrome` in `Incognito` mode.
 
 - it is a good practice to stop the container gracefully, really required if the persistent volume is used:
 
