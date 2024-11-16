@@ -6,7 +6,7 @@ this_script=${0##*/}
 # All paths below are relative to project's root dir:
 bin_dir=bin
 os_arch_file=go-os-arch.targets
-release_dir=releases
+release_root_dir=releases
 semver_file=semver.txt
 staging_dir=staging
 tools_dir=tools
@@ -38,33 +38,26 @@ if ! check-git-state.sh $semver; then
     exit 1
 fi
 
-
 # Ensure the latest build:
 (set -x; ./go-build)
 
 # Proceed w/ the release tarballs:
+release_dir="$release_root_dir/$semver"
+rm -rf $release_dir
 mkdir -p $release_dir
-
-apply_git_tag() {
-    git tag --force $1
-    git push --force origin tag $1
-}
 
 # The executable:
 list-os-arch.sh $os_arch_file | while read os arch; do
     os_arch="$os-$arch"
-    git_tag="$semver-$os_arch"
-    release_staging_dir="$staging_dir/lsvmi-$os_arch-$semver"
+    release_prefix="lsvmi-$os_arch"
+    release_subdir="$release_prefix-$semver"
+    release_staging_dir="$staging_dir/$release_subdir"
 
     rm -rf $release_staging_dir
     mkdir -p $release_staging_dir
 
-
     mkdir -p $release_staging_dir/bin
-    rsync -plrtHS \
-        $bin_dir/$os_arch \
-        $(realpath $bin_dir/$os_arch/linux-stats-victoriametrics-importer) \
-        $release_staging_dir/bin
+    cp -p $bin_dir/$os_arch/linux-stats-victoriametrics-importer $release_staging_dir/bin
 
     rsync -plrtHS \
         --exclude=log/ \
@@ -75,16 +68,17 @@ list-os-arch.sh $os_arch_file | while read os arch; do
 
     cp -p relnotes.txt lsvmi/lsvmi-config-reference.yaml $release_staging_dir
 
-    archive=$release_dir/$(basename $release_staging_dir).tgz
-    tar czf $archive -C $(dirname $release_staging_dir) $(basename $release_staging_dir)
-    rm -rf $release_staging_dir
-    apply_git_tag $git_tag
-    echo "$this_script: $(realpath $archive) created, tag $git_tag applied"
+    archive=$release_dir/$release_prefix.tgz
+    ln -fs $release_subdir $staging_dir/$release_prefix
+    tar czf $archive -C $staging_dir $release_subdir $release_prefix
+    rm -rf $release_staging_dir $staging_dir/$release_prefix
+    echo "$this_script: $(realpath $archive) created"
 done
 
 # PoC supporting infra:
-git_tag="$semver-poc-infra"
-release_staging_dir="$staging_dir/lsvmi-poc-infra-$semver"
+release_prefix="lsvmi-poc-infra"
+release_subdir="$release_prefix-$semver"
+release_staging_dir="$staging_dir/$release_subdir"
 
 rm -rf $release_staging_dir
 mkdir -p $release_staging_dir
@@ -99,8 +93,8 @@ rsync \
 
 cp -p relnotes.txt $release_staging_dir
 
-archive=$release_dir/$(basename $release_staging_dir).tgz
-tar czf $archive -C $(dirname $release_staging_dir) $(basename $release_staging_dir)
-rm -rf $release_staging_dir
-apply_git_tag $git_tag
-echo "$this_script: $(realpath $archive) created, tag $git_tag applied"
+archive=$release_dir/$release_prefix.tgz
+ln -fs $release_subdir $staging_dir/$release_prefix
+tar czf $archive -C $staging_dir $release_subdir $release_prefix
+rm -rf $release_staging_dir $staging_dir/$release_prefix
+echo "$this_script: $(realpath $archive) created"

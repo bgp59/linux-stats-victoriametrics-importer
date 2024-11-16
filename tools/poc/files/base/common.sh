@@ -26,9 +26,12 @@ check_os_arch() {
     
     os_arch="$os-$arch"
 
-    if [[ -d "$this_dir/bin/$os_arch" && "$PATH" != "$this_dir/bin/$os_arch"* ]]; then
-        export PATH="$this_dir/bin/$os_arch${PATH:+:}$PATH"
-    fi
+    local b
+    for b in $_this_dir/bin $_this_dir/bin/$os_arch; do
+        if [[ -d "$b" && "$PATH" != "$b"* ]]; then
+            export PATH="$b${PATH:+:}$PATH"
+        fi
+    done
     return 0
 }
 

@@ -257,15 +257,15 @@ Run:
 
 It will check for pre-requisites and if met, it will run an `os-build` command and it will create `.tgz` files under `releases/` dir (git ignored):
 
-- `releases/lsvmi-GOOS-GOARCH-SEMVER.tgz`: one for for each `GOOS`, `GOARCH` pair:
-- `releases/lsvmi-poc-infra-SEMVER.tgz`: in support of [LSVMI Proof Of Concept Demo](poc.md), [Using A Linux Server](poc.md#using-a-linux-server)
+- `releases/SEMVER/lsvmi-GOOS-GOARCH.tgz`: one for for each `GOOS`, `GOARCH` pair
+- `releases/SEMVER/lsvmi-poc-infra.tgz`: in support of [LSVMI Proof Of Concept Demo](poc.md), [Using A Linux Server](poc.md#using-a-linux-server)
 
 e.g.:
 
   ```text
 
-    releases/lsvmi-linux-amd64-v0.0.1.tgz
-    releases/lsvmi-poc-infra-v0.0.1.tgz
+  releases/v0.0.1/lsvmi-linux-amd64.tgz
+  releases/v0.0.1/lsvmi-poc-infra.tgz
 
   ```
 

@@ -27,12 +27,19 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
 ### Using A Linux Server
 
-- **NOTE!** The instructions below refer to semver, OS and architecture. Each shell command block is supposed to have been prefixed by the following definitions:
+- **NOTE!** For security conscious tester create a Poc acct:
 
     ```bash
 
-    lsvmi_os_arch=linux-amd64
-    lsvmi_ver=v0.0.1
+    sudo useradd -U -d /home/lsvmipoc -m -s /bin/bash lsvmipoc
+
+    ```
+
+    and run the next steps from a terminal prefixed by:
+
+    ```bash
+
+    sudo su - lsvmipoc
 
     ```
 
@@ -40,11 +47,12 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
     ```bash
     
+    mkdir -p /tmp
     cd /tmp
     curl \
             -s \
             -L \
-            https://github.com/emypar/linux-stats-victoriametrics-importer/releases/download/$lsvmi_ver-poc-infra/lsvmi-poc-infra-$lsvmi_ver.tgz | \
+            https://github.com/emypar/linux-stats-victoriametrics-importer/releases/download/latest/lsvmi-poc-infra.tgz | \
         tar xfz -
 
     ```
@@ -53,7 +61,7 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
     ```bash
     
-    cd /tmp/lsvmi-poc-infra-$lsvmi_ver
+    cd /tmp/lsvmi-poc-infra
     ./install-lsvmi-infra.sh
 
     ```
@@ -84,9 +92,9 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
     curl \
             -s \
             -L \
-            https://github.com/emypar/linux-stats-victoriametrics-importer/releases/download/$lsvmi_ver-$lsvmi_os_arch/lsvmi-$lsvmi_os_arch-$lsvmi_ver.tgz | \
+            https://github.com/emypar/linux-stats-victoriametrics-importer/releases/download/latest/lsvmi-linux-amd64.tgz | \
         tar xzf -
-    ln -fs lsvmi-$lsvmi_os_arch-$lsvmi_ver lsvmi
+    ln -fs lsvmi-linux-amd64 lsvmi
 
     ```
 
