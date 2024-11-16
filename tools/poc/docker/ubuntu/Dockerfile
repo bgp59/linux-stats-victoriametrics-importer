@@ -13,6 +13,7 @@ RUN \
         python3-pip \
         man-db \
         rsync \
+        sudo \
         strace \
     && pip install -U pip
 
@@ -20,6 +21,11 @@ ENV TINI_VERSION=v0.19.0
 ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
 RUN chmod +x /tini
 ENTRYPOINT ["/tini", "--"]
+
+RUN \
+    echo "ubuntu ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/ubuntu && \
+    chmod 0440 /etc/sudoers.d/ubuntu
+
 
 ENV POC_USER=ubuntu
 

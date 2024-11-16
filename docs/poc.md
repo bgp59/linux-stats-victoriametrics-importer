@@ -31,15 +31,7 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
     ```bash
 
-    sudo useradd -U -d /home/lsvmipoc -m -s /bin/bash lsvmipoc
-
-    ```
-
-    and run the next steps from a terminal prefixed by:
-
-    ```bash
-
-    sudo su - lsvmipoc
+    sudo useradd -U -d /home/lsvmi -m -s /bin/bash lsvmi
 
     ```
 
@@ -47,13 +39,14 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
     ```bash
     
-    mkdir -p /tmp
+    [[ $(whoami) != "lsvmi" ]]  && id lsvmi 2>/dev/null && sudo -n su - lsvmi
+
     cd /tmp
     curl \
             -s \
             -L \
-            https://github.com/emypar/linux-stats-victoriametrics-importer/releases/download/latest/lsvmi-poc-infra.tgz | \
-        tar xfz -
+            https://github.com/emypar/linux-stats-victoriametrics-importer/releases/latest/download/lsvmi-poc-infra.tgz | \
+        tar  -xzf -
 
     ```
 
@@ -61,6 +54,8 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
     ```bash
     
+    [[ $(whoami) != "lsvmi" ]]  && id lsvmi 2>/dev/null && sudo -n su - lsvmi
+
     cd /tmp/lsvmi-poc-infra
     ./install-lsvmi-infra.sh
 
@@ -79,6 +74,8 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
     ```bash
     
+    [[ $(whoami) != "lsvmi" ]]  && id lsvmi 2>/dev/null && sudo -n su - lsvmi
+
     cd
     rm -rf /tmp/lsvmi-poc-infra*
     
@@ -88,11 +85,13 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
     ```bash
 
+    [[ $(whoami) != "lsvmi" ]]  && id lsvmi 2>/dev/null && sudo -n su - lsvmi
+
     cd $HOME/lsvmi-poc
     curl \
             -s \
             -L \
-            https://github.com/emypar/linux-stats-victoriametrics-importer/releases/download/latest/lsvmi-linux-amd64.tgz | \
+            https://github.com/emypar/linux-stats-victoriametrics-importer/releases/latest/download/lsvmi-linux-amd64.tgz | \
         tar xzf -
     ln -fs lsvmi-linux-amd64 lsvmi
 
@@ -102,8 +101,36 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 
     ```bash
 
+    [[ $(whoami) != "lsvmi" ]]  && id lsvmi 2>/dev/null && sudo -n su - lsvmi
+
     cd $HOME/lsvmi-poc      # or POC_ROOT_DIR if custom dir
     ./start-poc.sh          # logs and output under runtime/
+
+    ```
+
+    The relevant 3 processes that should be running are:
+
+  - `victoria-metrics`
+  - `grafana`
+  - `linux-stats-victoriametrics-importer`
+
+    e.g.
+
+    ```bash
+
+    ps -ef | grep --color=never -E 'victoria-metric[s]|grafan[a]|linux-stats-victoriametrics-importe[r]|CM[D]'
+
+    ```
+
+    should produce the following output:
+
+    ```text
+
+        UID        PID  PPID  C STIME TTY          TIME CMD
+    lsvmi      131     1  1 03:05 ?        00:00:03 victoria-metrics -storageDataPath data -retentionPeriod 2d -selfScrapeInterval=10s
+    lsvmi      156     1  1 03:05 ?        00:00:04 grafana server
+    lsvmi      185     1  1 03:05 pts/1    00:00:03 linux-stats-victoriametrics-importer -log-file=log/linux-stats-victoriametrics-importer.log
+
 
     ```
 
@@ -112,6 +139,8 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
 - gracefully shutdown **PoC** to save [VictoriaMetrics](https://docs.victoriametrics.com/single-server-victoriametrics/) time series and.or [Grafana](https://grafana.com/docs/grafana/latest/getting-started/) custom dashboards:
 
     ```bash
+
+    [[ $(whoami) != "lsvmi" ]]  && id lsvmi 2>/dev/null && sudo -n su - lsvmi
 
     cd $HOME/lsvmi-poc
     ./stop-poc.sh
@@ -122,7 +151,9 @@ Cleanup:
 
    ```bash
 
-   rm -rf $HOME/lsvmi-poc   # or rm -rf POC_ROOT_DIR POC_RUNTIME_DIR if custom dirs
+    [[ $(whoami) != "lsvmi" ]]  && id lsvmi 2>/dev/null && sudo -n su - lsvmi
+
+    rm -rf $HOME/lsvmi-poc   # or rm -rf POC_ROOT_DIR POC_RUNTIME_DIR if custom dirs
 
    ```
 

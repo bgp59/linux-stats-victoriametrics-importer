@@ -70,7 +70,7 @@ list-os-arch.sh $os_arch_file | while read os arch; do
 
     archive=$release_dir/$release_prefix.tgz
     ln -fs $release_subdir $staging_dir/$release_prefix
-    tar czf $archive -C $staging_dir $release_subdir $release_prefix
+    tar czf $archive -C $staging_dir --no-xattrs $release_subdir $release_prefix
     rm -rf $release_staging_dir $staging_dir/$release_prefix
     echo "$this_script: $(realpath $archive) created"
 done
@@ -95,6 +95,6 @@ cp -p relnotes.txt $release_staging_dir
 
 archive=$release_dir/$release_prefix.tgz
 ln -fs $release_subdir $staging_dir/$release_prefix
-tar czf $archive -C $staging_dir $release_subdir $release_prefix
+tar czf $archive -C $staging_dir --no-xattrs $release_subdir $release_prefix
 rm -rf $release_staging_dir $staging_dir/$release_prefix
 echo "$this_script: $(realpath $archive) created"
