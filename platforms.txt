@@ -1,0 +1,9 @@
+# Define the target platforms for Go and Docker images.
+# The first entry is considered the default platform, if none specified via the
+# docker command.
+#
+# GOOS          GOARCH          Docker Platform
+# ------------  -------------   -----------------------
+linux           amd64           linux/amd64
+linux           arm64           linux/arm64
+

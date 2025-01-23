@@ -3,20 +3,22 @@
 this_script=${0##*/}
 case "$0" in
     /*|*/*) 
-        this_dir=$(dirname $(realpath $0))
+        this_dir=$(cd $(dirname $0) && pwd)
     ;;
     *) 
-        this_dir=$(dirname $(realpath $(which $0)))
+        this_dir=$(cd $(dirname $(which $0)) && pwd)
     ;;
 esac
 
-set -ex
-cd $this_dir
-mkdir -p volumes
-set +x
-lsvmi_dir="../../../../.."
-if [[ "$(readlink volumes/linux-stats-victoriametrics-importer)" != "$lsvmi_dir" ]]; then
-    (set -x; ln -fs "$lsvmi_dir" volumes/linux-stats-victoriametrics-importer)
-fi
-(set -x; mkdir -p volumes/runtime)
+platform="$1"; shift
+volumes_dir=volumes${platform:+/}$platform
 
+set -e
+cd $this_dir
+lsvmi_dir=$(realpath "../../../../../linux-stats-victoriametrics-importer")
+if [[ ! -d $volumes_dir/runtime ]]; then
+    (set -x; mkdir -p $volumes_dir/runtime)
+fi
+if [[ "$(readlink $volumes_dir/linux-stats-victoriametrics-importer)" != "$lsvmi_dir" ]]; then
+    (set -x; ln -fs "$lsvmi_dir" $volumes_dir/linux-stats-victoriametrics-importer)
+fi

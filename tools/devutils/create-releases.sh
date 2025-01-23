@@ -5,7 +5,7 @@ this_script=${0##*/}
 
 # All paths below are relative to project's root dir:
 bin_dir=bin
-os_arch_file=go-os-arch.targets
+platforms_file=platforms.txt
 release_root_dir=releases
 semver_file=semver.txt
 staging_dir=staging
@@ -47,7 +47,9 @@ rm -rf $release_dir
 mkdir -p $release_dir
 
 # The executable:
-list-os-arch.sh $os_arch_file | while read os arch; do
+while read os arch _; do
+    [[ "$os" = '#'* || -z "$os" || -z "$arch" ]] && continue
+
     os_arch="$os-$arch"
     release_prefix="lsvmi-$os_arch"
     release_subdir="$release_prefix-$semver"
@@ -73,7 +75,7 @@ list-os-arch.sh $os_arch_file | while read os arch; do
     tar czf $archive -C $staging_dir --no-xattrs $release_subdir $release_prefix
     rm -rf $release_staging_dir $staging_dir/$release_prefix
     echo "$this_script: $(realpath $archive) created"
-done
+done < $platforms_file
 
 # PoC supporting infra:
 release_prefix="lsvmi-poc-infra"

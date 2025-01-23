@@ -4,7 +4,7 @@
 
 this_script=${0##*/}
 
-go_os_arch_targets_file="go-os-arch.targets"
+platforms_file="platforms.txt"
 pre_build_script="pre-build"
 post_build_script="post-build"
 semver_file="semver.txt"
@@ -22,11 +22,10 @@ If TARGET_ROOT arg is not provided then the last component from go list output i
 The script will look for an optional '$semver_file' file under the main.go's
 location and it will use its content as semantic version, SEMVER.
 
-The script will look for a '$go_os_arch_targets_file' file under the main.go's 
-location. The file is expected to contain GOOS GOARCH GOARCH... specifications, 
+The script will look for a '$platforms_file' file under the main.go's 
+location. The file is expected to contain GOOS GOARCH ... specifications, 
 one per line; each pair GOOS GOARCH will generate an executable. If no such file 
 is present then a single executable will be built for the native GOOS and GOARCH.
-The shortcut - - will indicate the native  GOOS and GOARCH.
 
 For each GOOS and GOARCH the script will generate:
 
@@ -116,11 +115,12 @@ do_build() {
     )
 }
 
-if [[ -r $go_os_arch_targets_file ]]; then
-    list-os-arch.sh $go_os_arch_targets_file | while read GOOS GOARCH; do
-        export GOOS GOARCH
+if [[ -r $platforms_file ]]; then
+    export GOOS GOARCH
+    while read GOOS GOARCH _; do
+        [[ "$GOOS" = '#'* || -z "$GOOS" || -z "$GOARCH" ]] && continue
         do_build
-    done
+    done <  $platforms_file
 else
     do_build
 fi

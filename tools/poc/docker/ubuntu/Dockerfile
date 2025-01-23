@@ -1,5 +1,7 @@
 FROM ubuntu:20.04
 
+ARG TARGETARCH
+
 RUN \
     apt update \
     && ln -fs /usr/share/zoneinfo/GMT /etc/localtime \
@@ -18,7 +20,7 @@ RUN \
     && pip install -U pip
 
 ENV TINI_VERSION=v0.19.0
-ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
+ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-${TARGETARCH} /tini
 RUN chmod +x /tini
 ENTRYPOINT ["/tini", "--"]
 

@@ -16,8 +16,9 @@ check_os_arch() {
 
     local arch=$(uname -m | tr A-Z a-z)
     case "$arch" in
-        amd64) : ;;
+        amd64|arm64) : ;;
         x86_64) arch="amd64";;
+        aarch64) arch="arm64";;
         *)
             echo >&2 "$_this_script - $arch: unsupported arch"
             return 1
