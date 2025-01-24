@@ -11,4 +11,4 @@ esac
 
 set -ex
 cd $this_dir/../ubuntu
-./build-container
+./build-container $@

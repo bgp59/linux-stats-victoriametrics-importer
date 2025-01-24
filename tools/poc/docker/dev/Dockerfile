@@ -1,4 +1,5 @@
-FROM lsvmi-base-ubuntu_20.04
+ARG TARGETPLATFORM
+FROM lsvmi-base-ubuntu-20.04-${TARGETPLATFORM//\//-}
 
 USER root
 WORKDIR /usr/local/lsvmi-poc
