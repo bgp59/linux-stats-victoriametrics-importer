@@ -1,7 +1,10 @@
-FROM lsvmi-victoria-metrics-grafana-ubuntu_20.04
+FROM lsvmi-victoria-metrics-grafana-ubuntu-20.04-${TARGETPLATFORM//\//-}
+ARG TARGETPLATFORM
 
+ENV _os_arch=${TARGETPLATFORM//\//-}
 COPY tools/poc/files/lsvmi/*lsvmi* lsvmi/
-COPY bin lsvmi/bin
+COPY bin/linux-stats-*${_os_arch}* lsvmi/bin/
+COPY bin/${_os_arch} lsvmi/bin/${_os_arch}/
 USER root
 RUN \
     ln -fs /volumes/runtime/lsvmi/out lsvmi \

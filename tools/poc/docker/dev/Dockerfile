@@ -1,4 +1,3 @@
-ARG TARGETPLATFORM
 FROM lsvmi-base-ubuntu-20.04-${TARGETPLATFORM//\//-}
 
 USER root

@@ -10,7 +10,7 @@ case "$0" in
     ;;
 esac
 
-
+platforms_file=platforms
 
 set -e
 cd $this_dir
@@ -21,27 +21,33 @@ if [[ -r semver ]]; then
 fi
 container_name=$(basename $image_name | sed -r -e 's/[^a-zA-Z0-9-]+/-/')
 
-default_platform=
+preferred_platform=
 platforms=
-if [[ -r platforms.txt ]]; then
-    while read os _ platform; do
-        if [[ "$os" != '#'* && -n "$platform" ]]; then
-            if [[ -z "$platforms" ]]; then
-                default_platform="${platform}"
-                platforms="${platform}"
-            else
-                platforms="${platforms} ${platform}"
-            fi
+if [[ -r $platforms_file ]]; then
+    while read os arch platform; do
+        if [[ "$os" = '#'* || -z "$os" || -z "$arch" ]]; then
+            continue
         fi
-    done < platforms.txt
+        if [[ -z "$platform" ]]; then
+            platform="$os/$arch"
+        fi
+        if [[ -z "$preferred_platform" ]]; then
+            preferred_platform="${platform}"
+        fi
+        platforms="${platforms}${platforms:+ }${platform}"
+    done < $platforms_file
 fi
-
-
+if [[ -z "$preferred_platform" ]]; then
+    preferred_platform=$(
+        docker version -f \
+            '{{range .Server.Components}}{{if eq .Name "Engine"}}{{print .Details.Os "/" .Details.Arch}}{{end}}{{end}}'
+    )
+fi
 case "$this_script" in
-    build-container)
+    build-image) # PLATFORM [PLATFORM] ... | all 
         case "$1" in
             all) platform_list="$platforms";;
-            "") platform_list="$default_platform";;
+            "") platform_list="$preferred_platform";;
             *) platform_list="$@";;
         esac
         if [[ -f context ]]; then
@@ -49,14 +55,33 @@ case "$this_script" in
         else
             context="."
         fi
-        for platform in ${platform_list:--}; do
-            if [[ "$platform" = "-" ]]; then
-                platform=
-            fi
+        for platform in $platform_list; do
             if [[ -x pre-build-command ]]; then
                 (set -x; ./pre-build-command $platform)
             fi
-            (set -x; exec docker build ${platform:+--platform $platform} -t $image_name${platform:+-}${platform//\//-}${image_tag:+:}$image_tag -f $this_dir/Dockerfile $context)
+            (   
+                set -x
+                docker build ${platform:+--platform $platform} -t $image_name${platform:+-}${platform//\//-}${image_tag:+:}$image_tag -f $this_dir/Dockerfile $context
+            )
+        done
+    ;;
+    push-image|push-latest-image) # PLATFORM [PLATFORM] ... | all
+        case "$1" in
+            all) platform_list="$platforms";;
+            "") platform_list="$preferred_platform";;
+            *) platform_list="$@";;
+        esac
+        for platform in $platform_list; do
+            image_base_name=$image_name${platform:+-}${platform//\//-}
+            image_full_name=$image_base_name${image_tag:+:}$image_tag
+            (set -x; docker push $image_full_name)
+            if [[ "$this_script" = *latest*  && -n "$image_tag" ]]; then
+                (
+                    set -x
+                    docker tag $image_full_name $image_base_name
+                    docker push $image_base_name
+                )
+            fi
         done
     ;;
     run-container|start-container)
@@ -80,8 +105,8 @@ case "$this_script" in
                 prev_arg="$arg"
             done
         fi
-        if [[ -z "$platform" && -n "$default_platform" ]]; then
-            platform=$default_platform
+        if [[ -z "$platform" && -n "$preferred_platform" ]]; then
+            platform=$preferred_platform
             runargs="--platform $platform${runargs:+ }$runargs"
         fi
         if [[ "$this_script" == start* ]]; then

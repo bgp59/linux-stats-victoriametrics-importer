@@ -11,4 +11,5 @@ esac
 
 set -ex
 cd $this_dir/../dev
-./build-container
+./build-image $@
+

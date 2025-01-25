@@ -1,4 +1,2 @@
-# Syntax:
-#    GOOS GOARCH ...
-#    `-' is a shortcut for the native OS and AARCH
 linux amd64
+linux arm64
