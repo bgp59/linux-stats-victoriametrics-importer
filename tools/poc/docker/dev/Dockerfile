@@ -1,5 +1,5 @@
 ARG FROMIMAGESUFFIX
-FROM lsvmi-base-ubuntu-20.04${FROMIMAGESUFFIX}
+FROM lsvmi-base${FROMIMAGESUFFIX}
 
 USER root
 WORKDIR /usr/local/lsvmi-poc

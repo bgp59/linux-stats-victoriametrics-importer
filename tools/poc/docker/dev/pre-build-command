@@ -10,5 +10,5 @@ case "$0" in
 esac
 
 set -ex
-cd $this_dir/../ubuntu
+cd $this_dir/../base
 ./build-image $@

@@ -1,3 +1,12 @@
 Release Notes
 
-v0.0.1 Launch Release
+v0.0.2
+No code change, packaging and retooling.
+    
+    * add support for arm64 arch
+    * add support for Docker multi-platform images,
+      preferred over single platform.
+
+
+v0.0.1 
+Launch Release

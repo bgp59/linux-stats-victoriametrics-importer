@@ -164,14 +164,16 @@ Cleanup:
   - without persistence (neither [VictoriaMetrics](https://docs.victoriametrics.com/single-server-victoriametrics/) time series nor [Grafana's](https://grafana.com/docs/grafana/latest/getting-started/) custom dashboards will be saved between container restarts):
 
     ```bash
+    platform=linux/amd64
 
     docker run \
+        --platform $platform \
         --rm \
         --detach \
         --publish 3000:3000 \
         --publish 8428:8428 \
         --name lsvmi-demo \
-        emypar/linux-stats-victoriametrics-importer:demo
+        emypar/lsvmi-demo
 
     ```
 
@@ -180,23 +182,25 @@ Cleanup:
 
         ```bash
 
-        lsvmi_runtime_dir=$HOME/docker/volumes/lsvmi-poc/runtime
+        lsvmi_poc_dir=$HOME/docker/volumes/lsvmi-poc
 
         ```
 
     - start the container with a volume:
 
         ```bash
+        platform=linux/amd64
 
-        mkdir -p $lsvmi_runtime_dir
+        mkdir -p $lsvmi_poc_dir/$platform/runtime
         docker run \
+            --platform $platform \
             --rm \
             --detach \
             --publish 3000:3000 \
             --publish 8428:8428 \
             --name lsvmi-demo \
-            --volume $lsvmi_runtime_dir:/volumes/runtime \
-            emypar/linux-stats-victoriametrics-importer:demo
+            --volume $lsvmi_poc_dir/$platform/runtime:/volumes/runtime \
+            emypar/lsvmi-demo
 
         ```
 
@@ -204,21 +208,21 @@ Cleanup:
 
         ```bash
 
-        cd $lsvmi_runtime_dir/victoria-metrics/out
+        cd $lsvmi_poc_dir/$platform/runtime/victoria-metrics/out
         cat victoria-metrics.err
 
         ```
 
         ```bash
 
-        cd $lsvmi_runtime_dir/grafana/log
+        cd $lsvmi_poc_dir/$platform/runtime/grafana/log
         cat grafana.log
 
         ```
 
         ```bash
 
-        cd $lsvmi_runtime_dir/lsvmi/log
+        cd $lsvmi_poc_dir/$platform/runtime/lsvmi/log
         cat linux-stats-victoriametrics-importer.log
 
         ```

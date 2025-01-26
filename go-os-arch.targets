@@ -1,2 +1,5 @@
-linux amd64
-linux arm64
+#                       Docker platform, if
+# GOOS      GOARCH      different than GOOS/GOARCH
+# --------- ----------- -------------------------
+linux       amd64
+linux       arm64

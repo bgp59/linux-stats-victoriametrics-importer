@@ -1,5 +1,5 @@
 ARG FROMIMAGESUFFIX
-FROM lsvmi-victoria-metrics-grafana-ubuntu-20.04${FROMIMAGESUFFIX}
+FROM lsvmi-dev${FROMIMAGESUFFIX}
 ARG TARGETPLATFORM
 
 ENV _os_arch=${TARGETPLATFORM//\//-}
