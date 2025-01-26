@@ -42,11 +42,14 @@ if [[ -z "$preferred_platform" ]]; then
         docker version -f \
             '{{range .Server.Components}}{{if eq .Name "Engine"}}{{print .Details.Os "/" .Details.Arch}}{{end}}{{end}}'
     )
+    platforms=$preferred_platform
 fi
 case "$this_script" in
-    build-image) # PLATFORM [PLATFORM] ... | all 
+    build-image) # PLATFORM [PLATFORM] ... | all | multi[platform]
+        multiplatform=
         case "$1" in
             all) platform_list="$platforms";;
+            multi*) multiplatform=yes;;
             "") platform_list="$preferred_platform";;
             *) platform_list="$@";;
         esac
@@ -55,24 +58,37 @@ case "$this_script" in
         else
             context="."
         fi
-        for platform in $platform_list; do
+        if [[ "$multiplatform" = 'yes' ]]; then
             if [[ -x pre-build-command ]]; then
-                (set -x; ./pre-build-command $platform)
+                (set -x; ./pre-build-command $1)
             fi
-            (   
+            (
                 set -x
-                docker build ${platform:+--platform $platform} -t $image_name${platform:+-}${platform//\//-}${image_tag:+:}$image_tag -f $this_dir/Dockerfile $context
+                docker build --platform ${platforms// /,} -t $image_name${image_tag:+:}$image_tag --build-arg FROMIMAGESUFFIX= -f $this_dir/Dockerfile $context
             )
-        done
+        else
+            for platform in $platform_list; do
+                if [[ -x pre-build-command ]]; then
+                    (set -x; ./pre-build-command $platform)
+                fi
+                imagesuffix=${platform:+-}${platform//\//-}
+                (   
+                    set -x
+                    docker build ${platform:+--platform $platform} -t $image_name${imagesuffix}${image_tag:+:}$image_tag --build-arg FROMIMAGESUFFIX=${imagesuffix} -f $this_dir/Dockerfile $context
+                )
+            done
+        fi
     ;;
-    push-image|push-latest-image) # PLATFORM [PLATFORM] ... | all
+    push-image|push-latest-image) # PLATFORM [PLATFORM] ... | all | multi[platform]
+        multiplatform=
         case "$1" in
             all) platform_list="$platforms";;
+            multi*) multiplatform=yes;;
             "") platform_list="$preferred_platform";;
             *) platform_list="$@";;
         esac
-        for platform in $platform_list; do
-            image_base_name=$image_name${platform:+-}${platform//\//-}
+        if [[ "$multiplatform" = 'yes' ]]; then
+            image_base_name=$image_name
             image_full_name=$image_base_name${image_tag:+:}$image_tag
             (set -x; docker push $image_full_name)
             if [[ "$this_script" = *latest*  && -n "$image_tag" ]]; then
@@ -82,9 +98,22 @@ case "$this_script" in
                     docker push $image_base_name
                 )
             fi
-        done
+        else
+            for platform in $platform_list; do
+                image_base_name=$image_name${platform:+-}${platform//\//-}
+                image_full_name=$image_base_name${image_tag:+:}$image_tag
+                (set -x; docker push $image_full_name)
+                if [[ "$this_script" = *latest*  && -n "$image_tag" ]]; then
+                    (
+                        set -x
+                        docker tag $image_full_name $image_base_name
+                        docker push $image_base_name
+                    )
+                fi
+            done
+        fi
     ;;
-    run-container|start-container)
+    run-*container|start-*container)
         if [[ -f runargs ]]; then
             runargs=$(cat runargs)
         else
@@ -127,7 +156,13 @@ case "$this_script" in
                 runargs="$runargs${runargs:+ }--publish $p"
             done
         fi
-        (set -x; exec docker run -it --rm $runargs --name $container_name $image_name${platform:+-}${platform//\//-}${image_tag:+:}$image_tag "$@")
+        if [[ "$this_script" != *multi* ]]; then
+            image_name=$image_name${platform:+-}${platform//\//-}
+        fi
+        (
+            set -x
+            exec docker run -it --rm $runargs --name $container_name $image_name${image_tag:+:}$image_tag "$@"
+        )
     ;;
     stop-container)
         container_id=$(docker ps --filter name=$container_name --format "{{.ID}}")

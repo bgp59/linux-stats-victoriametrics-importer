@@ -170,30 +170,38 @@ In practice the above should run on the same host or container. Depending on whe
 
 ### Developing Under A Different OS
 
-This project was developed on an `Intel MacBook Pro`  running `macOS`. While [Go](https://go.dev/doc/install) can cross-compile for `linux/amd64`, the environment for  [VictoriaMetrics](https://docs.victoriametrics.com/single-server-victoriametrics/) and [Grafana](https://grafana.com/docs/grafana/latest/setup-grafana/) and [LSVMI](../README.md) will run in a [Docker](https://docs.docker.com/get-started/get-docker/) container.
+This project was developed on `MacBook (Intel)`/`MacAir (Apple Chip)` running
+`macOS`. While [Go](https://go.dev/doc/install) can cross-compile for
+`linux/amd64`/`linux/arm64`, the environment for
+[VictoriaMetrics](https://docs.victoriametrics.com/single-server-victoriametrics/)
+and [Grafana](https://grafana.com/docs/grafana/latest/setup-grafana/) and
+[LSVMI](../README.md) will run in a
+[Docker](https://docs.docker.com/get-started/get-docker/) container.
 
 The next steps assume that [Docker](https://docs.docker.com/get-started/get-docker/) is installed and running:
 
-- build the container image, once:
+- build the container multi-platform image, once:
 
   ```bash
 
     cd tools/poc/docker/dev
-    ./build-container
+    ./build-image multi
 
   ```
 
-  **NOTE!** The state, logs and output for [VictoriaMetrics](https://docs.victoriametrics.com/single-server-victoriametrics/) and [Grafana](https://grafana.com/docs/grafana/latest/setup-grafana/) will be persisted under `tools/poc/docker/dev/volumes` directory on the host. If a different location is desired, run once, before the container is started for the first time:
+  **NOTE!** The state, logs and output for [VictoriaMetrics](https://docs.victoriametrics.com/single-server-victoriametrics/) and [Grafana](https://grafana.com/docs/grafana/latest/setup-grafana/) will be persisted under `tools/poc/docker/dev/volumes/linux/ARCH/runtime` directory on the host. If a different location is desired, run once, before the container is started for the first time:
 
   ```bash
 
     alternate_runtime_dir=...  # set your location here
 
-    mkdir -p $alternate_runtime_dir
     cd tools/poc/docker/dev
-    mkdir -p volumes
-    ln -fs $alternate_runtime_dir volumes/runtime
 
+    for arch in amd64 arm64; do
+      mkdir -p $alternate_runtime_dir/$arch/runtime
+      mkdir -p volumes/linux/$arch
+      ln -fs $alternate_runtime_dir/$arch/runtime volumes/$arch/runtime
+    done
   ```
 
 - to start [VictoriaMetrics](https://docs.victoriametrics.com/single-server-victoriametrics/) and [Grafana](https://grafana.com/docs/grafana/latest/setup-grafana/) on the container:
@@ -201,7 +209,18 @@ The next steps assume that [Docker](https://docs.docker.com/get-started/get-dock
   ```bash
 
     cd tools/poc/docker/dev
-    ./start-container
+    ./start-multi-container
+
+  ```
+
+  This will start the container for the **preferred** platform, which is the one corresponding for the first entry in [go-os-arch.targets](../go-os-arch.targets); currently that is `linux/amd64`.
+
+  If a different platform is desired, specify it at container start-up time, e.g. running for `linux/arm64`:
+
+  ```bash
+
+    cd tools/poc/docker/dev
+    ./start-multi-container --platform linux/arm64
 
   ```
 
@@ -264,8 +283,9 @@ e.g.:
 
   ```text
 
-  releases/v0.0.1/lsvmi-linux-amd64.tgz
-  releases/v0.0.1/lsvmi-poc-infra.tgz
+  releases/v0.0.2/lsvmi-linux-amd64.tgz
+  releases/v0.0.2/lsvmi-linux-arm64.tgz
+  releases/v0.0.2/lsvmi-poc-infra.tgz
 
   ```
 

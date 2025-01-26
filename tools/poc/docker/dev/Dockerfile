@@ -1,4 +1,5 @@
-FROM lsvmi-base-ubuntu-20.04-${TARGETPLATFORM//\//-}
+ARG FROMIMAGESUFFIX
+FROM lsvmi-base-ubuntu-20.04${FROMIMAGESUFFIX}
 
 USER root
 WORKDIR /usr/local/lsvmi-poc
