@@ -32,17 +32,22 @@
 
     ```
 
-- (strongly) suggested [VSCode](https://code.visualstudio.com/download) \>= `1.95.0` with the following extensions:
+- (strongly) suggested [VSCode](https://code.visualstudio.com/download) \>= `1.95.0`:
+  
+  - recommended extensions:
 
-  - [Docker](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-docker)
-  - [Even Better TOML](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml)
-  - [Go](https://marketplace.visualstudio.com/items?itemName=golang.Go)
-  - [isort](https://marketplace.visualstudio.com/items?itemName=ms-python.isort)
-  - [Markdown TOC & Chapter Number](https://marketplace.visualstudio.com/items?itemName=TakumiI.markdown-toc-num)
-  - [markdownlint](https://marketplace.visualstudio.com/items?itemName=DavidAnson.vscode-markdownlint)
-  - [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
-  - [Rewrap](https://marketplace.visualstudio.com/items?itemName=stkb.rewrap)
-  - [Sort lines](https://marketplace.visualstudio.com/items?itemName=Tyriar.sort-lines)
+    - [Code Spell Checker](https://marketplace.visualstudio.com/items?itemName=streetsidesoftware.code-spell-checker)
+    - [Docker](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-docker)
+    - [Even Better TOML](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml)
+    - [Go](https://marketplace.visualstudio.com/items?itemName=golang.Go)
+    - [isort](https://marketplace.visualstudio.com/items?itemName=ms-python.isort)
+    - [Markdown TOC & Chapter Number](https://marketplace.visualstudio.com/items?itemName=TakumiI.markdown-toc-num)
+    - [markdownlint](https://marketplace.visualstudio.com/items?itemName=DavidAnson.vscode-markdownlint)
+    - [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
+    - [Rewrap](https://marketplace.visualstudio.com/items?itemName=stkb.rewrap)
+    - [Sort lines](https://marketplace.visualstudio.com/items?itemName=Tyriar.sort-lines)
+
+  - recommended settings: see [.vscode-ref/settings.json](../.vscode-ref/settings.json) to prime `.vscode/` (git ignored) or merge its exclusion lists. The latter are very important, otherwise various plugins will become runaway when attempting to scan `testdata/`.
 
 ## Coding Style
 
