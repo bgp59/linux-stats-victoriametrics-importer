@@ -27,6 +27,7 @@ OSName:         %q
 OSNameNorm:     %q
 OSRelease:      %q
 OSReleaseVer:   %v
+OSMachine:      %v
 OSBtime:        %s
 LinuxClktck:    %d
 LinuxClktckSec: %.06f
@@ -36,6 +37,7 @@ LinuxOsRelease: %s
 		utils.OSNameNorm,
 		utils.OSRelease,
 		utils.OSReleaseVer,
+		utils.OSMachine,
 		utils.OSBtime,
 		utils.LinuxClktck,
 		utils.LinuxClktckSec,

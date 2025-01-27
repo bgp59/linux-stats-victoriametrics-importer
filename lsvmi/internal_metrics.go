@@ -30,6 +30,7 @@ const (
 	OS_INFO_NAME_LABEL    = "sys_name"
 	OS_INFO_RELEASE_LABEL = "sys_release"
 	OS_INFO_VERSION_LABEL = "sys_version"
+	OS_INFO_ARCH_LABEL    = "sys_arch"
 
 	// Interval since last generation, i.e. the interval underlying the deltas.
 	// Normally this should be close to scan interval, but this the actual
@@ -395,12 +396,13 @@ func (internalMetrics *InternalMetrics) updateOsMetrics() {
 	buf := &bytes.Buffer{}
 	fmt.Fprintf(
 		buf,
-		`%s{%s="%s",%s="%s",%s="%s",%s="%s"`,
+		`%s{%s="%s",%s="%s",%s="%s",%s="%s",%s="%s"`,
 		OS_INFO_METRIC,
 		INSTANCE_LABEL_NAME, instance,
 		HOSTNAME_LABEL_NAME, hostname,
 		OS_INFO_NAME_LABEL, utils.OSName,
 		OS_INFO_RELEASE_LABEL, utils.OSRelease,
+		OS_INFO_ARCH_LABEL, utils.OSMachine,
 	)
 	fmt.Fprintf(buf, `,%s="`, OS_INFO_VERSION_LABEL)
 	for i, v := range utils.OSReleaseVer {

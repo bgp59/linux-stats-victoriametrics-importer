@@ -12,6 +12,11 @@ Bug fixes:
   * prefix only device IRQs (numbers) by `IRQ` in in
     `proc_interrupts_metrics_ref` dashboard
 
+Enhancements:
+
+  * add `sys_arch` label to `os_info` metric with `uname -m` info (machine AKA
+    architecture) and update `internal_metrics_ref` dashboard to use it in
+    `Agents` table.
 
 v0.0.2 2025/01/26
 No code change, packaging and retooling.

@@ -25,12 +25,13 @@ OSName:         %q
 OSNameNorm:     %q
 OSRelease:      %q
 OSReleaseVer:   %v
+OSMachine:      %v
 OSBtime:        %s
 LinuxClktck:    %d
 LinuxClktckSec: %.06f
 LinuxOsRelease: %s
 `,
-		OSName, OSNameNorm, OSRelease, OSReleaseVer, OSBtime, LinuxClktck, LinuxClktckSec,
+		OSName, OSNameNorm, OSRelease, OSReleaseVer, OSMachine, OSBtime, LinuxClktck, LinuxClktckSec,
 		buf,
 	)
 }

@@ -21,6 +21,7 @@ var (
 	OSNameNorm     string
 	OSRelease      string
 	OSReleaseVer   []int
+	OSMachine      string
 	OSBtime        = getOsBtime()
 	LinuxClktck    = int64(DEFAULT_LINUX_CLKTCK)
 	LinuxClktckSec = 1. / float64(LinuxClktck)
@@ -65,6 +66,7 @@ func setUnameOSInfo() error {
 			}
 		}
 	}
+	OSMachine = zeroSuffixBufToString(uname.Machine[:])
 	return nil
 }
 

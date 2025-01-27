@@ -85,7 +85,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -235,6 +236,18 @@
                     "value": 71
                   }
                 ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Sys Arch"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 76
+                  }
+                ]
               }
             ]
           },
@@ -242,7 +255,7 @@
             "h": 7,
             "w": 24,
             "x": 0,
-            "y": 9
+            "y": 4
           },
           "id": 2,
           "interval": "5s",
@@ -331,12 +344,13 @@
                   "VERSION": 7,
                   "VERSION_CODENAME": 8,
                   "VERSION_ID": 9,
-                  "Value #lsvmi_uptime_sec": 13,
-                  "Value #os_btime_sec": 15,
-                  "Value #os_uptime_sec": 14,
-                  "gitinfo": 16,
+                  "Value #lsvmi_uptime_sec": 14,
+                  "Value #os_btime_sec": 16,
+                  "Value #os_uptime_sec": 15,
+                  "gitinfo": 17,
                   "hostname": 1,
                   "instance": 2,
+                  "sys_arch": 13,
                   "sys_name": 10,
                   "sys_release": 11,
                   "sys_version": 12,
@@ -353,6 +367,7 @@
                   "hostname": "Hostname",
                   "instance": "Instance",
                   "os_name": "",
+                  "sys_arch": "Sys Arch",
                   "sys_name": "Sys Name",
                   "sys_release": "",
                   "sys_version": "Sys Version",
@@ -409,7 +424,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -425,7 +441,7 @@
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 16
+            "y": 11
           },
           "id": 11,
           "options": {
@@ -505,7 +521,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -521,7 +538,7 @@
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 16
+            "y": 11
           },
           "id": 4,
           "options": {
@@ -3879,6 +3896,7 @@
         "type": "datasource"
       },
       {
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": "All",
@@ -3903,10 +3921,10 @@
         "regex": "/.*instance=\"([^\"]*).*/",
         "skipUrlSync": false,
         "sort": 1,
-        "type": "query",
-        "allValue": ".*"
+        "type": "query"
       },
       {
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": [
@@ -3935,8 +3953,7 @@
         "regex": "/.*hostname=\"([^\"]*).*/",
         "skipUrlSync": false,
         "sort": 1,
-        "type": "query",
-        "allValue": ".*"
+        "type": "query"
       },
       {
         "current": {
@@ -4063,11 +4080,6 @@
         "type": "query"
       },
       {
-        "current": {
-          "selected": true,
-          "text": "5s",
-          "value": "5s"
-        },
         "description": "Should match the internal metrics sample interval.",
         "hide": 2,
         "name": "interval",
@@ -4085,6 +4097,6 @@
   "timezone": "",
   "title": "internal_metrics_ref",
   "uid": "internal_metrics_ref",
-  "version": 1731728171,
+  "version": 1738015591,
   "weekStart": ""
 }
