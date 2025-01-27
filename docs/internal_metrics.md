@@ -288,6 +288,7 @@ The number of endpoint errors since the last scan.
   | sys_name | \`uname -s\` |
   | sys_release | \`uname -r\` |
   | sys_version | \`uname -v\` |
+  | sys_arch | \`uname -m\` |
   | ID<br>NAME<br>PRETTY_NAME<br>VERSION<br>VERSION_CODENAME<br>VERSION_ID | See the eponymous fields in [os-release](https://man7.org/linux/man-pages/man5/os-release.5.html) |
 
 ### os_btime_sec
