@@ -1,12 +1,26 @@
 Release Notes
 
-v0.0.2
+v0.1.0 2025/01/27
+
+Bug fixes:
+
+  * convert IRQ names to uppercase, some Linuces have `Err:` instead or `ERR:`
+  
+  * fix dev(ice) `ALL` selection in `proc_interrupts_metrics_ref` dashboard to
+    exclude device-less IRQs
+
+  * prefix only device IRQs (numbers) by `IRQ` in in
+    `proc_interrupts_metrics_ref` dashboard
+
+
+v0.0.2 2025/01/26
 No code change, packaging and retooling.
     
-    * add support for arm64 arch
-    * add support for Docker multi-platform images,
-      preferred over single platform.
+  * add support for arm64 arch 
+  
+  * add support for Docker multi-platform images, preferred over single
+    platform.
 
 
-v0.0.1 
+v0.0.1 2024/11/16
 Launch Release

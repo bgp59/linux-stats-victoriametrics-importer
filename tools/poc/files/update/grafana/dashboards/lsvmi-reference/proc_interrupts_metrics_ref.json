@@ -326,7 +326,7 @@
           "editorMode": "code",
           "expr": "proc_interrupts_delta{\n    instance=\"${instance}\", \n    hostname=\"${hostname}\", \n    irq=~\"${non_dev_irq}\", \n    dev=\"\", \n    cpu=~\"${cpu}\"\n} >= ${threshold}",
           "interval": "${interval}",
-          "legendFormat": "IRQ{{irq}}(dev={{dev}}, cpu={{cpu}}, host={{hostname}},inst={{instance}})",
+          "legendFormat": "{{irq}}(dev={{dev}}, cpu={{cpu}}, host={{hostname}},inst={{instance}})",
           "range": true,
           "refId": "A"
         }
@@ -420,7 +420,7 @@
           "editorMode": "code",
           "expr": "(\n    proc_interrupts_delta{\n        instance=\"${instance}\",\n        hostname=\"${hostname}\",\n        irq=~\"${non_dev_irq}\",\n        dev=\"\",\n        cpu=~\"${cpu}\"\n    } >= ${threshold}\n)\n/ on (instance, hostname) group_left\nproc_interrupts_metrics_delta_sec{\n    instance=\"${instance}\",\n    hostname=\"${hostname}\"\n}",
           "interval": "${interval}",
-          "legendFormat": "IRQ{{irq}}(dev={{dev}}, cpu={{cpu}}, host={{hostname}},inst={{instance}})",
+          "legendFormat": "{{irq}}(dev={{dev}}, cpu={{cpu}}, host={{hostname}},inst={{instance}})",
           "range": true,
           "refId": "A"
         }
@@ -510,7 +510,7 @@
         "type": "query"
       },
       {
-        "allValue": ".*",
+        "allValue": ".+",
         "current": {
           "selected": true,
           "text": [
@@ -637,11 +637,6 @@
         "type": "query"
       },
       {
-        "current": {
-          "selected": true,
-          "text": "1s",
-          "value": "1s"
-        },
         "hide": 2,
         "name": "interval",
         "query": "1s",
@@ -649,11 +644,6 @@
         "type": "constant"
       },
       {
-        "current": {
-          "selected": true,
-          "text": "16s",
-          "value": "16s"
-        },
         "hide": 2,
         "label": "",
         "name": "lookback",
@@ -691,6 +681,6 @@
   "timezone": "",
   "title": "proc_interrupts_metrics_ref",
   "uid": "proc_interrupts_metrics_ref",
-  "version": 1730860881,
+  "version": 1737998768,
   "weekStart": ""
 }

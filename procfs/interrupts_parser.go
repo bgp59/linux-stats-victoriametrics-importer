@@ -285,7 +285,7 @@ func (interrupts *Interrupts) Parse() error {
 				interrupts.path, lineNum, getCurrentLine(buf, startLine),
 			)
 		}
-		irq := string(buf[irqStart:irqEnd])
+		irq := string(bytes.ToUpper(buf[irqStart:irqEnd]))
 
 		// Parse ` NNN NNN ... NNN' interrupt counters:
 		counters := interrupts.Counters[irq]
