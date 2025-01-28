@@ -20,7 +20,7 @@ const (
 )
 
 const (
-	// METRIC{instance="INSTANCE",hostname="HOSTNAME",irq="IRQ",cpu="CPU"}:
+	// METRIC{instance="INSTANCE",hostname="HOSTNAME",irq="IRQ",cpu="CPU",dev="DEV"}:
 	PROC_INTERRUPTS_DELTA_METRIC   = "proc_interrupts_delta"
 	PROC_INTERRUPTS_IRQ_LABEL_NAME = "irq"
 	PROC_INTERRUPTS_DEV_LABEL_NAME = "dev"

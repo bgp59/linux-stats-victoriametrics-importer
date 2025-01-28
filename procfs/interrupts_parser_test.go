@@ -381,34 +381,66 @@ func TestInterruptsUpdateCpuList(t *testing.T) {
 func TestInterruptsIrqInfo(t *testing.T) {
 	for _, tc := range []*InterruptsIrqInfoTestCase{
 		{
-			infoLine: "controller hw-interrupt device",
+			infoLine: "controller 11-level device",
 			wantIrqInfo: &InterruptsIrqInfo{
 				Controller:  []byte("controller"),
-				HWInterrupt: []byte("hw-interrupt"),
+				HWInterrupt: []byte("11-level"),
 				Devices:     []byte("device"),
 			},
 		},
 		{
-			infoLine: "controller hw-interrupt dev1,dev2",
+			infoLine: "controller 11-edge dev1,dev2",
 			wantIrqInfo: &InterruptsIrqInfo{
 				Controller:  []byte("controller"),
-				HWInterrupt: []byte("hw-interrupt"),
+				HWInterrupt: []byte("11-edge"),
 				Devices:     []byte("dev1,dev2"),
 			},
 		},
 		{
-			infoLine: "\tcontroller    hw-interrupt\t\tdevice          \t",
+			infoLine: "\tcontroller    12-level\t\tdevice          \t",
 			wantIrqInfo: &InterruptsIrqInfo{
 				Controller:  []byte("controller"),
-				HWInterrupt: []byte("hw-interrupt"),
+				HWInterrupt: []byte("12-level"),
 				Devices:     []byte("device"),
 			},
 		},
 		{
-			infoLine: "controller hw-interrupt ",
+			infoLine: "controller 12-edge ",
 			wantIrqInfo: &InterruptsIrqInfo{
 				Controller:  []byte("controller"),
-				HWInterrupt: []byte("hw-interrupt"),
+				HWInterrupt: []byte("12-edge"),
+				Devices:     make([]byte, 0),
+			},
+		},
+		{
+			infoLine: "controller 11 level device",
+			wantIrqInfo: &InterruptsIrqInfo{
+				Controller:  []byte("controller"),
+				HWInterrupt: []byte("11 level"),
+				Devices:     []byte("device"),
+			},
+		},
+		{
+			infoLine: "controller 11 edge dev1,dev2",
+			wantIrqInfo: &InterruptsIrqInfo{
+				Controller:  []byte("controller"),
+				HWInterrupt: []byte("11 edge"),
+				Devices:     []byte("dev1,dev2"),
+			},
+		},
+		{
+			infoLine: "\tcontroller    12 level\t\tdevice          \t",
+			wantIrqInfo: &InterruptsIrqInfo{
+				Controller:  []byte("controller"),
+				HWInterrupt: []byte("12 level"),
+				Devices:     []byte("device"),
+			},
+		},
+		{
+			infoLine: "controller 12 edge ",
+			wantIrqInfo: &InterruptsIrqInfo{
+				Controller:  []byte("controller"),
+				HWInterrupt: []byte("12 edge"),
 				Devices:     make([]byte, 0),
 			},
 		},

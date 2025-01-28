@@ -73,7 +73,7 @@ type InterruptsInfo struct {
 
 type Interrupts struct {
 	// The CPU# list corresponding to the 1st line, useful for mapping counter#
-	// -> CPU#. nil ff no mapping is required, i.e. all CPU# are present.
+	// -> CPU#. nil if no mapping is required, i.e. all CPU# are present.
 	CpuList []int
 	// IRQ counters, indexed by IRQ:
 	Counters map[string][]uint64
@@ -205,7 +205,14 @@ func (irqInfo *InterruptsIrqInfo) update(infoLine []byte) {
 	for ; pos < l && isWhitespace[infoLine[pos]]; pos++ {
 	}
 	start = pos
-	for ; pos < l && !isWhitespace[infoLine[pos]]; pos++ {
+	// H/W IRQ#<sep>type; <sep> is typically `-' but on Docker emulation it may
+	// be ` ':
+	for ; pos < l && infoLine[pos]-'0' < 10; pos++ { // IRQ#
+	}
+	if pos < l { // <sep>
+		pos++
+	}
+	for ; pos < l && !isWhitespace[infoLine[pos]]; pos++ { // type
 	}
 	irqInfo.HWInterrupt = irqInfo.infoLine[start:pos]
 
