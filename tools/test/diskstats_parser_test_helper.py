@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 
 """
-Generate the net/snmp file and print DiskstatsTestCase fields (Go syntax) 
+Generate the net/snmp file and print DiskstatsTestCase fields (Go syntax)
 
 """
 

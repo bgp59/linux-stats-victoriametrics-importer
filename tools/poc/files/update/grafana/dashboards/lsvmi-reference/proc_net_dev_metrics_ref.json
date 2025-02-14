@@ -46,7 +46,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "**NOTES:** \n\n1. See [LSVMI Network Interface Metrics](https://github.com/emypar/linux-stats-victoriametrics-importer/blob/main/docs/proc_net_dev_metrics.md) for metrics description.\n1. All panels requires specifc `instance` and `hostname`\n",
+        "content": "**NOTES:** \n\n1. See [LSVMI Network Interface Metrics](https://github.com/bgp59/linux-stats-victoriametrics-importer/blob/main/docs/proc_net_dev_metrics.md) for metrics description.\n1. All panels requires specifc `instance` and `hostname`\n",
         "mode": "markdown"
       },
       "pluginVersion": "9.4.7",

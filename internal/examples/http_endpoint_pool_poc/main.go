@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/emypar/linux-stats-victoriametrics-importer/lsvmi"
+	"github.com/bgp59/linux-stats-victoriametrics-importer/lsvmi"
 )
 
 const (

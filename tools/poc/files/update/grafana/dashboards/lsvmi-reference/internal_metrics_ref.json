@@ -46,7 +46,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "**NOTE**\n\n1. See [LSVMI Internal Metrics](https://github.com/emypar/linux-stats-victoriametrics-importer/blob/main/docs/internal_metrics.md) for metrics description.\n",
+        "content": "**NOTE**\n\n1. See [LSVMI Internal Metrics](https://github.com/bgp59/linux-stats-victoriametrics-importer/blob/main/docs/internal_metrics.md) for metrics description.\n",
         "mode": "markdown"
       },
       "pluginVersion": "9.4.7",

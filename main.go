@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/emypar/linux-stats-victoriametrics-importer/buildinfo"
-	"github.com/emypar/linux-stats-victoriametrics-importer/lsvmi"
+	"github.com/bgp59/linux-stats-victoriametrics-importer/buildinfo"
+	"github.com/bgp59/linux-stats-victoriametrics-importer/lsvmi"
 )
 
 const (

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/emypar/linux-stats-victoriametrics-importer/internal/testutils"
-	"github.com/emypar/linux-stats-victoriametrics-importer/procfs"
+	"github.com/bgp59/linux-stats-victoriametrics-importer/internal/testutils"
+	"github.com/bgp59/linux-stats-victoriametrics-importer/procfs"
 )
 
 // See proc_pid_metrics_utils_test for structures supporting the test.

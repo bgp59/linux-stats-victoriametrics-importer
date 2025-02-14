@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/emypar/linux-stats-victoriametrics-importer/procfs"
+	"github.com/bgp59/linux-stats-victoriametrics-importer/procfs"
 )
 
 // PidStatus []byte fields may be nil, however the test cases use string so a

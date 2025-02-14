@@ -8,7 +8,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/emypar/linux-stats-victoriametrics-importer/internal/testutils"
+	"github.com/bgp59/linux-stats-victoriametrics-importer/internal/testutils"
 )
 
 type SchedulerInternalMetricsTestCase struct {

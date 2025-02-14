@@ -64,7 +64,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/emypar/linux-stats-victoriametrics-importer/internal/utils"
+	"github.com/bgp59/linux-stats-victoriametrics-importer/internal/utils"
 )
 
 const (

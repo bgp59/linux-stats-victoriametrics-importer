@@ -45,7 +45,7 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
     curl \
             -s \
             -L \
-            https://github.com/emypar/linux-stats-victoriametrics-importer/releases/latest/download/lsvmi-poc-infra.tgz | \
+            https://github.com/bgp59/linux-stats-victoriametrics-importer/releases/latest/download/lsvmi-poc-infra.tgz | \
         tar  -xzf -
 
     ```
@@ -92,7 +92,7 @@ The **PoC** requires an instance of [VictoriaMetrics](https://docs.victoriametri
     curl \
             -s \
             -L \
-            https://github.com/emypar/linux-stats-victoriametrics-importer/releases/latest/download/lsvmi-linux-amd64.tgz | \
+            https://github.com/bgp59/linux-stats-victoriametrics-importer/releases/latest/download/lsvmi-linux-amd64.tgz | \
         tar xzf -
     ln -fs lsvmi-linux-amd64 lsvmi
 

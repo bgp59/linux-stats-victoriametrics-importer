@@ -1,5 +1,13 @@
 Release Notes
 
+v0.1.1 2025/02/13
+No code change, setup and logistics.
+
+  * transfer to git org bgp59
+
+  * min python 3.9, autoflake can now use pyproject.toml
+
+
 v0.1.0 2025/01/27
 
 Bug fixes:

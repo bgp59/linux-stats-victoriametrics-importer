@@ -7,7 +7,7 @@ import (
 
 	"testing"
 
-	"github.com/emypar/linux-stats-victoriametrics-importer/internal/testutils"
+	"github.com/bgp59/linux-stats-victoriametrics-importer/internal/testutils"
 )
 
 var pidStatTestDataDir = path.Join(PROCFS_TESTDATA_ROOT, "pid_stat")

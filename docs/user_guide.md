@@ -99,7 +99,7 @@ Note the `shuffle: true` above which will ensure that the active connections wil
 
 ## Grafana Reference Dashboards
 
-[Provisioned](https://grafana.com/docs/grafana/latest/administration/provisioning/#dashboards)  dashboards can be found under [tools/poc/files/update/grafana/dashboards/lsvmi-reference](../tools/poc/files/update/grafana/dashboards/lsvmi-reference), or they are included into `LSVMI PoC Infra ...` [releases](https://github.com/emypar/linux-stats-victoriametrics-importer/releases).
+[Provisioned](https://grafana.com/docs/grafana/latest/administration/provisioning/#dashboards)  dashboards can be found under [tools/poc/files/update/grafana/dashboards/lsvmi-reference](../tools/poc/files/update/grafana/dashboards/lsvmi-reference), or they are included into `LSVMI PoC Infra ...` [releases](https://github.com/bgp59/linux-stats-victoriametrics-importer/releases).
 
 They illustrate all the available metrics and they can be used as a starting point for actual dashboards.
 

@@ -23,7 +23,7 @@
 ## Pre-requisites
 
 - [Go](https://go.dev/doc/install) >= `1.21.6`
-- [Python](https://www.python.org/) \>= `3.8` w/ the following pre-requisites:
+- [Python](https://www.python.org/) \>= `3.9` w/ the following pre-requisites:
 
     ```bash
 

@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/emypar/linux-stats-victoriametrics-importer/buildinfo"
-	"github.com/emypar/linux-stats-victoriametrics-importer/internal/utils"
+	"github.com/bgp59/linux-stats-victoriametrics-importer/buildinfo"
+	"github.com/bgp59/linux-stats-victoriametrics-importer/internal/utils"
 )
 
 // Generate internal metrics:

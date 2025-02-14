@@ -13,13 +13,13 @@ project_root_dir = os.path.dirname(this_dir)
 
 # goos: darwin
 # goarch: amd64
-# pkg: github.com/emypar/linux-stats-victoriametrics-importer/benchmarks
+# pkg: github.com/bgp59/linux-stats-victoriametrics-importer/benchmarks
 # cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
 # BenchmarkSoftirqsParserIO-12      	   73254	     16590 ns/op	     136 B/op	       3 allocs/op
 # BenchmarkSoftirqsParser-12        	   64801	     18180 ns/op	     200 B/op	      13 allocs/op
 # BenchmarkSoftirqsParserProm-12    	   40520	     30109 ns/op	   14992 B/op	      42 allocs/op
 # PASS
-# ok  	github.com/emypar/linux-stats-victoriametrics-importer/benchmarks	4.616s
+# ok  	github.com/bgp59/linux-stats-victoriametrics-importer/benchmarks	4.616s
 
 BENCHMARK_NAME = 0
 BENCHMARK_RUN_COUNT = 1

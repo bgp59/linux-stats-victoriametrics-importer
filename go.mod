@@ -1,4 +1,4 @@
-module github.com/emypar/linux-stats-victoriametrics-importer
+module github.com/bgp59/linux-stats-victoriametrics-importer
 
 go 1.21
 

@@ -10,7 +10,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/emypar/linux-stats-victoriametrics-importer/procfs"
+	"github.com/bgp59/linux-stats-victoriametrics-importer/procfs"
 
 	// Reference for performance comparison:
 	prom_procfs "github.com/prometheus/procfs"
