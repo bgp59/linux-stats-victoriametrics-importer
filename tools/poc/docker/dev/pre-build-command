@@ -10,5 +10,4 @@ case "$0" in
 esac
 
 set -ex
-cd $this_dir/../base
-./build-image $@
+$this_dir/../base/build-image

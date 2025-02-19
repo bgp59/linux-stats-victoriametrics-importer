@@ -1,5 +1,4 @@
-ARG FROMIMAGESUFFIX
-FROM lsvmi-base${FROMIMAGESUFFIX}
+FROM lsvmi-base
 
 USER root
 WORKDIR /usr/local/lsvmi-poc

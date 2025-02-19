@@ -25,92 +25,44 @@ preferred_platform=
 platforms=
 if [[ -r $platforms_file ]]; then
     while read os arch platform; do
-        if [[ "$os" = '#'* || -z "$os" || -z "$arch" ]]; then
+        if [[ "$os" = '#'* || -z "$os" || -z "$arch"  || -z "$platform" ]]; then
             continue
-        fi
-        if [[ -z "$platform" ]]; then
-            platform="$os/$arch"
         fi
         if [[ -z "$preferred_platform" ]]; then
             preferred_platform="${platform}"
         fi
-        platforms="${platforms}${platforms:+ }${platform}"
+        platforms="${platforms}${platforms:+,}${platform}"
     done < $platforms_file
 fi
-if [[ -z "$preferred_platform" ]]; then
-    preferred_platform=$(
-        docker version -f \
-            '{{range .Server.Components}}{{if eq .Name "Engine"}}{{print .Details.Os "/" .Details.Arch}}{{end}}{{end}}'
-    )
-    platforms=$preferred_platform
-fi
+default_platform=$(
+    docker version -f \
+        '{{range .Server.Components}}{{if eq .Name "Engine"}}{{print .Details.Os "/" .Details.Arch}}{{end}}{{end}}'
+)
+
 case "$this_script" in
-    build-image) # PLATFORM [PLATFORM] ... | all | multi[platform]
-        multiplatform=
-        case "$1" in
-            all) platform_list="$platforms";;
-            multi*) multiplatform=yes;;
-            "") platform_list="$preferred_platform";;
-            *) platform_list="$@";;
-        esac
+    build-image)
         if [[ -f context ]]; then
             context=$(cat context)
         else
             context="."
         fi
-        if [[ "$multiplatform" = 'yes' ]]; then
-            if [[ -x pre-build-command ]]; then
-                (set -x; ./pre-build-command $1)
-            fi
+        if [[ -x pre-build-command ]]; then
+            (set -x; ./pre-build-command)
+        fi
+        (
+            set -x
+            docker build ${platforms:+--platform ${platforms}} -t $image_name${image_tag:+:}$image_tag -f $this_dir/Dockerfile $context
+        )
+    ;;
+    push-image|push-latest-image)
+        image_name_tag=$image_name${image_tag:+:}$image_tag
+        (set -x; docker push $image_name_tag)
+        if [[ "$this_script" = *latest*  && -n "$image_tag" ]]; then
             (
                 set -x
-                docker build --platform ${platforms// /,} -t $image_name${image_tag:+:}$image_tag --build-arg FROMIMAGESUFFIX= -f $this_dir/Dockerfile $context
+                docker tag $image_name_tag $image_name
+                docker push $image_name
             )
-        else
-            for platform in $platform_list; do
-                if [[ -x pre-build-command ]]; then
-                    (set -x; ./pre-build-command $platform)
-                fi
-                imagesuffix=${platform:+-}${platform//\//-}
-                (   
-                    set -x
-                    docker build ${platform:+--platform $platform} -t $image_name${imagesuffix}${image_tag:+:}$image_tag --build-arg FROMIMAGESUFFIX=${imagesuffix} -f $this_dir/Dockerfile $context
-                )
-            done
-        fi
-    ;;
-    push-image|push-latest-image) # PLATFORM [PLATFORM] ... | all | multi[platform]
-        multiplatform=
-        case "$1" in
-            all) platform_list="$platforms";;
-            multi*) multiplatform=yes;;
-            "") platform_list="$preferred_platform";;
-            *) platform_list="$@";;
-        esac
-        if [[ "$multiplatform" = 'yes' ]]; then
-            image_base_name=$image_name
-            image_full_name=$image_base_name${image_tag:+:}$image_tag
-            (set -x; docker push $image_full_name)
-            if [[ "$this_script" = *latest*  && -n "$image_tag" ]]; then
-                (
-                    set -x
-                    docker tag $image_full_name $image_base_name
-                    docker push $image_base_name
-                )
-            fi
-        else
-            for platform in $platform_list; do
-                image_base_name=$image_name${platform:+-}${platform//\//-}
-                image_full_name=$image_base_name${image_tag:+:}$image_tag
-                (set -x; docker push $image_full_name)
-                if [[ "$this_script" = *latest*  && -n "$image_tag" ]]; then
-                    (
-                        set -x
-                        docker tag $image_full_name $image_base_name
-                        docker push $image_base_name
-                    )
-                fi
-            done
         fi
     ;;
     run-*container|start-*container)
@@ -141,6 +93,9 @@ case "$this_script" in
         if [[ "$this_script" == start* ]]; then
             runargs="$runargs${runargs:+ }--detach"
         fi
+        if [[ -z "$platform" && -n "$default_platform" ]]; then
+            platform=$default_platform
+        fi
         if [[ -x ./pre-start-local-command ]]; then
             ./pre-start-local-command $platform
         fi
@@ -155,9 +110,6 @@ case "$this_script" in
             for p in $(cat ports); do
                 runargs="$runargs${runargs:+ }--publish $p"
             done
-        fi
-        if [[ "$this_script" != *multi* ]]; then
-            image_name=$image_name${platform:+-}${platform//\//-}
         fi
         (
             set -x

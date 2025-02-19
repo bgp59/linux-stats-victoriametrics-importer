@@ -1,5 +1,12 @@
 Release Notes
 
+v01.1.2 2025/02/18
+No code change
+
+Docker setup:
+  * use multi-platform only (simpler)
+
+
 v0.1.1 2025/02/13
 No code change, setup and logistics.
 

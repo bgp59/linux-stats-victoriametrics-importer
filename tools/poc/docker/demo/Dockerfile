@@ -1,11 +1,7 @@
-ARG FROMIMAGESUFFIX
-FROM lsvmi-dev${FROMIMAGESUFFIX}
+FROM lsvmi-dev
 ARG TARGETPLATFORM
 
-ENV _os_arch=${TARGETPLATFORM//\//-}
-COPY tools/poc/files/lsvmi/*lsvmi* lsvmi/
-COPY bin/linux-stats-*${_os_arch}* lsvmi/bin/
-COPY bin/${_os_arch} lsvmi/bin/${_os_arch}/
+COPY staging/${TARGETPLATFORM}/lsvmi lsvmi/
 USER root
 RUN \
     ln -fs /volumes/runtime/lsvmi/out lsvmi \

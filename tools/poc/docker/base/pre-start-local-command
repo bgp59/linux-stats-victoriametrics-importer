@@ -15,10 +15,11 @@ volumes_dir=volumes${platform:+/}$platform
 
 set -e
 cd $this_dir
-lsvmi_dir=$(realpath "../../../../../linux-stats-victoriametrics-importer")
 if [[ ! -d $volumes_dir/runtime ]]; then
     (set -x; mkdir -p $volumes_dir/runtime)
 fi
-if [[ "$(readlink $volumes_dir/linux-stats-victoriametrics-importer)" != "$lsvmi_dir" ]]; then
-    (set -x; ln -fs "$lsvmi_dir" $volumes_dir/linux-stats-victoriametrics-importer)
+project_root=$(realpath ../../../..)
+volume_project_root=$volumes_dir/$(basename $project_root)
+if [[ "$(readlink $volume_project_root)" != "$project_root" ]]; then
+    (set -x; ln -fs $volume_project_root $project_root)
 fi

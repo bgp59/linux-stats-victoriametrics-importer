@@ -9,7 +9,22 @@ case "$0" in
     ;;
 esac
 
-set -ex
-cd $this_dir/../dev
-./build-image $@
+set -e
+(set -x; $this_dir/../dev/build-image)
+
+while read os arch platform; do
+    if [[ "$os" = '#'* || -z "$os" || -z "$arch"  || -z "$platform" ]]; then
+        continue
+    fi
+    bin_dir=../../../../bin/$os-$arch
+    files_dir=../../files
+    (
+        set -x
+        cd $this_dir
+        mkdir -p staging/$platform/lsvmi
+        rsync -plrtHSv --exclude=bin/ --exclude=out/ --exclude=log/ $files_dir/lsvmi/ staging/$platform/lsvmi
+        mkdir -p staging/$platform/lsvmi/bin
+        rsync -plrtHSLv $bin_dir/ staging/$platform/lsvmi/bin
+    )
+done < platforms
 
