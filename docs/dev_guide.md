@@ -190,7 +190,7 @@ The next steps assume that [Docker](https://docs.docker.com/get-started/get-dock
   ```bash
 
     cd tools/poc/docker/dev
-    ./build-image multi
+    ./build-image
 
   ```
 
@@ -214,7 +214,7 @@ The next steps assume that [Docker](https://docs.docker.com/get-started/get-dock
   ```bash
 
     cd tools/poc/docker/dev
-    ./start-multi-container
+    ./start-container
 
   ```
 
@@ -225,7 +225,7 @@ The next steps assume that [Docker](https://docs.docker.com/get-started/get-dock
   ```bash
 
     cd tools/poc/docker/dev
-    ./start-multi-container --platform linux/arm64
+    ./start-container --platform linux/arm64
 
   ```
 
